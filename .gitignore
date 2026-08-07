@@ -1,0 +1,38 @@
+## macOS
+.DS_Store
+
+## .NET
+bin/
+obj/
+*.user
+*.suo
+appsettings.Development.local.json
+backend/**/appsettings.*.local.json
+
+## Node / Vue
+node_modules/
+dist/
+.vite/
+*.local
+.env.local
+.env.*.local
+
+## Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/android/.gradle/
+mobile/android/local.properties
+*.g.dart
+*.freezed.dart
+
+## Secrets / entorno
+.env
+secrets.json
+
+## Logs
+logs/
+*.log

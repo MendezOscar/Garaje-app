@@ -1,0 +1,60 @@
+services:
+  # Almacenamiento S3-compatible para las fotos del proceso de reparación.
+  # En producción se reemplaza por Cloudflare R2 / S3 cambiando solo appsettings.
+  minio:
+    image: minio/minio:latest
+    container_name: garaj-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: garaj
+      MINIO_ROOT_PASSWORD: garaj-dev-secret
+    # Puertos desplazados: 9000/9001 los ocupa el MinIO de agroapp en esta máquina.
+    ports:
+      - "9010:9000"   # API S3
+      - "9011:9001"   # Consola web
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Crea el bucket la primera vez que levanta el stack.
+  minio-init:
+    image: minio/mc:latest
+    container_name: garaj-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 garaj garaj-dev-secret &&
+      mc mb --ignore-existing local/garaj-media &&
+      echo 'bucket garaj-media listo'
+      "
+
+  # Postgres local opcional: `docker compose --profile local-db up -d`
+  # Por defecto se usa el Postgres gestionado (Neon / Supabase).
+  postgres:
+    image: postgres:16-alpine
+    container_name: garaj-postgres
+    profiles: ["local-db"]
+    environment:
+      POSTGRES_USER: garaj
+      POSTGRES_PASSWORD: garaj-dev-secret
+      POSTGRES_DB: garaj
+    # 5432 lo ocupan airflow y el postgresql@15 de Homebrew en esta máquina.
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U garaj"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  minio-data:
+  postgres-data:

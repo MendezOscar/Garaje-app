@@ -1,0 +1,3 @@
+# Cloudflare Pages: el router de Vue usa history mode, así que toda ruta que no sea un
+# archivo real debe devolver index.html. Sin esto, recargar /dashboard da 404.
+/*    /index.html   200

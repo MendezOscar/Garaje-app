@@ -1,0 +1,48 @@
+# Blueprint de Render. Se aplica desde el dashboard: New → Blueprint → conectar el repo.
+# Los valores con `sync: false` NO se guardan en el repo: se cargan a mano en el dashboard.
+
+services:
+  - type: web
+    name: garaj-api
+    runtime: docker
+    plan: free
+    # Virginia es la región de Render más cercana a Ecuador. Conviene crear el proyecto de
+    # Supabase en us-east-1 para que la base quede en el mismo lado.
+    region: virginia
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # En Render no hay paso de release aparte: las migraciones se aplican al arrancar.
+      - key: Database__MigrateOnStartup
+        value: "true"
+
+      # Cadena de Supabase. Use el Session pooler (puerto 5432), no el Transaction pooler:
+      # el modo transacción de pgbouncer rompe las sentencias preparadas de Npgsql.
+      - key: ConnectionStrings__Default
+        sync: false
+
+      # Render la genera una vez y la conserva entre despliegues. Si la cambia, todas las
+      # sesiones activas quedan invalidadas.
+      - key: Jwt__SigningKey
+        generateValue: true
+
+      # URL del panel web en Cloudflare Pages, ej. https://garaj.pages.dev
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      - key: PublicBaseUrl
+        sync: false
+
+      # Cloudflare R2 (se usa a partir de la Fase 2).
+      - key: Storage__ServiceUrl
+        sync: false
+      - key: Storage__AccessKey
+        sync: false
+      - key: Storage__SecretKey
+        sync: false
+      - key: Storage__Bucket
+        value: garaj-media
