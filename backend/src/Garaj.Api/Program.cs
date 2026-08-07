@@ -86,8 +86,11 @@ builder.Services.AddHealthChecks().AddDbContextCheck<GarajDbContext>();
 
 var app = builder.Build();
 
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+// Serilog va por fuera del manejo de errores a propósito. Al revés, el middleware de
+// request logging ve la excepción antes de que se traduzca y registra un 500 aunque al
+// cliente le llegue un 401 o un 404: los logs de producción mentirían.
 app.UseSerilogRequestLogging();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

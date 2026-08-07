@@ -13,7 +13,7 @@ Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N 
 | [backend/](backend/) | API en .NET 8 (Domain / Application / Infrastructure / Api) |
 | [web/](web/) | Panel web en Vue 3 + Vite + TypeScript |
 | [mobile/](mobile/) | App móvil en Flutter (Dueño, Técnico y Cliente) |
-| [docs/](docs/) | Modelo de dominio y contrato de la API |
+| [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md) y [despliegue](docs/deployment.md) |
 
 ## Requisitos
 
@@ -24,22 +24,26 @@ Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N 
 ### 1. Servicios locales
 
 ```bash
-docker compose up -d                       # MinIO en :9000, consola en :9001
-docker compose --profile local-db up -d    # opcional: Postgres local en :5432
+docker compose up -d                       # MinIO en :9010, consola en :9011
+docker compose --profile local-db up -d    # opcional: Postgres local en :5434
 ```
+
+> Los puertos están desplazados de los habituales porque esta máquina ya corre agroapp
+> (9000/9001) y airflow (5432, 8080). Ver la tabla completa en
+> [docs/deployment.md](docs/deployment.md#puertos-en-desarrollo-local).
 
 ### 2. Base de datos
 
-El proyecto apunta a **Postgres gestionado** (Neon o Supabase). Ponga su cadena de conexión
-en `backend/src/Garaj.Api/appsettings.Development.json` o en la variable de entorno
-`ConnectionStrings__Default`:
+Por defecto apunta al Postgres local del perfil `local-db`, que ya queda listo con el paso
+anterior. Para trabajar contra **Supabase**, ponga su cadena en la variable de entorno
+`ConnectionStrings__Default` o en `backend/src/Garaj.Api/appsettings.Development.json`:
 
 ```
-Host=xxx.neon.tech;Database=garaj;Username=xxx;Password=xxx;SslMode=Require
+Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=<pwd>;SSL Mode=Require;Trust Server Certificate=true
 ```
 
-Si prefiere trabajar contra la base local, deje la cadena que ya viene y levante el perfil
-`local-db` del paso anterior.
+Use el **Session pooler** (puerto 5432), no el de transacción: ver
+[docs/deployment.md](docs/deployment.md#1-supabase).
 
 ### 3. Backend
 
@@ -75,8 +79,8 @@ flutter run --dart-define=API_URL=http://localhost:5080
 
 `API_URL` depende de dónde corre la app:
 
-- Emulador Android: `http://10.0.2.2:5080` (es el valor por defecto)
 - Simulador iOS: `http://localhost:5080`
+- Emulador Android: `http://10.0.2.2:5080` (es el valor por defecto)
 - Dispositivo físico: la IP de su máquina en la red, ej. `http://192.168.1.10:5080`
 
 ## Usuarios de demostración
@@ -106,6 +110,10 @@ cd web && npx vue-tsc -b
 
 # Análisis estático del móvil
 cd mobile && flutter analyze
+
+# Prueba de humo del login en el simulador (requiere la API corriendo con el seeder)
+cd mobile && flutter test integration_test/login_test.dart \
+  -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080
 ```
 
 ## Notas de seguridad
