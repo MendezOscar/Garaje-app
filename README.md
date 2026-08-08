@@ -13,7 +13,7 @@ Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N 
 | [backend/](backend/) | API en .NET 8 (Domain / Application / Infrastructure / Api) |
 | [web/](web/) | Panel web en Vue 3 + Vite + TypeScript |
 | [mobile/](mobile/) | App móvil en Flutter (Dueño, Técnico y Cliente) |
-| [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md), [despliegue](docs/deployment.md) y [notificaciones push](docs/push.md) |
+| [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md), [despliegue](docs/deployment.md), [notificaciones push](docs/push.md) y [datos de demostración](docs/demo.md) |
 
 ## Requisitos
 
@@ -133,7 +133,7 @@ python3 backend/tests/smoke/fase4_smoke.py
 # Humo de ventas y reportes: 52 comprobaciones de facturación y desglose
 python3 backend/tests/smoke/fase5_smoke.py
 
-# Humo de avisos: 38 comprobaciones de la campana, el aislamiento y la cita del cliente
+# Humo de avisos: 40 comprobaciones de la campana, el aislamiento y la cita del cliente
 python3 backend/tests/smoke/fase6_smoke.py
 
 # Humo del móvil en el simulador

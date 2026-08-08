@@ -283,6 +283,18 @@ status, _ = api("POST", "/api/notifications/devices",
                 {"token": "   ", "platform": ANDROID}, token=owner)
 check("un token vacío se rechaza", status == 400, str(status))
 
+# ------------------------------------------------------------------ siembra de demo
+
+print("\n[siembra de demostración]")
+
+# Apagada por defecto: sin `Demo:AllowSeeding` el endpoint no existe para nadie, ni siquiera
+# para el Dueño. Es lo que impide borrar una base real por equivocación.
+status, _ = api("POST", "/api/demo/seed", {"confirm": "BORRAR Y SEMBRAR"}, token=owner)
+check("apagada, la siembra no existe", status == 404, str(status))
+
+status, _ = api("POST", "/api/demo/seed", {"confirm": "BORRAR Y SEMBRAR"}, token=technician)
+check("y un Técnico nunca puede llamarla", status == 403, str(status))
+
 print(f"\n{ok} comprobaciones correctas, {len(failed)} fallidas")
 if failed:
     for name in failed:

@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddScoped<JwtTokenGenerator>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DbSeeder>();
+        services.AddScoped<DemoSeeder>();
 
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IUserService, UserService>();

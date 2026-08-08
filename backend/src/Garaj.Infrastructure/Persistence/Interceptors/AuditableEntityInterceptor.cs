@@ -53,8 +53,11 @@ public class AuditableEntityInterceptor(ITenantContext tenantContext, IDateTimeP
 
             if (entry.State == EntityState.Added)
             {
-                auditable.CreatedAt = now;
-                auditable.CreatedByUserId = userId;
+                // Si la entidad ya trae fecha y autor, se respetan: es el caso del sembrador
+                // de demostración, que escribe seis semanas de historia hacia atrás. Sellarlo
+                // todo con la hora actual dejaría los reportes con un único día de actividad.
+                if (auditable.CreatedAt == default) auditable.CreatedAt = now;
+                auditable.CreatedByUserId ??= userId;
             }
             else
             {

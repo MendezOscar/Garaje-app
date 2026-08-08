@@ -274,6 +274,16 @@ Decisiones que conviene conocer antes de tocar esto:
 - El **Cliente** puede crear requerimientos y adjuntarles fotos; el **Técnico** no participa
   en esa etapa y no recibe nada de ella.
 
+### Datos de demostración
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| POST | `/api/demo/seed` | Owner | **Borra todo** y siembra un taller con semanas de historia |
+
+Apagado por defecto: sin la configuración `Demo:AllowSeeding` responde 404 y no existe para
+nadie. Además exige rol Dueño y la frase `BORRAR Y SEMBRAR` en el cuerpo. Los tres cerrojos
+están porque la operación no tiene vuelta atrás. Ver [demo.md](demo.md).
+
 ### Reglas de alcance
 
 Son la parte que hay que respetar al agregar endpoints nuevos. Viven en
