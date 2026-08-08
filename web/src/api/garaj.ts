@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { api } from './client'
+import { api, download } from './client'
 import type {
   Branch,
   Customer,
@@ -27,6 +27,7 @@ import type {
   StockMovementType,
   User,
   Vehicle,
+  VehicleType,
   WorkOrderDetail,
   WorkOrderListItem,
   WorkOrderPart,
@@ -65,11 +66,36 @@ export const customersApi = {
     const { data } = await api.get<Customer>(`/api/customers/${id}`)
     return data
   },
+  /** Lo registra cualquiera del taller: el que recibe el vehículo en el mostrador. */
+  async create(body: {
+    fullName: string
+    phone: string
+    email?: string
+    documentId?: string
+    address?: string
+    notes?: string
+  }) {
+    const { data } = await api.post<Customer>('/api/customers', body)
+    return data
+  },
 }
 
 export const vehiclesApi = {
   async list(query: { search?: string; customerId?: string; page?: number; pageSize?: number } = {}) {
     const { data } = await api.get<Paged<Vehicle>>('/api/vehicles', { params: params(query) })
+    return data
+  },
+  async create(body: {
+    customerId: string
+    type: VehicleType
+    brand: string
+    model: string
+    year?: number
+    plate?: string
+    color?: string
+    mileage?: number
+  }) {
+    const { data } = await api.post<Vehicle>('/api/vehicles', body)
     return data
   },
 }
@@ -384,8 +410,9 @@ export const quotesApi = {
     const { data } = await api.get<WhatsAppLink>(`/api/quotes/${id}/whatsapp-link`)
     return data
   },
-  pdfUrl(id: string) {
-    return `${api.defaults.baseURL}/api/quotes/${id}/pdf`
+  /** Baja el PDF con la sesión puesta. Un enlace directo respondería 401. */
+  async downloadPdf(id: string, number: string) {
+    await download(`/api/quotes/${id}/pdf`, `${number}.pdf`)
   },
   async respond(id: string, approve: boolean, note?: string) {
     const { data } = await api.post<QuoteDetail>(`/api/quotes/${id}/respond`, { approve, note })
@@ -469,6 +496,10 @@ export const salesApi = {
     const { data } = await api.post<SaleDetail>(`/api/sales/${id}/void`, { reason })
     return data
   },
+  /** La factura en PDF, para imprimirla o mandarla por WhatsApp. */
+  async downloadPdf(id: string, number: string) {
+    await download(`/api/sales/${id}/pdf`, `${number}.pdf`)
+  },
 }
 
 export const reportsApi = {
@@ -487,11 +518,13 @@ export const reportsApi = {
     })
     return data
   },
-  csvUrl(query: { from?: string; to?: string; groupBy?: RevenueGrouping; branchId?: string }) {
-    const search = new URLSearchParams(
-      Object.entries(params(query)).map(([k, v]) => [k, String(v)]),
-    )
-    return `${api.defaults.baseURL}/api/reports/revenue.csv?${search}`
+  async downloadCsv(query: {
+    from?: string
+    to?: string
+    groupBy?: RevenueGrouping
+    branchId?: string
+  }) {
+    await download('/api/reports/revenue.csv', 'ingresos.csv', params(query))
   },
 }
 

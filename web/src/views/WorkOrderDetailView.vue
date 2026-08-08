@@ -35,12 +35,16 @@ const statusNote = ref('')
 const noteIsInternal = ref(false)
 const newTaskTitle = ref('')
 
+/** Copia editable del diagnóstico. Se refresca en cada carga, incluida la de después de guardar. */
+const diagnosis = ref('')
+
 const id = computed(() => route.params.id as string)
 const canEdit = computed(() => !auth.isCustomer)
 
 async function load() {
   try {
     order.value = await workOrdersApi.get(id.value)
+    diagnosis.value = order.value.diagnosis ?? ''
     if (auth.isOwner) {
       sales.value = (await salesApi.list({ workOrderId: id.value })).items
     }
@@ -64,6 +68,19 @@ function closeAndInvoice() {
   )
 }
 
+/** Se baja con la sesión puesta: un enlace directo al endpoint responde 401. */
+async function downloadInvoice(sale: SaleListItem) {
+  busy.value = true
+  error.value = ''
+  try {
+    await salesApi.downloadPdf(sale.id, sale.number)
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo generar la factura.')
+  } finally {
+    busy.value = false
+  }
+}
+
 async function run(action: () => Promise<unknown>) {
   busy.value = true
   error.value = ''
@@ -75,6 +92,25 @@ async function run(action: () => Promise<unknown>) {
   } finally {
     busy.value = false
   }
+}
+
+/**
+ * El diagnóstico es lo que el técnico encontró al revisar, y se escribe aquí porque es donde
+ * está mirando cuando lo sabe. Va junto al motivo de ingreso a propósito: se lee la queja del
+ * cliente y debajo la explicación del taller.
+ */
+const diagnosisChanged = computed(() => diagnosis.value.trim() !== (order.value?.diagnosis ?? ''))
+
+function saveDiagnosis() {
+  return run(() =>
+    workOrdersApi.update(id.value, {
+      description: order.value!.description,
+      diagnosis: diagnosis.value.trim() || undefined,
+      // Se reenvía tal cual: el backend reemplaza el campo, así que omitirlo borraría la
+      // fecha prometida al cliente sin que nadie lo pidiera.
+      promisedAt: order.value!.promisedAt ?? undefined,
+    }),
+  )
 }
 
 function changeStatus(status: WorkOrderStatus) {
@@ -174,10 +210,23 @@ onMounted(async () => {
         <article class="card">
           <h2>Motivo de ingreso</h2>
           <p>{{ order.description }}</p>
-          <template v-if="order.diagnosis">
-            <h3>Diagnóstico</h3>
-            <p>{{ order.diagnosis }}</p>
+
+          <h3>Diagnóstico</h3>
+          <template v-if="canEdit">
+            <textarea
+              v-model="diagnosis"
+              rows="4"
+              placeholder="Qué se encontró al revisar: causa, qué hay que cambiar, qué se recomienda…"
+            />
+            <div class="actions">
+              <button type="button" :disabled="busy || !diagnosisChanged" @click="saveDiagnosis">
+                Guardar diagnóstico
+              </button>
+              <span v-if="diagnosisChanged" class="muted small">Sin guardar</span>
+            </div>
           </template>
+          <p v-else-if="order.diagnosis">{{ order.diagnosis }}</p>
+          <p v-else class="muted">El taller todavía no ha registrado el diagnóstico.</p>
         </article>
 
         <article class="card">
@@ -242,12 +291,19 @@ onMounted(async () => {
 
         <article v-if="auth.isOwner && sales.length" class="card">
           <h2>Venta</h2>
-          <p v-for="sale in sales" :key="sale.id">
-            <strong>{{ sale.number }}</strong> · {{ formatMoney(sale.total) }}
-            <span class="muted small">
-              {{ PAYMENT_METHOD_LABEL[sale.paymentMethod] }} · {{ formatDateTime(sale.saleDate) }}
-            </span>
-          </p>
+          <div v-for="sale in sales" :key="sale.id" class="sale">
+            <p>
+              <strong>{{ sale.number }}</strong> · {{ formatMoney(sale.total) }}
+              <span class="muted small">
+                {{ PAYMENT_METHOD_LABEL[sale.paymentMethod] }} · {{ formatDateTime(sale.saleDate) }}
+              </span>
+            </p>
+            <div class="actions">
+              <button type="button" :disabled="busy" @click="downloadInvoice(sale)">
+                Factura en PDF
+              </button>
+            </div>
+          </div>
         </article>
 
         <article v-if="auth.isOwner" class="card">
@@ -460,7 +516,16 @@ dd {
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.sale + .sale {
+  margin-top: 0.75rem;
+}
+
+.sale p {
+  margin-bottom: 0.5rem;
 }
 
 .timeline {
@@ -508,7 +573,14 @@ dd {
 }
 
 select,
+textarea,
 .inline input {
   width: 100%;
+}
+
+textarea {
+  margin-bottom: 0.5rem;
+  font: inherit;
+  resize: vertical;
 }
 </style>

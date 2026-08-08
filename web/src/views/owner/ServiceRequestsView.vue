@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { serviceRequestsApi, usersApi } from '@/api/garaj'
+import NewServiceRequestForm from '@/components/NewServiceRequestForm.vue'
+import { useAuthStore } from '@/stores/auth'
 import {
   SERVICE_REQUEST_STATUS_LABEL,
   ServiceRequestStatus,
@@ -12,6 +14,7 @@ import {
 import { formatDate, relativeTime, whatsappLink } from '@/utils/format'
 
 const router = useRouter()
+const auth = useAuthStore()
 
 const requests = ref<ServiceRequest[]>([])
 const technicians = ref<User[]>([])
@@ -71,6 +74,8 @@ function techniciansFor(request: ServiceRequest) {
 }
 
 onMounted(async () => {
+  // El técnico no puede listar usuarios: el catch deja la lista vacía y el selector de
+  // asignación no se pinta, que es lo correcto porque tampoco puede aprobar.
   technicians.value = await usersApi.list('Technician').catch(() => [])
   await load()
 })
@@ -79,7 +84,12 @@ onMounted(async () => {
 <template>
   <section>
     <h1>Requerimientos</h1>
-    <p class="muted">Los pendientes aparecen primero.</p>
+    <p class="muted">
+      Los pendientes aparecen primero.
+      <template v-if="!auth.isOwner"> El Dueño es quien los aprueba.</template>
+    </p>
+
+    <NewServiceRequestForm @created="load" />
 
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="loading" class="muted">Cargando…</p>
@@ -111,7 +121,7 @@ onMounted(async () => {
           Rechazado: {{ request.rejectionReason }}
         </p>
 
-        <div v-if="request.status === ServiceRequestStatus.Pending" class="actions">
+        <div v-if="auth.isOwner && request.status === ServiceRequestStatus.Pending" class="actions">
           <select v-model="chosenTechnician[request.id]">
             <option value="">Asignar después</option>
             <option v-for="t in techniciansFor(request)" :key="t.id" :value="t.id">

@@ -44,10 +44,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // El Técnico también entra: es quien muchas veces recibe la moto en el mostrador y
+        // registra el requerimiento. Aprobarlo sigue siendo del Dueño, y el backend lo
+        // impone; la pantalla solo esconde los botones que no le tocan.
         path: 'requerimientos',
         name: 'service-requests',
         component: () => import('@/views/owner/ServiceRequestsView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Technician] },
       },
       {
         path: 'clientes',

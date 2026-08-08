@@ -139,8 +139,19 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 title: 'Motivo de ingreso',
                 child: Text(order.description),
               ),
-              if (order.diagnosis != null)
-                _Section(title: 'Diagnóstico', child: Text(order.diagnosis!)),
+              _DiagnosisSection(
+                order: order,
+                canEdit: _canEdit,
+                busy: _busy,
+                onSave: (text) => _run(() async {
+                  await ref.read(workOrderRepositoryProvider).saveDiagnosis(
+                        widget.id,
+                        description: order.description,
+                        diagnosis: text.isEmpty ? null : text,
+                        promisedAt: order.promisedAt,
+                      );
+                }),
+              ),
               _TasksSection(
                 order: order,
                 canEdit: _canEdit,
@@ -253,6 +264,86 @@ class _Section extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+/// El diagnóstico se escribe aquí, junto al motivo de ingreso: se lee la queja del cliente y
+/// debajo lo que el taller encontró. Es lo que después se copia a la cotización y lo que el
+/// cliente ve en el seguimiento, así que tiene que poder escribirse desde el teléfono —que es
+/// lo que el técnico tiene en la mano cuando lo sabe, no una computadora en la oficina.
+class _DiagnosisSection extends StatefulWidget {
+  const _DiagnosisSection({
+    required this.order,
+    required this.canEdit,
+    required this.busy,
+    required this.onSave,
+  });
+
+  final WorkOrderDetail order;
+  final bool canEdit;
+  final bool busy;
+  final Future<void> Function(String text) onSave;
+
+  @override
+  State<_DiagnosisSection> createState() => _DiagnosisSectionState();
+}
+
+class _DiagnosisSectionState extends State<_DiagnosisSection> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.order.diagnosis ?? '');
+
+  @override
+  void didUpdateWidget(_DiagnosisSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Tras guardar, la pantalla se recarga con el texto ya persistido. Solo se pisa el
+    // cuadro si el usuario no está escribiendo algo distinto encima.
+    final saved = widget.order.diagnosis ?? '';
+    if (saved != (oldWidget.order.diagnosis ?? '') && _controller.text != saved) {
+      _controller.text = saved;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.canEdit) {
+      return widget.order.diagnosis == null
+          ? const SizedBox.shrink()
+          : _Section(title: 'Diagnóstico', child: Text(widget.order.diagnosis!));
+    }
+
+    return _Section(
+      title: 'Diagnóstico',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          TextField(
+            controller: _controller,
+            maxLines: 4,
+            minLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              hintText: 'Qué se encontró: causa, qué hay que cambiar, qué se recomienda…',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            onPressed: widget.busy || _controller.text.trim() == (widget.order.diagnosis ?? '')
+                ? null
+                : () => widget.onSave(_controller.text.trim()),
+            child: const Text('Guardar diagnóstico'),
+          ),
         ],
       ),
     );

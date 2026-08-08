@@ -47,6 +47,14 @@ public class SalesController(ISaleService service) : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = sale.Id }, sale);
     }
 
+    /// <summary>La factura en PDF. El Cliente puede bajar las suyas; el Técnico, ninguna.</summary>
+    [HttpGet("{id:guid}/pdf")]
+    public async Task<IActionResult> Pdf(Guid id, CancellationToken ct)
+    {
+        var sale = await service.GetAsync(id, ct);
+        return File(await service.PdfAsync(id, ct), "application/pdf", $"{sale.Number}.pdf");
+    }
+
     [HttpPost("{id:guid}/void")]
     [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<SaleDetailDto>> Void(

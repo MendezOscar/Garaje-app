@@ -59,7 +59,11 @@ public class CustomerService(GarajDbContext db, ITenantContext tenantContext) : 
 
     public async Task<CustomerDto> CreateAsync(SaveCustomerRequest request, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        // Lo registra cualquiera del taller, no solo el Dueño: quien recibe la moto en el
+        // mostrador es quien tiene delante al cliente. Editarlo sigue siendo del Dueño,
+        // que es donde se pueden estropear datos de facturación ya emitidos.
+        if (AccessScope.From(tenantContext).IsCustomer)
+            throw new ForbiddenException("Un cliente no puede registrar clientes.");
 
         var customer = new Customer();
         Apply(customer, request);

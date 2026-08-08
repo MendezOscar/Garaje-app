@@ -66,6 +66,27 @@ class WorkOrderRepository {
     return WorkOrderTask.fromJson(response.data!);
   }
 
+  /// Guarda el diagnóstico: lo que el técnico encontró al revisar el vehículo.
+  ///
+  /// El motivo de ingreso y la fecha prometida se reenvían tal cual porque el endpoint
+  /// reemplaza la orden entera: omitirlos borraría el compromiso con el cliente.
+  Future<WorkOrderDetail> saveDiagnosis(
+    String id, {
+    required String description,
+    required String? diagnosis,
+    DateTime? promisedAt,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$id',
+      data: {
+        'description': description,
+        'diagnosis': diagnosis,
+        'promisedAt': promisedAt?.toUtc().toIso8601String(),
+      },
+    );
+    return WorkOrderDetail.fromJson(response.data!);
+  }
+
   Future<WorkOrderTask> addTask(String workOrderId, String title) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks',

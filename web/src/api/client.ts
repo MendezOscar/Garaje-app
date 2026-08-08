@@ -71,9 +71,42 @@ api.interceptors.response.use(
   },
 )
 
+/**
+ * Baja un archivo de la API y lo guarda con el nombre indicado.
+ *
+ * No sirve un `<a href>` apuntando al endpoint: el token viaja en la cabecera Authorization
+ * y el navegador no la manda al abrir una URL en una pestaña nueva, así que el PDF respondía
+ * 401. Aquí la petición pasa por axios —con interceptor de token y de refresco— y lo que se
+ * abre es un blob local.
+ *
+ * El nombre lo pone quien llama en vez de leerlo del Content-Disposition: exponer esa
+ * cabecera al navegador exigiría tocar el CORS del backend para nada.
+ */
+export async function download(
+  url: string,
+  fileName: string,
+  params?: Record<string, unknown>,
+): Promise<void> {
+  const { data } = await api.get<Blob>(url, { params, responseType: 'blob' })
+
+  const objectUrl = URL.createObjectURL(data)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  link.click()
+
+  // Sin revocar, el blob queda en memoria hasta recargar la página. Se difiere porque
+  // Firefox cancela la descarga si la URL muere en el mismo tick del click.
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+}
+
 /** Extrae el mensaje legible de un error de la API para mostrarlo en pantalla. */
 export function errorMessage(error: unknown, fallback = 'Ocurrió un error inesperado.'): string {
   if (axios.isAxiosError<ProblemDetails>(error)) {
+    // En una descarga la respuesta viene como blob, también cuando es el error: leerla
+    // exigiría await y aquí no lo hay, así que se usa el mensaje de respaldo.
+    if (error.response?.data instanceof Blob) return fallback
+
     return error.response?.data?.detail ?? error.message ?? fallback
   }
   return error instanceof Error ? error.message : fallback

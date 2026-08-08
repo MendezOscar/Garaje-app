@@ -30,11 +30,13 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST/PUT | `/api/users[/{id}]` | Owner | Alta y edición, con asignación a sucursales |
 | POST | `/api/users/{id}/password` | Owner | Restablece contraseña y cierra sus sesiones |
 | GET | `/api/customers?search=` | cualquiera | Busca por nombre, teléfono o placa |
-| POST/PUT | `/api/customers[/{id}]` | Owner | Alta y edición |
+| POST | `/api/customers` | Owner o Técnico | Lo registra quien recibe el vehículo |
+| PUT | `/api/customers/{id}` | Owner | Edición |
 | GET | `/api/vehicles?search=&customerId=` | cualquiera | Vehículos |
-| POST/PUT | `/api/vehicles[/{id}]` | Owner o Customer | El Cliente registra los suyos |
-| GET | `/api/service-requests?status=&branchId=` | cualquiera | Bandeja; pendientes primero |
-| POST | `/api/service-requests` | Owner o Customer | Crea el requerimiento |
+| POST | `/api/vehicles` | cualquiera | El Cliente los suyos; el taller, los de cualquiera |
+| PUT | `/api/vehicles/{id}` | Owner o Customer | El Técnico no edita |
+| GET | `/api/service-requests?status=&branchId=` | cualquiera | Bandeja; pendientes primero. El Técnico ve los de sus sucursales |
+| POST | `/api/service-requests` | cualquiera | El Técnico solo en sus sucursales |
 | POST | `/api/service-requests/{id}/approve` | Owner | Lo convierte en orden y devuelve `workOrderId` |
 | POST | `/api/service-requests/{id}/reject` | Owner | Lo rechaza con motivo |
 | GET | `/api/work-orders?status=&branchId=&onlyOpen=` | cualquiera | Kanban y bandeja del Técnico |
@@ -157,6 +159,13 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | POST | `/public/quotes/{token}/respond` | **anónimo** | Aprobar o rechazar |
 | GET | `/public/quotes/{token}/pdf` | **anónimo** | PDF sin login |
 
+Los dos endpoints de PDF autenticados —`/api/quotes/{id}/pdf` y `/api/sales/{id}/pdf`— se
+piden **con la cabecera `Authorization`**, no abriendo la URL en una pestaña. El navegador no
+manda esa cabecera al navegar, así que un `<a href>` apuntando ahí responde 401; el cliente
+web los baja con axios (`responseType: 'blob'`) y guarda el resultado. Lo mismo vale para
+`/api/reports/revenue.csv`. La ruta pública de la cotización sí funciona como enlace: no
+tiene sesión, y su credencial es el token aleatorio de la propia URL.
+
 `QuoteStatus`: `1` borrador · `2` enviada · `3` aprobada · `4` rechazada · `5` vencida.
 `LineType`: `1` repuesto · `2` mano de obra — la misma división que después alimenta los
 reportes de ingresos.
@@ -195,6 +204,7 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 | POST | `/api/sales` | Owner | Venta directa de mostrador; descuenta inventario |
 | POST | `/api/sales/close-work-order` | Owner | Cierra la orden y factura lo trabajado |
 | POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
+| GET | `/api/sales/{id}/pdf` | Owner o Cliente | La factura en PDF |
 | GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=` | Owner | Ingresos |
 | GET | `/api/reports/revenue.csv?…` | Owner | Lo mismo, para Excel |
 | GET | `/api/reports/dashboard?branchId=` | Owner | Tablero del día |
@@ -204,6 +214,10 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 Decisiones que conviene conocer antes de tocar esto:
 
+- **La factura en PDF no es un documento fiscal.** Lleva el nombre, el RTN y el correlativo
+  del taller, pero no CAI ni rango autorizado por el SAR: sirve como comprobante de entrega
+  para el cliente, no sustituye a la factura del talonario mientras no se implemente la
+  facturación autorizada.
 - **Cerrar una orden no vuelve a descontar los repuestos.** Salieron de la bodega cuando el
   técnico los cargó a la orden (Fase 3); aquí solo se facturan. La venta de mostrador sí
   descuenta, porque ahí nadie pasó por una orden.
@@ -320,6 +334,9 @@ python3 backend/tests/smoke/fase5_smoke.py
 
 # Fase 6: avisos, dispositivos y la cita que pide el cliente
 python3 backend/tests/smoke/fase6_smoke.py
+
+# Fase 7: recepción en el mostrador, diagnóstico y documentos en PDF
+python3 backend/tests/smoke/fase7_smoke.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.

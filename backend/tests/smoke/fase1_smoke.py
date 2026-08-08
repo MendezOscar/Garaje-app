@@ -145,9 +145,14 @@ cust = call("GET", "/api/customers", owner)[1]["items"][0]["id"]
 check("placa repetida con otro formato da 409", 409,
       call("POST", "/api/vehicles", owner,
            {"customerId": cust, "type": 1, "brand": "Kia", "model": "Rio", "plate": "pbh 1234"})[0])
-check("el Técnico no registra vehículos (403)", 403,
+# Desde la Fase 7 el técnico sí los registra: es quien recibe el vehículo en el mostrador y
+# la moto llega sin estar dada de alta. Editarlo sigue siendo del Dueño.
+check("el Técnico sí registra vehículos (201)", 201,
       call("POST", "/api/vehicles", tech1,
            {"customerId": cust, "type": 1, "brand": "Kia", "model": "Rio"})[0])
+check("pero no los edita (403)", 403,
+      call("PUT", f"/api/vehicles/{call('GET', '/api/vehicles', owner)[1]['items'][0]['id']}",
+           tech1, {"customerId": cust, "type": 1, "brand": "Kia", "model": "Rio"})[0])
 
 print("== Normalización de teléfono ==")
 status, created = call("POST", "/api/customers", owner,

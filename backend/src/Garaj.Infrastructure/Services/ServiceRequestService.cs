@@ -57,8 +57,10 @@ public class ServiceRequestService(
     {
         var scope = AccessScope.From(tenantContext);
 
-        if (scope.IsTechnician)
-            throw new ForbiddenException("Un técnico no puede crear requerimientos.");
+        // El taller también los registra: en el mostrador el vehículo llega antes que el
+        // cliente a la aplicación, y las primeras veces nadie la trae instalada. El técnico
+        // solo puede hacerlo en las sucursales que tiene asignadas.
+        if (scope.IsTechnician) scope.EnsureBranchAllowed(request.BranchId);
 
         var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == request.VehicleId, ct)
             ?? throw new NotFoundException("El vehículo no existe.");
@@ -89,12 +91,13 @@ public class ServiceRequestService(
 
         await db.SaveChangesAsync(ct);
 
-        // Solo cuando lo abre el cliente desde su app. Si lo registró el Dueño en el
-        // mostrador, avisarle de su propia captura es ruido que enseña a ignorar la campana.
-        if (scope.IsCustomer)
+        // Se avisa salvo cuando lo registró el propio Dueño: avisarle de su propia captura
+        // es ruido que enseña a ignorar la campana. Lo que abre un técnico sí se avisa,
+        // porque el Dueño es quien tiene que aprobarlo.
+        if (!scope.IsOwner)
             await notifications.NotifyOwnersAsync(serviceRequest.TenantId, new NotificationDraft(
                 NotificationType.ServiceRequestCreated,
-                "Nuevo requerimiento de un cliente",
+                scope.IsCustomer ? "Nuevo requerimiento de un cliente" : "Nuevo requerimiento en recepción",
                 $"{vehicle.Brand} {vehicle.Model}"
                 + (vehicle.Plate is null ? "" : $" · {vehicle.Plate}")
                 + $": {Summarize(serviceRequest.Description)}",
@@ -164,8 +167,9 @@ public class ServiceRequestService(
     }
 
     /// <summary>
-    /// El Cliente solo ve los requerimientos de sus vehículos. El Técnico no participa en
-    /// esta etapa: recibe trabajo cuando ya existe una orden.
+    /// El Cliente solo ve los requerimientos de sus vehículos. El Técnico, los de las
+    /// sucursales donde trabaja: necesita ver lo que él mismo acaba de recibir en el
+    /// mostrador y qué hay en cola, pero no la bandeja de las otras sucursales.
     /// </summary>
     private IQueryable<ServiceRequest> Scoped(AccessScope scope)
     {
@@ -175,7 +179,11 @@ public class ServiceRequestService(
             return q.Where(r => r.Vehicle.CustomerId == scope.CustomerId);
 
         if (scope.IsTechnician)
-            return q.Where(_ => false);
+        {
+            // Materializado: EF no traduce Contains sobre IReadOnlyCollection.
+            var branchIds = scope.BranchIds.ToList();
+            return q.Where(r => branchIds.Contains(r.BranchId));
+        }
 
         return q;
     }

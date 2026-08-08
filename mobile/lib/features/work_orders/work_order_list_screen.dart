@@ -37,12 +37,15 @@ class WorkOrderListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      // Solo al Cliente: el taller registra el ingreso desde el mostrador, no desde aquí.
-      floatingActionButton: auth is AuthSignedIn && auth.user.role == AppRole.customer
+      // Los tres perfiles: el Cliente pide cita desde su casa y el taller recibe el vehículo
+      // en el mostrador, que es de donde entra la mayoría de los ingresos.
+      floatingActionButton: auth is AuthSignedIn
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/nueva-cita'),
               icon: const Icon(Icons.add),
-              label: const Text('Pedir cita'),
+              label: Text(
+                auth.user.role == AppRole.customer ? 'Pedir cita' : 'Recibir vehículo',
+              ),
             )
           : null,
       body: RefreshIndicator(

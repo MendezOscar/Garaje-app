@@ -147,7 +147,7 @@ cd web && npx vue-tsc -b
 # Análisis estático del móvil
 cd mobile && flutter analyze
 
-# Humo del backend: 34 comprobaciones del flujo y del alcance por perfil
+# Humo del backend: 35 comprobaciones del flujo y del alcance por perfil
 python3 backend/tests/smoke/fase1_smoke.py
 
 # Humo de las fotos: 30 comprobaciones del ciclo subir / confirmar / listar / borrar
@@ -164,6 +164,9 @@ python3 backend/tests/smoke/fase5_smoke.py
 
 # Humo de avisos: 40 comprobaciones de la campana, el aislamiento y la cita del cliente
 python3 backend/tests/smoke/fase6_smoke.py
+
+# Humo de recepción: 31 comprobaciones del alta en mostrador, diagnóstico y PDF
+python3 backend/tests/smoke/fase7_smoke.py
 
 # Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \

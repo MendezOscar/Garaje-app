@@ -4,6 +4,7 @@ using Garaj.Application.Sales;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
+using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -279,6 +280,21 @@ public class SaleService(
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// El Cliente también puede descargarla: <see cref="GetAsync"/> ya le niega las ajenas,
+    /// así que no hace falta otra comprobación aquí.
+    /// </summary>
+    public async Task<byte[]> PdfAsync(Guid id, CancellationToken ct = default)
+    {
+        var sale = await GetAsync(id, ct);
+
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct)
+            ?? throw new NotFoundException("El taller no existe.");
+
+        return InvoicePdf.Render(sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId);
     }
 
     // ---------- Interno ----------

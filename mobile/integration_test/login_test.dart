@@ -95,8 +95,10 @@ void main() {
     // El resumen de ingresos es solo suyo; los otros perfiles no lo ven.
     expect(find.text('INGRESOS'), findsOneWidget);
     expect(find.text('Hoy'), findsOneWidget);
-    // La campana está en las tres bandejas; pedir cita, solo en la del Cliente.
+    // La campana está en las tres bandejas. El botón de alta también, pero al taller le
+    // dice "Recibir vehículo": el Dueño registra el ingreso, no pide cita.
     expect(find.byTooltip('Avisos'), findsOneWidget);
+    expect(find.text('Recibir vehículo'), findsOneWidget);
     expect(find.text('Pedir cita'), findsNothing);
   });
 
@@ -107,6 +109,7 @@ void main() {
     expect(find.textContaining('MTZ-'), findsOneWidget);
     expect(find.text('INGRESOS'), findsNothing);
     expect(find.byTooltip('Avisos'), findsOneWidget);
+    expect(find.text('Recibir vehículo'), findsOneWidget);
     expect(find.text('Pedir cita'), findsNothing);
     // La orden de la otra sucursal es de otro técnico: no debe aparecer.
     expect(find.textContaining('SPS-'), findsNothing);
@@ -124,8 +127,14 @@ void main() {
     expect(find.byTooltip('Tomar foto'), findsOneWidget);
     expect(find.byTooltip('Elegir de la galería'), findsOneWidget);
 
-    // El resto queda bajo el pliegue: el ListView no construye lo que no se ve.
-    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300);
+    // El resto queda bajo el pliegue: el ListView no construye lo que no se ve. Hay que
+    // decirle cuál es: el cuadro del diagnóstico también es desplazable y, sin señalar el
+    // de fuera, el buscador encuentra dos y no sabe por cuál decidirse.
+    await tester.scrollUntilVisible(
+      find.text('LÍNEA DE TIEMPO'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     // Al Técnico sí se le ofrecen transiciones; al Cliente no.
     expect(find.text('CAMBIAR ESTADO'), findsOneWidget);

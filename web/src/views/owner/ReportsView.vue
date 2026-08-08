@@ -47,6 +47,15 @@ async function load() {
   }
 }
 
+/** El CSV va detrás de la sesión, así que se baja con axios y no con un enlace. */
+async function downloadCsv() {
+  try {
+    await reportsApi.downloadCsv(query.value)
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo generar el CSV.')
+  }
+}
+
 /**
  * Barras apiladas en SVG. No hay librería de gráficas a propósito: son dos rectángulos por
  * periodo y meter 200 KB de dependencia para esto no se justifica.
@@ -143,7 +152,7 @@ onMounted(async () => {
             <option :value="RevenueGrouping.Month">Por mes</option>
           </select>
           <button type="button" :disabled="loading" @click="load">Aplicar</button>
-          <a :href="reportsApi.csvUrl(query)" target="_blank" rel="noopener">CSV</a>
+          <button type="button" :disabled="loading" @click="downloadCsv">CSV</button>
         </div>
       </header>
 

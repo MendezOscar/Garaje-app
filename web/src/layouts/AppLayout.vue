@@ -24,6 +24,7 @@ const navItems = computed(() => {
     case Roles.Technician:
       return [
         { to: { name: 'my-assignments' }, label: 'Mis asignaciones' },
+        { to: { name: 'service-requests' }, label: 'Requerimientos' },
         { to: { name: 'inventory' }, label: 'Inventario' },
       ]
     case Roles.Customer:

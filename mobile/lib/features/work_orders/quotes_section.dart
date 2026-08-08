@@ -145,6 +145,25 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
     }
   }
 
+  /// Abre el PDF en el navegador del teléfono, desde donde se guarda o se reenvía.
+  ///
+  /// Va por la ruta pública y no por `/api/quotes/{id}/pdf`: el token de sesión viaja en una
+  /// cabecera y el navegador del sistema no la manda, así que el endpoint autenticado
+  /// respondería 401. El token aleatorio de la URL pública es la credencial, el mismo que ya
+  /// tiene el cliente en su WhatsApp.
+  Future<void> _openPdf() async {
+    final publicUrl = widget.quote.publicUrl;
+    if (publicUrl == null) return;
+
+    final token = Uri.parse(publicUrl).pathSegments.last;
+    final launched = await launchUrl(
+      Uri.parse('$apiBaseUrl/public/quotes/$token/pdf'),
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched) _snack('No se pudo abrir el PDF.');
+  }
+
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -215,20 +234,34 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                 child: Text('«${quote.customerResponseNote}»', style: theme.textTheme.bodySmall),
               ),
 
-            if (widget.isOwner && quote.status != QuoteStatus.approved &&
-                quote.status != QuoteStatus.rejected)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: _busy ? null : _share,
-                  icon: const Icon(Icons.send, size: 18),
-                  label: Text(
-                    quote.status == QuoteStatus.draft
-                        ? 'Enviar por WhatsApp'
-                        : 'Reenviar por WhatsApp',
-                  ),
-                ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                children: [
+                  // Solo cuando ya se envió: el borrador todavía no tiene enlace público,
+                  // que es por donde se sirve el PDF sin sesión.
+                  if (quote.publicUrl != null)
+                    TextButton.icon(
+                      onPressed: _busy ? null : _openPdf,
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                      label: const Text('PDF'),
+                    ),
+                  if (widget.isOwner &&
+                      quote.status != QuoteStatus.approved &&
+                      quote.status != QuoteStatus.rejected)
+                    TextButton.icon(
+                      onPressed: _busy ? null : _share,
+                      icon: const Icon(Icons.send, size: 18),
+                      label: Text(
+                        quote.status == QuoteStatus.draft
+                            ? 'Enviar por WhatsApp'
+                            : 'Reenviar por WhatsApp',
+                      ),
+                    ),
+                ],
               ),
+            ),
 
             if (!widget.isOwner && quote.canRespond)
               Padding(

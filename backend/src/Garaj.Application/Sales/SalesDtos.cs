@@ -194,6 +194,9 @@ public interface ISaleService
 
     /// <summary>Anula la venta y devuelve los repuestos a la bodega. No la borra.</summary>
     Task<SaleDetailDto> VoidAsync(Guid id, VoidSaleRequest request, CancellationToken ct = default);
+
+    /// <summary>La factura en PDF, para imprimirla o mandarla por WhatsApp.</summary>
+    Task<byte[]> PdfAsync(Guid id, CancellationToken ct = default);
 }
 
 public interface IReportService

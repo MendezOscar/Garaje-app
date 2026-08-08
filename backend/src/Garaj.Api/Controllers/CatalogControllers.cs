@@ -85,8 +85,9 @@ public class CustomersController(ICustomerService service) : ControllerBase
     public async Task<ActionResult<CustomerDto>> Get(Guid id, CancellationToken ct)
         => Ok(await service.GetAsync(id, ct));
 
+    /// <summary>Lo registra cualquiera del taller: el que recibe el vehículo en el mostrador.</summary>
     [HttpPost]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.StaffOnly)]
     public async Task<ActionResult<CustomerDto>> Create(SaveCustomerRequest request, CancellationToken ct)
     {
         var customer = await service.CreateAsync(request, ct);

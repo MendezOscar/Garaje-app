@@ -63,11 +63,9 @@ public class VehicleService(GarajDbContext db, ITenantContext tenantContext) : I
     {
         var scope = AccessScope.From(tenantContext);
 
-        // El Cliente puede registrar sus propios vehículos desde la app; el Dueño, los de
-        // cualquiera. El Técnico no crea vehículos.
-        if (scope.IsTechnician)
-            throw new ForbiddenException("Un técnico no puede registrar vehículos.");
-
+        // El Cliente registra los suyos desde la app; el taller, los de cualquiera: la moto
+        // llega al mostrador sin estar dada de alta y no se le puede pedir al dueño que la
+        // registre él antes de que se la reciban. Editar sigue siendo del Dueño.
         if (scope.IsCustomer && request.CustomerId != scope.CustomerId)
             throw new ForbiddenException("Solo puede registrar vehículos a su nombre.");
 

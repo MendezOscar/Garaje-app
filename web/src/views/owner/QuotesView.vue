@@ -145,6 +145,19 @@ async function send() {
   }
 }
 
+/** No es un enlace: el PDF va detrás de la sesión y el navegador no manda el token en un href. */
+async function downloadPdf() {
+  busy.value = true
+  error.value = ''
+  try {
+    await quotesApi.downloadPdf(selected.value!.id, selected.value!.number)
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo generar el PDF.')
+  } finally {
+    busy.value = false
+  }
+}
+
 async function copyLink() {
   if (!selected.value?.publicUrl) return
   await navigator.clipboard.writeText(selected.value.publicUrl)
@@ -306,7 +319,7 @@ onMounted(async () => {
             {{ selected.status === QuoteStatus.Draft ? 'Enviar por WhatsApp' : 'Reenviar por WhatsApp' }}
           </button>
           <button v-if="selected.publicUrl" type="button" @click="copyLink">Copiar enlace</button>
-          <a :href="quotesApi.pdfUrl(selected.id)" target="_blank" rel="noopener">PDF</a>
+          <button type="button" :disabled="busy" @click="downloadPdf">PDF</button>
           <template v-if="selected.status === QuoteStatus.Sent">
             <button type="button" :disabled="busy" @click="respond(true)">Aprobó por teléfono</button>
             <button type="button" :disabled="busy" @click="respond(false)">Rechazó</button>
