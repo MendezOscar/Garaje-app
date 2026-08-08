@@ -5,9 +5,14 @@ prueba la gráfica de ingresos es una sola barra y no se entiende para qué sirv
 semanas de historia se ve la forma del negocio —los lunes cargados, los sábados a medias, los
 domingos cerrado— y ahí sí se explica solo.
 
-El `DemoSeeder` genera eso: un taller con dos sucursales, tres técnicos, doce clientes, unos
-120 trabajos repartidos en el calendario, cotizaciones aprobadas y rechazadas, kardex con
-compras de reposición y dos repuestos bajo mínimo.
+El `DemoSeeder` genera eso para el **Taller RVM**: tres sucursales, tres técnicos, doce
+clientes, unos 240 trabajos repartidos en el calendario, cotizaciones aprobadas y rechazadas,
+kardex con compras de reposición y dos repuestos bajo mínimo.
+
+**Solo motocicletas.** El sistema maneja autos igual de bien, pero RVM trabaja motos y una
+demostración con un Corolla en medio se nota postiza. Para volver a incluir autos hay que
+añadir vehículos de tipo `Car` y entradas al catálogo de `Jobs` del sembrador; el resto no
+distingue.
 
 > **Borra todo antes de sembrar.** Es para una base de demostración, no para una con datos
 > reales. Por eso lleva tres cerrojos.
@@ -20,7 +25,7 @@ compras de reposición y dos repuestos bajo mínimo.
 ```bash
 TOKEN=$(curl -s https://garaje-app.onrender.com/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"dueno@maradiaga.hn","password":"Garaj123!"}' \
+  -d '{"email":"eduar@rvm.hn","password":"Garaj123!"}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
 
 curl -s https://garaje-app.onrender.com/api/demo/seed \
@@ -41,22 +46,28 @@ En local es lo mismo, arrancando la API con `Demo__AllowSeeding=true` y apuntand
 
 | | |
 | --- | --- |
-| Taller | Taller Mecánico Maradiaga · ISV 15% · lempiras |
-| Sucursales | Maradiaga Comayagüela (TGU) y Maradiaga San Pedro (SPS) |
+| Taller | Taller RVM · ISV 15% · lempiras |
+| Sucursales | RVM 13 Calle (C13) y RVM 10 Calle (C10), San Pedro Sula · RVM Cuyamel (CUY), Omoa |
 | Usuarios | 1 Dueño, 3 Técnicos, 2 Clientes — contraseña `Garaj123!` |
-| Clientes | 12, con 16 vehículos entre autos y motos |
-| Catálogos | 20 repuestos y 13 servicios de mano de obra |
-| Historia | ~120 órdenes entregadas y facturadas en 6 semanas |
-| Hoy | 8 órdenes abiertas (una en cada estado), 3 requerimientos sin atender, 1 cotización esperando respuesta, 2 repuestos bajo mínimo |
+| Clientes | 12, con 17 motocicletas |
+| Catálogos | 26 repuestos y 14 servicios de mano de obra, todo de moto |
+| Historia | ~240 órdenes entregadas y facturadas en 6 semanas |
+| Hoy | 9 órdenes abiertas (una en cada estado), 3 requerimientos sin atender, 1 cotización esperando respuesta, 2 repuestos bajo mínimo |
 
 Accesos:
 
 | Perfil | Correo |
 | --- | --- |
-| Dueño | `dueno@maradiaga.hn` |
-| Técnico (Comayagüela) | `tecnico1@maradiaga.hn` |
-| Técnico (San Pedro) | `tecnico3@maradiaga.hn` |
-| Cliente | `cliente@maradiaga.hn` |
+| Dueño | `eduar@rvm.hn` — Eduar Rivera |
+| Técnico (13 y 10 Calle) | `caleb@rvm.hn` — Caleb Rivera |
+| Técnico (Cuyamel) | `marlon@rvm.hn` — Marlon Interiano |
+| Cliente | `daleth.moran@gmail.com` — Daleth Morán |
+| Cliente | `oscar.mendez@gmail.com` — Óscar Méndez |
+
+**Datos de relleno que hay que corregir antes de enseñárselo al dueño de RVM:** la razón
+social, el RTN, los teléfonos y los correos del taller salen impresos en el PDF de la
+cotización y en la página pública. Los técnicos Keny Alvarado y Marlon Interiano también son
+inventados: con tres sucursales, un solo técnico no da la talla.
 
 ## Decisiones que conviene conocer
 
@@ -71,10 +82,12 @@ Accesos:
 - **Hay compras de reposición cada diez días.** Sin ellas, seis semanas de consumo dejan media
   bodega bajo mínimo y la alerta deja de significar algo. Al final quedan dos repuestos bajo
   el umbral, que es lo que hace creíble la advertencia.
-- **Solo uno de cada tres trabajos pasó por cotización.** El resto son trabajos de mostrador
-  que el cliente autoriza de palabra; fingir que todo se cotiza sería falso.
-- **Los motivos, diagnósticos y repuestos concuerdan entre sí**: quien entra por frenos que
-  chillan sale con pastillas y discos, no con un radiador. Es lo que hace que se lea como un
-  taller y no como relleno.
+- **Solo uno de cada cuatro trabajos pasó por cotización.** En motos casi todo se autoriza
+  de palabra en el mostrador; se cotiza cuando el trabajo es grande y el dueño quiere pensarlo.
+- **Cuyamel factura menos y carga menos inventario** que las dos de San Pedro. Repartir por
+  igual haría que el desglose por sucursal fueran tres barras idénticas.
+- **Los motivos, diagnósticos y repuestos concuerdan entre sí**: quien entra porque le salta
+  la cadena sale con un kit de arrastre, no con una batería. Es lo que hace que se lea como
+  un taller y no como relleno.
 - **Las fotos que hubiera en el bucket quedan huérfanas.** Borrarlas exigiría recorrer el
   almacenamiento y no vale la pena en una base que se va a pisar de todos modos.

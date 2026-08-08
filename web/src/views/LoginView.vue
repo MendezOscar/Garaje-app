@@ -54,7 +54,7 @@ async function submit() {
       </button>
 
       <p class="hint">
-        Demostración: dueno@maradiaga.hn · tecnico1@maradiaga.hn · cliente@maradiaga.hn<br />
+        Demostración: eduar@rvm.hn · caleb@rvm.hn · daleth.moran@gmail.com<br />
         Contraseña: Garaj123!
       </p>
     </form>
