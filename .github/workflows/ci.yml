@@ -34,14 +34,6 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: garaj
-          MINIO_ROOT_PASSWORD: garaj-ci-secret
-          MINIO_DEFAULT_BUCKETS: garaj-media
-        ports: ['9010:9000']
-
     env:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-ci
@@ -55,6 +47,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # MinIO va como paso y no como `services:` porque necesita argumentos de comando
+      # (`server /data`) y ahí solo se pueden pasar variables de entorno.
+      - name: MinIO y bucket
+        run: |
+          docker run -d --name minio -p 9010:9000 \
+            -e MINIO_ROOT_USER=garaj -e MINIO_ROOT_PASSWORD=garaj-ci-secret \
+            minio/minio:latest server /data
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+            for i in $(seq 1 30); do
+              mc alias set ci http://localhost:9010 garaj garaj-ci-secret && break
+              sleep 2
+            done
+            mc mb --ignore-existing ci/garaj-media'
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -82,7 +88,7 @@ jobs:
 
       - name: Log de la API
         if: failure()
-        run: cat api.log
+        run: cat api.log 2>/dev/null || echo "La API no llegó a arrancar."
 
   web:
     name: Web · tipos y build
