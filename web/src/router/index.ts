@@ -19,6 +19,14 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    // La cotización que el cliente abre desde WhatsApp. Va fuera del layout y sin sesión:
+    // quien la abre no tiene cuenta en el sistema y no debe necesitarla.
+    path: '/q/:token',
+    name: 'public-quote',
+    component: () => import('@/views/PublicQuoteView.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/',
     component: () => import('@/layouts/AppLayout.vue'),
     children: [
@@ -45,6 +53,12 @@ const routes: RouteRecordRaw[] = [
         path: 'clientes',
         name: 'customers',
         component: () => import('@/views/owner/CustomersView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
+        path: 'cotizaciones',
+        name: 'quotes',
+        component: () => import('@/views/owner/QuotesView.vue'),
         meta: { roles: [Roles.Owner] },
       },
       {

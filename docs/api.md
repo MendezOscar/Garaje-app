@@ -133,6 +133,56 @@ Decisiones que conviene conocer antes de tocar esto:
   administra el catálogo ni registra entradas, ajustes o traslados. El **Cliente** no ve el
   inventario, y en el detalle de su orden los repuestos llegan con `unitCost: 0`.
 
+### Fase 4 — cotizaciones y WhatsApp
+
+El circuito con el cliente: el taller arma la cotización, la manda por WhatsApp, y el cliente
+la abre y la aprueba **sin cuenta ni login**. No se usa la API oficial de Meta: se arma un
+link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio WhatsApp.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/labor-services?includeInactive=` | taller | Catálogo de mano de obra |
+| POST/PUT | `/api/labor-services[/{id}]` | Owner | Alta y edición; el código es único |
+| GET | `/api/quotes?status=&customerId=&workOrderId=` | Owner o Cliente | Cotizaciones visibles |
+| GET | `/api/quotes/{id}` | Owner o Cliente | Detalle con líneas y totales |
+| POST | `/api/quotes` | Owner | Cotización en blanco para un cliente |
+| POST | `/api/quotes/from-work-order` | Owner | La arma con los repuestos y pasos de la orden |
+| PUT | `/api/quotes/{id}` | Owner | Vigencia, notas e impuesto |
+| POST/PUT/DELETE | `/api/quotes/{id}/lines[/{lineId}]` | Owner | Líneas; recalcula totales |
+| POST | `/api/quotes/{id}/send` | Owner | La marca enviada y devuelve el link de WhatsApp |
+| GET | `/api/quotes/{id}/whatsapp-link` | Owner | El mismo link sin cambiar el estado |
+| GET | `/api/quotes/{id}/pdf` | Owner o Cliente | PDF |
+| POST | `/api/quotes/{id}/respond` | Owner o Cliente | Respuesta desde dentro de la app |
+| GET | `/public/quotes/{token}` | **anónimo** | La cotización que abre el cliente |
+| POST | `/public/quotes/{token}/respond` | **anónimo** | Aprobar o rechazar |
+| GET | `/public/quotes/{token}/pdf` | **anónimo** | PDF sin login |
+
+`QuoteStatus`: `1` borrador · `2` enviada · `3` aprobada · `4` rechazada · `5` vencida.
+`LineType`: `1` repuesto · `2` mano de obra — la misma división que después alimenta los
+reportes de ingresos.
+
+Decisiones que conviene conocer antes de tocar esto:
+
+- **El token del link es la única credencial.** La consulta pública corre con
+  `IgnoreQueryFilters()` porque el visitante es anónimo y no hay claims de los que sacar el
+  taller; el token es un GUID aleatorio, único globalmente y **no se reutiliza entre
+  cotizaciones**. La respuesta pública no expone ningún id interno, para que desde ella no se
+  pueda navegar a nada más.
+- **Los totales se calculan siempre en el servidor** a partir de las líneas. Nunca se aceptan
+  del cliente: es el importe que se aprueba y que después se cobra.
+- **Una cotización respondida es un documento cerrado.** Editarla devuelve 409: si hay que
+  cambiar el precio se crea otra, porque si no el cliente aprobaría una cosa y recibiría otra.
+- **Reenviar no reinicia la fecha de envío**, que es lo que dice cuánto lleva esperando.
+- **Aprobar propaga**: el requerimiento pasa a aprobado y la orden recibe una entrada visible
+  en su línea de tiempo. Una aprobación tiene que verse donde el taller trabaja.
+- **Una cotización vencida no se puede aprobar** (409). El precio de hace dos meses no obliga
+  al taller.
+- El texto de cada línea se **congela** al cotizar: renombrar un repuesto no cambia una
+  cotización ya enviada.
+- El **Técnico** no participa en la parte comercial: `/api/quotes` le devuelve lista vacía.
+- `PublicBaseUrl` debe apuntar al **web**, no a la API: el cliente abre una página, no un JSON.
+  Sin ella, enviar falla con un mensaje explícito.
+
 ### Reglas de alcance
 
 Son la parte que hay que respetar al agregar endpoints nuevos. Viven en
@@ -160,6 +210,9 @@ python3 backend/tests/smoke/fase2_smoke.py
 
 # Fase 3: inventario
 python3 backend/tests/smoke/fase3_smoke.py
+
+# Fase 4: cotizaciones, PDF y el link público
+python3 backend/tests/smoke/fase4_smoke.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.
@@ -198,5 +251,4 @@ una sola petición en vuelo.
 
 ## Pendiente por fase
 
-- **Fase 4** — `/api/labor-services`, `/api/quotes` (PDF, link de WhatsApp), `/public/quotes/{token}`
 - **Fase 5** — `/api/sales`, `/api/reports/revenue`, `/api/reports/dashboard`

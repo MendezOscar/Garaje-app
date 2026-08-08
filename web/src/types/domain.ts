@@ -32,6 +32,34 @@ export const WorkOrderStatus = {
 } as const
 export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus]
 
+export const QuoteStatus = {
+  Draft: 1,
+  Sent: 2,
+  Approved: 3,
+  Rejected: 4,
+  Expired: 5,
+} as const
+export type QuoteStatus = (typeof QuoteStatus)[keyof typeof QuoteStatus]
+
+export const QUOTE_STATUS_LABEL: Record<QuoteStatus, string> = {
+  [QuoteStatus.Draft]: 'Borrador',
+  [QuoteStatus.Sent]: 'Enviada',
+  [QuoteStatus.Approved]: 'Aprobada',
+  [QuoteStatus.Rejected]: 'Rechazada',
+  [QuoteStatus.Expired]: 'Vencida',
+}
+
+export const LineType = {
+  Part: 1,
+  Labor: 2,
+} as const
+export type LineType = (typeof LineType)[keyof typeof LineType]
+
+export const LINE_TYPE_LABEL: Record<LineType, string> = {
+  [LineType.Part]: 'Repuesto',
+  [LineType.Labor]: 'Mano de obra',
+}
+
 export const StockMovementType = {
   In: 1,
   Out: 2,
@@ -280,6 +308,120 @@ export interface WorkOrderPart {
   total: number
   workOrderTaskId: string | null
   taskTitle: string | null
+}
+
+export interface LaborService {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  category: string | null
+  standardHours: number
+  hourlyRate: number
+  isFixedPrice: boolean
+  fixedPrice: number
+  isActive: boolean
+  /** Lo que se cobra por una unidad, ya resuelto por el backend. */
+  price: number
+}
+
+export interface QuoteLine {
+  id: string
+  lineType: LineType
+  partId: string | null
+  laborServiceId: string | null
+  description: string
+  sequence: number
+  quantity: number
+  unitPrice: number
+  discount: number
+  total: number
+}
+
+export interface QuoteListItem {
+  id: string
+  number: string
+  status: QuoteStatus
+  branchId: string
+  branchName: string
+  customerId: string
+  customerName: string
+  customerPhone: string
+  vehicleLabel: string | null
+  workOrderId: string | null
+  workOrderNumber: string | null
+  total: number
+  validUntil: string | null
+  sentAt: string | null
+  respondedAt: string | null
+  createdAt: string
+  isExpired: boolean
+}
+
+export interface QuoteDetail extends Omit<QuoteListItem, 'vehicleLabel'> {
+  vehicleId: string | null
+  vehicleLabel: string | null
+  plate: string | null
+  serviceRequestId: string | null
+  notes: string | null
+  subtotal: number
+  discountTotal: number
+  taxRate: number
+  taxTotal: number
+  currency: string
+  customerResponseNote: string | null
+  isEditable: boolean
+  /** Link que se comparte por WhatsApp. Null mientras sea un borrador. */
+  publicUrl: string | null
+  lines: QuoteLine[]
+}
+
+export interface SaveQuoteLine {
+  lineType: LineType
+  partId?: string | null
+  laborServiceId?: string | null
+  /** Si va vacío se toma el del catálogo. Se congela en la línea. */
+  description?: string
+  quantity: number
+  unitPrice?: number
+  discount?: number
+}
+
+export interface WhatsAppLink {
+  url: string
+  phone: string
+  message: string
+}
+
+/** Lo que ve el cliente en `/q/:token`, sin login y sin ids internos. */
+export interface PublicQuote {
+  number: string
+  status: QuoteStatus
+  tenantName: string
+  tenantPhone: string | null
+  branchName: string
+  customerName: string
+  vehicleLabel: string | null
+  plate: string | null
+  notes: string | null
+  subtotal: number
+  discountTotal: number
+  taxRate: number
+  taxTotal: number
+  total: number
+  currency: string
+  validUntil: string | null
+  respondedAt: string | null
+  isExpired: boolean
+  canRespond: boolean
+  lines: {
+    lineType: LineType
+    description: string
+    quantity: number
+    unitPrice: number
+    discount: number
+    total: number
+  }[]
 }
 
 export interface MediaAttachment {

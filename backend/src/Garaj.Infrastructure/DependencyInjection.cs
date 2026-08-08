@@ -4,6 +4,7 @@ using Garaj.Application.Branches;
 using Garaj.Application.Customers;
 using Garaj.Application.Inventory;
 using Garaj.Application.Media;
+using Garaj.Application.Quotes;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.Users;
 using Garaj.Application.WorkOrders;
@@ -25,6 +26,10 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration configuration)
     {
+        // QuestPDF exige declarar la licencia antes de generar el primer documento. La
+        // Community es gratuita para empresas por debajo de 1 M USD de facturación anual.
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
 
@@ -71,6 +76,8 @@ public static class DependencyInjection
         services.AddScoped<IWorkOrderService, WorkOrderService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
         services.AddScoped<IPartService, PartService>();
+        services.AddScoped<ILaborServiceCatalog, LaborServiceCatalog>();
+        services.AddScoped<IQuoteService, QuoteService>();
 
         // Registrado también por su tipo concreto y resuelto a la misma instancia: la orden
         // de trabajo consume stock dentro de su propia transacción, y para eso necesita los

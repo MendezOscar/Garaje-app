@@ -3,11 +3,17 @@ import { api } from './client'
 import type {
   Branch,
   Customer,
+  LaborService,
   MediaAttachment,
   MediaOwnerType,
   Paged,
   Part,
   PresignedUpload,
+  PublicQuote,
+  QuoteDetail,
+  QuoteListItem,
+  QuoteStatus,
+  SaveQuoteLine,
   ServiceRequest,
   StockItem,
   StockMovement,
@@ -19,6 +25,7 @@ import type {
   WorkOrderPart,
   WorkOrderStatus,
   WorkOrderTask,
+  WhatsAppLink,
 } from '@/types/domain'
 
 /** Quita claves vacías para no mandar `?status=` y que el backend lo lea como filtro. */
@@ -295,5 +302,110 @@ export const mediaApi = {
 
   async remove(id: string) {
     await api.delete(`/api/media/${id}`)
+  },
+}
+
+export const laborServicesApi = {
+  async list(includeInactive = false): Promise<LaborService[]> {
+    const { data } = await api.get<LaborService[]>('/api/labor-services', {
+      params: { includeInactive },
+    })
+    return data
+  },
+  async create(body: Omit<LaborService, 'id' | 'price'>) {
+    const { data } = await api.post<LaborService>('/api/labor-services', body)
+    return data
+  },
+  async update(id: string, body: Omit<LaborService, 'id' | 'price'>) {
+    const { data } = await api.put<LaborService>(`/api/labor-services/${id}`, body)
+    return data
+  },
+}
+
+export const quotesApi = {
+  async list(query: {
+    status?: QuoteStatus
+    customerId?: string
+    workOrderId?: string
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<QuoteListItem>>('/api/quotes', { params: params(query) })
+    return data
+  },
+  async get(id: string) {
+    const { data } = await api.get<QuoteDetail>(`/api/quotes/${id}`)
+    return data
+  },
+  /** Arma la cotización con lo que la orden ya tiene: repuestos consumidos y pasos. */
+  async createFromWorkOrder(body: {
+    workOrderId: string
+    validUntil?: string
+    notes?: string
+    includeParts?: boolean
+    includeTasks?: boolean
+  }) {
+    const { data } = await api.post<QuoteDetail>('/api/quotes/from-work-order', body)
+    return data
+  },
+  async create(body: { customerId: string; vehicleId?: string; branchId?: string; notes?: string }) {
+    const { data } = await api.post<QuoteDetail>('/api/quotes', body)
+    return data
+  },
+  async update(id: string, body: { validUntil?: string; notes?: string; taxRate?: number }) {
+    const { data } = await api.put<QuoteDetail>(`/api/quotes/${id}`, body)
+    return data
+  },
+  async addLine(id: string, body: SaveQuoteLine) {
+    const { data } = await api.post<QuoteDetail>(`/api/quotes/${id}/lines`, body)
+    return data
+  },
+  async updateLine(id: string, lineId: string, body: SaveQuoteLine) {
+    const { data } = await api.put<QuoteDetail>(`/api/quotes/${id}/lines/${lineId}`, body)
+    return data
+  },
+  async removeLine(id: string, lineId: string) {
+    const { data } = await api.delete<QuoteDetail>(`/api/quotes/${id}/lines/${lineId}`)
+    return data
+  },
+  /** La marca como enviada y devuelve el link de WhatsApp con el mensaje ya armado. */
+  async send(id: string) {
+    const { data } = await api.post<WhatsAppLink>(`/api/quotes/${id}/send`)
+    return data
+  },
+  async whatsappLink(id: string) {
+    const { data } = await api.get<WhatsAppLink>(`/api/quotes/${id}/whatsapp-link`)
+    return data
+  },
+  pdfUrl(id: string) {
+    return `${api.defaults.baseURL}/api/quotes/${id}/pdf`
+  },
+  async respond(id: string, approve: boolean, note?: string) {
+    const { data } = await api.post<QuoteDetail>(`/api/quotes/${id}/respond`, { approve, note })
+    return data
+  },
+}
+
+/**
+ * La cotización vista desde el link de WhatsApp. Usa axios pelado a propósito: la página es
+ * anónima y el interceptor de `api` mandaría el token de quien tuviera sesión abierta en ese
+ * navegador, que no tiene nada que ver con quien abre el enlace.
+ */
+export const publicQuotesApi = {
+  async get(token: string): Promise<PublicQuote> {
+    const { data } = await axios.get<PublicQuote>(
+      `${api.defaults.baseURL}/public/quotes/${token}`,
+    )
+    return data
+  },
+  async respond(token: string, approve: boolean, note?: string): Promise<PublicQuote> {
+    const { data } = await axios.post<PublicQuote>(
+      `${api.defaults.baseURL}/public/quotes/${token}/respond`,
+      { approve, note },
+    )
+    return data
+  },
+  pdfUrl(token: string) {
+    return `${api.defaults.baseURL}/public/quotes/${token}/pdf`
   },
 }

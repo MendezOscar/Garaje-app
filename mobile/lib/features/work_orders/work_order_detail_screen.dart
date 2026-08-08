@@ -9,6 +9,7 @@ import '../../core/models/work_order.dart';
 import '../shared/status_chip.dart';
 import 'parts_section.dart';
 import 'photo_gallery.dart';
+import 'quotes_section.dart';
 
 /// Pantalla de trabajo del técnico: ver qué hay que hacer, marcar pasos y mover el estado.
 class WorkOrderDetailScreen extends ConsumerStatefulWidget {
@@ -162,6 +163,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 },
               ),
               PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
+              QuotesSection(workOrderId: order.id),
               if (_canEdit && order.allowedNextStatuses.isNotEmpty)
                 _Section(
                   title: 'Cambiar estado',

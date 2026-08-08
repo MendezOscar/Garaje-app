@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
-import { usersApi, workOrdersApi } from '@/api/garaj'
+import { quotesApi, usersApi, workOrdersApi } from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
@@ -17,6 +17,7 @@ import {
 import { formatDateTime, relativeTime, whatsappLink } from '@/utils/format'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 
 const order = ref<WorkOrderDetail | null>(null)
@@ -80,6 +81,17 @@ function toggleTask(taskId: string, isDone: boolean) {
 
 function assign(technicianId: string) {
   return run(() => workOrdersApi.assign(id.value, technicianId || null))
+}
+
+/**
+ * Arma la cotización con lo que la orden ya tiene —repuestos consumidos y pasos con servicio
+ * asignado— y lleva a la pantalla de cotizaciones para revisarla antes de enviarla.
+ */
+function quoteThisOrder() {
+  return run(async () => {
+    const quote = await quotesApi.createFromWorkOrder({ workOrderId: id.value })
+    await router.push({ name: 'quotes', query: { id: quote.id } })
+  })
 }
 
 /** Mensaje pre-armado para que el Dueño avise al cliente sin teclear el estado a mano. */
@@ -186,6 +198,21 @@ onMounted(async () => {
       </div>
 
       <div class="col">
+        <article v-if="auth.isOwner" class="card">
+          <h2>Cotizar</h2>
+          <p class="muted small">
+            Se arma con los repuestos ya cargados y los pasos que tengan servicio asignado.
+          </p>
+          <div class="actions">
+            <button type="button" :disabled="busy" @click="quoteThisOrder">
+              Crear cotización
+            </button>
+            <RouterLink :to="{ name: 'quotes', query: { workOrderId: order.id } }">
+              Ver cotizaciones
+            </RouterLink>
+          </div>
+        </article>
+
         <article v-if="auth.isOwner" class="card">
           <h2>Técnico responsable</h2>
           <select
