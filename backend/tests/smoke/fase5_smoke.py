@@ -259,6 +259,48 @@ check("el CSV se descarga", status == 200 and isinstance(csv, bytes), str(status
 check("con encabezado y total",
       b"Mano de obra" in csv and b"TOTAL" in csv, str(csv[:80] if isinstance(csv, bytes) else csv))
 
+print("\n[reparto por técnico]")
+
+status, report = api("GET", f"/api/reports/revenue?groupBy={DAY}", token=owner)
+check("el reporte trae el reparto por técnico", "technicians" in report, str(list(report)[:5]))
+
+technicians = report["technicians"]
+check("con al menos una fila", len(technicians) >= 1, str(technicians))
+check("cuadra con el total facturado",
+      abs(sum(t["total"] for t in technicians) - report["total"]) < 0.01,
+      f'{sum(t["total"] for t in technicians)} vs {report["total"]}')
+check("y separa repuestos de mano de obra",
+      all(abs(t["partsRevenue"] + t["laborRevenue"] - t["total"]) < 0.01 for t in technicians))
+check("viene ordenado de mayor a menor",
+      technicians == sorted(technicians, key=lambda t: -t["total"]))
+
+with_technician = [t for t in technicians if t["technicianId"]]
+check("el técnico que atendió la orden aparece con nombre",
+      any(t["technicianName"] not in ("—", "Sin técnico") for t in with_technician),
+      str([t["technicianName"] for t in technicians]))
+
+if with_technician:
+    target = with_technician[0]
+    status, filtered = api(
+        "GET", f"/api/reports/revenue?groupBy={DAY}&technicianId={target['technicianId']}",
+        token=owner)
+    check("filtrar por ese técnico responde", status == 200, str(status))
+    check("y devuelve justo lo suyo",
+          abs(filtered["total"] - target["total"]) < 0.01,
+          f'{filtered["total"]} vs {target["total"]}')
+    check("con una sola fila en el reparto", len(filtered["technicians"]) == 1,
+          str(filtered["technicians"]))
+
+_, empty = api(
+    "GET",
+    f"/api/reports/revenue?groupBy={DAY}&technicianId=00000000-0000-0000-0000-000000000001",
+    token=owner)
+check("un técnico sin órdenes no factura nada", empty["total"] == 0, str(empty["total"]))
+
+status, csv = api("GET", f"/api/reports/revenue.csv?groupBy={DAY}", token=owner)
+check("el CSV incluye el bloque por técnico", b"T\xc3\xa9cnico;" in csv,
+      str(csv[:200] if isinstance(csv, bytes) else csv))
+
 print("\n[tablero]")
 
 status, dashboard = api("GET", "/api/reports/dashboard", token=owner)

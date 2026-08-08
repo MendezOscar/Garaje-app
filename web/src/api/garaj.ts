@@ -508,6 +508,7 @@ export const reportsApi = {
     to?: string
     groupBy?: RevenueGrouping
     branchId?: string
+    technicianId?: string
   } = {}) {
     const { data } = await api.get<RevenueReport>('/api/reports/revenue', { params: params(query) })
     return data
@@ -523,6 +524,7 @@ export const reportsApi = {
     to?: string
     groupBy?: RevenueGrouping
     branchId?: string
+    technicianId?: string
   }) {
     await download('/api/reports/revenue.csv', 'ingresos.csv', params(query))
   },

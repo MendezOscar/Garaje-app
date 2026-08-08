@@ -1,22 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, reportsApi } from '@/api/garaj'
+import { branchesApi, reportsApi, usersApi } from '@/api/garaj'
 import {
   RevenueGrouping,
   WORK_ORDER_STATUS_LABEL,
   type Branch,
   type Dashboard,
   type RevenueReport,
+  type User,
 } from '@/types/domain'
 import { formatMoney, formatQuantity } from '@/utils/format'
 
 const dashboard = ref<Dashboard | null>(null)
 const report = ref<RevenueReport | null>(null)
 const branches = ref<Branch[]>([])
+const technicians = ref<User[]>([])
 
 const groupBy = ref<RevenueGrouping>(RevenueGrouping.Day)
 const branchId = ref('')
+const technicianId = ref('')
 const from = ref('')
 const to = ref('')
 
@@ -28,6 +31,7 @@ const query = computed(() => ({
   to: to.value || undefined,
   groupBy: groupBy.value,
   branchId: branchId.value || undefined,
+  technicianId: technicianId.value || undefined,
 }))
 
 async function load() {
@@ -35,6 +39,8 @@ async function load() {
   error.value = ''
   try {
     const [d, r] = await Promise.all([
+      // El tablero es del taller entero: filtrarlo por técnico dejaría "repuestos bajo
+      // mínimo" y "pendientes de atender" contando cosas que no dependen de nadie.
       reportsApi.dashboard(branchId.value || undefined),
       reportsApi.revenue(query.value),
     ])
@@ -71,10 +77,11 @@ const chart = computed(() => {
   }))
 })
 
-watch([groupBy, branchId], load)
+watch([groupBy, branchId, technicianId], load)
 
 onMounted(async () => {
   branches.value = await branchesApi.list().catch(() => [])
+  technicians.value = await usersApi.list('Technician').catch(() => [])
   await load()
 })
 </script>
@@ -146,6 +153,10 @@ onMounted(async () => {
         <div class="row">
           <label>Desde<input v-model="from" type="date" /></label>
           <label>Hasta<input v-model="to" type="date" /></label>
+          <select v-model="technicianId">
+            <option value="">Todos los técnicos</option>
+            <option v-for="t in technicians" :key="t.id" :value="t.id">{{ t.fullName }}</option>
+          </select>
           <select v-model.number="groupBy">
             <option :value="RevenueGrouping.Day">Por día</option>
             <option :value="RevenueGrouping.Week">Por semana</option>
@@ -214,6 +225,31 @@ onMounted(async () => {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div v-if="report.technicians.length">
+            <h3>Por técnico</h3>
+            <table>
+              <tbody>
+                <tr v-for="t in report.technicians" :key="t.technicianId ?? 'mostrador'">
+                  <td>
+                    {{ t.technicianName }}
+                    <div class="muted small">{{ t.saleCount }} venta(s)</div>
+                  </td>
+                  <td class="num muted small">
+                    {{ formatMoney(t.partsRevenue) }} + {{ formatMoney(t.laborRevenue) }}
+                  </td>
+                  <td class="num">
+                    <strong>{{ formatMoney(t.total) }}</strong>
+                    <div class="muted small">margen {{ formatMoney(t.margin) }}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="muted small note">
+              Se atribuye al técnico responsable de la orden. Lo vendido en mostrador no pasó
+              por nadie y aparece como «Sin técnico».
+            </p>
           </div>
 
           <div v-if="report.topParts.length">

@@ -29,6 +29,12 @@ class WorkOrderListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(title),
         actions: [
+          if (auth is AuthSignedIn && auth.user.role == AppRole.owner)
+            IconButton(
+              tooltip: 'Reportes',
+              icon: const Icon(Icons.insights_outlined),
+              onPressed: () => context.push('/reportes'),
+            ),
           const NotificationBell(),
           IconButton(
             tooltip: 'Salir',

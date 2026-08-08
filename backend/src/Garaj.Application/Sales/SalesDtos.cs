@@ -137,7 +137,28 @@ public record RevenueReportDto(
     int SaleCount,
     IReadOnlyList<RevenuePointDto> Points,
     IReadOnlyList<BranchRevenueDto> Branches,
+    IReadOnlyList<TechnicianRevenueDto> Technicians,
     IReadOnlyList<TopPartDto> TopParts);
+
+/// <summary>
+/// Cuánto facturó lo que pasó por cada técnico.
+/// </summary>
+/// <remarks>
+/// Se atribuye por el <b>técnico responsable de la orden</b>, no por quién hizo cada paso:
+/// es quien responde por el trabajo completo, y es la única atribución que reparte también
+/// los repuestos —un paso no los tiene—. Las ventas de mostrador no pasaron por nadie y se
+/// agrupan aparte; contarlas en el reparto premiaría a un técnico por una venta que no hizo.
+/// </remarks>
+/// <param name="TechnicianId">Null en las ventas de mostrador.</param>
+public record TechnicianRevenueDto(
+    Guid? TechnicianId,
+    string TechnicianName,
+    decimal PartsRevenue,
+    decimal LaborRevenue,
+    decimal Total,
+    decimal Cost,
+    decimal Margin,
+    int SaleCount);
 
 public record BranchRevenueDto(
     Guid BranchId,
@@ -161,6 +182,9 @@ public record RevenueQuery
     public DateTimeOffset? To { get; init; }
     public RevenueGrouping GroupBy { get; init; } = RevenueGrouping.Day;
     public Guid? BranchId { get; init; }
+
+    /// <summary>Deja solo lo facturado en órdenes de ese técnico. Excluye el mostrador.</summary>
+    public Guid? TechnicianId { get; init; }
 }
 
 /// <summary>Lo que el Dueño quiere ver al abrir el sistema por la mañana.</summary>

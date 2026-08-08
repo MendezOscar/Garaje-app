@@ -183,6 +183,20 @@ void main() {
     expect(find.text('Cuéntenos qué necesita.'), findsOneWidget);
   });
 
+  testWidgets('el Dueño abre los reportes desde la bandeja', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await tester.tap(find.byTooltip('Reportes'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reportes'), findsOneWidget);
+    expect(find.text('TOTAL FACTURADO'), findsOneWidget);
+    // Los filtros que solo existen aquí: rango, agrupación y el reparto por técnico.
+    expect(find.text('30 días'), findsOneWidget);
+    expect(find.text('POR TÉCNICO'), findsOneWidget);
+  });
+
   testWidgets('la campana abre los avisos del usuario', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 

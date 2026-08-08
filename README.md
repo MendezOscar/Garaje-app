@@ -159,7 +159,7 @@ python3 backend/tests/smoke/fase3_smoke.py
 # Humo de cotizaciones: 57 comprobaciones del circuito con el cliente
 python3 backend/tests/smoke/fase4_smoke.py
 
-# Humo de ventas y reportes: 52 comprobaciones de facturación y desglose
+# Humo de ventas y reportes: 63 comprobaciones de facturación y desglose
 python3 backend/tests/smoke/fase5_smoke.py
 
 # Humo de avisos: 40 comprobaciones de la campana, el aislamiento y la cita del cliente

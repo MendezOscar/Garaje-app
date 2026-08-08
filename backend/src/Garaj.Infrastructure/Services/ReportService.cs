@@ -39,11 +39,27 @@ public class ReportService(
         scope.EnsureOwner();
 
         var (from, to) = ResolveRange(query);
-        var sales = ScopedSales(scope, query.BranchId, from, to);
+        var sales = ScopedSales(scope, query.BranchId, from, to, query.TechnicianId);
 
+        // El técnico sale de la orden, no de la venta: una venta de mostrador no tiene orden,
+        // y por eso el join es por la izquierda y el id queda nulo.
         var lines = from line in db.SaleLines.AsNoTracking()
                     join sale in sales on line.SaleId equals sale.Id
-                    select new { sale.Id, sale.SaleDate, sale.BranchId, line.LineType, line.Total, line.Quantity, line.UnitCost, line.PartId };
+                    join order in db.WorkOrders.AsNoTracking()
+                        on sale.WorkOrderId equals (Guid?)order.Id into matched
+                    from order in matched.DefaultIfEmpty()
+                    select new
+                    {
+                        sale.Id,
+                        sale.SaleDate,
+                        sale.BranchId,
+                        TechnicianId = order == null ? null : order.AssignedTechnicianId,
+                        line.LineType,
+                        line.Total,
+                        line.Quantity,
+                        line.UnitCost,
+                        line.PartId
+                    };
 
         // Una sola pasada por la base; el resto se agrupa en memoria sobre este conjunto,
         // que es del tamaño de las ventas del rango, no del histórico.
@@ -71,6 +87,35 @@ public class ReportService(
                 g.Sum(x => x.Total),
                 g.Select(x => x.Id).Distinct().Count()))
             .OrderByDescending(b => b.Total)
+            .ToList();
+
+        var technicianIds = rows
+            .Where(r => r.TechnicianId is not null)
+            .Select(r => r.TechnicianId!.Value)
+            .Distinct()
+            .ToList();
+
+        var technicianNames = technicianIds.Count == 0
+            ? []
+            : await db.UsersInTenant
+                .Where(u => technicianIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+
+        var technicians = rows
+            .GroupBy(r => r.TechnicianId)
+            .Select(g => new TechnicianRevenueDto(
+                g.Key,
+                g.Key is { } id
+                    ? technicianNames.GetValueOrDefault(id, "—")
+                    // Venta de mostrador, u orden que se cerró sin asignar a nadie.
+                    : "Sin técnico",
+                g.Where(x => x.LineType == LineType.Part).Sum(x => x.Total),
+                g.Where(x => x.LineType == LineType.Labor).Sum(x => x.Total),
+                g.Sum(x => x.Total),
+                g.Sum(x => x.Quantity * x.UnitCost),
+                g.Sum(x => x.Total) - g.Sum(x => x.Quantity * x.UnitCost),
+                g.Select(x => x.Id).Distinct().Count()))
+            .OrderByDescending(t => t.Total)
             .ToList();
 
         var partIds = rows.Where(r => r.PartId is not null).Select(r => r.PartId!.Value).Distinct().ToList();
@@ -114,6 +159,7 @@ public class ReportService(
             rows.Select(r => r.Id).Distinct().Count(),
             points,
             branches,
+            technicians,
             topParts);
     }
 
@@ -221,6 +267,27 @@ public class ReportService(
             ]));
         }
 
+        // El reparto por técnico va debajo, en su propio bloque: en una sola tabla no cabe
+        // sin repetir el periodo en cada fila, y así se pega a una hoja aparte sin tocarlo.
+        if (report.Technicians.Count > 0)
+        {
+            csv.AppendLine();
+            csv.AppendLine("Técnico;Repuestos;Mano de obra;Total;Costo;Margen;Ventas");
+
+            foreach (var technician in report.Technicians)
+            {
+                csv.AppendLine(string.Join(';', [
+                    technician.TechnicianName,
+                    Number(technician.PartsRevenue),
+                    Number(technician.LaborRevenue),
+                    Number(technician.Total),
+                    Number(technician.Cost),
+                    Number(technician.Margin),
+                    technician.SaleCount.ToString(Culture)
+                ]));
+            }
+        }
+
         csv.AppendLine();
         csv.AppendLine(string.Join(';', [
             "TOTAL",
@@ -240,7 +307,8 @@ public class ReportService(
 
     /// <summary>Las ventas anuladas no cuentan: un reporte que las incluyera mentiría.</summary>
     private IQueryable<Sale> ScopedSales(
-        AccessScope scope, Guid? branchId, DateTimeOffset from, DateTimeOffset to)
+        AccessScope scope, Guid? branchId, DateTimeOffset from, DateTimeOffset to,
+        Guid? technicianId = null)
     {
         // Los límites se calculan en la hora del taller, pero Npgsql solo acepta UTC para
         // `timestamptz`. Se normalizan aquí, en el único punto donde tocan la base; el
@@ -252,6 +320,14 @@ public class ReportService(
             .Where(s => !s.IsVoided && s.SaleDate >= utcFrom && s.SaleDate <= utcTo);
 
         if (branchId is { } id) q = q.Where(s => s.BranchId == id);
+
+        // Filtrar por técnico deja fuera el mostrador a propósito: esas ventas no pasaron
+        // por nadie, y sumárselas a alguien sería inventarle trabajo.
+        if (technicianId is { } technician)
+        {
+            q = q.Where(s => db.WorkOrders
+                .Any(w => w.Id == s.WorkOrderId && w.AssignedTechnicianId == technician));
+        }
 
         return q;
     }

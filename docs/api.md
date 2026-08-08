@@ -205,7 +205,7 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 | POST | `/api/sales/close-work-order` | Owner | Cierra la orden y factura lo trabajado |
 | POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
 | GET | `/api/sales/{id}/pdf` | Owner o Cliente | La factura en PDF |
-| GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=` | Owner | Ingresos |
+| GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=&technicianId=` | Owner | Ingresos, con reparto por sucursal y por técnico |
 | GET | `/api/reports/revenue.csv?…` | Owner | Lo mismo, para Excel |
 | GET | `/api/reports/dashboard?branchId=` | Owner | Tablero del día |
 
@@ -214,6 +214,11 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 Decisiones que conviene conocer antes de tocar esto:
 
+- **El reparto por técnico se atribuye por la orden, no por el paso.** Cuenta el técnico
+  responsable de la orden que se facturó: es quien responde por el trabajo completo, y es la
+  única atribución que reparte también los repuestos, que no cuelgan de un paso. Lo vendido
+  en mostrador no pasó por nadie y sale agrupado como «Sin técnico»; filtrar por técnico lo
+  deja fuera, porque sumárselo a alguien sería inventarle trabajo.
 - **La factura en PDF no es un documento fiscal.** Lleva el nombre, el RTN y el correlativo
   del taller, pero no CAI ni rango autorizado por el SAR: sirve como comprobante de entrega
   para el cliente, no sustituye a la factura del talonario mientras no se implemente la

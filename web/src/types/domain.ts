@@ -524,6 +524,20 @@ export interface RevenueReport {
     total: number
     saleCount: number
   }[]
+  /**
+   * Reparto por técnico responsable de la orden. `technicianId` es null en lo vendido en
+   * mostrador, que no pasó por nadie.
+   */
+  technicians: {
+    technicianId: string | null
+    technicianName: string
+    partsRevenue: number
+    laborRevenue: number
+    total: number
+    cost: number
+    margin: number
+    saleCount: number
+  }[]
   topParts: {
     partId: string
     sku: string
