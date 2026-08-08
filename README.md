@@ -114,10 +114,17 @@ cd web && npx vue-tsc -b
 # Análisis estático del móvil
 cd mobile && flutter analyze
 
-# Prueba de humo del login en el simulador (requiere la API corriendo con el seeder)
+# Humo del backend: 34 comprobaciones del flujo y del alcance por perfil
+python3 backend/tests/smoke/fase1_smoke.py
+
+# Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \
   -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080
 ```
+
+> Los dos humos **escriben en la base**, así que no se corren en paralelo ni contra Supabase:
+> el del backend entrega órdenes que el del móvil espera encontrar abiertas. Cómo recrear la
+> base local está en [docs/api.md](docs/api.md#verificación).
 
 ## Notas de seguridad
 

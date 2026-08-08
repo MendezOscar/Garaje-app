@@ -70,6 +70,21 @@ para el Cliente.
 python3 backend/tests/smoke/fase1_smoke.py
 ```
 
+**El script escribe en la base**: entrega órdenes, aprueba requerimientos y crea clientes.
+Está pensado para correr contra la base local, no contra Supabase. Para dejarla como estaba
+hay que recrearla — y el `DROP DATABASE` falla en silencio si la API sigue conectada, así
+que primero se detiene:
+
+```bash
+lsof -ti :7080 | xargs -r kill -9
+docker exec garaj-postgres psql -U garaj -d postgres \
+  -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='garaj';" \
+  -c "DROP DATABASE IF EXISTS garaj;" -c "CREATE DATABASE garaj OWNER garaj;"
+```
+
+El mismo cuidado aplica a las pruebas del móvil: si el smoke corre en paralelo, las órdenes
+que el test espera encontrar abiertas ya estarán entregadas.
+
 ### Claims del access token
 
 | Claim | Contenido |

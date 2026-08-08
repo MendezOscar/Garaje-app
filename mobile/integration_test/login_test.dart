@@ -5,13 +5,13 @@ import 'package:garaj_app/core/auth/token_store.dart';
 import 'package:garaj_app/main.dart';
 import 'package:integration_test/integration_test.dart';
 
-/// Prueba de humo del login contra la API real. No usa mocks a propósito: lo que puede
-/// fallar aquí es justamente la integración —ATS bloqueando HTTP, la URL mal apuntada,
-/// el claim de rol, el redirect del router—, y eso un mock no lo detecta.
-///
-/// Requiere la API corriendo con los datos del seeder:
-///   `flutter test integration_test/login_test.dart -d <simulador>`
-///   `  --dart-define=API_URL=http://localhost:5080`
+// Prueba de humo contra la API real. No usa mocks a propósito: lo que puede fallar aquí es
+// justamente la integración —ATS bloqueando HTTP, la URL mal apuntada, el claim de rol, el
+// redirect del router, el alcance por perfil—, y eso un mock no lo detecta.
+//
+// Requiere la API corriendo con los datos del seeder:
+//   `flutter test integration_test/login_test.dart -d <simulador>`
+//   `  --dart-define=API_URL=http://localhost:5080`
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -31,34 +31,54 @@ void main() {
     await tester.enterText(find.byType(TextFormField).last, 'Garaj123!');
     await tester.tap(find.text('Ingresar'));
 
-    // pumpAndSettle no espera respuestas de red: hay que darle tiempo real al round-trip.
-    await tester.pump(const Duration(seconds: 5));
+    // pumpAndSettle no espera respuestas de red: hay que darle tiempo real al round-trip
+    // del login y al de la lista de órdenes que carga después.
+    await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('el Dueño entra y aterriza en Taller con sus dos sucursales', (tester) async {
+  testWidgets('el Dueño ve las órdenes de todo el taller', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
     expect(find.text('Taller'), findsOneWidget);
-    expect(find.text('Óscar Méndez'), findsOneWidget);
-    expect(find.text('Perfil: Dueño'), findsOneWidget);
-    expect(find.text('Taller: Taller Garaj'), findsOneWidget);
-    expect(find.text('Sucursales: Matriz, Sucursal Norte'), findsOneWidget);
+    expect(find.text('Óscar Méndez · Taller Garaj'), findsOneWidget);
+    // El seeder deja una orden abierta en cada sucursal.
+    expect(find.textContaining('MTZ-'), findsOneWidget);
+    expect(find.textContaining('SPS-'), findsOneWidget);
   });
 
-  testWidgets('el Técnico aterriza en sus asignaciones y solo ve su sucursal', (tester) async {
+  testWidgets('el Técnico ve solo lo suyo y puede abrir la orden', (tester) async {
     await signIn(tester, 'tecnico1@garaj.test');
 
     expect(find.text('Mis asignaciones'), findsOneWidget);
-    expect(find.text('Luis Cabrera'), findsOneWidget);
-    expect(find.text('Sucursales: Matriz'), findsOneWidget);
+    expect(find.textContaining('MTZ-'), findsOneWidget);
+    // La orden de la otra sucursal es de otro técnico: no debe aparecer.
+    expect(find.textContaining('SPS-'), findsNothing);
+
+    await tester.tap(find.textContaining('MTZ-').first);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MOTIVO DE INGRESO'), findsOneWidget);
+    expect(find.text('PASOS DE LA REPARACIÓN'), findsOneWidget);
+    expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
+    // Al Técnico sí se le ofrecen transiciones; al Cliente no.
+    expect(find.text('CAMBIAR ESTADO'), findsOneWidget);
   });
 
-  testWidgets('el Cliente aterriza en sus vehículos', (tester) async {
+  testWidgets('el Cliente sigue su vehículo pero no cambia estados', (tester) async {
     await signIn(tester, 'cliente@garaj.test');
 
     expect(find.text('Mis vehículos'), findsOneWidget);
-    expect(find.text('María Torres'), findsOneWidget);
+    expect(find.textContaining('MTZ-'), findsOneWidget);
+
+    await tester.tap(find.textContaining('MTZ-').first);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
+    expect(find.text('CAMBIAR ESTADO'), findsNothing);
+    expect(find.text('Agregar paso'), findsNothing);
   });
 
   testWidgets('una contraseña incorrecta muestra el error y no navega', (tester) async {

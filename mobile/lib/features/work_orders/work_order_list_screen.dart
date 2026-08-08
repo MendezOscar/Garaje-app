@@ -1,0 +1,192 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/api/api_client.dart';
+import '../../core/api/work_order_repository.dart';
+import '../../core/auth/auth_controller.dart';
+import '../../core/models/work_order.dart';
+import '../shared/status_chip.dart';
+
+/// Bandeja de órdenes. La comparten el Técnico ("mis asignaciones"), el Dueño (las del
+/// taller) y el Cliente (las de sus vehículos): el backend ya filtra por perfil, así que
+/// solo cambia el título.
+class WorkOrderListScreen extends ConsumerWidget {
+  const WorkOrderListScreen({required this.title, required this.emptyMessage, super.key});
+
+  final String title;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orders = ref.watch(myWorkOrdersProvider);
+    final auth = ref.watch(authControllerProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          IconButton(
+            tooltip: 'Salir',
+            icon: const Icon(Icons.logout),
+            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(myWorkOrdersProvider),
+        child: orders.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => _ErrorState(
+            message: apiErrorMessage(e, 'No se pudieron cargar las órdenes.'),
+            onRetry: () => ref.invalidate(myWorkOrdersProvider),
+          ),
+          data: (items) => items.isEmpty
+              // ListView aunque esté vacío: si no, no se puede tirar para refrescar.
+              ? ListView(
+                  children: [
+                    const SizedBox(height: 120),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(emptyMessage, textAlign: TextAlign.center),
+                      ),
+                    ),
+                  ],
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) => _OrderCard(order: items[i]),
+                ),
+        ),
+      ),
+      bottomNavigationBar: auth is AuthSignedIn
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  '${auth.user.fullName} · ${auth.user.tenantName}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({required this.order});
+
+  final WorkOrderListItem order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/ordenes/${order.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(order.number, style: theme.textTheme.titleSmall),
+                  const Spacer(),
+                  if (order.isLate)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.schedule, size: 16, color: theme.colorScheme.error),
+                    ),
+                  StatusChip(status: order.status),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    order.vehicleType == VehicleType.motorcycle
+                        ? Icons.two_wheeler
+                        : Icons.directions_car,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(order.vehicleLabel)),
+                  if (order.plate != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: theme.dividerColor),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(order.plate!, style: theme.textTheme.labelSmall),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${order.customerName} · ${order.branchName}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                order.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+              if (order.taskCount > 0) ...[
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: order.tasksDone / order.taskCount,
+                  minHeight: 4,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${order.tasksDone} de ${order.taskCount} pasos',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        const SizedBox(height: 120),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Text(message, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton.tonal(onPressed: onRetry, child: const Text('Reintentar')),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

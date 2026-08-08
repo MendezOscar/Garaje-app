@@ -2,11 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/customer/customer_home_screen.dart';
 import '../../features/login/login_screen.dart';
-import '../../features/owner/owner_home_screen.dart';
 import '../../features/splash/splash_screen.dart';
-import '../../features/technician/technician_home_screen.dart';
+import '../../features/work_orders/work_order_detail_screen.dart';
+import '../../features/work_orders/work_order_list_screen.dart';
 import '../auth/auth_controller.dart';
 import '../models/current_user.dart';
 
@@ -22,9 +21,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/taller', builder: (_, __) => const OwnerHomeScreen()),
-      GoRoute(path: '/mis-asignaciones', builder: (_, __) => const TechnicianHomeScreen()),
-      GoRoute(path: '/mis-vehiculos', builder: (_, __) => const CustomerHomeScreen()),
+      GoRoute(
+        path: '/taller',
+        builder: (_, __) => const WorkOrderListScreen(
+          title: 'Taller',
+          emptyMessage: 'No hay órdenes abiertas en el taller.',
+        ),
+      ),
+      GoRoute(
+        path: '/mis-asignaciones',
+        builder: (_, __) => const WorkOrderListScreen(
+          title: 'Mis asignaciones',
+          emptyMessage: 'No tienes órdenes asignadas ahora mismo.',
+        ),
+      ),
+      GoRoute(
+        path: '/mis-vehiculos',
+        builder: (_, __) => const WorkOrderListScreen(
+          title: 'Mis vehículos',
+          emptyMessage: 'No tienes vehículos en el taller.',
+        ),
+      ),
+      GoRoute(
+        path: '/ordenes/:id',
+        builder: (_, state) => WorkOrderDetailScreen(id: state.pathParameters['id']!),
+      ),
     ],
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
@@ -33,9 +54,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (auth is AuthLoading) return location == '/' ? null : '/';
       if (auth is AuthSignedOut) return location == '/login' ? null : '/login';
 
-      final home = homeRouteFor((auth as AuthSignedIn).user.role);
+      // El detalle es accesible desde cualquier perfil: el backend decide si el usuario
+      // puede verla y devuelve 404 si no le corresponde.
+      if (location.startsWith('/ordenes/')) return null;
 
-      // Un técnico que llegue a la ruta del dueño (deep link, push) cae en la suya.
+      final home = homeRouteFor((auth as AuthSignedIn).user.role);
       return location == home ? null : home;
     },
   );
