@@ -35,15 +35,18 @@ docker compose --profile local-db up -d    # opcional: Postgres local en :5434
 ### 2. Base de datos
 
 Por defecto apunta al Postgres local del perfil `local-db`, que ya queda listo con el paso
-anterior. Para trabajar contra **Supabase**, ponga su cadena en la variable de entorno
-`ConnectionStrings__Default` o en `backend/src/Garaj.Api/appsettings.Development.json`:
+anterior. Para trabajar contra **Supabase**, guarde la cadena en user secrets — así la
+contraseña no toca el repo:
 
-```
-Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=<pwd>;SSL Mode=Require;Trust Server Certificate=true
+```bash
+cd backend
+dotnet user-secrets set "ConnectionStrings:Default" \
+  "Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=<pwd>;SSL Mode=Require;Trust Server Certificate=true" \
+  --project src/Garaj.Api
 ```
 
-Use el **Session pooler** (puerto 5432), no el de transacción: ver
-[docs/deployment.md](docs/deployment.md#1-supabase).
+Use el **Session pooler** (puerto 5432), no la conexión directa ni el pooler de transacción:
+ver [docs/deployment.md](docs/deployment.md#1-supabase).
 
 ### 3. Backend
 

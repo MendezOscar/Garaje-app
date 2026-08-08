@@ -18,33 +18,47 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
 1. Cree el proyecto en <https://supabase.com/dashboard>. **Región: `us-east-1` (N. Virginia)**,
    para que quede junto al backend en Render y con buena latencia desde Ecuador.
 2. Guarde la contraseña de la base: solo se muestra al crear el proyecto.
-3. Vaya a **Project Settings → Database → Connection string** y copie la del
-   **Session pooler**, no la directa ni la de transacción:
+3. En el botón **Connect** de la barra superior, copie la cadena del **Session pooler**.
+   No sirven las otras dos:
 
-   | Modo | Puerto | ¿Sirve? |
+   | Modo | Host | ¿Sirve? |
    | --- | --- | --- |
-   | Direct connection | 5432 | No: en el plan free es solo IPv6 y Render sale por IPv4 |
-   | **Session pooler** | **5432** | **Sí** |
-   | Transaction pooler | 6543 | No: pgbouncer en modo transacción rompe las sentencias preparadas de Npgsql |
+   | Direct connection | `db.<ref>.supabase.co:5432` | **No**: en el plan free ese host solo tiene registro AAAA (IPv6) y Render sale por IPv4 |
+   | **Session pooler** | `aws-N-<region>.pooler.supabase.com:5432` | **Sí** |
+   | Transaction pooler | `aws-N-<region>.pooler.supabase.com:6543` | **No**: pgbouncer en modo transacción rompe las sentencias preparadas de Npgsql |
 
-4. Tradúzcala al formato de Npgsql (Supabase la muestra como URI de `libpq`):
+   Se comprueba con `dig +short db.<ref>.supabase.co A`: si no devuelve nada, ese host es
+   inalcanzable por IPv4.
+
+4. Supabase la muestra como URI de `libpq`. Tradúzcala al formato de Npgsql:
 
    ```
    Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<su-password>;SSL Mode=Require;Trust Server Certificate=true
    ```
 
-   El usuario del pooler lleva el project-ref: `postgres.abcdefghijklm`, no `postgres` a secas.
+   El usuario del pooler lleva el project-ref pegado: `postgres.zitfkofrzvawujnqxexq`, no
+   `postgres` a secas. Si perdió la contraseña, se regenera en
+   **Project Settings → Database → Reset database password**.
 
-5. Pruebe la conexión y aplique las migraciones desde su máquina:
+5. En local, guárdela con **user secrets** para que no entre nunca al repo. En Development
+   ASP.NET los carga solo, sin cambiar código:
 
    ```bash
    cd backend
-   export ConnectionStrings__Default="Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;..."
+   dotnet user-secrets set "ConnectionStrings:Default" \
+     "Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;..." --project src/Garaj.Api
+   ```
+
+   Para volver al Postgres local basta con `dotnet user-secrets remove "ConnectionStrings:Default"`.
+
+6. Aplique las migraciones:
+
+   ```bash
    dotnet ef database update -p src/Garaj.Infrastructure -s src/Garaj.Api
    ```
 
-   No hace falta: el backend en Render aplica las migraciones al arrancar
-   (`Database__MigrateOnStartup=true`). Pero correrlo antes deja ver los errores con calma.
+   No es obligatorio —el backend en Render las aplica al arrancar con
+   `Database__MigrateOnStartup=true`— pero correrlo antes deja ver los errores con calma.
 
 > El seeder de datos demo **solo corre en Development**. La base de producción arranca vacía;
 > el primer taller y su usuario Dueño se crean aparte.
