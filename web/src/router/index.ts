@@ -25,15 +25,34 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'home',
-        // El guard de abajo rebota a la pantalla del perfil: un Técnico o un Cliente que
-        // entre a "/" no se queda en el dashboard del Dueño.
-        redirect: { name: 'dashboard' },
+        // El guard rebota a la pantalla del perfil: un Técnico o un Cliente que entre a "/"
+        // no se queda en el tablero del Dueño.
+        redirect: { name: 'work-orders' },
       },
       {
-        path: 'dashboard',
-        name: 'dashboard',
-        component: () => import('@/views/owner/DashboardView.vue'),
+        path: 'ordenes',
+        name: 'work-orders',
+        component: () => import('@/views/owner/WorkOrderBoardView.vue'),
         meta: { roles: [Roles.Owner] },
+      },
+      {
+        path: 'requerimientos',
+        name: 'service-requests',
+        component: () => import('@/views/owner/ServiceRequestsView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
+        path: 'clientes',
+        name: 'customers',
+        component: () => import('@/views/owner/CustomersView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
+        // El detalle es la misma pantalla para los tres perfiles: el backend decide qué
+        // datos y qué acciones devuelve según quién pregunta.
+        path: 'ordenes/:id',
+        name: 'work-order',
+        component: () => import('@/views/WorkOrderDetailView.vue'),
       },
       {
         path: 'mis-asignaciones',
@@ -66,7 +85,7 @@ export const router = createRouter({
 export function homeRouteFor(role: Role | null): string {
   switch (role) {
     case Roles.Owner:
-      return 'dashboard'
+      return 'work-orders'
     case Roles.Technician:
       return 'my-assignments'
     case Roles.Customer:

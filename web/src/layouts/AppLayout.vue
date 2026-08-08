@@ -11,7 +11,11 @@ const router = useRouter()
 const navItems = computed(() => {
   switch (auth.role) {
     case Roles.Owner:
-      return [{ to: { name: 'dashboard' }, label: 'Dashboard' }]
+      return [
+        { to: { name: 'work-orders' }, label: 'Órdenes' },
+        { to: { name: 'service-requests' }, label: 'Requerimientos' },
+        { to: { name: 'customers' }, label: 'Clientes' },
+      ]
     case Roles.Technician:
       return [{ to: { name: 'my-assignments' }, label: 'Mis asignaciones' }]
     case Roles.Customer:

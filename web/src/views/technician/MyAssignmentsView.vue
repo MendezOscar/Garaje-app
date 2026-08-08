@@ -1,21 +1,10 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/stores/auth'
-
-const auth = useAuthStore()
+import OrderListView from '@/views/OrderListView.vue'
 </script>
 
 <template>
-  <section>
-    <h1>Mis asignaciones</h1>
-    <p>
-      Sesión iniciada como <strong>{{ auth.user?.fullName }}</strong> (Técnico).
-    </p>
-    <p class="pending">Fase 1: órdenes asignadas, checklist de pasos y cambio de estado.</p>
-  </section>
+  <OrderListView
+    title="Mis asignaciones"
+    subtitle="Las órdenes que tienes a tu cargo. Para el trabajo en el taller usa la app móvil."
+  />
 </template>
-
-<style scoped>
-.pending {
-  color: var(--text-muted);
-}
-</style>
