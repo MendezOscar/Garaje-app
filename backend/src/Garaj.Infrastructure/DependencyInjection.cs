@@ -1,5 +1,10 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Auth;
+using Garaj.Application.Branches;
+using Garaj.Application.Customers;
+using Garaj.Application.ServiceRequests;
+using Garaj.Application.Users;
+using Garaj.Application.WorkOrders;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
@@ -54,6 +59,13 @@ public static class DependencyInjection
         services.AddScoped<JwtTokenGenerator>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DbSeeder>();
+
+        services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IVehicleService, VehicleService>();
+        services.AddScoped<IWorkOrderService, WorkOrderService>();
+        services.AddScoped<IServiceRequestService, ServiceRequestService>();
 
         return services;
     }
