@@ -604,3 +604,32 @@ export interface WorkOrderDetail {
   parts: WorkOrderPart[]
   partsTotal: number
 }
+
+export const NotificationType = {
+  ServiceRequestCreated: 1,
+  WorkOrderAssigned: 2,
+  WorkOrderStatusChanged: 3,
+  QuoteSent: 4,
+  QuoteAnswered: 5,
+} as const
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
+
+export const NOTIFICATION_ICON: Record<NotificationType, string> = {
+  [NotificationType.ServiceRequestCreated]: '📥',
+  [NotificationType.WorkOrderAssigned]: '🔧',
+  [NotificationType.WorkOrderStatusChanged]: '🚗',
+  [NotificationType.QuoteSent]: '📄',
+  [NotificationType.QuoteAnswered]: '✅',
+}
+
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  body: string
+  workOrderId: string | null
+  quoteId: string | null
+  serviceRequestId: string | null
+  isRead: boolean
+  createdAt: string
+}

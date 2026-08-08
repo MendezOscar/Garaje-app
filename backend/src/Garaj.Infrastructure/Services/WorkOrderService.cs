@@ -1,6 +1,7 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
+using Garaj.Application.Notifications;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
@@ -15,7 +16,8 @@ public class WorkOrderService(
     GarajDbContext db,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
-    StockService stock) : IWorkOrderService
+    StockService stock,
+    INotificationPublisher notifications) : IWorkOrderService
 {
     public async Task<PagedResult<WorkOrderListItemDto>> ListAsync(
         WorkOrderQuery query, CancellationToken ct = default)
@@ -136,6 +138,13 @@ public class WorkOrderService(
 
         await db.SaveChangesAsync(ct);
 
+        if (order.AssignedTechnicianId is { } technician)
+            await notifications.NotifyUserAsync(order.TenantId, technician, new NotificationDraft(
+                NotificationType.WorkOrderAssigned,
+                $"Nueva orden asignada · {order.Number}",
+                await VehicleLabelAsync(order.VehicleId, ct),
+                WorkOrderId: order.Id), ct);
+
         return await GetAsync(order.Id, ct);
     }
 
@@ -172,6 +181,13 @@ public class WorkOrderService(
 
         order.AssignedTechnicianId = request.TechnicianId;
         await db.SaveChangesAsync(ct);
+
+        if (request.TechnicianId is { } assigned)
+            await notifications.NotifyUserAsync(order.TenantId, assigned, new NotificationDraft(
+                NotificationType.WorkOrderAssigned,
+                $"Nueva orden asignada · {order.Number}",
+                await VehicleLabelAsync(order.VehicleId, ct),
+                WorkOrderId: order.Id), ct);
 
         return await GetAsync(id, ct);
     }
@@ -214,8 +230,44 @@ public class WorkOrderService(
         });
 
         await db.SaveChangesAsync(ct);
+
+        // Solo se avisa de lo que el cliente puede ver: si el taller marcó el cambio como
+        // interno, mandarle una notificación lo delataría igual.
+        if (request.IsVisibleToCustomer)
+            await NotifyCustomerOfStatusAsync(order, ct);
+
         return await GetAsync(id, ct);
     }
+
+    private async Task NotifyCustomerOfStatusAsync(WorkOrder order, CancellationToken ct)
+    {
+        var customerId = await db.Vehicles
+            .Where(v => v.Id == order.VehicleId)
+            .Select(v => v.CustomerId)
+            .FirstOrDefaultAsync(ct);
+
+        if (customerId == Guid.Empty) return;
+
+        var body = order.Status switch
+        {
+            WorkOrderStatus.Ready => "Su vehículo está listo para retirar.",
+            WorkOrderStatus.Delivered => "Su vehículo fue entregado. Gracias por confiar en nosotros.",
+            WorkOrderStatus.Cancelled => "La orden fue cancelada.",
+            _ => $"Su vehículo pasó a: {Describe(order.Status).ToLowerInvariant()}."
+        };
+
+        await notifications.NotifyCustomerAsync(order.TenantId, customerId, new NotificationDraft(
+            NotificationType.WorkOrderStatusChanged,
+            $"Orden {order.Number}",
+            body,
+            WorkOrderId: order.Id), ct);
+    }
+
+    private async Task<string> VehicleLabelAsync(Guid vehicleId, CancellationToken ct) =>
+        await db.Vehicles
+            .Where(v => v.Id == vehicleId)
+            .Select(v => v.Brand + " " + v.Model + (v.Plate == null ? "" : " · " + v.Plate))
+            .FirstOrDefaultAsync(ct) ?? "Vehículo del taller";
 
     public async Task<WorkOrderTaskDto> AddTaskAsync(
         Guid workOrderId, SaveWorkOrderTaskRequest request, CancellationToken ct = default)

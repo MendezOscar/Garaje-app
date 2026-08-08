@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
+using Garaj.Application.Notifications;
 using Garaj.Application.Quotes;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
@@ -14,7 +15,8 @@ public class QuoteService(
     GarajDbContext db,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
-    IConfiguration configuration) : IQuoteService
+    IConfiguration configuration,
+    INotificationPublisher notifications) : IQuoteService
 {
     public async Task<PagedResult<QuoteListItemDto>> ListAsync(
         QuoteQuery query, CancellationToken ct = default)
@@ -296,6 +298,15 @@ public class QuoteService(
             await db.SaveChangesAsync(ct);
         }
 
+        // El canal de verdad es el WhatsApp que el Dueño está a punto de enviar. Esto es el
+        // respaldo: si el cliente usa la app, la cotización le aparece ahí sin buscar el chat.
+        await notifications.NotifyCustomerAsync(quote.TenantId, quote.CustomerId, new NotificationDraft(
+            NotificationType.QuoteSent,
+            $"Cotización {quote.Number}",
+            $"Su cotización por {quote.Total:N2} está lista para revisar.",
+            QuoteId: quote.Id,
+            WorkOrderId: quote.WorkOrderId), ct);
+
         return await BuildLinkAsync(quote.Id, ct);
     }
 
@@ -478,6 +489,21 @@ public class QuoteService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        // Aquí llegan también las respuestas anónimas desde el link de WhatsApp, y esas son
+        // justamente las que el Dueño no puede ver venir: nadie le avisa por otro medio.
+        var customerName = await db.Customers.IgnoreQueryFilters()
+            .Where(c => c.Id == quote.CustomerId)
+            .Select(c => c.FullName)
+            .FirstAsync(ct);
+
+        await notifications.NotifyOwnersAsync(quote.TenantId, new NotificationDraft(
+            NotificationType.QuoteAnswered,
+            approved ? $"Cotización {quote.Number} aprobada" : $"Cotización {quote.Number} rechazada",
+            $"{customerName} {(approved ? "aprobó" : "rechazó")} por {quote.Total:N2}."
+            + (quote.CustomerResponseNote is { } note ? $" «{note}»" : ""),
+            QuoteId: quote.Id,
+            WorkOrderId: quote.WorkOrderId), ct);
     }
 
     private async Task ApplyAsync(QuoteLine line, SaveQuoteLineRequest request, CancellationToken ct)

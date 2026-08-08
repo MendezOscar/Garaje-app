@@ -2,7 +2,7 @@
 
 Plataforma para administrar un taller de autos y motos: requerimientos de servicio, órdenes
 de trabajo con evidencia fotográfica, inventario de repuestos por sucursal, cotizaciones por
-WhatsApp y reportes de ingresos.
+WhatsApp, reportes de ingresos y avisos a cada perfil.
 
 Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N sucursales.
 
@@ -13,7 +13,7 @@ Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N 
 | [backend/](backend/) | API en .NET 8 (Domain / Application / Infrastructure / Api) |
 | [web/](web/) | Panel web en Vue 3 + Vite + TypeScript |
 | [mobile/](mobile/) | App móvil en Flutter (Dueño, Técnico y Cliente) |
-| [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md) y [despliegue](docs/deployment.md) |
+| [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md), [despliegue](docs/deployment.md) y [notificaciones push](docs/push.md) |
 
 ## Requisitos
 
@@ -132,6 +132,9 @@ python3 backend/tests/smoke/fase4_smoke.py
 
 # Humo de ventas y reportes: 52 comprobaciones de facturación y desglose
 python3 backend/tests/smoke/fase5_smoke.py
+
+# Humo de avisos: 38 comprobaciones de la campana, el aislamiento y la cita del cliente
+python3 backend/tests/smoke/fase6_smoke.py
 
 # Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \

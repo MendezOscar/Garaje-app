@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
 import { Roles } from '@/types/api'
 
@@ -52,6 +53,8 @@ async function logout() {
       </nav>
 
       <div class="user">
+        <NotificationBell />
+
         <select
           v-if="auth.user && auth.user.branches.length > 1"
           :value="auth.activeBranchId"

@@ -64,7 +64,6 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
     public void Configure(EntityTypeBuilder<AppUser> b)
     {
         b.Property(x => x.FullName).HasMaxLength(200).IsRequired();
-        b.Property(x => x.PushToken).HasMaxLength(500);
         b.HasIndex(x => x.TenantId);
         b.HasIndex(x => x.CustomerId);
     }

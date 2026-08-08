@@ -226,6 +226,54 @@ Decisiones que conviene conocer antes de tocar esto:
   `costTotal` y `margin` en cero.
 - El CSV va con BOM: sin él, Excel en Windows abre los acentos rotos.
 
+### Fase 6 — avisos y app del cliente
+
+Todo aviso queda **guardado** aunque el push falle o el usuario no tenga la app: la campana
+dentro de la aplicación es el canal principal y el push solo empuja a abrirla. Al revés, un
+aviso perdido no se recupera nunca.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/notifications?onlyUnread=` | cualquiera | Avisos del usuario, del más nuevo al más viejo |
+| GET | `/api/notifications/unread-count` | cualquiera | Solo el número del globo rojo |
+| POST | `/api/notifications/{id}/read` | cualquiera | Marca uno leído |
+| POST | `/api/notifications/read-all` | cualquiera | Marca todos y devuelve cuántos |
+| POST | `/api/notifications/devices` | cualquiera | Registra el token de push del aparato |
+| DELETE | `/api/notifications/devices/{token}` | cualquiera | Da de baja el aparato |
+
+`NotificationType`: `1` requerimiento nuevo · `2` orden asignada · `3` cambio de estado ·
+`4` cotización enviada · `5` cotización respondida.
+`DevicePlatform`: `1` Android · `2` iOS · `3` web.
+
+Quién recibe qué:
+
+| Hecho | Avisa a |
+| --- | --- |
+| El Cliente abre un requerimiento desde su app | Todos los Dueños activos |
+| Se asigna o reasigna una orden | El Técnico asignado |
+| Cambia el estado de una orden (visible al cliente) | El Cliente del vehículo |
+| Se envía una cotización | El Cliente |
+| El cliente aprueba o rechaza | Todos los Dueños activos |
+
+Decisiones que conviene conocer antes de tocar esto:
+
+- **Un aviso nunca tumba la operación que lo originó.** Si falla el guardado o el push, se
+  registra un warning y el cambio de estado —o la venta, o la cotización— sigue adelante.
+- **Solo se avisa de lo que el cliente puede ver.** Un cambio de estado marcado
+  `isVisibleToCustomer: false` no genera notificación: mandarla lo delataría igual.
+- **Un requerimiento creado por el Dueño no le avisa a él mismo.** Avisar de la propia captura
+  del mostrador es ruido que enseña a ignorar la campana.
+- **El aviso de otro usuario devuelve 404, no 403**, igual que el resto de la API.
+- **El token de dispositivo es único en todo el sistema, no por taller.** Si un teléfono
+  cambia de manos, la fila se reasigna en lugar de duplicarse; si no, el dueño anterior
+  seguiría recibiendo los avisos del nuevo.
+- Las apps **sondean** el contador cada minuto en vez de mantener un WebSocket abierto: son
+  tres o cuatro personas por taller y el servidor del plan gratuito duerme.
+- El envío push está **apagado mientras no haya proyecto de Firebase** (`Push__ProjectId` y
+  `Push__ServiceAccountJson`). Ver [push.md](push.md).
+- El **Cliente** puede crear requerimientos y adjuntarles fotos; el **Técnico** no participa
+  en esa etapa y no recibe nada de ella.
+
 ### Reglas de alcance
 
 Son la parte que hay que respetar al agregar endpoints nuevos. Viven en
@@ -259,6 +307,9 @@ python3 backend/tests/smoke/fase4_smoke.py
 
 # Fase 5: ventas y reportes
 python3 backend/tests/smoke/fase5_smoke.py
+
+# Fase 6: avisos, dispositivos y la cita que pide el cliente
+python3 backend/tests/smoke/fase6_smoke.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.
@@ -269,7 +320,7 @@ hay que recrearla — y el `DROP DATABASE` falla en silencio si la API sigue con
 que primero se detiene:
 
 ```bash
-lsof -ti :7080 | xargs -r kill -9
+pkill -f "Garaj.Api"
 docker exec garaj-postgres psql -U garaj -d postgres \
   -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='garaj';" \
   -c "DROP DATABASE IF EXISTS garaj;" -c "CREATE DATABASE garaj OWNER garaj;"

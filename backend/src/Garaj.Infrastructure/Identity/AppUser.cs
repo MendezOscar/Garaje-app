@@ -23,9 +23,6 @@ public class AppUser : IdentityUser<Guid>, ITenantEntity
     /// <summary>Cliente asociado. Solo tiene valor en usuarios con rol Customer.</summary>
     public Guid? CustomerId { get; set; }
 
-    /// <summary>Token de Firebase para push. Se actualiza en cada login del móvil.</summary>
-    public string? PushToken { get; set; }
-
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
 

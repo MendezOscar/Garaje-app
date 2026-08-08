@@ -39,6 +39,9 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleLine> SaleLines => Set<SaleLine>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+
     /// <summary>
     /// Usuarios del taller actual. <see cref="AppUser"/> no lleva global query filter porque el
     /// login necesita buscar por email antes de conocer el tenant, así que este es el único

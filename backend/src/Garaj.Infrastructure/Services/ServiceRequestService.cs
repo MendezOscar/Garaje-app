@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
+using Garaj.Application.Notifications;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
@@ -12,7 +13,8 @@ namespace Garaj.Infrastructure.Services;
 public class ServiceRequestService(
     GarajDbContext db,
     ITenantContext tenantContext,
-    IWorkOrderService workOrders) : IServiceRequestService
+    IWorkOrderService workOrders,
+    INotificationPublisher notifications) : IServiceRequestService
 {
     public async Task<PagedResult<ServiceRequestDto>> ListAsync(
         ServiceRequestQuery query, CancellationToken ct = default)
@@ -87,8 +89,23 @@ public class ServiceRequestService(
 
         await db.SaveChangesAsync(ct);
 
+        // Solo cuando lo abre el cliente desde su app. Si lo registró el Dueño en el
+        // mostrador, avisarle de su propia captura es ruido que enseña a ignorar la campana.
+        if (scope.IsCustomer)
+            await notifications.NotifyOwnersAsync(serviceRequest.TenantId, new NotificationDraft(
+                NotificationType.ServiceRequestCreated,
+                "Nuevo requerimiento de un cliente",
+                $"{vehicle.Brand} {vehicle.Model}"
+                + (vehicle.Plate is null ? "" : $" · {vehicle.Plate}")
+                + $": {Summarize(serviceRequest.Description)}",
+                ServiceRequestId: serviceRequest.Id), ct);
+
         return await GetAsync(serviceRequest.Id, ct);
     }
+
+    /// <summary>El cuerpo del aviso es una línea en una lista, no el motivo completo.</summary>
+    private static string Summarize(string text) =>
+        text.Length <= 120 ? text : text[..117].TrimEnd() + "…";
 
     public async Task<Guid> ApproveAsync(
         Guid id, ApproveServiceRequestRequest request, CancellationToken ct = default)

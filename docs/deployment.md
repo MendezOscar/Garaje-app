@@ -181,7 +181,25 @@ un bucket sin configurar no debe tumbar la API.
 
 ---
 
-## 5. Móvil
+## 5. Notificaciones push (opcional)
+
+Dos variables más en Render, cuando exista el proyecto de Firebase:
+
+| Variable | Valor |
+| --- | --- |
+| `Push__ProjectId` | Id del proyecto de Firebase |
+| `Push__ServiceAccountJson` | El JSON de la cuenta de servicio, entero y en una línea |
+
+Sin ellas la API arranca igual y los avisos se quedan en la campana de cada usuario, que es
+donde de todos modos hay que poder verlos. El paso a paso completo —incluida la clave de APNs,
+sin la cual el push no llega a ningún iPhone— está en [push.md](push.md).
+
+El JSON de la cuenta de servicio es una credencial: va en el panel de Render, nunca en el
+repositorio.
+
+---
+
+## 6. Móvil
 
 La app apunta a la API por `--dart-define`:
 

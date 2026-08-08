@@ -6,6 +6,7 @@ import type {
   LaborService,
   MediaAttachment,
   MediaOwnerType,
+  Notification,
   Dashboard,
   Paged,
   Part,
@@ -491,5 +492,24 @@ export const reportsApi = {
       Object.entries(params(query)).map(([k, v]) => [k, String(v)]),
     )
     return `${api.defaults.baseURL}/api/reports/revenue.csv?${search}`
+  },
+}
+
+export const notificationsApi = {
+  async list(query: { onlyUnread?: boolean; page?: number; pageSize?: number } = {}) {
+    const { data } = await api.get<Paged<Notification>>('/api/notifications', {
+      params: params(query),
+    })
+    return data
+  },
+  async unreadCount(): Promise<number> {
+    const { data } = await api.get<{ unread: number }>('/api/notifications/unread-count')
+    return data.unread
+  },
+  async markRead(id: string) {
+    await api.post(`/api/notifications/${id}/read`)
+  },
+  async markAllRead() {
+    await api.post('/api/notifications/read-all')
   },
 }

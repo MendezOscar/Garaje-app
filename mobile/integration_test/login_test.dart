@@ -48,6 +48,9 @@ void main() {
     // El resumen de ingresos es solo suyo; los otros perfiles no lo ven.
     expect(find.text('INGRESOS'), findsOneWidget);
     expect(find.text('Hoy'), findsOneWidget);
+    // La campana está en las tres bandejas; pedir cita, solo en la del Cliente.
+    expect(find.byTooltip('Avisos'), findsOneWidget);
+    expect(find.text('Pedir cita'), findsNothing);
   });
 
   testWidgets('el Técnico ve solo lo suyo y puede abrir la orden', (tester) async {
@@ -56,6 +59,8 @@ void main() {
     expect(find.text('Mis asignaciones'), findsOneWidget);
     expect(find.textContaining('MTZ-'), findsOneWidget);
     expect(find.text('INGRESOS'), findsNothing);
+    expect(find.byTooltip('Avisos'), findsOneWidget);
+    expect(find.text('Pedir cita'), findsNothing);
     // La orden de la otra sucursal es de otro técnico: no debe aparecer.
     expect(find.textContaining('SPS-'), findsNothing);
 
@@ -99,6 +104,39 @@ void main() {
     await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     expect(find.text('CAMBIAR ESTADO'), findsNothing);
+  });
+
+  testWidgets('el Cliente pide una cita desde su teléfono', (tester) async {
+    await signIn(tester, 'cliente@garaj.test');
+
+    expect(find.text('Pedir cita'), findsOneWidget);
+    await tester.tap(find.text('Pedir cita'));
+    await tester.pumpAndSettle();
+
+    // Los vehículos y las sucursales los trae la API: hay que darle tiempo de red.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Qué necesita?'), findsOneWidget);
+    expect(find.text('FOTOS'), findsOneWidget);
+    expect(find.byTooltip('Tomar foto'), findsOneWidget);
+
+    // Sin motivo no se envía: es el único dato que el taller no puede adivinar.
+    await tester.tap(find.text('Enviar al taller'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cuéntenos qué necesita.'), findsOneWidget);
+  });
+
+  testWidgets('la campana abre los avisos del usuario', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await tester.tap(find.byTooltip('Avisos'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Avisos'), findsWidgets);
+    expect(find.text('Marcar todo'), findsOneWidget);
   });
 
   testWidgets('una contraseña incorrecta muestra el error y no navega', (tester) async {

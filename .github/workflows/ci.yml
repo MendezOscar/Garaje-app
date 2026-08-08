@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Un push encima de otro cancela el anterior: el runner gratuito es lento y no tiene
+# sentido esperar el resultado de un commit que ya quedó atrás.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Las pruebas de verdad de este proyecto son los humos: recorren el flujo del taller de
+  # punta a punta contra la API real, la base real y el bucket real. Por eso el trabajo
+  # levanta Postgres y MinIO en lugar de sustituirlos por dobles.
+  backend:
+    name: API · humos de fase
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: garaj
+          POSTGRES_PASSWORD: garaj-ci
+          POSTGRES_DB: garaj
+        ports: ['5434:5432']
+        options: >-
+          --health-cmd "pg_isready -U garaj"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: garaj
+          MINIO_ROOT_PASSWORD: garaj-ci-secret
+          MINIO_DEFAULT_BUCKETS: garaj-media
+        ports: ['9010:9000']
+
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-ci
+      Jwt__SigningKey: clave-de-integracion-continua-de-al-menos-32-caracteres
+      Storage__ServiceUrl: http://localhost:9010
+      Storage__Bucket: garaj-media
+      Storage__AccessKey: garaj
+      Storage__SecretKey: garaj-ci-secret
+      Storage__ForcePathStyle: 'true'
+      PublicBaseUrl: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # La versión sale de global.json: si allí se fija otra, este paso la sigue.
+          global-json-file: global.json
+
+      - run: dotnet build backend/Garaj.sln --configuration Release
+
+      - name: Arrancar la API
+        run: |
+          dotnet run --project backend/src/Garaj.Api --configuration Release --no-build \
+            --urls http://localhost:5080 > api.log 2>&1 &
+          # La API migra y siembra al arrancar en Development; con base vacía tarda.
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:5080/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:5080/health || (cat api.log && exit 1)
+
+      - name: Humos
+        run: |
+          for fase in 1 2 3 4 5 6; do
+            python3 backend/tests/smoke/fase${fase}_smoke.py || exit 1
+          done
+
+      - name: Log de la API
+        if: failure()
+        run: cat api.log
+
+  web:
+    name: Web · tipos y build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # `npm run build` corre vue-tsc antes de vite: un error de tipos rompe aquí, que es
+      # donde tiene que romper y no en el despliegue de Cloudflare Pages.
+      - run: npm run build
+
+  mobile:
+    name: Móvil · análisis
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.1'
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      # Sin `dart format`: el formateador rompe a 80 columnas y este código está escrito a
+      # 100, así que exigirlo reformatearía el proyecto entero a cambio de nada.
+      # Las pruebas de integración necesitan un simulador y la API en marcha; se corren a
+      # mano antes de publicar. Aquí queda el análisis, que es lo que sí puede automatizarse.
+      - run: flutter analyze

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/login/login_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
+import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
@@ -46,6 +48,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/ordenes/:id',
         builder: (_, state) => WorkOrderDetailScreen(id: state.pathParameters['id']!),
       ),
+      GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
     ],
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
@@ -55,8 +59,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (auth is AuthSignedOut) return location == '/login' ? null : '/login';
 
       // El detalle es accesible desde cualquier perfil: el backend decide si el usuario
-      // puede verla y devuelve 404 si no le corresponde.
-      if (location.startsWith('/ordenes/')) return null;
+      // puede verla y devuelve 404 si no le corresponde. Los avisos y la petición de cita
+      // están por encima del perfil: cada uno ve lo suyo dentro de la pantalla.
+      if (location.startsWith('/ordenes/') ||
+          location == '/avisos' ||
+          location == '/nueva-cita') {
+        return null;
+      }
 
       final home = homeRouteFor((auth as AuthSignedIn).user.role);
       return location == home ? null : home;

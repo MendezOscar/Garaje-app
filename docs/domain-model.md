@@ -59,6 +59,17 @@ WhatsApp: aleatorio, único global (la consulta corre sin filtro de tenant) y no
 los reportes de ingresos por repuestos vs mano de obra. `SaleLine.UnitCost` congela el costo
 al momento de la venta para poder calcular margen sin depender del catálogo actual.
 
+## Avisos
+
+`Notification` es una fila por destinatario, no por hecho: el mismo cambio de estado genera
+tantas como personas haya que avisar. Se guarda siempre, aunque el push falle o el usuario no
+tenga la app —la campana es el canal principal y el push solo empuja a abrirla—.
+`ReadAt` guarda el cuándo, no un sí/no.
+
+`DeviceToken.Token` es único **en todo el sistema**, no por taller: identifica al aparato. Si
+un teléfono cambia de manos, la fila se reasigna al nuevo usuario en lugar de duplicarse; si
+no, el dueño anterior seguiría recibiendo los avisos del nuevo.
+
 ## Correlativos
 
 `Branch` guarda `WorkOrderSequence`, `QuoteSequence` y `SaleSequence`. Los números quedan como

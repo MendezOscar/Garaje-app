@@ -72,3 +72,23 @@ public enum PaymentMethod
     Transfer = 3,
     Other = 4
 }
+
+/// <summary>
+/// Motivo del aviso. Determina el ícono y a qué pantalla lleva al tocarlo, así que los
+/// valores no se reordenan: los clientes ya publicados los guardan como enteros.
+/// </summary>
+public enum NotificationType
+{
+    ServiceRequestCreated = 1,
+    WorkOrderAssigned = 2,
+    WorkOrderStatusChanged = 3,
+    QuoteSent = 4,
+    QuoteAnswered = 5
+}
+
+public enum DevicePlatform
+{
+    Android = 1,
+    IOS = 2,
+    Web = 3
+}

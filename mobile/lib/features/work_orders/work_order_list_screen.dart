@@ -8,6 +8,7 @@ import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
+import '../notifications/notifications_screen.dart';
 import '../shared/status_chip.dart';
 
 /// Bandeja de órdenes. La comparten el Técnico ("mis asignaciones"), el Dueño (las del
@@ -28,6 +29,7 @@ class WorkOrderListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(title),
         actions: [
+          const NotificationBell(),
           IconButton(
             tooltip: 'Salir',
             icon: const Icon(Icons.logout),
@@ -35,6 +37,14 @@ class WorkOrderListScreen extends ConsumerWidget {
           ),
         ],
       ),
+      // Solo al Cliente: el taller registra el ingreso desde el mostrador, no desde aquí.
+      floatingActionButton: auth is AuthSignedIn && auth.user.role == AppRole.customer
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/nueva-cita'),
+              icon: const Icon(Icons.add),
+              label: const Text('Pedir cita'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(myWorkOrdersProvider),
         child: orders.when(

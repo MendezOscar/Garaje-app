@@ -4,6 +4,7 @@ using Garaj.Application.Branches;
 using Garaj.Application.Customers;
 using Garaj.Application.Inventory;
 using Garaj.Application.Media;
+using Garaj.Application.Notifications;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
@@ -13,6 +14,7 @@ using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Garaj.Infrastructure.Persistence.Interceptors;
+using Garaj.Infrastructure.Push;
 using Garaj.Infrastructure.Services;
 using Garaj.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
@@ -33,6 +35,7 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
 
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
@@ -93,6 +96,17 @@ public static class DependencyInjection
         // petición desperdicia handshakes TLS contra el bucket.
         services.AddSingleton<IStorageService, S3StorageService>();
         services.AddScoped<IMediaService, MediaService>();
+
+        // Una sola instancia por petición para las dos caras: la que lee la campana y la que
+        // emite los avisos comparten el mismo DbContext y la misma transacción implícita.
+        services.AddScoped<NotificationService>();
+        services.AddScoped<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
+        services.AddScoped<INotificationPublisher>(sp => sp.GetRequiredService<NotificationService>());
+
+        services.AddHttpClient();
+        // Singleton: la credencial de Google cachea y renueva su access token, y rehacerla
+        // en cada aviso significaría un viaje extra a los servidores de OAuth cada vez.
+        services.AddSingleton<IPushSender, FcmPushSender>();
 
         return services;
     }
