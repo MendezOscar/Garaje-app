@@ -41,7 +41,7 @@ contraseña no toca el repo:
 ```bash
 cd backend
 dotnet user-secrets set "ConnectionStrings:Default" \
-  "Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=<pwd>;SSL Mode=Require;Trust Server Certificate=true" \
+  "Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=<pwd>;SSL Mode=Require;Trust Server Certificate=true" \
   --project src/Garaj.Api
 ```
 

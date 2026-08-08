@@ -6,9 +6,10 @@ services:
     name: garaj-api
     runtime: docker
     plan: free
-    # Virginia es la región de Render más cercana a Ecuador. Conviene crear el proyecto de
-    # Supabase en us-east-1 para que la base quede en el mismo lado.
-    region: virginia
+    # Debe coincidir con la región del proyecto de Supabase (us-west-2). Cada consulta
+    # cruza la red: con la API en Virginia y la base en Oregon se pagarían ~70 ms de ida y
+    # vuelta por consulta, y una pantalla hace varias.
+    region: oregon
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /health

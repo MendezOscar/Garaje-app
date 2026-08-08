@@ -15,8 +15,8 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
 
 ## 1. Supabase
 
-1. Cree el proyecto en <https://supabase.com/dashboard>. **Región: `us-east-1` (N. Virginia)**,
-   para que quede junto al backend en Render y con buena latencia desde Ecuador.
+1. Cree el proyecto en <https://supabase.com/dashboard>. **Región: la misma que el servicio de Render** (este proyecto está en `us-west-2` / Oregon),
+   para no pagar latencia de red en cada consulta.
 2. Guarde la contraseña de la base: solo se muestra al crear el proyecto.
 3. En el botón **Connect** de la barra superior, copie la cadena del **Session pooler**.
    No sirven las otras dos:
@@ -33,7 +33,7 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
 4. Supabase la muestra como URI de `libpq`. Tradúzcala al formato de Npgsql:
 
    ```
-   Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<su-password>;SSL Mode=Require;Trust Server Certificate=true
+   Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<su-password>;SSL Mode=Require;Trust Server Certificate=true
    ```
 
    El usuario del pooler lleva el project-ref pegado: `postgres.zitfkofrzvawujnqxexq`, no
@@ -46,7 +46,7 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
    ```bash
    cd backend
    dotnet user-secrets set "ConnectionStrings:Default" \
-     "Host=aws-0-us-east-1.pooler.supabase.com;Port=5432;..." --project src/Garaj.Api
+     "Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;..." --project src/Garaj.Api
    ```
 
    Para volver al Postgres local basta con `dotnet user-secrets remove "ConnectionStrings:Default"`.
