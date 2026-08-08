@@ -1,11 +1,11 @@
 # Despliegue
 
-| Pieza | Servicio |
-| --- | --- |
-| Base de datos | Supabase (Postgres gestionado) |
-| API .NET | Render (Docker, plan free) |
-| Panel web | Cloudflare Pages |
-| Fotos | Cloudflare R2 (a partir de la Fase 2) |
+| Pieza | Servicio | URL |
+| --- | --- | --- |
+| Base de datos | Supabase (`us-east-1`) | — |
+| API .NET | Render (Docker, plan free, Virginia) | <https://garaje-app.onrender.com> |
+| Panel web | Cloudflare Pages | <https://garaje-app.pages.dev> |
+| Fotos | Cloudflare R2 (a partir de la Fase 2) | — |
 
 Todo esto requiere cuentas propias. Los pasos de abajo son los que hay que hacer a mano una
 sola vez; el repo ya trae [render.yaml](../render.yaml), el
@@ -74,8 +74,12 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
    | Variable | Valor |
    | --- | --- |
    | `ConnectionStrings__Default` | la cadena Npgsql del paso 1 |
-   | `Cors__AllowedOrigins__0` | URL del panel web, ej. `https://garaj.pages.dev` |
-   | `PublicBaseUrl` | la misma URL del panel web |
+   | `Cors__AllowedOrigins__0` | `https://garaje-app.pages.dev` |
+   | `PublicBaseUrl` | `https://garaje-app.pages.dev` |
+
+   Los dos guiones bajos de `Cors__AllowedOrigins__0` son la forma en que .NET mapea un
+   elemento de arreglo desde variables de entorno; sin el `__0` final no lo lee. La URL va
+   **sin barra al final**: se compara carácter por carácter contra el header `Origin`.
 
    `Jwt__SigningKey` la genera Render sola. **No la cambie después**: rotarla invalida todas
    las sesiones abiertas.
