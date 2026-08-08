@@ -123,19 +123,44 @@ Después del primer despliegue, vuelva a Render y ponga la URL real de Pages en
 1. **R2 → Create bucket**, nombre `garaj-media`, ubicación automática.
 2. **Manage R2 API Tokens → Create token**, permiso *Object Read & Write* sobre ese bucket.
    Anote el **Account ID**, el Access Key ID y el Secret: el secreto solo se ve una vez.
-3. En **Settings → CORS policy** del bucket, pegue esto. Sin ello el navegador bloquea la
-   subida: el `PUT` va del navegador directo a R2, así que es R2 quien tiene que permitir
-   el origen del panel, no la API.
+3. Configure el CORS del bucket. Sin ello el navegador bloquea la subida desde el panel: el
+   `PUT` va del navegador **directo a R2**, así que es R2 quien tiene que permitir el origen,
+   no la API. (La app móvil no se ve afectada: el CORS es una regla del navegador.)
+
+   Por línea de comandos, que es lo que se usó:
+
+   ```bash
+   npx wrangler login
+   npx wrangler r2 bucket cors set garaj-media --file r2-cors.json
+   npx wrangler r2 bucket cors list garaj-media   # para comprobar
+   ```
 
    ```json
-   [
-     {
-       "AllowedOrigins": ["https://garaje-app.pages.dev", "http://localhost:5173"],
-       "AllowedMethods": ["PUT", "GET"],
-       "AllowedHeaders": ["content-type"],
-       "MaxAgeSeconds": 3600
-     }
-   ]
+   {
+     "rules": [
+       {
+         "allowed": {
+           "origins": ["https://garaje-app.pages.dev", "http://localhost:5173"],
+           "methods": ["GET", "PUT"],
+           "headers": ["content-type"]
+         },
+         "maxAgeSeconds": 3600
+       }
+     ]
+   }
+   ```
+
+   > Ojo: el panel web de Cloudflare (**Settings → CORS policy**) pide el formato de S3
+   > —una lista de reglas con `AllowedOrigins`, `AllowedMethods`…—, mientras que wrangler
+   > pide el de la API de R2, el de arriba. No son intercambiables.
+
+   Para comprobar que quedó, sin abrir un navegador:
+
+   ```bash
+   curl -si -X OPTIONS "https://<account-id>.r2.cloudflarestorage.com/garaj-media/x" \
+     -H "Origin: https://garaje-app.pages.dev" \
+     -H "Access-Control-Request-Method: PUT" \
+     -H "Access-Control-Request-Headers: content-type" | grep -i access-control
    ```
 
 4. En Render:
