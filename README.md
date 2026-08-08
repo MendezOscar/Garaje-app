@@ -130,6 +130,9 @@ python3 backend/tests/smoke/fase3_smoke.py
 # Humo de cotizaciones: 57 comprobaciones del circuito con el cliente
 python3 backend/tests/smoke/fase4_smoke.py
 
+# Humo de ventas y reportes: 52 comprobaciones de facturación y desglose
+python3 backend/tests/smoke/fase5_smoke.py
+
 # Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \
   -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080

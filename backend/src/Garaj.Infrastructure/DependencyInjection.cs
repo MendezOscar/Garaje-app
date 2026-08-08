@@ -5,6 +5,7 @@ using Garaj.Application.Customers;
 using Garaj.Application.Inventory;
 using Garaj.Application.Media;
 using Garaj.Application.Quotes;
+using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.Users;
 using Garaj.Application.WorkOrders;
@@ -84,6 +85,9 @@ public static class DependencyInjection
         // métodos internos que no están en la interfaz.
         services.AddScoped<StockService>();
         services.AddScoped<IStockService>(sp => sp.GetRequiredService<StockService>());
+
+        services.AddScoped<ISaleService, SaleService>();
+        services.AddScoped<IReportService, ReportService>();
 
         // Singleton: el cliente de S3 mantiene su pool de conexiones HTTP y crearlo por
         // petición desperdicia handshakes TLS contra el bucket.

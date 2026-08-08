@@ -6,13 +6,19 @@ import type {
   LaborService,
   MediaAttachment,
   MediaOwnerType,
+  Dashboard,
   Paged,
   Part,
+  PaymentMethod,
   PresignedUpload,
   PublicQuote,
   QuoteDetail,
   QuoteListItem,
   QuoteStatus,
+  RevenueGrouping,
+  RevenueReport,
+  SaleDetail,
+  SaleListItem,
   SaveQuoteLine,
   ServiceRequest,
   StockItem,
@@ -407,5 +413,83 @@ export const publicQuotesApi = {
   },
   pdfUrl(token: string) {
     return `${api.defaults.baseURL}/public/quotes/${token}/pdf`
+  },
+}
+
+export const salesApi = {
+  async list(query: {
+    branchId?: string
+    customerId?: string
+    workOrderId?: string
+    from?: string
+    to?: string
+    includeVoided?: boolean
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<SaleListItem>>('/api/sales', { params: params(query) })
+    return data
+  },
+  async get(id: string) {
+    const { data } = await api.get<SaleDetail>(`/api/sales/${id}`)
+    return data
+  },
+  /** Venta directa de mostrador. Descuenta los repuestos de la bodega. */
+  async create(body: {
+    branchId: string
+    customerId?: string
+    paymentMethod: PaymentMethod
+    notes?: string
+    lines: {
+      lineType: number
+      partId?: string | null
+      laborServiceId?: string | null
+      description?: string
+      quantity: number
+      unitPrice?: number
+      discount?: number
+    }[]
+  }) {
+    const { data } = await api.post<SaleDetail>('/api/sales', body)
+    return data
+  },
+  /** Factura lo trabajado en la orden y, si se pide, la marca como entregada. */
+  async closeWorkOrder(body: {
+    workOrderId: string
+    paymentMethod: PaymentMethod
+    notes?: string
+    includeLabor?: boolean
+    markAsDelivered?: boolean
+  }) {
+    const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
+    return data
+  },
+  async void(id: string, reason: string) {
+    const { data } = await api.post<SaleDetail>(`/api/sales/${id}/void`, { reason })
+    return data
+  },
+}
+
+export const reportsApi = {
+  async revenue(query: {
+    from?: string
+    to?: string
+    groupBy?: RevenueGrouping
+    branchId?: string
+  } = {}) {
+    const { data } = await api.get<RevenueReport>('/api/reports/revenue', { params: params(query) })
+    return data
+  },
+  async dashboard(branchId?: string) {
+    const { data } = await api.get<Dashboard>('/api/reports/dashboard', {
+      params: params({ branchId }),
+    })
+    return data
+  },
+  csvUrl(query: { from?: string; to?: string; groupBy?: RevenueGrouping; branchId?: string }) {
+    const search = new URLSearchParams(
+      Object.entries(params(query)).map(([k, v]) => [k, String(v)]),
+    )
+    return `${api.defaults.baseURL}/api/reports/revenue.csv?${search}`
   },
 }

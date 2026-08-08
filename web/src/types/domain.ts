@@ -32,6 +32,28 @@ export const WorkOrderStatus = {
 } as const
 export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus]
 
+export const PaymentMethod = {
+  Cash: 1,
+  Card: 2,
+  Transfer: 3,
+  Other: 4,
+} as const
+export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod]
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  [PaymentMethod.Cash]: 'Efectivo',
+  [PaymentMethod.Card]: 'Tarjeta',
+  [PaymentMethod.Transfer]: 'Transferencia',
+  [PaymentMethod.Other]: 'Otro',
+}
+
+export const RevenueGrouping = {
+  Day: 1,
+  Week: 2,
+  Month: 3,
+} as const
+export type RevenueGrouping = (typeof RevenueGrouping)[keyof typeof RevenueGrouping]
+
 export const QuoteStatus = {
   Draft: 1,
   Sent: 2,
@@ -422,6 +444,109 @@ export interface PublicQuote {
     discount: number
     total: number
   }[]
+}
+
+export interface SaleLine {
+  id: string
+  lineType: LineType
+  partId: string | null
+  laborServiceId: string | null
+  description: string
+  sequence: number
+  quantity: number
+  unitPrice: number
+  /** Llega en cero para el Cliente: el costo del taller no es asunto suyo. */
+  unitCost: number
+  discount: number
+  total: number
+}
+
+export interface SaleListItem {
+  id: string
+  number: string
+  branchId: string
+  branchName: string
+  customerId: string | null
+  customerName: string | null
+  workOrderId: string | null
+  workOrderNumber: string | null
+  saleDate: string
+  paymentMethod: PaymentMethod
+  total: number
+  isVoided: boolean
+}
+
+export interface SaleDetail extends SaleListItem {
+  customerPhone: string | null
+  vehicleLabel: string | null
+  subtotal: number
+  discountTotal: number
+  taxRate: number
+  taxTotal: number
+  costTotal: number
+  margin: number
+  currency: string
+  notes: string | null
+  voidReason: string | null
+  lines: SaleLine[]
+}
+
+export interface RevenuePoint {
+  periodStart: string
+  /** Ya formateado por el backend: "08/08", "sem. 32", "ago 2026". */
+  periodLabel: string
+  partsRevenue: number
+  laborRevenue: number
+  total: number
+  cost: number
+  margin: number
+  saleCount: number
+}
+
+export interface RevenueReport {
+  from: string
+  to: string
+  groupBy: RevenueGrouping
+  currency: string
+  partsRevenue: number
+  laborRevenue: number
+  total: number
+  cost: number
+  margin: number
+  marginPercent: number
+  saleCount: number
+  points: RevenuePoint[]
+  branches: {
+    branchId: string
+    branchName: string
+    partsRevenue: number
+    laborRevenue: number
+    total: number
+    saleCount: number
+  }[]
+  topParts: {
+    partId: string
+    sku: string
+    name: string
+    quantity: number
+    revenue: number
+    margin: number
+  }[]
+}
+
+export interface Dashboard {
+  currency: string
+  revenueToday: number
+  revenueWeek: number
+  revenueMonth: number
+  marginMonth: number
+  openWorkOrders: number
+  pendingRequests: number
+  lateWorkOrders: number
+  quotesAwaitingResponse: number
+  partsBelowMinimum: number
+  workOrdersByStatus: { status: WorkOrderStatus; count: number }[]
+  lastDays: RevenuePoint[]
 }
 
 export interface MediaAttachment {

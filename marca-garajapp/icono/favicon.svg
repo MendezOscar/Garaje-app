@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+<title>GarajApp</title>
+<rect width="100" height="100" rx="22" fill="#1F6FEB"></rect>
+<g transform="translate(24,24) scale(0.52)">
+<path d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z" fill="#FFFFFF"></path>
+</g>
+<text x="50" y="53" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="30" fill="#1F6FEB">G</text>
+</svg>

@@ -45,6 +45,9 @@ void main() {
     // El seeder deja una orden abierta en cada sucursal.
     expect(find.textContaining('MTZ-'), findsOneWidget);
     expect(find.textContaining('SPS-'), findsOneWidget);
+    // El resumen de ingresos es solo suyo; los otros perfiles no lo ven.
+    expect(find.text('INGRESOS'), findsOneWidget);
+    expect(find.text('Hoy'), findsOneWidget);
   });
 
   testWidgets('el Técnico ve solo lo suyo y puede abrir la orden', (tester) async {
@@ -52,6 +55,7 @@ void main() {
 
     expect(find.text('Mis asignaciones'), findsOneWidget);
     expect(find.textContaining('MTZ-'), findsOneWidget);
+    expect(find.text('INGRESOS'), findsNothing);
     // La orden de la otra sucursal es de otro técnico: no debe aparecer.
     expect(find.textContaining('SPS-'), findsNothing);
 

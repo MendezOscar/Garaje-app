@@ -2,19 +2,22 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
-import { quotesApi, usersApi, workOrdersApi } from '@/api/garaj'
+import { quotesApi, salesApi, usersApi, workOrdersApi } from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  PAYMENT_METHOD_LABEL,
+  PaymentMethod,
   VEHICLE_TYPE_LABEL,
   WORK_ORDER_STATUS_LABEL,
+  WorkOrderStatus,
+  type SaleListItem,
   type User,
   type WorkOrderDetail,
-  type WorkOrderStatus,
 } from '@/types/domain'
-import { formatDateTime, relativeTime, whatsappLink } from '@/utils/format'
+import { formatDateTime, formatMoney, relativeTime, whatsappLink } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +27,9 @@ const order = ref<WorkOrderDetail | null>(null)
 const technicians = ref<User[]>([])
 const error = ref('')
 const busy = ref(false)
+
+const sales = ref<SaleListItem[]>([])
+const paymentMethod = ref<PaymentMethod>(PaymentMethod.Cash)
 
 const statusNote = ref('')
 const noteIsInternal = ref(false)
@@ -35,9 +41,27 @@ const canEdit = computed(() => !auth.isCustomer)
 async function load() {
   try {
     order.value = await workOrdersApi.get(id.value)
+    if (auth.isOwner) {
+      sales.value = (await salesApi.list({ workOrderId: id.value })).items
+    }
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar la orden.')
   }
+}
+
+/**
+ * Cierra la orden: factura los repuestos consumidos y la mano de obra de los pasos, y la
+ * marca como entregada. Es el paso que alimenta los reportes de ingresos.
+ */
+function closeAndInvoice() {
+  if (!confirm('Se facturará lo trabajado y la orden quedará entregada. ¿Continuar?')) return
+
+  return run(() =>
+    salesApi.closeWorkOrder({
+      workOrderId: id.value,
+      paymentMethod: paymentMethod.value,
+    }),
+  )
 }
 
 async function run(action: () => Promise<unknown>) {
@@ -198,6 +222,34 @@ onMounted(async () => {
       </div>
 
       <div class="col">
+        <article v-if="auth.isOwner && !sales.length && order.status !== WorkOrderStatus.Cancelled" class="card">
+          <h2>Cerrar y facturar</h2>
+          <p class="muted small">
+            Cobra los repuestos ya cargados y la mano de obra de los pasos con servicio
+            asignado, y entrega el vehículo.
+          </p>
+          <select v-model.number="paymentMethod">
+            <option v-for="(label, value) in PAYMENT_METHOD_LABEL" :key="value" :value="Number(value)">
+              {{ label }}
+            </option>
+          </select>
+          <div class="actions">
+            <button type="button" :disabled="busy" @click="closeAndInvoice">
+              Facturar y entregar
+            </button>
+          </div>
+        </article>
+
+        <article v-if="auth.isOwner && sales.length" class="card">
+          <h2>Venta</h2>
+          <p v-for="sale in sales" :key="sale.id">
+            <strong>{{ sale.number }}</strong> · {{ formatMoney(sale.total) }}
+            <span class="muted small">
+              {{ PAYMENT_METHOD_LABEL[sale.paymentMethod] }} · {{ formatDateTime(sale.saleDate) }}
+            </span>
+          </p>
+        </article>
+
         <article v-if="auth.isOwner" class="card">
           <h2>Cotizar</h2>
           <p class="muted small">

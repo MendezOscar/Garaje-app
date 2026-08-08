@@ -1,0 +1,46 @@
+/* GarajApp — tokens de marca. Sustituye los :root de web/src/styles/main.css */
+:root {
+  /* marca */
+  --brand: #1F6FEB;
+  --brand-deep: #124293;
+  --ink: #14171C;
+
+  /* superficies */
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --surface-alt: #EEF0F4;
+  --border: #D9DDE4;
+  --text: #14171C;
+  --text-muted: #6B7480;
+
+  /* estado (solo estado, nunca fondo de marca) */
+  --accent: var(--brand);
+  --warning: #F2A31A;   /* espera aprobación / espera repuestos */
+  --success: #1FA971;   /* listo, entregado, pagado */
+  --danger: #C0392B;    /* cancelado, sin stock */
+
+  /* tipografía */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 22px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161A;
+    --surface: #1C1F26;
+    --surface-alt: #262A33;
+    --border: #333944;
+    --text: #E8EAED;
+    --text-muted: #9AA3AE;
+    --brand: #5C9DFF;
+    --accent: #5C9DFF;
+    --warning: #FFC14D;
+    --success: #46C892;
+    --danger: #FF6B5B;
+  }
+}

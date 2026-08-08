@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/dashboard_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
+import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
 import '../shared/status_chip.dart';
 
@@ -56,9 +58,12 @@ class WorkOrderListScreen extends ConsumerWidget {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: items.length,
+                  // Una fila más al principio para el resumen de ingresos del Dueño.
+                  itemCount: items.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => _OrderCard(order: items[i]),
+                  itemBuilder: (context, i) => i == 0
+                      ? const _RevenueSummary()
+                      : _OrderCard(order: items[i - 1]),
                 ),
         ),
       ),
@@ -185,6 +190,101 @@ class _ErrorState extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Resumen de ingresos del Dueño. Los otros perfiles no lo ven —la API les respondería 403—
+/// y para ellos el widget desaparece sin dejar hueco.
+class _RevenueSummary extends ConsumerWidget {
+  const _RevenueSummary();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+    if (auth is! AuthSignedIn || auth.user.role != AppRole.owner) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final summary = ref.watch(dashboardProvider);
+
+    return summary.maybeWhen(
+      data: (d) => Card(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'INGRESOS',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _Figure(label: 'Hoy', value: _money(d.today, d.currency), emphasis: true),
+                  _Figure(label: 'Semana', value: _money(d.week, d.currency)),
+                  _Figure(label: 'Mes', value: _money(d.month, d.currency)),
+                ],
+              ),
+              if (d.lateWorkOrders > 0 || d.pendingRequests > 0 || d.partsBelowMinimum > 0) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (d.pendingRequests > 0)
+                      Text('${d.pendingRequests} por atender', style: theme.textTheme.bodySmall),
+                    if (d.lateWorkOrders > 0)
+                      Text(
+                        '${d.lateWorkOrders} atrasadas',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                      ),
+                    if (d.partsBelowMinimum > 0)
+                      Text('${d.partsBelowMinimum} repuestos bajo mínimo',
+                          style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  static String _money(double value, String currency) =>
+      '$currency ${value.toStringAsFixed(0)}';
+}
+
+class _Figure extends StatelessWidget {
+  const _Figure({required this.label, required this.value, this.emphasis = false});
+
+  final String label;
+  final String value;
+  final bool emphasis;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.bodySmall),
+        Text(
+          value,
+          style: emphasis ? theme.textTheme.titleLarge : theme.textTheme.titleMedium,
         ),
       ],
     );

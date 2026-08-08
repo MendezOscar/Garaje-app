@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100">
+<title>GarajApp — logotipo horizontal</title>
+<path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#FFFFFF"></path>
+<text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#FFFFFF">G</text>
+<g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#FFFFFF">GarajApp</text></g>
+</svg>

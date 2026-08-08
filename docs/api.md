@@ -183,6 +183,49 @@ Decisiones que conviene conocer antes de tocar esto:
 - `PublicBaseUrl` debe apuntar al **web**, no a la API: el cliente abre una página, no un JSON.
   Sin ella, enviar falla con un mensaje explícito.
 
+### Fase 5 — ventas y reportes
+
+Una venta es **inmutable**. Si estuvo mal se anula con motivo y se hace otra: editar importes
+ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/sales?branchId=&from=&to=&includeVoided=` | Owner o Cliente | Ventas visibles |
+| GET | `/api/sales/{id}` | Owner o Cliente | Detalle con líneas |
+| POST | `/api/sales` | Owner | Venta directa de mostrador; descuenta inventario |
+| POST | `/api/sales/close-work-order` | Owner | Cierra la orden y factura lo trabajado |
+| POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
+| GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=` | Owner | Ingresos |
+| GET | `/api/reports/revenue.csv?…` | Owner | Lo mismo, para Excel |
+| GET | `/api/reports/dashboard?branchId=` | Owner | Tablero del día |
+
+`PaymentMethod`: `1` efectivo · `2` tarjeta · `3` transferencia · `4` otro.
+`RevenueGrouping`: `1` día · `2` semana · `3` mes.
+
+Decisiones que conviene conocer antes de tocar esto:
+
+- **Cerrar una orden no vuelve a descontar los repuestos.** Salieron de la bodega cuando el
+  técnico los cargó a la orden (Fase 3); aquí solo se facturan. La venta de mostrador sí
+  descuenta, porque ahí nadie pasó por una orden.
+- **Una orden solo se factura una vez** (409 si ya tiene venta no anulada). Para corregir, se
+  anula primero.
+- Al cerrar se cobran las **horas reales** del paso si el técnico las registró; si no, las
+  estimadas, y si tampoco, las estándar del catálogo.
+- El cierre marca la orden como entregada **saltándose la validación de transiciones**: cobrar
+  y entregar es un acto único y la orden puede estar en cualquier estado abierto.
+- **Anular devuelve el stock solo en las ventas de mostrador.** Los repuestos de una orden se
+  devuelven quitándolos de la orden, que es donde salieron.
+- **Las ventas anuladas no cuentan en los reportes**: uno que las incluyera mentiría.
+- El desglose repuestos/mano de obra sale de `SaleLine.LineType`, no de una clasificación
+  aparte: por eso siempre cuadra con lo facturado.
+- **El día contable es el del taller** (UTC−6, sin horario de verano en Honduras), no UTC: una
+  venta de las 7 de la noche aparecería al día siguiente si se agrupara por fecha UTC. Los
+  límites del rango se normalizan a UTC solo al tocar la base, porque Npgsql no acepta otro
+  desfase en `timestamptz`.
+- El **Técnico** no ve ventas ni reportes (403). El **Cliente** ve sus facturas, pero con
+  `costTotal` y `margin` en cero.
+- El CSV va con BOM: sin él, Excel en Windows abre los acentos rotos.
+
 ### Reglas de alcance
 
 Son la parte que hay que respetar al agregar endpoints nuevos. Viven en
@@ -213,6 +256,9 @@ python3 backend/tests/smoke/fase3_smoke.py
 
 # Fase 4: cotizaciones, PDF y el link público
 python3 backend/tests/smoke/fase4_smoke.py
+
+# Fase 5: ventas y reportes
+python3 backend/tests/smoke/fase5_smoke.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.
@@ -249,6 +295,3 @@ y emite uno nuevo. Si llega un refresh token ya revocado se cierran todas las se
 usuario: significa que alguien lo interceptó. Por eso web y móvil serializan el refresco en
 una sola petición en vuelo.
 
-## Pendiente por fase
-
-- **Fase 5** — `/api/sales`, `/api/reports/revenue`, `/api/reports/dashboard`
