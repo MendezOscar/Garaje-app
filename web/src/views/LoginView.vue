@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
+import BrandLogo from '@/components/BrandLogo.vue'
 import { homeRouteFor } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -33,7 +34,7 @@ async function submit() {
 <template>
   <div class="login">
     <form class="card" @submit.prevent="submit">
-      <h1>Garaj</h1>
+      <BrandLogo variant="vertical" :height="88" class="logo" />
       <p class="subtitle">Gestión de taller mecánico</p>
 
       <label>
@@ -53,7 +54,7 @@ async function submit() {
       </button>
 
       <p class="hint">
-        Demo: owner@garaj.test · tecnico1@garaj.test · cliente@garaj.test<br />
+        Demostración: dueno@maradiaga.hn · tecnico1@maradiaga.hn · cliente@maradiaga.hn<br />
         Contraseña: Garaj123!
       </p>
     </form>
@@ -75,17 +76,17 @@ async function submit() {
   gap: 0.75rem;
   padding: 2rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.75rem;
+.logo {
+  margin: 0 auto 0.25rem;
 }
 
 .subtitle {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.75rem;
+  text-align: center;
   color: var(--text-muted);
 }
 

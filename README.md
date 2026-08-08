@@ -1,4 +1,4 @@
-# Garaj — Gestión de taller mecánico
+# GarajApp — Gestión de taller mecánico
 
 Plataforma para administrar un taller de autos y motos: requerimientos de servicio, órdenes
 de trabajo con evidencia fotográfica, inventario de repuestos por sucursal, cotizaciones por
@@ -13,7 +13,36 @@ Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N 
 | [backend/](backend/) | API en .NET 8 (Domain / Application / Infrastructure / Api) |
 | [web/](web/) | Panel web en Vue 3 + Vite + TypeScript |
 | [mobile/](mobile/) | App móvil en Flutter (Dueño, Técnico y Cliente) |
+| [marca-garajapp/](marca-garajapp/) | Paquete de marca: logotipos, iconos y tokens. Ver su [LEEME](marca-garajapp/LEEME.md) |
 | [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md), [despliegue](docs/deployment.md), [notificaciones push](docs/push.md) y [datos de demostración](docs/demo.md) |
+
+## Marca
+
+El paquete de [marca-garajapp/](marca-garajapp/) es la fuente; lo demás son copias derivadas
+de él. Si la marca cambia, se cambia allí y se vuelve a derivar:
+
+| Dónde | Qué | Cómo se regenera |
+| --- | --- | --- |
+| `web/src/styles/main.css` | Colores, tipografías y radios | A mano, desde `tokens/garajapp-tokens.css` |
+| `web/public/brand/`, `web/public/favicon.svg` | Logotipos e iconos del navegador | Copia directa |
+| `mobile/lib/core/theme/garaj_brand.dart` | Tema de Flutter | A mano, desde `tokens/garaj_brand.dart` |
+| `mobile/assets/brand/` | Origen de iconos y arranque | Copia + derivados (ver abajo) |
+| Iconos de lanzador | Android e iOS | `cd mobile && dart run flutter_launcher_icons` |
+| Pantalla de arranque nativa | Android e iOS | `cd mobile && dart run flutter_native_splash:create` |
+
+Los dos derivados de `mobile/assets/brand/` no se dibujan a mano:
+
+- `icono-adaptativo.png` — la tuerca blanca con la G calada, reducida al 62% y centrada.
+  Android recorta el icono adaptativo con la máscara de cada lanzador y solo garantiza el
+  66% central; sin ese margen, un lanzador redondo se come las puntas de la tuerca.
+- `icono-ios.png` — el icono a sangre, sin las esquinas redondeadas del PNG de marca. iOS
+  aplica su propia máscara y no admite transparencia: con las esquinas ya redondeadas, lo
+  que queda fuera se aplana a blanco y asoma como un filo claro alrededor.
+
+Las tipografías van empaquetadas en `mobile/assets/fonts/` y no descargadas en tiempo de
+ejecución: en el taller la señal es mala y la aplicación no puede quedarse esperando una
+fuente para dibujar la primera pantalla. El web sí las pide a Google Fonts, donde el
+navegador ya las tiene en caché la mayoría de las veces.
 
 ## Requisitos
 

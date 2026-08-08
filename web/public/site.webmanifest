@@ -1,0 +1,20 @@
+{
+  "name": "GarajApp — Gestión de taller",
+  "short_name": "GarajApp",
+  "description": "Órdenes de trabajo, inventario, cotizaciones y ventas para talleres de autos y motos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1F6FEB",
+  "theme_color": "#1F6FEB",
+  "lang": "es",
+  "icons": [
+    { "src": "/brand/garajapp-icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/garajapp-icono-512.png", "sizes": "512x512", "type": "image/png" },
+    {
+      "src": "/brand/garajapp-icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

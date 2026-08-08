@@ -1,18 +1,40 @@
-/* Estilos base mínimos de la Fase 0. La librería de componentes (PrimeVue o Vuetify) se
-   decide en la Fase 1, cuando aparecen el kanban y las tablas. */
+/* Tokens de marca de GarajApp. Cualquier color nuevo sale de aquí: si una vista escribe un
+   hex a mano, el modo oscuro deja de funcionar en esa vista y nadie se entera hasta que un
+   cliente abre el sistema de noche. */
 
 :root {
-  --bg: #f6f7f9;
+  /* marca */
+  --brand: #1f6feb;
+  --brand-deep: #124293;
+  --ink: #14171c;
+
+  /* superficies */
+  --bg: #f7f8fa;
   --surface: #ffffff;
   --surface-alt: #eef0f4;
   --border: #d9dde4;
-  --text: #1c2230;
+  --text: #14171c;
   --text-muted: #6b7480;
-  --accent: #1f6feb;
-  --danger: #c0392b;
+
+  /* Estado, y solo estado: el ámbar y el verde nunca se usan como fondo de marca. Si todo
+     lleva color, el color deja de avisar de nada. */
+  --accent: var(--brand);
+  --warning: #f2a31a; /* espera aprobación / espera repuestos */
+  --success: #1fa971; /* listo, entregado, pagado */
+  --danger: #c0392b; /* cancelado, sin stock */
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Monoespaciada para folios, cantidades y montos: en una columna de importes, las cifras
+     tienen que alinearse por la coma. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 22px;
 
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
 }
@@ -25,7 +47,11 @@
     --border: #333944;
     --text: #e8eaed;
     --text-muted: #9aa3ae;
-    --accent: #5c9dff;
+    /* El azul de marca sube de luminosidad en oscuro: el #1F6FEB sobre #14161A no llega al
+       contraste mínimo de AA para texto. */
+    --brand: #5c9dff;
+    --warning: #ffc14d;
+    --success: #46c892;
     --danger: #ff6b5b;
   }
 }
@@ -38,6 +64,18 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-size: 15px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 1.5rem;
 }
 
 a {
@@ -50,10 +88,11 @@ a:hover {
 }
 
 input,
-select {
+select,
+textarea {
   padding: 0.5rem 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -61,7 +100,9 @@ select {
 
 input:focus-visible,
 select:focus-visible,
-button:focus-visible {
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -69,10 +110,11 @@ button:focus-visible {
 button {
   padding: 0.5rem 0.875rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: #fff;
   font: inherit;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -81,6 +123,9 @@ button:disabled {
   cursor: not-allowed;
 }
 
-h1 {
-  font-size: 1.5rem;
+/* Folios, cantidades y montos. Se aplica con class="num" allí donde el dato es una cifra
+   que alguien va a comparar con otra de la fila de abajo. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }

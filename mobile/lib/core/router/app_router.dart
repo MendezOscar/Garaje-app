@@ -4,17 +4,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/login/login_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
+import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
 import '../auth/auth_controller.dart';
 import '../models/current_user.dart';
+import '../onboarding/onboarding_controller.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Puente entre Riverpod y go_router: al cambiar el estado de sesión se reevalúa el
-  // redirect, así el login y el logout navegan solos sin que las pantallas lo hagan.
-  final notifier = _AuthRouterNotifier(ref);
+  // Puente entre Riverpod y go_router: al cambiar el estado de sesión —o al terminar la
+  // bienvenida— se reevalúa el redirect, así la navegación ocurre sola sin que las
+  // pantallas la empujen.
+  final notifier = _RouterNotifier(ref);
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
@@ -23,6 +26,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/bienvenida', builder: (_, __) => const OnboardingScreen()),
       GoRoute(
         path: '/taller',
         builder: (_, __) => const WorkOrderListScreen(
@@ -53,9 +57,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
+      final seenWelcome = ref.read(onboardingProvider);
       final location = state.matchedLocation;
 
-      if (auth is AuthLoading) return location == '/' ? null : '/';
+      // Mientras no se sepa si hay sesión guardada o si ya se vio la bienvenida, se espera
+      // en el splash. Adivinar significaría enseñar la bienvenida un fotograma a quien ya
+      // la vio, o el login a quien tenía sesión.
+      if (auth is AuthLoading || seenWelcome == null) {
+        return location == '/' ? null : '/';
+      }
+
+      // La bienvenida solo estorba a quien ya entró: si hay sesión, se da por vista.
+      if (!seenWelcome && auth is AuthSignedOut) {
+        return location == '/bienvenida' ? null : '/bienvenida';
+      }
+
       if (auth is AuthSignedOut) return location == '/login' ? null : '/login';
 
       // El detalle es accesible desde cualquier perfil: el backend decide si el usuario
@@ -79,19 +95,21 @@ String homeRouteFor(AppRole role) => switch (role) {
       AppRole.customer => '/mis-vehiculos',
     };
 
-class _AuthRouterNotifier extends ChangeNotifier {
-  _AuthRouterNotifier(Ref ref) {
-    _subscription = ref.listen<AuthState>(
-      authControllerProvider,
-      (_, __) => notifyListeners(),
-    );
+class _RouterNotifier extends ChangeNotifier {
+  _RouterNotifier(Ref ref) {
+    _subscriptions = [
+      ref.listen<AuthState>(authControllerProvider, (_, __) => notifyListeners()),
+      ref.listen<bool?>(onboardingProvider, (_, __) => notifyListeners()),
+    ];
   }
 
-  late final ProviderSubscription<AuthState> _subscription;
+  late final List<ProviderSubscription<Object?>> _subscriptions;
 
   @override
   void dispose() {
-    _subscription.close();
+    for (final subscription in _subscriptions) {
+      subscription.close();
+    }
     super.dispose();
   }
 }

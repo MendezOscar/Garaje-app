@@ -45,14 +45,17 @@ const label = computed(() => WORK_ORDER_STATUS_LABEL[props.status])
   color: var(--accent);
 }
 
+/* Los tres salen de los tokens de marca, no de hexes escritos aquí: así el modo oscuro
+   —donde el ámbar y el verde suben de luminosidad para alcanzar el contraste— sigue
+   funcionando sin duplicar reglas. */
 .badge[data-tone='blocked'] {
-  background: color-mix(in srgb, #d98324 22%, transparent);
-  color: #b06a12;
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: color-mix(in srgb, var(--warning) 80%, var(--ink));
 }
 
 .badge[data-tone='done'] {
-  background: color-mix(in srgb, #1f9d55 20%, transparent);
-  color: #157a41;
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: color-mix(in srgb, var(--success) 80%, var(--ink));
 }
 
 .badge[data-tone='muted'] {
@@ -60,12 +63,15 @@ const label = computed(() => WORK_ORDER_STATUS_LABEL[props.status])
   color: var(--text-muted);
 }
 
+/* Sobre grafito, mezclar con tinta oscurece la letra hasta perderla contra su propio
+   fondo: ahí el token va puro, que en oscuro ya viene aclarado. */
 @media (prefers-color-scheme: dark) {
   .badge[data-tone='blocked'] {
-    color: #f0a94c;
+    color: var(--warning);
   }
+
   .badge[data-tone='done'] {
-    color: #4ade80;
+    color: var(--success);
   }
 }
 </style>

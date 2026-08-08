@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
+import BrandLogo from '@/components/BrandLogo.vue'
 import { publicQuotesApi } from '@/api/garaj'
 import { LINE_TYPE_LABEL, QuoteStatus, type PublicQuote } from '@/types/domain'
 import { formatDate } from '@/utils/format'
@@ -201,6 +202,13 @@ onMounted(load)
         </a>
       </footer>
     </article>
+
+    <!-- La marca va discreta y al pie: esta página es del taller, no nuestra. Poner el
+         logotipo de GarajApp encima del nombre del taller confundiría a quien la abre. -->
+    <p v-if="quote" class="madeby">
+      <BrandLogo variant="isotipo" :height="16" />
+      <span>Cotización enviada con GarajApp</span>
+    </p>
   </main>
 </template>
 
@@ -208,18 +216,28 @@ onMounted(load)
 .page {
   min-height: 100dvh;
   padding: 1rem;
-  background: var(--surface-alt, #f4f4f5);
+  background: var(--bg);
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.madeby {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .card {
   width: min(44rem, 100%);
   padding: 1.5rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface, #fff);
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
 header {

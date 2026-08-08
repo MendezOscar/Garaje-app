@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_controller.dart';
+import '../shared/brand_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -63,10 +64,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Garaj', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 4),
+                    const BrandLockup(markSize: 76),
+                    const SizedBox(height: 8),
                     Text(
                       'Gestión de taller mecánico',
+                      textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
@@ -114,8 +116,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Demo: owner@garaj.test · tecnico1@garaj.test · cliente@garaj.test\n'
-                      'Contraseña: Garaj123!',
+                      'Demostración: dueno@maradiaga.hn · tecnico1@maradiaga.hn\n'
+                      'cliente@maradiaga.hn · contraseña Garaj123!',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

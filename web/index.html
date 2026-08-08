@@ -2,9 +2,27 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Garaj — Gestión de taller</title>
+
+    <title>GarajApp — Gestión de taller</title>
+    <meta name="description" content="Órdenes de trabajo, inventario, cotizaciones y ventas para talleres de autos y motos." />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/garajapp-icono-180.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- El azul de marca pinta la barra del navegador en Android y la de estado en iOS
+         cuando la aplicación se agrega a la pantalla de inicio. -->
+    <meta name="theme-color" content="#1F6FEB" />
+
+    <!-- preconnect antes del link de fuentes: ahorra el viaje de DNS y TLS a gstatic, que
+         es donde están los .woff2 de verdad. Sin él la marca aparece un parpadeo tarde. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
   </head>
   <body>
     <div id="app"></div>

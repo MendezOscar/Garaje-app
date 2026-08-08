@@ -36,3 +36,6 @@ secrets.json
 ## Logs
 logs/
 *.log
+
+## Paquetes de marca comprimidos: el contenido vive descomprimido en marca-garajapp/
+*.zip

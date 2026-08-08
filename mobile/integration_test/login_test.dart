@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garaj_app/core/auth/token_store.dart';
+import 'package:garaj_app/core/onboarding/onboarding_controller.dart';
 import 'package:garaj_app/main.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -16,8 +17,11 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
-    // Cada caso arranca sin sesión: si no, el router saltaría directo al home.
+    // Cada caso arranca sin sesión: si no, el router saltaría directo al home. Y con la
+    // bienvenida ya vista, porque si no el router la interpondría antes del login y todos
+    // los casos de abajo tendrían que atravesarla.
     await TokenStore().clear();
+    await OnboardingStore().markSeen();
   });
 
   Future<void> signIn(WidgetTester tester, String email) async {
@@ -36,6 +40,49 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('la primera instalación abre en la bienvenida', (tester) async {
+    await OnboardingStore().reset();
+
+    await tester.pumpWidget(const ProviderScope(child: GarajApp()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('El trabajo, paso a paso'), findsOneWidget);
+    expect(find.text('Ingresar'), findsNothing);
+
+    // Tres pantallas: se avanza hasta la última y el botón cambia de texto.
+    await tester.tap(find.text('Siguiente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Con fotos de todo'), findsOneWidget);
+
+    await tester.tap(find.text('Siguiente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cotizar y cobrar'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
+
+    await tester.tap(find.text('Entrar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ingresar'), findsOneWidget);
+
+    // Y no vuelve a aparecer: es de primera instalación, no de cada arranque.
+    await tester.pumpWidget(const ProviderScope(child: GarajApp()));
+    await tester.pumpAndSettle();
+    expect(find.text('El trabajo, paso a paso'), findsNothing);
+    expect(find.text('Ingresar'), findsOneWidget);
+  });
+
+  testWidgets('«Saltar» también la da por vista', (tester) async {
+    await OnboardingStore().reset();
+
+    await tester.pumpWidget(const ProviderScope(child: GarajApp()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Saltar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ingresar'), findsOneWidget);
+    expect(await OnboardingStore().hasSeen(), isTrue);
+  });
 
   testWidgets('el Dueño ve las órdenes de todo el taller', (tester) async {
     await signIn(tester, 'owner@garaj.test');

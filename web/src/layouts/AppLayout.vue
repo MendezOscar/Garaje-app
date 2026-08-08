@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import BrandLogo from '@/components/BrandLogo.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
 import { Roles } from '@/types/api'
@@ -42,7 +43,7 @@ async function logout() {
   <div class="shell">
     <header>
       <div class="brand">
-        <strong>Garaj</strong>
+        <BrandLogo variant="horizontal" :height="26" />
         <span class="tenant">{{ auth.user?.tenantName }}</span>
       </div>
 
@@ -97,9 +98,13 @@ header {
 .brand {
   display: flex;
   flex-direction: column;
+  gap: 0.125rem;
 }
 
+/* Alineado con la palabra del logotipo, no con la tuerca: el nombre del taller cuelga del
+   texto, y el bloque se lee como una sola cosa. */
 .tenant {
+  padding-left: 2.5rem;
   font-size: 0.75rem;
   color: var(--text-muted);
 }
