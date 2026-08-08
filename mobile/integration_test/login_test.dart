@@ -43,7 +43,7 @@ void main() {
     expect(find.text('Óscar Méndez'), findsOneWidget);
     expect(find.text('Perfil: Dueño'), findsOneWidget);
     expect(find.text('Taller: Taller Garaj'), findsOneWidget);
-    expect(find.text('Sucursales: Matriz, Sucursal Sur'), findsOneWidget);
+    expect(find.text('Sucursales: Matriz, Sucursal Norte'), findsOneWidget);
   });
 
   testWidgets('el Técnico aterriza en sus asignaciones y solo ve su sucursal', (tester) async {

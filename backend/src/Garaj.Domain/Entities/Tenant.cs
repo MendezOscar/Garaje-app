@@ -15,11 +15,11 @@ public class Tenant : AuditableEntity
     public string? Email { get; set; }
     public string? LogoStorageKey { get; set; }
 
-    /// <summary>Código de país por defecto para armar los links de WhatsApp (ej. "593").</summary>
-    public string DefaultPhoneCountryCode { get; set; } = "593";
+    /// <summary>Código de país por defecto para armar los links de WhatsApp (ej. "504" = Honduras).</summary>
+    public string DefaultPhoneCountryCode { get; set; } = "504";
 
     /// <summary>Moneda ISO-4217 usada en cotizaciones y ventas.</summary>
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = "HNL";
 
     /// <summary>Porcentaje de impuesto por defecto (ej. 15.00 = 15%).</summary>
     public decimal DefaultTaxRate { get; set; }

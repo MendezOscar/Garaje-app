@@ -43,29 +43,30 @@ public class DbSeeder(
         {
             Name = "Taller Garaj",
             LegalName = "Garaj Servicios Automotrices S.A.",
-            Phone = "593999000111",
+            Phone = "50499001111",
             Email = "contacto@garaj.test",
-            Currency = "USD",
+            // Lempira e ISV del 15%, que es la tasa general en Honduras.
+            Currency = "HNL",
             DefaultTaxRate = 15m,
-            DefaultPhoneCountryCode = "593"
+            DefaultPhoneCountryCode = "504"
         };
         db.Tenants.Add(tenant);
         tenantContext.SetTenant(tenant.Id);
 
-        var matriz = new Branch { Name = "Matriz", Code = "MTZ", City = "Quito", Address = "Av. 10 de Agosto N34-56", Phone = "593999000111" };
-        var sur = new Branch { Name = "Sucursal Sur", Code = "SUR", City = "Quito", Address = "Av. Maldonado S12-90", Phone = "593999000222" };
-        db.Branches.AddRange(matriz, sur);
+        var matriz = new Branch { Name = "Matriz", Code = "MTZ", City = "Tegucigalpa", Address = "Bulevar Morazán, frente a Plaza Criolla", Phone = "50499001111" };
+        var norte = new Branch { Name = "Sucursal Norte", Code = "SPS", City = "San Pedro Sula", Address = "Avenida Circunvalación, 12 calle NO", Phone = "50499002222" };
+        db.Branches.AddRange(matriz, norte);
 
         await db.SaveChangesAsync(ct);
 
         var owner = await CreateUserAsync("owner@garaj.test", "Óscar Méndez", AppRoles.Owner, tenant.Id);
         var tech1 = await CreateUserAsync("tecnico1@garaj.test", "Luis Cabrera", AppRoles.Technician, tenant.Id, [matriz.Id]);
-        var tech2 = await CreateUserAsync("tecnico2@garaj.test", "Andrea Salas", AppRoles.Technician, tenant.Id, [sur.Id]);
+        var tech2 = await CreateUserAsync("tecnico2@garaj.test", "Andrea Salas", AppRoles.Technician, tenant.Id, [norte.Id]);
 
         var vehicles = await SeedCustomersAndVehiclesAsync(tenant.Id, ct);
-        var parts = await SeedPartsAndStockAsync([matriz, sur], owner.Id, now, ct);
+        var parts = await SeedPartsAndStockAsync([matriz, norte], owner.Id, now, ct);
         await SeedLaborServicesAsync(ct);
-        await SeedOperationsAsync(matriz, sur, vehicles, parts, owner.Id, tech1.Id, tech2.Id, now, ct);
+        await SeedOperationsAsync(matriz, norte, vehicles, parts, owner.Id, tech1.Id, tech2.Id, now, ct);
 
         logger.LogInformation(
             "Seed completo. Usuarios demo: owner@garaj.test / tecnico1@garaj.test / tecnico2@garaj.test / cliente@garaj.test — contraseña {Password}",
@@ -115,9 +116,9 @@ public class DbSeeder(
     {
         var customers = new List<Customer>
         {
-            new() { FullName = "María Torres", Phone = "593987111222", Email = "cliente@garaj.test", DocumentId = "1712345678" },
-            new() { FullName = "Jorge Paredes", Phone = "593987333444", DocumentId = "1798765432" },
-            new() { FullName = "Transportes Andinos Cía. Ltda.", Phone = "593987555666", Email = "flota@andinos.test", DocumentId = "1791234567001" }
+            new() { FullName = "María Torres", Phone = "50498881111", Email = "cliente@garaj.test", DocumentId = "0801199012345" },
+            new() { FullName = "Jorge Paredes", Phone = "50498882222", DocumentId = "0501198567890" },
+            new() { FullName = "Transportes Catracho S. de R.L.", Phone = "50498883333", Email = "flota@catracho.test", DocumentId = "08019995123456" }
         };
         db.Customers.AddRange(customers);
         await db.SaveChangesAsync(ct);
@@ -128,10 +129,10 @@ public class DbSeeder(
 
         var vehicles = new List<Vehicle>
         {
-            new() { CustomerId = customers[0].Id, Type = VehicleType.Car, Brand = "Chevrolet", Model = "Sail", Year = 2019, Plate = "PCA1234", Color = "Plata", Mileage = 78500 },
-            new() { CustomerId = customers[0].Id, Type = VehicleType.Motorcycle, Brand = "Suzuki", Model = "GN125", Year = 2021, Plate = "IB123A", Color = "Negro", Mileage = 14200 },
-            new() { CustomerId = customers[1].Id, Type = VehicleType.Motorcycle, Brand = "Yamaha", Model = "FZ 2.0", Year = 2022, Plate = "IC456B", Color = "Azul", Mileage = 9800 },
-            new() { CustomerId = customers[2].Id, Type = VehicleType.Car, Brand = "Hyundai", Model = "H100", Year = 2018, Plate = "PBX7788", Color = "Blanco", Mileage = 162000 }
+            new() { CustomerId = customers[0].Id, Type = VehicleType.Car, Brand = "Chevrolet", Model = "Sail", Year = 2019, Plate = "PBH1234", Color = "Plata", Mileage = 78500 },
+            new() { CustomerId = customers[0].Id, Type = VehicleType.Motorcycle, Brand = "Suzuki", Model = "GN125", Year = 2021, Plate = "MAB4521", Color = "Negro", Mileage = 14200 },
+            new() { CustomerId = customers[1].Id, Type = VehicleType.Motorcycle, Brand = "Yamaha", Model = "FZ 2.0", Year = 2022, Plate = "MCD7788", Color = "Azul", Mileage = 9800 },
+            new() { CustomerId = customers[2].Id, Type = VehicleType.Car, Brand = "Hyundai", Model = "H100", Year = 2018, Plate = "PDF9042", Color = "Blanco", Mileage = 162000 }
         };
         db.Vehicles.AddRange(vehicles);
         await db.SaveChangesAsync(ct);
@@ -144,14 +145,14 @@ public class DbSeeder(
     {
         var parts = new List<Part>
         {
-            new() { Sku = "ACE-15W40", Name = "Aceite motor 15W40 mineral", Brand = "Valvoline", Category = "Lubricantes", Unit = "lt", CostPrice = 4.50m, SalePrice = 7.90m },
-            new() { Sku = "FIL-ACE-01", Name = "Filtro de aceite", Brand = "Fram", Category = "Filtros", Unit = "u", CostPrice = 3.20m, SalePrice = 6.50m },
-            new() { Sku = "FIL-AIR-01", Name = "Filtro de aire", Brand = "Fram", Category = "Filtros", Unit = "u", CostPrice = 5.80m, SalePrice = 11.00m },
-            new() { Sku = "PAS-FRE-DEL", Name = "Pastillas de freno delanteras", Brand = "Bosch", Category = "Frenos", Unit = "jgo", CostPrice = 18.00m, SalePrice = 32.00m },
-            new() { Sku = "BUJ-NGK-01", Name = "Bujía NGK estándar", Brand = "NGK", Category = "Encendido", Unit = "u", CostPrice = 2.40m, SalePrice = 5.00m },
-            new() { Sku = "CAD-MOT-125", Name = "Kit cadena y piñones 125cc", Brand = "DID", Category = "Transmisión", Unit = "jgo", CostPrice = 22.00m, SalePrice = 41.00m },
-            new() { Sku = "BAT-12V-60", Name = "Batería 12V 60Ah", Brand = "Bosch", Category = "Eléctrico", Unit = "u", CostPrice = 68.00m, SalePrice = 105.00m },
-            new() { Sku = "LIQ-FRE-DOT4", Name = "Líquido de frenos DOT4", Brand = "Wagner", Category = "Lubricantes", Unit = "lt", CostPrice = 5.10m, SalePrice = 9.50m }
+            new() { Sku = "ACE-15W40", Name = "Aceite motor 15W40 mineral", Brand = "Valvoline", Category = "Lubricantes", Unit = "lt", CostPrice = 118m, SalePrice = 205m },
+            new() { Sku = "FIL-ACE-01", Name = "Filtro de aceite", Brand = "Fram", Category = "Filtros", Unit = "u", CostPrice = 83m, SalePrice = 170m },
+            new() { Sku = "FIL-AIR-01", Name = "Filtro de aire", Brand = "Fram", Category = "Filtros", Unit = "u", CostPrice = 151m, SalePrice = 286m },
+            new() { Sku = "PAS-FRE-DEL", Name = "Pastillas de freno delanteras", Brand = "Bosch", Category = "Frenos", Unit = "jgo", CostPrice = 468m, SalePrice = 832m },
+            new() { Sku = "BUJ-NGK-01", Name = "Bujía NGK estándar", Brand = "NGK", Category = "Encendido", Unit = "u", CostPrice = 62m, SalePrice = 130m },
+            new() { Sku = "CAD-MOT-125", Name = "Kit cadena y piñones 125cc", Brand = "DID", Category = "Transmisión", Unit = "jgo", CostPrice = 572m, SalePrice = 1066m },
+            new() { Sku = "BAT-12V-60", Name = "Batería 12V 60Ah", Brand = "Bosch", Category = "Eléctrico", Unit = "u", CostPrice = 1768m, SalePrice = 2730m },
+            new() { Sku = "LIQ-FRE-DOT4", Name = "Líquido de frenos DOT4", Brand = "Wagner", Category = "Lubricantes", Unit = "lt", CostPrice = 133m, SalePrice = 247m }
         };
         db.Parts.AddRange(parts);
         await db.SaveChangesAsync(ct);
@@ -194,23 +195,23 @@ public class DbSeeder(
     private async Task SeedLaborServicesAsync(CancellationToken ct)
     {
         db.LaborServices.AddRange(
-            new LaborService { Code = "MO-ACE", Name = "Cambio de aceite y filtro", Category = "Mantenimiento", StandardHours = 0.5m, HourlyRate = 20m },
-            new LaborService { Code = "MO-ABC", Name = "ABC de motor", Category = "Mantenimiento", StandardHours = 3m, HourlyRate = 20m },
-            new LaborService { Code = "MO-FRE", Name = "Cambio de pastillas y rectificado de discos", Category = "Frenos", StandardHours = 2m, HourlyRate = 22m },
-            new LaborService { Code = "MO-DIA", Name = "Diagnóstico electrónico", Category = "Diagnóstico", StandardHours = 1m, HourlyRate = 25m, IsFixedPrice = true, FixedPrice = 25m },
-            new LaborService { Code = "MO-CAD", Name = "Cambio de kit de arrastre (moto)", Category = "Transmisión", StandardHours = 1.5m, HourlyRate = 18m });
+            new LaborService { Code = "MO-ACE", Name = "Cambio de aceite y filtro", Category = "Mantenimiento", StandardHours = 0.5m, HourlyRate = 520m },
+            new LaborService { Code = "MO-ABC", Name = "ABC de motor", Category = "Mantenimiento", StandardHours = 3m, HourlyRate = 520m },
+            new LaborService { Code = "MO-FRE", Name = "Cambio de pastillas y rectificado de discos", Category = "Frenos", StandardHours = 2m, HourlyRate = 570m },
+            new LaborService { Code = "MO-DIA", Name = "Diagnóstico electrónico", Category = "Diagnóstico", StandardHours = 1m, HourlyRate = 650m, IsFixedPrice = true, FixedPrice = 650m },
+            new LaborService { Code = "MO-CAD", Name = "Cambio de kit de arrastre (moto)", Category = "Transmisión", StandardHours = 1.5m, HourlyRate = 470m });
 
         await db.SaveChangesAsync(ct);
     }
 
     private async Task SeedOperationsAsync(
-        Branch matriz, Branch sur, List<Vehicle> vehicles, List<Part> parts,
+        Branch matriz, Branch norte, List<Vehicle> vehicles, List<Part> parts,
         Guid ownerId, Guid tech1Id, Guid tech2Id, DateTimeOffset now, CancellationToken ct)
     {
         // 1. Requerimiento pendiente: lo que el Dueño ve en su bandeja al abrir la app.
         db.ServiceRequests.Add(new ServiceRequest
         {
-            BranchId = sur.Id,
+            BranchId = norte.Id,
             VehicleId = vehicles[2].Id,
             Description = "La moto se apaga en ralentí",
             ReportedSymptoms = "Desde hace una semana, sobre todo en frío. Ya le cambié la bujía.",
@@ -266,12 +267,12 @@ public class DbSeeder(
             new WorkOrderStatusHistory { WorkOrderId = workOrder.Id, FromStatus = WorkOrderStatus.Diagnosing, ToStatus = WorkOrderStatus.InProgress, ChangedAt = now.AddHours(-6), ChangedByUserId = tech1Id, Note = "Trabajo aprobado, iniciando mantenimiento." });
 
         // 3. Orden lista para entregar en la otra sucursal, para que el kanban no salga vacío.
-        sur.WorkOrderSequence++;
+        norte.WorkOrderSequence++;
         db.WorkOrders.Add(new WorkOrder
         {
-            BranchId = sur.Id,
+            BranchId = norte.Id,
             VehicleId = vehicles[3].Id,
-            Number = $"{sur.Code}-{sur.WorkOrderSequence:D6}",
+            Number = $"{norte.Code}-{norte.WorkOrderSequence:D6}",
             Status = WorkOrderStatus.Ready,
             AssignedTechnicianId = tech2Id,
             Description = "Revisión de frenos y cambio de batería",

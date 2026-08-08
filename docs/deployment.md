@@ -16,7 +16,7 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
 ## 1. Supabase
 
 1. Cree el proyecto en <https://supabase.com/dashboard>. **Región: `us-east-1` (N. Virginia)**, la misma del servicio en Render,
-   para no pagar latencia de red en cada consulta y por cercanía a Ecuador.
+   para no pagar latencia de red en cada consulta y por cercanía a Honduras.
 2. Guarde la contraseña de la base: solo se muestra al crear el proyecto.
 3. En el botón **Connect** de la barra superior, copie la cadena del **Session pooler**.
    No sirven las otras dos:

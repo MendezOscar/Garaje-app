@@ -10,7 +10,7 @@ public class Customer : TenantEntity
 {
     public string FullName { get; set; } = null!;
 
-    /// <summary>En formato E.164 sin '+' (ej. "593987654321"). Es la clave del link de WhatsApp.</summary>
+    /// <summary>En formato E.164 sin '+' (ej. "50498881111"). Es la clave del link de WhatsApp.</summary>
     public string Phone { get; set; } = null!;
 
     public string? Email { get; set; }
