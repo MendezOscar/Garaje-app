@@ -14,7 +14,11 @@ public class StockMovement : TenantEntity, IBranchEntity
 
     public StockMovementType Type { get; set; }
 
-    /// <summary>Siempre positiva. El signo lo determina <see cref="Type"/>.</summary>
+    /// <summary>
+    /// Positiva, y el signo lo determina <see cref="Type"/> —salvo en
+    /// <see cref="StockMovementType.Adjustment"/>, donde el tipo no distingue un sobrante de
+    /// un faltante y la cantidad lleva el signo de la diferencia.
+    /// </summary>
     public decimal Quantity { get; set; }
 
     /// <summary>Costo unitario de la entrada. Null en salidas y ajustes.</summary>

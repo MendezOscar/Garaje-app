@@ -1,4 +1,5 @@
 using Garaj.Application.Common;
+using Garaj.Application.Inventory;
 using Garaj.Domain.Enums;
 
 namespace Garaj.Application.WorkOrders;
@@ -50,7 +51,10 @@ public record WorkOrderDetailDto(
     DateTimeOffset? ClosedAt,
     Guid? ServiceRequestId,
     IReadOnlyList<WorkOrderTaskDto> Tasks,
-    IReadOnlyList<WorkOrderStatusEntryDto> Timeline);
+    IReadOnlyList<WorkOrderStatusEntryDto> Timeline,
+    IReadOnlyList<WorkOrderPartDto> Parts,
+    // Lo que suman los repuestos consumidos. La mano de obra entra en la Fase 4.
+    decimal PartsTotal);
 
 public record WorkOrderTaskDto(
     Guid Id,
@@ -134,4 +138,13 @@ public interface IWorkOrderService
     Task<WorkOrderTaskDto> UpdateTaskAsync(Guid workOrderId, Guid taskId, SaveWorkOrderTaskRequest request, CancellationToken ct = default);
     Task<WorkOrderTaskDto> CompleteTaskAsync(Guid workOrderId, Guid taskId, CompleteTaskRequest request, CancellationToken ct = default);
     Task DeleteTaskAsync(Guid workOrderId, Guid taskId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(Guid workOrderId, CancellationToken ct = default);
+
+    /// <summary>Carga el repuesto a la orden y lo descuenta de la bodega de su sucursal.</summary>
+    Task<WorkOrderPartDto> AddPartAsync(
+        Guid workOrderId, AddWorkOrderPartRequest request, CancellationToken ct = default);
+
+    /// <summary>Lo quita de la orden y lo devuelve a la bodega con un movimiento de entrada.</summary>
+    Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default);
 }

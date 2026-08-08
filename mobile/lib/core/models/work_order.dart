@@ -1,5 +1,7 @@
 // Espejo de los DTOs de la Fase 1. Los valores numéricos coinciden con Garaj.Domain.Enums.
 
+import 'inventory.dart';
+
 enum WorkOrderStatus {
   received(1, 'Recibida'),
   diagnosing(2, 'En diagnóstico'),
@@ -176,6 +178,8 @@ class WorkOrderDetail {
     required this.openedAt,
     required this.tasks,
     required this.timeline,
+    required this.parts,
+    required this.partsTotal,
     this.plate,
     this.diagnosis,
     this.mileageIn,
@@ -210,6 +214,10 @@ class WorkOrderDetail {
         timeline: (json['timeline'] as List<dynamic>)
             .map((t) => WorkOrderStatusEntry.fromJson(t as Map<String, dynamic>))
             .toList(),
+        parts: (json['parts'] as List<dynamic>)
+            .map((p) => WorkOrderPart.fromJson(p as Map<String, dynamic>))
+            .toList(),
+        partsTotal: (json['partsTotal'] as num).toDouble(),
       );
 
   final String id;
@@ -230,4 +238,8 @@ class WorkOrderDetail {
   final DateTime? promisedAt;
   final List<WorkOrderTask> tasks;
   final List<WorkOrderStatusEntry> timeline;
+  final List<WorkOrderPart> parts;
+
+  /// Lo que suman los repuestos consumidos. La mano de obra entra en la Fase 4.
+  final double partsTotal;
 }

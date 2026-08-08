@@ -61,13 +61,18 @@ void main() {
 
     expect(find.text('MOTIVO DE INGRESO'), findsOneWidget);
     expect(find.text('PASOS DE LA REPARACIÓN'), findsOneWidget);
+    expect(find.text('REPUESTOS'), findsOneWidget);
     expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
+    // Puede documentar y consumir: cámara, galería y catálogo.
+    expect(find.text('Cargar repuesto'), findsOneWidget);
+    expect(find.byTooltip('Tomar foto'), findsOneWidget);
+    expect(find.byTooltip('Elegir de la galería'), findsOneWidget);
+
+    // El resto queda bajo el pliegue: el ListView no construye lo que no se ve.
+    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     // Al Técnico sí se le ofrecen transiciones; al Cliente no.
     expect(find.text('CAMBIAR ESTADO'), findsOneWidget);
-    // Y sí puede documentar: cámara y galería.
-    expect(find.byTooltip('Tomar foto'), findsOneWidget);
-    expect(find.byTooltip('Elegir de la galería'), findsOneWidget);
   });
 
   testWidgets('el Cliente sigue su vehículo pero no cambia estados', (tester) async {
@@ -80,12 +85,16 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
+    // Ve lo que le hicieron, pero ninguna de las acciones del taller.
+    expect(find.text('REPUESTOS'), findsOneWidget);
+    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
+    expect(find.text('Cargar repuesto'), findsNothing);
+    expect(find.text('Agregar paso'), findsNothing);
+    expect(find.byTooltip('Tomar foto'), findsNothing);
+
+    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     expect(find.text('CAMBIAR ESTADO'), findsNothing);
-    expect(find.text('Agregar paso'), findsNothing);
-    // Mira el proceso de su vehículo, pero no lo documenta.
-    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
-    expect(find.byTooltip('Tomar foto'), findsNothing);
   });
 
   testWidgets('una contraseña incorrecta muestra el error y no navega', (tester) async {

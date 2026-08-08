@@ -1,4 +1,5 @@
 using Garaj.Application.Common;
+using Garaj.Application.Inventory;
 using Garaj.Application.WorkOrders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -73,6 +74,30 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
     public async Task<ActionResult<WorkOrderTaskDto>> CompleteTask(
         Guid id, Guid taskId, CompleteTaskRequest request, CancellationToken ct)
         => Ok(await service.CompleteTaskAsync(id, taskId, request, ct));
+
+    [HttpGet("{id:guid}/parts")]
+    public async Task<ActionResult<IReadOnlyList<WorkOrderPartDto>>> ListParts(
+        Guid id, CancellationToken ct)
+        => Ok(await service.ListPartsAsync(id, ct));
+
+    /// <summary>
+    /// Carga el repuesto y lo descuenta de la bodega de la sucursal de la orden. Devuelve
+    /// 409 si no hay existencia suficiente, diciendo cuánto queda.
+    /// </summary>
+    [HttpPost("{id:guid}/parts")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<WorkOrderPartDto>> AddPart(
+        Guid id, AddWorkOrderPartRequest request, CancellationToken ct)
+        => Ok(await service.AddPartAsync(id, request, ct));
+
+    /// <summary>Lo quita de la orden y lo devuelve a la bodega.</summary>
+    [HttpDelete("{id:guid}/parts/{partLineId:guid}")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<IActionResult> RemovePart(Guid id, Guid partLineId, CancellationToken ct)
+    {
+        await service.RemovePartAsync(id, partLineId, ct);
+        return NoContent();
+    }
 
     [HttpDelete("{id:guid}/tasks/{taskId:guid}")]
     [Authorize(Policy = AppPolicies.OwnerOnly)]

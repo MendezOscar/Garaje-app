@@ -5,6 +5,7 @@ import { errorMessage } from '@/api/client'
 import { usersApi, workOrdersApi } from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   VEHICLE_TYPE_LABEL,
@@ -171,6 +172,15 @@ onMounted(async () => {
             <button type="submit" :disabled="busy || !newTaskTitle.trim()">Agregar</button>
           </form>
         </article>
+
+        <WorkOrderParts
+          :work-order-id="order.id"
+          :parts="order.parts"
+          :total="order.partsTotal"
+          :can-edit="canEdit"
+          :show-cost="auth.isOwner"
+          @changed="load"
+        />
 
         <PhotoGallery :work-order-id="order.id" :can-edit="canEdit" />
       </div>

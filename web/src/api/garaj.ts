@@ -6,12 +6,17 @@ import type {
   MediaAttachment,
   MediaOwnerType,
   Paged,
+  Part,
   PresignedUpload,
   ServiceRequest,
+  StockItem,
+  StockMovement,
+  StockMovementType,
   User,
   Vehicle,
   WorkOrderDetail,
   WorkOrderListItem,
+  WorkOrderPart,
   WorkOrderStatus,
   WorkOrderTask,
 } from '@/types/domain'
@@ -138,6 +143,112 @@ export const workOrdersApi = {
   },
   async deleteTask(id: string, taskId: string) {
     await api.delete(`/api/work-orders/${id}/tasks/${taskId}`)
+  },
+  async addPart(
+    id: string,
+    body: { partId: string; quantity: number; unitPrice?: number; workOrderTaskId?: string },
+  ) {
+    const { data } = await api.post<WorkOrderPart>(`/api/work-orders/${id}/parts`, body)
+    return data
+  },
+  async removePart(id: string, partLineId: string) {
+    await api.delete(`/api/work-orders/${id}/parts/${partLineId}`)
+  },
+}
+
+export const partsApi = {
+  async list(query: {
+    search?: string
+    category?: string
+    includeInactive?: boolean
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<Part>>('/api/parts', { params: params(query) })
+    return data
+  },
+  async categories(): Promise<string[]> {
+    const { data } = await api.get<string[]>('/api/parts/categories')
+    return data
+  },
+  async create(body: Omit<Part, 'id' | 'totalQuantity'>) {
+    const { data } = await api.post<Part>('/api/parts', body)
+    return data
+  },
+  async update(id: string, body: Omit<Part, 'id' | 'totalQuantity'>) {
+    const { data } = await api.put<Part>(`/api/parts/${id}`, body)
+    return data
+  },
+}
+
+export const stockApi = {
+  async list(query: {
+    branchId?: string
+    partId?: string
+    search?: string
+    category?: string
+    onlyBelowMinimum?: boolean
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<StockItem>>('/api/stock', { params: params(query) })
+    return data
+  },
+  async alerts(branchId?: string): Promise<StockItem[]> {
+    const { data } = await api.get<StockItem[]>('/api/stock/alerts', { params: params({ branchId }) })
+    return data
+  },
+  async movements(query: {
+    branchId?: string
+    partId?: string
+    type?: StockMovementType
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<StockMovement>>('/api/stock/movements', {
+      params: params(query),
+    })
+    return data
+  },
+  async receive(body: {
+    branchId: string
+    partId: string
+    quantity: number
+    unitCost?: number
+    reference?: string
+    notes?: string
+  }) {
+    const { data } = await api.post<StockItem>('/api/stock/receive', body)
+    return data
+  },
+  /** Se envía lo contado físicamente, no la diferencia. */
+  async adjust(body: {
+    branchId: string
+    partId: string
+    countedQuantity: number
+    reason: string
+  }) {
+    const { data } = await api.post<StockItem>('/api/stock/adjust', body)
+    return data
+  },
+  async transfer(body: {
+    fromBranchId: string
+    toBranchId: string
+    partId: string
+    quantity: number
+    notes?: string
+  }) {
+    const { data } = await api.post<StockItem[]>('/api/stock/transfer', body)
+    return data
+  },
+  async saveSettings(body: {
+    branchId: string
+    partId: string
+    minQuantity: number
+    location?: string
+  }) {
+    const { data } = await api.put<StockItem>('/api/stock/settings', body)
+    return data
   },
 }
 

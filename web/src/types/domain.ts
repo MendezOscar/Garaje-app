@@ -32,6 +32,23 @@ export const WorkOrderStatus = {
 } as const
 export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus]
 
+export const StockMovementType = {
+  In: 1,
+  Out: 2,
+  Adjustment: 3,
+  TransferIn: 4,
+  TransferOut: 5,
+} as const
+export type StockMovementType = (typeof StockMovementType)[keyof typeof StockMovementType]
+
+export const STOCK_MOVEMENT_LABEL: Record<StockMovementType, string> = {
+  [StockMovementType.In]: 'Entrada',
+  [StockMovementType.Out]: 'Salida',
+  [StockMovementType.Adjustment]: 'Ajuste',
+  [StockMovementType.TransferIn]: 'Traslado recibido',
+  [StockMovementType.TransferOut]: 'Traslado enviado',
+}
+
 export const MediaOwnerType = {
   ServiceRequest: 1,
   WorkOrder: 2,
@@ -198,6 +215,73 @@ export interface WorkOrderStatusEntry {
   isVisibleToCustomer: boolean
 }
 
+export interface Part {
+  id: string
+  sku: string
+  name: string
+  description: string | null
+  brand: string | null
+  category: string | null
+  unit: string
+  costPrice: number
+  salePrice: number
+  isActive: boolean
+  /** Suma de existencias en las sucursales que el usuario puede ver. */
+  totalQuantity: number
+}
+
+export interface StockItem {
+  partId: string
+  sku: string
+  partName: string
+  brand: string | null
+  category: string | null
+  unit: string
+  branchId: string
+  branchName: string
+  quantity: number
+  minQuantity: number
+  location: string | null
+  salePrice: number
+  isBelowMinimum: boolean
+}
+
+export interface StockMovement {
+  id: string
+  partId: string
+  sku: string
+  partName: string
+  branchId: string
+  branchName: string
+  type: StockMovementType
+  quantity: number
+  /** Con signo: lo que sumó o restó al saldo. */
+  signedQuantity: number
+  unitCost: number | null
+  resultingQuantity: number
+  reference: string | null
+  notes: string | null
+  workOrderNumber: string | null
+  counterpartBranchName: string | null
+  movedAt: string
+  movedByName: string
+}
+
+export interface WorkOrderPart {
+  id: string
+  partId: string
+  sku: string
+  partName: string
+  unit: string
+  quantity: number
+  unitPrice: number
+  /** Llega en cero para el Cliente: el costo del taller no es asunto suyo. */
+  unitCost: number
+  total: number
+  workOrderTaskId: string | null
+  taskTitle: string | null
+}
+
 export interface MediaAttachment {
   id: string
   ownerType: MediaOwnerType
@@ -250,4 +334,6 @@ export interface WorkOrderDetail {
   serviceRequestId: string | null
   tasks: WorkOrderTask[]
   timeline: WorkOrderStatusEntry[]
+  parts: WorkOrderPart[]
+  partsTotal: number
 }

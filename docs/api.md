@@ -85,6 +85,54 @@ Se admiten JPEG, PNG, WebP y HEIC, hasta 15 MB (`Storage:MaxUploadBytes`). Las U
 caducan a los 15 minutos (`Storage:PresignedUrlMinutes`): son temporales a propósito, viajan
 en JSON y podrían quedar en una caché o en un log.
 
+### Fase 3 — inventario
+
+La regla de la que depende todo lo demás: **el stock no se edita, se mueve**. Cada variación
+deja un `StockMovement` con su responsable, su fecha y el saldo resultante;
+`StockItem.Quantity` es solo el saldo cacheado, actualizado en la misma transacción. Una
+diferencia de inventario siempre tiene autor y hora, en vez de aparecer de la nada.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/parts?search=&category=` | taller | Catálogo con existencia sumada de sus sucursales |
+| GET | `/api/parts/categories` | taller | Categorías en uso, para los filtros |
+| POST/PUT | `/api/parts[/{id}]` | Owner | Alta y edición; el SKU es único por taller |
+| GET | `/api/stock?branchId=&onlyBelowMinimum=` | taller | Existencias por sucursal |
+| GET | `/api/stock/alerts?branchId=` | taller | Lo que está en o bajo el mínimo |
+| GET | `/api/stock/movements?branchId=&partId=&type=` | taller | Kardex |
+| POST | `/api/stock/receive` | Owner | Entrada por compra |
+| POST | `/api/stock/adjust` | Owner | Ajuste por conteo físico |
+| POST | `/api/stock/transfer` | Owner | Traslado entre sucursales |
+| PUT | `/api/stock/settings` | Owner | Mínimo de reposición y ubicación |
+| GET | `/api/work-orders/{id}/parts` | cualquiera | Repuestos cargados a la orden |
+| POST | `/api/work-orders/{id}/parts` | Owner o Técnico | Consume y descuenta de la bodega |
+| DELETE | `/api/work-orders/{id}/parts/{lineId}` | Owner o Técnico | Devuelve a la bodega |
+
+`StockMovementType`: `1` entrada · `2` salida · `3` ajuste · `4` traslado recibido ·
+`5` traslado enviado.
+
+Decisiones que conviene conocer antes de tocar esto:
+
+- **No se permite saldo negativo.** Consumir o transferir más de lo que hay devuelve **409**
+  diciendo cuánto queda. Un stock negativo no se nota hasta que los reportes de costo salen
+  mal, y para entonces nadie recuerda qué pasó.
+- **El ajuste se envía como cantidad contada, no como diferencia** (`countedQuantity`), que
+  es lo que la persona tiene delante al hacer inventario. Exige motivo.
+- **En el ajuste, `Quantity` del movimiento lleva signo**: el tipo no distingue un sobrante de
+  un faltante. En los demás tipos es positiva y el signo lo da el tipo. `signedQuantity` en el
+  DTO ya viene resuelto.
+- **La transferencia son dos movimientos** con la misma hora, cada uno apuntando al otro por
+  `CounterpartBranchId`: así el kardex de cada sucursal se lee solo.
+- **El precio y el costo se congelan** en `WorkOrderPart` al consumir. Cambiar el catálogo
+  mañana no debe alterar lo que ya se cobró ni el margen de una orden cerrada.
+- **Quitar un repuesto de una orden no borra su movimiento**: entra uno de devolución. El
+  histórico es inmutable.
+- La entrada con costo actualiza `Part.CostPrice`, que es un costo de referencia; el costo
+  histórico de cada compra queda en su movimiento.
+- El **Técnico** ve las existencias de sus sucursales y consume en sus órdenes, pero no
+  administra el catálogo ni registra entradas, ajustes o traslados. El **Cliente** no ve el
+  inventario, y en el detalle de su orden los repuestos llegan con `unitCost: 0`.
+
 ### Reglas de alcance
 
 Son la parte que hay que respetar al agregar endpoints nuevos. Viven en
@@ -109,7 +157,12 @@ python3 backend/tests/smoke/fase1_smoke.py
 
 # Fase 2: sube archivos de verdad a MinIO, así que hace falta `docker compose up -d`
 python3 backend/tests/smoke/fase2_smoke.py
+
+# Fase 3: inventario
+python3 backend/tests/smoke/fase3_smoke.py
 ```
+
+Se pueden encadenar en ese orden sobre una base recién sembrada.
 
 **El script escribe en la base**: entrega órdenes, aprueba requerimientos y crea clientes.
 Está pensado para correr contra la base local, no contra Supabase. Para dejarla como estaba
@@ -145,6 +198,5 @@ una sola petición en vuelo.
 
 ## Pendiente por fase
 
-- **Fase 3** — `/api/parts`, `/api/stock` (existencias, ajustes, transferencias, alertas)
 - **Fase 4** — `/api/labor-services`, `/api/quotes` (PDF, link de WhatsApp), `/public/quotes/{token}`
 - **Fase 5** — `/api/sales`, `/api/reports/revenue`, `/api/reports/dashboard`

@@ -48,6 +48,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // El Técnico también entra: necesita saber si hay existencia antes de prometer una
+        // reparación. El backend le muestra solo la bodega de sus sucursales.
+        path: 'inventario',
+        name: 'inventory',
+        component: () => import('@/views/owner/InventoryView.vue'),
+        meta: { roles: [Roles.Owner, Roles.Technician] },
+      },
+      {
         // El detalle es la misma pantalla para los tres perfiles: el backend decide qué
         // datos y qué acciones devuelve según quién pregunta.
         path: 'ordenes/:id',

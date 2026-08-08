@@ -124,6 +124,9 @@ python3 backend/tests/smoke/fase1_smoke.py
 # Humo de las fotos: 30 comprobaciones del ciclo subir / confirmar / listar / borrar
 python3 backend/tests/smoke/fase2_smoke.py
 
+# Humo del inventario: 49 comprobaciones de existencias, kardex y consumo
+python3 backend/tests/smoke/fase3_smoke.py
+
 # Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \
   -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080

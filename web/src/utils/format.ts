@@ -19,6 +19,22 @@ export function formatDate(value: string | null | undefined): string {
   return value ? dateOnly.format(new Date(value)) : '—'
 }
 
+const currency = new Intl.NumberFormat('es-HN', {
+  style: 'currency',
+  currency: 'HNL',
+  minimumFractionDigits: 2,
+})
+
+/** Lempiras. El símbolo va delante porque es como se escribe un precio en el taller. */
+export function formatMoney(value: number | null | undefined): string {
+  return currency.format(value ?? 0)
+}
+
+/** Cantidades de inventario: hasta tres decimales, sin ceros de relleno ("2" y no "2,000"). */
+export function formatQuantity(value: number | null | undefined): string {
+  return (value ?? 0).toLocaleString('es-HN', { maximumFractionDigits: 3 })
+}
+
 /** "hace 2 h" / "en 3 d". El taller razona en tiempo transcurrido, no en fechas absolutas. */
 export function relativeTime(value: string | null | undefined): string {
   if (!value) return '—'

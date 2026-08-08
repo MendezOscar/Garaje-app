@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
+using Garaj.Application.Inventory;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
@@ -13,7 +14,8 @@ namespace Garaj.Infrastructure.Services;
 public class WorkOrderService(
     GarajDbContext db,
     ITenantContext tenantContext,
-    IDateTimeProvider clock) : IWorkOrderService
+    IDateTimeProvider clock,
+    StockService stock) : IWorkOrderService
 {
     public async Task<PagedResult<WorkOrderListItemDto>> ListAsync(
         WorkOrderQuery query, CancellationToken ct = default)
@@ -302,6 +304,101 @@ public class WorkOrderService(
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (!await Scoped(scope).AnyAsync(w => w.Id == workOrderId, ct))
+            throw new NotFoundException("La orden de trabajo no existe.");
+
+        return await PartsOfAsync(workOrderId, ct);
+    }
+
+    public async Task<WorkOrderPartDto> AddPartAsync(
+        Guid workOrderId, AddWorkOrderPartRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+
+        if (scope.IsCustomer) throw new ForbiddenException("Un cliente no puede cargar repuestos.");
+
+        if (request.Quantity <= 0)
+            throw new AppException("La cantidad debe ser mayor que cero.");
+
+        if (order.Status is WorkOrderStatus.Delivered or WorkOrderStatus.Cancelled)
+            throw new ConflictException(
+                $"La orden está {Describe(order.Status).ToLowerInvariant()}: ya no admite repuestos.");
+
+        var part = await db.Parts.FirstOrDefaultAsync(p => p.Id == request.PartId, ct)
+            ?? throw new NotFoundException("El repuesto no existe.");
+
+        if (!part.IsActive)
+            throw new AppException($"{part.Name} está desactivado en el catálogo.");
+
+        if (request.WorkOrderTaskId is { } taskId)
+            await FindTaskAsync(workOrderId, taskId, ct);
+
+        // Sale de la bodega de la sucursal donde está el vehículo, no de otra: si falta,
+        // ConsumeAsync corta aquí con 409 y no se crea la línea.
+        await stock.ConsumeAsync(order.BranchId, part.Id, request.Quantity, order.Id, scope.UserId, ct);
+
+        var line = new WorkOrderPart
+        {
+            WorkOrderId = order.Id,
+            PartId = part.Id,
+            WorkOrderTaskId = request.WorkOrderTaskId,
+            Quantity = request.Quantity,
+            // Congelados a propósito: cambiar el precio del catálogo mañana no debe alterar
+            // lo que ya se le cobró a un cliente ni el margen de una orden cerrada.
+            UnitPrice = request.UnitPrice ?? part.SalePrice,
+            UnitCost = part.CostPrice
+        };
+
+        db.WorkOrderParts.Add(line);
+        await db.SaveChangesAsync(ct);
+
+        return (await PartsOfAsync(order.Id, ct)).First(p => p.Id == line.Id);
+    }
+
+    public async Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+
+        if (scope.IsCustomer) throw new ForbiddenException("Un cliente no puede quitar repuestos.");
+
+        var line = await db.WorkOrderParts
+            .FirstOrDefaultAsync(p => p.Id == partLineId && p.WorkOrderId == workOrderId, ct)
+            ?? throw new NotFoundException("El repuesto no está cargado en esta orden.");
+
+        await stock.ReturnAsync(
+            order.BranchId, line.PartId, line.Quantity, order.Id, scope.UserId,
+            $"Devolución de {order.Number}", ct);
+
+        db.WorkOrderParts.Remove(line);
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task<IReadOnlyList<WorkOrderPartDto>> PartsOfAsync(
+        Guid workOrderId, CancellationToken ct) =>
+        await db.WorkOrderParts.AsNoTracking()
+            .Where(p => p.WorkOrderId == workOrderId)
+            .OrderBy(p => p.CreatedAt)
+            .Select(p => new WorkOrderPartDto(
+                p.Id,
+                p.PartId,
+                p.Part.Sku,
+                p.Part.Name,
+                p.Part.Unit,
+                p.Quantity,
+                p.UnitPrice,
+                p.UnitCost,
+                p.Quantity * p.UnitPrice,
+                p.WorkOrderTaskId,
+                db.WorkOrderTasks.Where(t => t.Id == p.WorkOrderTaskId).Select(t => t.Title).FirstOrDefault()))
+            .ToListAsync(ct);
+
     /// <summary>
     /// El Técnico ve solo las órdenes que tiene asignadas; el Cliente, solo las de sus
     /// vehículos; el Dueño, todas las del taller.
@@ -380,6 +477,12 @@ public class WorkOrderService(
             .Where(u => userIds.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
 
+        // El cliente ve qué repuestos se le pusieron y a qué precio, pero no el costo del
+        // taller: ese dato es del margen, no de la factura.
+        var parts = scope.IsCustomer
+            ? (await PartsOfAsync(order.Id, ct)).Select(p => p with { UnitCost = 0 }).ToList()
+            : await PartsOfAsync(order.Id, ct);
+
         // El cliente ve una versión curada de la línea de tiempo: las notas internas del
         // taller no salen de ahí.
         var timeline = order.StatusHistory
@@ -429,7 +532,9 @@ public class WorkOrderService(
             order.ClosedAt,
             order.ServiceRequestId,
             tasks,
-            timeline);
+            timeline,
+            parts,
+            parts.Sum(p => p.Total));
     }
 
     private async Task<WorkOrderTaskDto> MapTaskAsync(WorkOrderTask task, CancellationToken ct)

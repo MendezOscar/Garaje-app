@@ -162,7 +162,9 @@ public class DbSeeder(
         {
             foreach (var part in parts)
             {
-                var quantity = part.Sku.StartsWith("BAT") ? 3m : 12m;
+                // Las baterías quedan justo en el mínimo a propósito: así la alerta de
+                // reposición tiene algo real que mostrar desde el primer arranque.
+                var quantity = part.Sku.StartsWith("BAT") ? 2m : 12m;
 
                 db.StockItems.Add(new StockItem
                 {

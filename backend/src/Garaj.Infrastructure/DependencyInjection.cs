@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Auth;
 using Garaj.Application.Branches;
 using Garaj.Application.Customers;
+using Garaj.Application.Inventory;
 using Garaj.Application.Media;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.Users;
@@ -69,6 +70,13 @@ public static class DependencyInjection
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IWorkOrderService, WorkOrderService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
+        services.AddScoped<IPartService, PartService>();
+
+        // Registrado también por su tipo concreto y resuelto a la misma instancia: la orden
+        // de trabajo consume stock dentro de su propia transacción, y para eso necesita los
+        // métodos internos que no están en la interfaz.
+        services.AddScoped<StockService>();
+        services.AddScoped<IStockService>(sp => sp.GetRequiredService<StockService>());
 
         // Singleton: el cliente de S3 mantiene su pool de conexiones HTTP y crearlo por
         // petición desperdicia handshakes TLS contra el bucket.
