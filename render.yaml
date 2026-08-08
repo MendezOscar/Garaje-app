@@ -6,10 +6,10 @@ services:
     name: garaj-api
     runtime: docker
     plan: free
-    # Debe coincidir con la región del proyecto de Supabase (us-west-2). Cada consulta
-    # cruza la red: con la API en Virginia y la base en Oregon se pagarían ~70 ms de ida y
-    # vuelta por consulta, y una pantalla hace varias.
-    region: oregon
+    # Virginia: la región de Render más cercana a Ecuador y la misma en la que está el
+    # proyecto de Supabase (us-east-1). Que API y base coincidan importa más que nada:
+    # una pantalla hace varias consultas y cada una cruzaría el país si no.
+    region: virginia
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /health
