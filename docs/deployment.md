@@ -141,18 +141,20 @@ pública.
 La app apunta a la API por `--dart-define`:
 
 ```bash
-# Contra el backend desplegado
-flutter run --dart-define=API_URL=https://garaje-app.onrender.com
+# Contra el backend desplegado: es el valor por defecto, no hace falta pasar nada
+flutter run
 
-# Contra el backend local
-flutter run --dart-define=API_URL=http://localhost:5080
+# Contra el backend local (la dirección del host cambia según el dispositivo)
+flutter run --dart-define=API_URL=http://localhost:5080      # simulador iOS
+flutter run --dart-define=API_URL=http://10.0.2.2:5080       # emulador Android
+flutter run --dart-define=API_URL=http://192.168.1.10:5080   # teléfono físico
 ```
 
-Para generar los binarios de tienda hay que definirlo también en el build:
+Los binarios de tienda ya salen apuntando a producción:
 
 ```bash
-flutter build ipa   --dart-define=API_URL=https://garaje-app.onrender.com
-flutter build appbundle --dart-define=API_URL=https://garaje-app.onrender.com
+flutter build ipa
+flutter build appbundle
 ```
 
 ---

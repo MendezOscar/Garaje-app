@@ -77,25 +77,29 @@ La URL de la API se configura en `web/.env.development` (`VITE_API_URL`).
 ```bash
 cd mobile
 flutter pub get
-flutter run --dart-define=API_URL=http://localhost:5080
+flutter run                 # apunta a producción, funciona tal cual
 ```
 
-`API_URL` depende de dónde corre la app:
+Para desarrollar contra la API local hay que pasar la URL, y **depende del dispositivo**:
 
-- Simulador iOS: `http://localhost:5080`
-- Emulador Android: `http://10.0.2.2:5080` (es el valor por defecto)
-- Dispositivo físico: la IP de su máquina en la red, ej. `http://192.168.1.10:5080`
+```bash
+flutter run --dart-define=API_URL=http://localhost:5080      # simulador iOS
+flutter run --dart-define=API_URL=http://10.0.2.2:5080       # emulador Android
+flutter run --dart-define=API_URL=http://192.168.1.10:5080   # teléfono físico (su IP)
+```
+
+No hay un valor local que sirva en los tres, por eso el defecto es producción.
 
 ## Usuarios de demostración
 
-Los crea el seeder en el taller **Taller Garaj**, con sucursales Matriz (MTZ) y Sur (SUR).
+Los crea el seeder en el taller **Taller Garaj**, con sucursales Matriz (MTZ, Tegucigalpa) y Norte (SPS, San Pedro Sula).
 Contraseña para todos: `Garaj123!`
 
 | Correo | Perfil |
 | --- | --- |
 | owner@garaj.test | Dueño (ve las dos sucursales) |
 | tecnico1@garaj.test | Técnico (Matriz) |
-| tecnico2@garaj.test | Técnico (Sur) |
+| tecnico2@garaj.test | Técnico (Norte) |
 | cliente@garaj.test | Cliente (María Torres) |
 
 ## Comandos útiles

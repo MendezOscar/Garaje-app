@@ -2,15 +2,21 @@ import 'package:dio/dio.dart';
 
 import '../auth/token_store.dart';
 
-/// URL de la API. Se inyecta al compilar:
-/// `flutter run --dart-define=API_URL=http://192.168.1.10:5080`
+/// URL de la API.
 ///
-/// El valor por defecto sirve al emulador de Android, donde 10.0.2.2 apunta al host.
-/// En el simulador de iOS use `http://localhost:5080`; en un dispositivo físico, la IP
-/// de la máquina en la red del taller.
+/// Por defecto apunta a producción para que `flutter run` funcione tal cual en cualquier
+/// dispositivo. No hay un valor local que sirva en todos: el emulador de Android llega al
+/// host por 10.0.2.2, el simulador de iOS por localhost, y un teléfono físico necesita la
+/// IP de la máquina en la red. Un defecto que solo funciona en uno de los tres confunde
+/// más de lo que ayuda.
+///
+/// Para desarrollar contra la API local, se pasa al compilar:
+///   `flutter run --dart-define=API_URL=http://localhost:5080`      (simulador iOS)
+///   `flutter run --dart-define=API_URL=http://10.0.2.2:5080`       (emulador Android)
+///   `flutter run --dart-define=API_URL=http://192.168.1.10:5080`   (dispositivo físico)
 const apiBaseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://10.0.2.2:5080',
+  defaultValue: 'https://garaje-app.onrender.com',
 );
 
 class ApiClient {
