@@ -121,14 +121,18 @@ cd mobile && flutter analyze
 # Humo del backend: 34 comprobaciones del flujo y del alcance por perfil
 python3 backend/tests/smoke/fase1_smoke.py
 
+# Humo de las fotos: 30 comprobaciones del ciclo subir / confirmar / listar / borrar
+python3 backend/tests/smoke/fase2_smoke.py
+
 # Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \
   -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080
 ```
 
-> Los dos humos **escriben en la base**, así que no se corren en paralelo ni contra Supabase:
-> el del backend entrega órdenes que el del móvil espera encontrar abiertas. Cómo recrear la
-> base local está en [docs/api.md](docs/api.md#verificación).
+> Los humos **escriben en la base** —y el de la Fase 2, además, sube archivos a MinIO—, así
+> que no se corren en paralelo ni contra Supabase: el del backend entrega órdenes que el del
+> móvil espera encontrar abiertas. Cómo recrear la base local está en
+> [docs/api.md](docs/api.md#verificación).
 
 ## Notas de seguridad
 
@@ -137,4 +141,5 @@ cd mobile && flutter test integration_test/login_test.dart \
 - El aislamiento entre talleres depende del global query filter de
   [GarajDbContext](backend/src/Garaj.Infrastructure/Persistence/GarajDbContext.cs). Si
   escribe una consulta con `IgnoreQueryFilters()`, filtre el tenant a mano.
-- Las fotos nunca se sirven por URL pública: siempre por URL prefirmada temporal.
+- Las fotos nunca se sirven por URL pública: siempre por URL prefirmada temporal, que caduca
+  a los 15 minutos. El bucket es privado y el binario no pasa por la API.

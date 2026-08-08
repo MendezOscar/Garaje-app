@@ -32,6 +32,13 @@ export const WorkOrderStatus = {
 } as const
 export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus]
 
+export const MediaOwnerType = {
+  ServiceRequest: 1,
+  WorkOrder: 2,
+  WorkOrderTask: 3,
+} as const
+export type MediaOwnerType = (typeof MediaOwnerType)[keyof typeof MediaOwnerType]
+
 /** Columnas del tablero, en el orden en que avanza el trabajo. */
 export const KANBAN_COLUMNS: WorkOrderStatus[] = [
   WorkOrderStatus.Received,
@@ -189,6 +196,32 @@ export interface WorkOrderStatusEntry {
   changedByName: string
   note: string | null
   isVisibleToCustomer: boolean
+}
+
+export interface MediaAttachment {
+  id: string
+  ownerType: MediaOwnerType
+  ownerId: string
+  /** URL prefirmada temporal: caduca, así que no se guarda ni se comparte. */
+  url: string
+  thumbnailUrl: string
+  contentType: string
+  sizeBytes: number
+  caption: string | null
+  uploadedByUserId: string
+  uploadedByName: string
+  takenAt: string
+  uploadedAt: string
+  isVisibleToCustomer: boolean
+  taskTitle: string | null
+}
+
+export interface PresignedUpload {
+  attachmentId: string
+  uploadUrl: string
+  key: string
+  headers: Record<string, string>
+  expiresAt: string
 }
 
 export interface WorkOrderDetail {

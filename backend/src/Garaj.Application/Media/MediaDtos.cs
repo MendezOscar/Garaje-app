@@ -1,0 +1,65 @@
+using Garaj.Domain.Enums;
+
+namespace Garaj.Application.Media;
+
+/// <param name="Url">URL prefirmada de lectura del original. Caduca; no se guarda en caché.</param>
+/// <param name="ThumbnailUrl">URL de la miniatura, o la del original si no se pudo generar.</param>
+public record MediaAttachmentDto(
+    Guid Id,
+    MediaOwnerType OwnerType,
+    Guid OwnerId,
+    string Url,
+    string ThumbnailUrl,
+    string ContentType,
+    long SizeBytes,
+    string? Caption,
+    Guid UploadedByUserId,
+    string UploadedByName,
+    DateTimeOffset TakenAt,
+    DateTimeOffset UploadedAt,
+    bool IsVisibleToCustomer,
+    // Título del paso al que pertenece, cuando la foto documenta un paso concreto.
+    string? TaskTitle);
+
+/// <param name="TakenAt">
+/// Fecha real de la toma en el teléfono. Se pide explícita porque el móvil puede subir desde
+/// la cola offline días después: usar la hora del servidor descuadraría la línea de tiempo.
+/// </param>
+public record CreateUploadRequest(
+    MediaOwnerType OwnerType,
+    Guid OwnerId,
+    string ContentType,
+    long SizeBytes,
+    string? FileName,
+    string? Caption,
+    DateTimeOffset? TakenAt,
+    bool IsVisibleToCustomer = true);
+
+/// <param name="AttachmentId">Id que hay que confirmar cuando el PUT al bucket termine.</param>
+public record PresignedUploadDto(
+    Guid AttachmentId,
+    string UploadUrl,
+    string Key,
+    IDictionary<string, string> Headers,
+    DateTimeOffset ExpiresAt);
+
+public record MediaQuery(MediaOwnerType OwnerType, Guid OwnerId);
+
+public interface IMediaService
+{
+    /// <summary>
+    /// Reserva el adjunto y devuelve la URL prefirmada para subir el binario directo al
+    /// bucket. La fila queda sin confirmar hasta que el cliente llame a <c>ConfirmAsync</c>.
+    /// </summary>
+    Task<PresignedUploadDto> CreateUploadUrlAsync(CreateUploadRequest request, CancellationToken ct = default);
+
+    /// <summary>Verifica que el objeto llegó al bucket, genera la miniatura y publica la foto.</summary>
+    Task<MediaAttachmentDto> ConfirmAsync(Guid attachmentId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<MediaAttachmentDto>> ListAsync(MediaQuery query, CancellationToken ct = default);
+
+    /// <summary>Galería completa de la orden: sus fotos y las de todos sus pasos, en una llamada.</summary>
+    Task<IReadOnlyList<MediaAttachmentDto>> ListForWorkOrderAsync(Guid workOrderId, CancellationToken ct = default);
+
+    Task DeleteAsync(Guid attachmentId, CancellationToken ct = default);
+}

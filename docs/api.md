@@ -47,6 +47,44 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST | `/api/work-orders/{id}/tasks/{taskId}/complete` | Owner o Técnico | Marca el paso |
 | DELETE | `/api/work-orders/{id}/tasks/{taskId}` | Owner | Elimina el paso |
 
+### Fase 2 — evidencia fotográfica
+
+El binario **no pasa por la API**: el cliente pide una URL prefirmada, sube directo al bucket
+y confirma. Una foto de 3 MB por la red del taller no ocupa un hilo del servidor, y el móvil
+puede reintentar el `PUT` sin repetir la petición completa.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| POST | `/api/media/upload-url` | cualquiera | Reserva el adjunto y devuelve el `PUT` prefirmado |
+| POST | `/api/media/{id}/confirm` | quien la subió | Publica la foto y genera la miniatura |
+| GET | `/api/media?ownerType=&ownerId=` | cualquiera | Adjuntos de un recurso |
+| GET | `/api/media/work-order/{id}` | cualquiera | Galería: fotos de la orden y de sus pasos |
+| DELETE | `/api/media/{id}` | quien la subió, o el Dueño | Borra la foto y sus objetos |
+
+`ownerType`: `1` requerimiento · `2` orden de trabajo · `3` paso de la reparación.
+
+Los tres pasos de una subida:
+
+1. `POST /api/media/upload-url` → `{ attachmentId, uploadUrl, key, headers, expiresAt }`.
+2. `PUT` a `uploadUrl` con el binario y **exactamente** las cabeceras de `headers`: el
+   `Content-Type` va dentro de la firma y el bucket devuelve 403 si no coincide. La petición
+   al bucket no lleva `Authorization` — si se envía, la firma tampoco valida.
+3. `POST /api/media/{attachmentId}/confirm` → devuelve el adjunto ya visible. Responde **409**
+   si el archivo todavía no llegó al bucket, para que el cliente reintente sin pedir otra URL.
+
+Un adjunto sin confirmar no aparece en ninguna lista y no lo ve nadie.
+
+Reglas propias de las fotos, además del alcance general:
+
+- El **Cliente** solo adjunta a sus requerimientos: el proceso de reparación lo documenta el
+  taller. Y solo ve las fotos con `isVisibleToCustomer: true`.
+- El **Técnico** adjunta y borra en las órdenes que tiene asignadas, y solo sus propias fotos.
+- El **Dueño** borra cualquier foto del taller.
+
+Se admiten JPEG, PNG, WebP y HEIC, hasta 15 MB (`Storage:MaxUploadBytes`). Las URL de lectura
+caducan a los 15 minutos (`Storage:PresignedUrlMinutes`): son temporales a propósito, viajan
+en JSON y podrían quedar en una caché o en un log.
+
 ### Reglas de alcance
 
 Son la parte que hay que respetar al agregar endpoints nuevos. Viven en
@@ -68,6 +106,9 @@ para el Cliente.
 ```bash
 # Con la API corriendo y el seeder aplicado
 python3 backend/tests/smoke/fase1_smoke.py
+
+# Fase 2: sube archivos de verdad a MinIO, así que hace falta `docker compose up -d`
+python3 backend/tests/smoke/fase2_smoke.py
 ```
 
 **El script escribe en la base**: entrega órdenes, aprueba requerimientos y crea clientes.
@@ -104,7 +145,6 @@ una sola petición en vuelo.
 
 ## Pendiente por fase
 
-- **Fase 2** — `/api/media` (presigned upload, confirmar, listar, eliminar)
 - **Fase 3** — `/api/parts`, `/api/stock` (existencias, ajustes, transferencias, alertas)
 - **Fase 4** — `/api/labor-services`, `/api/quotes` (PDF, link de WhatsApp), `/public/quotes/{token}`
 - **Fase 5** — `/api/sales`, `/api/reports/revenue`, `/api/reports/dashboard`

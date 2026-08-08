@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Auth;
 using Garaj.Application.Branches;
 using Garaj.Application.Customers;
+using Garaj.Application.Media;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.Users;
 using Garaj.Application.WorkOrders;
@@ -10,6 +11,7 @@ using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Garaj.Infrastructure.Persistence.Interceptors;
 using Garaj.Infrastructure.Services;
+using Garaj.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,6 +25,7 @@ public static class DependencyInjection
         this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
 
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
@@ -66,6 +69,11 @@ public static class DependencyInjection
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IWorkOrderService, WorkOrderService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
+
+        // Singleton: el cliente de S3 mantiene su pool de conexiones HTTP y crearlo por
+        // petición desperdicia handshakes TLS contra el bucket.
+        services.AddSingleton<IStorageService, S3StorageService>();
+        services.AddScoped<IMediaService, MediaService>();
 
         return services;
     }

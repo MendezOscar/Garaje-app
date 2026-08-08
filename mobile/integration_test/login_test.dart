@@ -61,9 +61,13 @@ void main() {
 
     expect(find.text('MOTIVO DE INGRESO'), findsOneWidget);
     expect(find.text('PASOS DE LA REPARACIÓN'), findsOneWidget);
+    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     // Al Técnico sí se le ofrecen transiciones; al Cliente no.
     expect(find.text('CAMBIAR ESTADO'), findsOneWidget);
+    // Y sí puede documentar: cámara y galería.
+    expect(find.byTooltip('Tomar foto'), findsOneWidget);
+    expect(find.byTooltip('Elegir de la galería'), findsOneWidget);
   });
 
   testWidgets('el Cliente sigue su vehículo pero no cambia estados', (tester) async {
@@ -79,6 +83,9 @@ void main() {
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     expect(find.text('CAMBIAR ESTADO'), findsNothing);
     expect(find.text('Agregar paso'), findsNothing);
+    // Mira el proceso de su vehículo, pero no lo documenta.
+    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
+    expect(find.byTooltip('Tomar foto'), findsNothing);
   });
 
   testWidgets('una contraseña incorrecta muestra el error y no navega', (tester) async {

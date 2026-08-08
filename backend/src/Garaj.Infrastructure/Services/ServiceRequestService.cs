@@ -26,10 +26,15 @@ public class ServiceRequestService(
 
         var total = await q.CountAsync(ct);
 
-        var items = await Project(q)
+        // Se ordena sobre la entidad y se proyecta después. Al revés, EF tiene que traducir el
+        // OrderBy sobre el DTO ya construido, y con los joins que mete el alcance del Cliente
+        // no lo consigue: la bandeja del Cliente respondía 500.
+        var ordered = q
             // Los pendientes primero: es la bandeja de entrada del Dueño, no un histórico.
             .OrderBy(r => r.Status == ServiceRequestStatus.Pending ? 0 : 1)
-            .ThenByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.CreatedAt);
+
+        var items = await Project(ordered)
             .Skip(query.Skip)
             .Take(query.PageSize)
             .ToListAsync(ct);

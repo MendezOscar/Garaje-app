@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { usersApi, workOrdersApi } from '@/api/garaj'
+import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -170,6 +171,8 @@ onMounted(async () => {
             <button type="submit" :disabled="busy || !newTaskTitle.trim()">Agregar</button>
           </form>
         </article>
+
+        <PhotoGallery :work-order-id="order.id" :can-edit="canEdit" />
       </div>
 
       <div class="col">

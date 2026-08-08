@@ -1,8 +1,12 @@
+import axios from 'axios'
 import { api } from './client'
 import type {
   Branch,
   Customer,
+  MediaAttachment,
+  MediaOwnerType,
   Paged,
+  PresignedUpload,
   ServiceRequest,
   User,
   Vehicle,
@@ -134,5 +138,51 @@ export const workOrdersApi = {
   },
   async deleteTask(id: string, taskId: string) {
     await api.delete(`/api/work-orders/${id}/tasks/${taskId}`)
+  },
+}
+
+export const mediaApi = {
+  /** Galería completa de una orden: sus fotos y las de todos sus pasos. */
+  async listForWorkOrder(workOrderId: string): Promise<MediaAttachment[]> {
+    const { data } = await api.get<MediaAttachment[]>(`/api/media/work-order/${workOrderId}`)
+    return data
+  },
+
+  async list(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAttachment[]> {
+    const { data } = await api.get<MediaAttachment[]>('/api/media', {
+      params: { ownerType, ownerId },
+    })
+    return data
+  },
+
+  /**
+   * Sube el archivo en tres pasos: pedir la URL, hacer el PUT directo al bucket y confirmar.
+   * El binario nunca pasa por la API, así que una foto grande no ocupa un hilo del servidor.
+   */
+  async upload(
+    file: File,
+    owner: { ownerType: MediaOwnerType; ownerId: string },
+    options: { caption?: string; isVisibleToCustomer?: boolean } = {},
+  ): Promise<MediaAttachment> {
+    const { data: presigned } = await api.post<PresignedUpload>('/api/media/upload-url', {
+      ...owner,
+      contentType: file.type,
+      sizeBytes: file.size,
+      fileName: file.name,
+      caption: options.caption,
+      takenAt: new Date(file.lastModified).toISOString(),
+      isVisibleToCustomer: options.isVisibleToCustomer ?? true,
+    })
+
+    // axios "pelado": el interceptor de `api` añadiría el Authorization del taller a una
+    // petición al bucket, y S3 rechaza la firma si llega esa cabecera de más.
+    await axios.put(presigned.uploadUrl, file, { headers: presigned.headers })
+
+    const { data } = await api.post<MediaAttachment>(`/api/media/${presigned.attachmentId}/confirm`)
+    return data
+  },
+
+  async remove(id: string) {
+    await api.delete(`/api/media/${id}`)
   },
 }

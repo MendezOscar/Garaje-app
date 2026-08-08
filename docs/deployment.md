@@ -118,11 +118,27 @@ Después del primer despliegue, vuelva a Render y ponga la URL real de Pages en
 
 ---
 
-## 4. Cloudflare R2 (fotos — Fase 2)
+## 4. Cloudflare R2 (fotos)
 
 1. **R2 → Create bucket**, nombre `garaj-media`, ubicación automática.
 2. **Manage R2 API Tokens → Create token**, permiso *Object Read & Write* sobre ese bucket.
-3. En Render:
+   Anote el **Account ID**, el Access Key ID y el Secret: el secreto solo se ve una vez.
+3. En **Settings → CORS policy** del bucket, pegue esto. Sin ello el navegador bloquea la
+   subida: el `PUT` va del navegador directo a R2, así que es R2 quien tiene que permitir
+   el origen del panel, no la API.
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://garaje-app.pages.dev", "http://localhost:5173"],
+       "AllowedMethods": ["PUT", "GET"],
+       "AllowedHeaders": ["content-type"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+4. En Render:
 
    | Variable | Valor |
    | --- | --- |
@@ -133,6 +149,10 @@ Después del primer despliegue, vuelva a Render y ponga la URL real de Pages en
 
 El bucket queda **privado**: las fotos se sirven por URL prefirmada temporal, nunca por URL
 pública.
+
+Mientras no estén esas variables, el taller opera con normalidad —órdenes, pasos, estados—
+y solo los endpoints de `/api/media` responden **503** diciendo qué falta. Es a propósito:
+un bucket sin configurar no debe tumbar la API.
 
 ---
 
