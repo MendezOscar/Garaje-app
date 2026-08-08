@@ -103,7 +103,7 @@ plan Starter (US$7/mes), que no duerme.
 Variable de entorno de build:
 
 ```
-VITE_API_URL = https://garaj-api.onrender.com
+VITE_API_URL = https://garaje-app.onrender.com
 ```
 
 `web/public/_redirects` ya manda todas las rutas a `index.html`, que es lo que necesita el
@@ -138,7 +138,7 @@ La app apunta a la API por `--dart-define`:
 
 ```bash
 # Contra el backend desplegado
-flutter run --dart-define=API_URL=https://garaj-api.onrender.com
+flutter run --dart-define=API_URL=https://garaje-app.onrender.com
 
 # Contra el backend local
 flutter run --dart-define=API_URL=http://localhost:5080
@@ -147,8 +147,8 @@ flutter run --dart-define=API_URL=http://localhost:5080
 Para generar los binarios de tienda hay que definirlo también en el build:
 
 ```bash
-flutter build ipa   --dart-define=API_URL=https://garaj-api.onrender.com
-flutter build appbundle --dart-define=API_URL=https://garaj-api.onrender.com
+flutter build ipa   --dart-define=API_URL=https://garaje-app.onrender.com
+flutter build appbundle --dart-define=API_URL=https://garaje-app.onrender.com
 ```
 
 ---
