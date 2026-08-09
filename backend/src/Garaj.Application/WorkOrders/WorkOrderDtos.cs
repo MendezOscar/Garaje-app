@@ -113,7 +113,10 @@ public record SaveWorkOrderTaskRequest(
     string? Description,
     Guid? AssignedTechnicianId,
     Guid? LaborServiceId,
-    decimal? EstimatedHours);
+    decimal? EstimatedHours,
+    // Precio a mano para este paso. Manda sobre el del catálogo, y sirve para el trabajo que
+    // no está en la lista de servicios.
+    decimal? LaborPrice = null);
 
 public record CompleteTaskRequest(
     bool IsDone,

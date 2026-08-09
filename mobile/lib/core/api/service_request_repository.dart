@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import '../period.dart';
 
 /// Vehículo del cliente, en lo mínimo que hace falta para elegirlo en una lista.
 class VehicleOption {
@@ -210,10 +211,13 @@ class ServiceRequestRepository {
 
   /// La bandeja. La API ya la recorta por perfil: el Técnico ve la de sus sucursales y el
   /// Cliente solo lo de sus vehículos, así que aquí no hay que filtrar nada.
-  Future<List<ServiceRequestItem>> list() async {
+  Future<List<ServiceRequestItem>> list({DateTime? from}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/service-requests',
-      queryParameters: {'pageSize': 100},
+      queryParameters: {
+        'pageSize': 100,
+        if (from != null) 'from': from.toUtc().toIso8601String(),
+      },
     );
 
     return (response.data!['items'] as List<dynamic>)
@@ -241,8 +245,9 @@ class ServiceRequestRepository {
 
 /// `autoDispose` para que al volver de aprobar uno se recargue: si no, el requerimiento
 /// recién convertido seguiría apareciendo como pendiente.
-final serviceRequestsProvider = FutureProvider.autoDispose<List<ServiceRequestItem>>(
-  (ref) => ref.watch(serviceRequestRepositoryProvider).list(),
+final serviceRequestsProvider =
+    FutureProvider.autoDispose.family<List<ServiceRequestItem>, Period>(
+  (ref, period) => ref.watch(serviceRequestRepositoryProvider).list(from: period.from),
 );
 
 /// Parametrizado por el texto de búsqueda: cadena vacía es "los primeros que haya", que es

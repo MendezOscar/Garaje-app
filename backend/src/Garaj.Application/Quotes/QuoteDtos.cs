@@ -141,6 +141,10 @@ public record QuoteQuery : PageQuery
     public Guid? CustomerId { get; init; }
     public Guid? WorkOrderId { get; init; }
     public Guid? BranchId { get; init; }
+
+    /// <summary>Por fecha de creación de la cotización. Sin rango, todas.</summary>
+    public DateTimeOffset? From { get; init; }
+    public DateTimeOffset? To { get; init; }
 }
 
 /// <param name="Url">`https://wa.me/504…?text=…`, listo para abrir.</param>

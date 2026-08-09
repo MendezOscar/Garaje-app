@@ -46,7 +46,7 @@ const newPayment = ref({ amount: '' as number | string, method: PaymentMethod.Ca
 
 const statusNote = ref('')
 const noteIsInternal = ref(false)
-const newTask = ref({ title: '', laborServiceId: '' })
+const newTask = ref({ title: '', laborServiceId: '', laborPrice: '' as number | string })
 
 /** Catálogo de mano de obra: es lo que le pone precio a cada paso. */
 const laborServices = ref<LaborService[]>([])
@@ -207,23 +207,29 @@ function addTask() {
     await workOrdersApi.addTask(id.value, {
       title,
       laborServiceId: newTask.value.laborServiceId || null,
+      laborPrice: Number(newTask.value.laborPrice) || null,
     })
-    newTask.value = { title: '', laborServiceId: '' }
+    newTask.value = { title: '', laborServiceId: '', laborPrice: '' }
   })
 }
 
 /**
- * Le pone precio a un paso. Sin servicio del catálogo el paso no se cobra, y esa es la razón
- * más común de que una factura salga corta.
+ * Le pone precio a un paso, del catálogo o a mano. Un paso sin precio no se cobra, y esa es
+ * la razón más común de que una factura salga corta.
+ *
+ * Al elegir un servicio se manda el precio en blanco a propósito: vuelve a mandar la tarifa
+ * del catálogo, que es lo que se está pidiendo al elegirlo.
  */
-function setTaskLabor(task: WorkOrderDetail['tasks'][number], laborServiceId: string) {
+function setTaskLabor(
+  task: WorkOrderDetail['tasks'][number],
+  changes: { laborServiceId?: string | null; laborPrice?: number | null },
+) {
   return run(() =>
     workOrdersApi.updateTask(id.value, task.id, {
       title: task.title,
       description: task.description,
-      laborServiceId: laborServiceId || null,
-      // Se omiten las horas a propósito: al cambiar de servicio el backend vuelve a poner
-      // las estándar del nuevo, que es lo que se quiere cobrar.
+      laborServiceId: task.laborServiceId,
+      ...changes,
     }),
   )
 }
@@ -326,8 +332,8 @@ onMounted(async () => {
         <article class="card">
           <h2>Pasos de la reparación</h2>
           <p v-if="canEdit" class="muted small">
-            La mano de obra se cobra por el servicio del catálogo que lleve cada paso. El paso
-            que quede sin servicio no entra en la factura.
+            Cada paso se cobra por el servicio del catálogo o por el precio que se le escriba
+            aquí mismo. El paso que quede sin precio no entra en la factura.
           </p>
 
           <ul class="tasks">
@@ -352,14 +358,31 @@ onMounted(async () => {
                 <select
                   :value="task.laborServiceId ?? ''"
                   :disabled="busy"
-                  @change="setTaskLabor(task, ($event.target as HTMLSelectElement).value)"
+                  @change="
+                    setTaskLabor(task, {
+                      laborServiceId: ($event.target as HTMLSelectElement).value || null,
+                      laborPrice: null,
+                    })
+                  "
                 >
-                  <option value="">Sin cobro de mano de obra</option>
+                  <option value="">Sin servicio del catálogo</option>
                   <option v-for="s in laborServices" :key="s.id" :value="s.id">
                     {{ s.name }} · {{ formatMoney(s.price) }}
                   </option>
                 </select>
-                <strong v-if="task.laborPrice" class="num">{{ formatMoney(task.laborPrice) }}</strong>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Precio"
+                  :value="task.laborPrice ?? ''"
+                  :disabled="busy"
+                  @change="
+                    setTaskLabor(task, {
+                      laborPrice: Number(($event.target as HTMLInputElement).value) || null,
+                    })
+                  "
+                />
               </div>
             </li>
           </ul>
@@ -369,14 +392,21 @@ onMounted(async () => {
             Mano de obra de los pasos <strong>{{ formatMoney(order.laborTotal) }}</strong>
           </p>
 
-          <form v-if="canEdit" class="inline" @submit.prevent="addTask">
+          <form v-if="canEdit" class="inline new-task" @submit.prevent="addTask">
             <input v-model="newTask.title" placeholder="Agregar paso…" />
             <select v-model="newTask.laborServiceId">
-              <option value="">Sin cobro</option>
+              <option value="">Sin servicio</option>
               <option v-for="s in laborServices" :key="s.id" :value="s.id">
                 {{ s.name }} · {{ formatMoney(s.price) }}
               </option>
             </select>
+            <input
+              v-model="newTask.laborPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Precio"
+            />
             <button type="submit" :disabled="busy || !newTask.title.trim()">Agregar</button>
           </form>
         </article>
@@ -701,6 +731,18 @@ dd {
   flex: 1;
   min-width: 0;
   font-size: 0.8125rem;
+}
+
+.task-labor input,
+.new-task input[type='number'] {
+  width: 6.5rem;
+  flex: none;
+  font-size: 0.8125rem;
+}
+
+.new-task select {
+  width: auto;
+  max-width: 12rem;
 }
 
 .labor-total {

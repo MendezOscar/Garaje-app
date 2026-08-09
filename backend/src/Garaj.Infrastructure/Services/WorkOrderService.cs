@@ -488,6 +488,13 @@ public class WorkOrderService(
                 ?? throw new NotFoundException("El servicio de mano de obra no existe.")
             : null;
 
+        if (request.LaborPrice is < 0)
+            throw new AppException("El precio de la mano de obra no puede ser negativo.");
+
+        // Se guarda tal cual llega: al elegir un servicio del catálogo sin escribir precio, el
+        // precio a mano se borra y vuelve a mandar la tarifa del catálogo.
+        task.LaborPrice = request.LaborPrice;
+
         // Sin horas indicadas se toman las estándar del servicio: así el paso queda con precio
         // desde que se crea y el Dueño ve lo que va a cobrar sin teclear nada.
         task.EstimatedHours = request.EstimatedHours ?? service?.StandardHours;
@@ -574,7 +581,7 @@ public class WorkOrderService(
                     t.AssignedTechnicianId is { } id ? names.GetValueOrDefault(id) : null,
                     t.LaborServiceId,
                     service?.Name,
-                    service?.PriceFor(t.ActualHours ?? t.EstimatedHours),
+                    t.PriceWith(service),
                     t.EstimatedHours, t.ActualHours, t.TechnicianNotes, t.StartedAt, t.CompletedAt);
             })
             .ToList();
@@ -641,7 +648,7 @@ public class WorkOrderService(
             task.Id, task.Title, task.Description, task.Sequence, task.IsDone,
             task.AssignedTechnicianId, name,
             task.LaborServiceId, service?.Name,
-            service?.PriceFor(task.ActualHours ?? task.EstimatedHours),
+            task.PriceWith(service),
             task.EstimatedHours, task.ActualHours,
             task.TechnicianNotes, task.StartedAt, task.CompletedAt);
     }

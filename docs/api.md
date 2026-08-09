@@ -35,7 +35,7 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | GET | `/api/vehicles?search=&customerId=` | cualquiera | Vehículos |
 | POST | `/api/vehicles` | cualquiera | El Cliente los suyos; el taller, los de cualquiera |
 | PUT | `/api/vehicles/{id}` | Owner o Customer | El Técnico no edita |
-| GET | `/api/service-requests?status=&branchId=` | cualquiera | Bandeja; pendientes primero. El Técnico ve los de sus sucursales |
+| GET | `/api/service-requests?status=&branchId=&from=&to=` | cualquiera | Bandeja; pendientes primero. El Técnico ve los de sus sucursales. `from`/`to` filtran por fecha de ingreso |
 | POST | `/api/service-requests` | cualquiera | El Técnico solo en sus sucursales |
 | POST | `/api/service-requests/{id}/approve` | Owner | Lo convierte en orden y devuelve `workOrderId` |
 | POST | `/api/service-requests/{id}/reject` | Owner | Lo rechaza con motivo |
@@ -145,7 +145,7 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | --- | --- | --- | --- |
 | GET | `/api/labor-services?includeInactive=` | taller | Catálogo de mano de obra |
 | POST/PUT | `/api/labor-services[/{id}]` | Owner | Alta y edición; el código es único |
-| GET | `/api/quotes?status=&customerId=&workOrderId=` | Owner o Cliente | Cotizaciones visibles |
+| GET | `/api/quotes?status=&customerId=&workOrderId=&from=&to=` | Owner o Cliente | Cotizaciones visibles; `from`/`to` por fecha de creación |
 | GET | `/api/quotes/{id}` | Owner o Cliente | Detalle con líneas y totales |
 | POST | `/api/quotes` | Owner | Cotización en blanco para un cliente |
 | POST | `/api/quotes/from-work-order` | Owner | La arma con los repuestos y pasos de la orden |
@@ -217,10 +217,13 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 Decisiones que conviene conocer antes de tocar esto:
 
-- **La mano de obra se cobra por el servicio del catálogo que lleve cada paso.** Un paso sin
-  `laborServiceId` no tiene precio y no entra en la factura: meterlo en cero haría que una
-  orden pareciera cobrada cuando no lo está. El detalle de la orden trae `laborPrice` por paso
-  y `laborTotal` en el total, que es lo que se cobraría hoy.
+- **La mano de obra se cobra por paso.** El precio sale del servicio del catálogo que lleve
+  asignado o de `laborPrice`, escrito a mano en el propio paso, que manda sobre el catálogo.
+  El precio a mano existe porque el taller cobra trabajos que no están en la lista, y obligar
+  a darlos de alta antes de poder cobrarlos terminaba en pasos sin precio. Un paso sin
+  ninguno de los dos no entra en la factura: cobrarlo en cero haría que una orden pareciera
+  cobrada cuando no lo está. El detalle de la orden trae `laborPrice` ya resuelto por paso y
+  `laborTotal` en el total, que es lo que se cobraría hoy.
 - **Al facturar se puede cobrar la mano de obra de la cotización aprobada** (`laborFromQuoteId`)
   en lugar de la de los pasos. Es el precio que el cliente vio y aceptó, y suele incluir cosas
   que nunca se registraron como paso. Los repuestos no salen de ahí: esos se cobran como

@@ -101,7 +101,17 @@ export const vehiclesApi = {
 }
 
 export const serviceRequestsApi = {
-  async list(query: { status?: number; branchId?: string; page?: number; pageSize?: number } = {}) {
+  async list(
+    query: {
+      status?: number
+      branchId?: string
+      /** Desde cuándo, en ISO. Filtra por fecha de ingreso del requerimiento. */
+      from?: string
+      to?: string
+      page?: number
+      pageSize?: number
+    } = {},
+  ) {
     const { data } = await api.get<Paged<ServiceRequest>>('/api/service-requests', {
       params: params(query),
     })
@@ -173,6 +183,8 @@ export const workOrdersApi = {
       description?: string
       /** El servicio del catálogo que le pone precio al paso. */
       laborServiceId?: string | null
+      /** Precio a mano. Manda sobre el del catálogo. */
+      laborPrice?: number | null
       estimatedHours?: number
     },
   ) {
@@ -187,6 +199,7 @@ export const workOrdersApi = {
       title: string
       description?: string | null
       laborServiceId?: string | null
+      laborPrice?: number | null
       estimatedHours?: number | null
     },
   ) {
@@ -383,6 +396,9 @@ export const quotesApi = {
     status?: QuoteStatus
     customerId?: string
     workOrderId?: string
+    /** Desde cuándo, en ISO. Filtra por fecha de creación de la cotización. */
+    from?: string
+    to?: string
     page?: number
     pageSize?: number
   } = {}) {

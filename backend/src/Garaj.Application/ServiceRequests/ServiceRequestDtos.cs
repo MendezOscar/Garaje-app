@@ -47,6 +47,10 @@ public record ServiceRequestQuery : PageQuery
     public Guid? BranchId { get; init; }
     public ServiceRequestStatus? Status { get; init; }
     public Guid? VehicleId { get; init; }
+
+    /// <summary>Por fecha de ingreso del requerimiento. Sin rango, todos.</summary>
+    public DateTimeOffset? From { get; init; }
+    public DateTimeOffset? To { get; init; }
 }
 
 public interface IServiceRequestService

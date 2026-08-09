@@ -96,6 +96,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
   Future<void> _addTask() async {
     final controller = TextEditingController();
+    final price = TextEditingController();
     final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
     String? serviceId;
 
@@ -113,20 +114,36 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 decoration: const InputDecoration(labelText: '¿Qué hay que hacer?'),
               ),
               const SizedBox(height: 12),
-              // Sin servicio del catálogo el paso no tiene precio y no entra en la factura.
+              // El paso se cobra por el servicio del catálogo o por el precio que se escriba
+              // aquí. Sin ninguno de los dos no entra en la factura.
               DropdownButtonFormField<String?>(
                 initialValue: serviceId,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Mano de obra'),
                 items: [
-                  const DropdownMenuItem<String?>(value: null, child: Text('Sin cobro')),
+                  const DropdownMenuItem<String?>(value: null, child: Text('Sin servicio')),
                   for (final s in services)
                     DropdownMenuItem<String?>(
                       value: s.id,
                       child: Text('${s.name} · ${_money(s.price)}', overflow: TextOverflow.ellipsis),
                     ),
                 ],
-                onChanged: (value) => setInner(() => serviceId = value),
+                onChanged: (value) => setInner(() {
+                  serviceId = value;
+                  // Al elegir del catálogo se propone su precio, pero se puede cambiar.
+                  price.text = value == null
+                      ? ''
+                      : services.firstWhere((s) => s.id == value).price.toStringAsFixed(2);
+                }),
+              ),
+              TextField(
+                controller: price,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Precio',
+                  prefixText: 'L ',
+                  helperText: 'Déjelo vacío si el paso no se cobra.',
+                ),
               ),
             ],
           ),
@@ -142,14 +159,22 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     );
 
     if (title == null || title.isEmpty) return;
-    await _run(() => ref
-        .read(workOrderRepositoryProvider)
-        .addTask(widget.id, title, laborServiceId: serviceId));
+    await _run(() => ref.read(workOrderRepositoryProvider).addTask(
+          widget.id,
+          title,
+          laborServiceId: serviceId,
+          laborPrice: _parsePrice(price.text),
+        ));
   }
 
-  /// Cambia el servicio que le pone precio a un paso ya creado.
+  /// Cambia lo que se cobra por un paso ya creado: un servicio del catálogo, un precio a
+  /// mano, o nada.
   Future<void> _changeTaskLabor(WorkOrderTask task) async {
     final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
+
+    // Cadena vacía es "sin cobro" y `_custom` es "precio a mano": null queda para cuando se
+    // sale del menú sin elegir.
+    const custom = '_custom';
 
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -159,9 +184,15 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           shrinkWrap: true,
           children: [
             ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Precio a mano'),
+              subtitle: const Text('Para el trabajo que no está en el catálogo'),
+              onTap: () => Navigator.pop(context, custom),
+            ),
+            const Divider(height: 1),
+            ListTile(
               title: const Text('Sin cobro de mano de obra'),
-              selected: task.laborServiceId == null,
-              // Cadena vacía y no null: null es "se salió del menú sin elegir".
+              selected: task.laborPrice == null,
               onTap: () => Navigator.pop(context, ''),
             ),
             for (final s in services)
@@ -177,9 +208,52 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     );
 
     if (choice == null) return;
-    await _run(() => ref
-        .read(workOrderRepositoryProvider)
-        .setTaskLabor(widget.id, task, choice.isEmpty ? null : choice));
+
+    if (choice == custom) {
+      final price = await _askPrice(task);
+      if (price == null) return;
+
+      await _run(() => ref.read(workOrderRepositoryProvider).setTaskLabor(
+            widget.id,
+            task,
+            laborServiceId: task.laborServiceId,
+            // Cero es quitarle el precio a mano, no cobrar cero.
+            laborPrice: price > 0 ? price : null,
+          ));
+      return;
+    }
+
+    await _run(() => ref.read(workOrderRepositoryProvider).setTaskLabor(
+          widget.id,
+          task,
+          laborServiceId: choice.isEmpty ? null : choice,
+        ));
+  }
+
+  Future<double?> _askPrice(WorkOrderTask task) async {
+    final controller = TextEditingController(
+      text: task.laborPrice?.toStringAsFixed(2) ?? '',
+    );
+
+    return showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(task.title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Precio', prefixText: 'L '),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, _parsePrice(controller.text) ?? 0),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -573,6 +647,12 @@ class _TasksSection extends StatelessWidget {
 }
 
 String _money(double value) => 'L ${value.toStringAsFixed(2)}';
+
+/// Lo tecleado como precio. Vacío, cero o mal escrito es "sin precio", no cero lempiras.
+double? _parsePrice(String text) {
+  final value = double.tryParse(text.trim().replaceAll(',', '.'));
+  return value != null && value > 0 ? value : null;
+}
 
 class _TimelineSection extends StatelessWidget {
   const _TimelineSection({required this.entries});

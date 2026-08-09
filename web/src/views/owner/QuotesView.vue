@@ -14,6 +14,7 @@ import {
   type QuoteListItem,
 } from '@/types/domain'
 import { formatDate, formatMoney, formatQuantity } from '@/utils/format'
+import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
 
 const route = useRoute()
 
@@ -23,6 +24,9 @@ const parts = ref<Part[]>([])
 const services = ref<LaborService[]>([])
 
 const statusFilter = ref<QuoteStatus | ''>('')
+
+/** Filtro de fechas, por cuándo se hizo la cotización. */
+const period = ref<PeriodKey>('month')
 const error = ref('')
 const loading = ref(false)
 const busy = ref(false)
@@ -49,6 +53,7 @@ async function load() {
   try {
     const page = await quotesApi.list({
       status: statusFilter.value || undefined,
+      from: periodFrom(period.value),
       pageSize: 100,
     })
     quotes.value = page.items
@@ -198,6 +203,19 @@ onMounted(async () => {
       </select>
     </header>
 
+    <div class="periods">
+      <button
+        v-for="p in PERIODS"
+        :key="p.key"
+        type="button"
+        class="chip"
+        :class="{ on: period === p.key }"
+        @click="period = p.key; load()"
+      >
+        {{ p.label }}
+      </button>
+    </div>
+
     <p v-if="error" class="error">{{ error }}</p>
 
     <div class="layout">
@@ -336,6 +354,29 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+.chip {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.chip.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
 .top {
   display: flex;
   align-items: flex-start;

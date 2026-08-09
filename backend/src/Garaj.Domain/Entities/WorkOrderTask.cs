@@ -25,6 +25,17 @@ public class WorkOrderTask : TenantEntity
     /// <summary>Servicio del catálogo que respalda este paso; define la tarifa de mano de obra.</summary>
     public Guid? LaborServiceId { get; set; }
 
+    /// <summary>
+    /// Precio puesto a mano para este paso. Manda sobre el del catálogo: el taller cotiza
+    /// trabajos que no están en la lista, y obligar a darlos de alta antes de poder cobrarlos
+    /// terminaría en pasos sin precio, que es como quedaba antes.
+    /// </summary>
+    public decimal? LaborPrice { get; set; }
+
+    /// <summary>Lo que se cobra por el paso: el precio a mano si lo hay, y si no el del catálogo.</summary>
+    public decimal? PriceWith(LaborService? service) =>
+        LaborPrice ?? service?.PriceFor(ActualHours ?? EstimatedHours);
+
     public decimal? EstimatedHours { get; set; }
     public decimal? ActualHours { get; set; }
 

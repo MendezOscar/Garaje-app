@@ -8,6 +8,7 @@ import '../../core/api/staff_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
+import '../../core/period.dart';
 
 /// Bandeja de requerimientos del taller.
 ///
@@ -26,6 +27,9 @@ class ServiceRequestsScreen extends ConsumerStatefulWidget {
 
 class _ServiceRequestsScreenState extends ConsumerState<ServiceRequestsScreen> {
   String? _busyId;
+
+  /// La bandeja de un taller con meses de uso es larga: arranca en el mes en curso.
+  Period _period = Period.month;
 
   bool get _isOwner {
     final auth = ref.read(authControllerProvider);
@@ -111,7 +115,7 @@ class _ServiceRequestsScreenState extends ConsumerState<ServiceRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final requests = ref.watch(serviceRequestsProvider);
+    final requests = ref.watch(serviceRequestsProvider(_period));
     // Se pide aquí para que la lista ya esté en memoria cuando se toque "Aprobar".
     ref.watch(technicianOptionsProvider);
 
@@ -122,51 +126,91 @@ class _ServiceRequestsScreenState extends ConsumerState<ServiceRequestsScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Recibir vehículo'),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(serviceRequestsProvider),
-        child: requests.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(
-            children: [
-              const SizedBox(height: 120),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    apiErrorMessage(e, 'No se pudieron cargar los requerimientos.'),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
+      body: Column(
+        children: [
+          PeriodBar(
+            value: _period,
+            onChanged: (period) => setState(() => _period = period),
           ),
-          data: (items) => items.isEmpty
-              ? ListView(
-                  children: const [
-                    SizedBox(height: 120),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async => ref.invalidate(serviceRequestsProvider),
+              child: requests.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => ListView(
+                  children: [
+                    const SizedBox(height: 120),
                     Center(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
                         child: Text(
-                          'No hay requerimientos por atender.',
+                          apiErrorMessage(e, 'No se pudieron cargar los requerimientos.'),
                           textAlign: TextAlign.center,
                         ),
                       ),
                     ),
                   ],
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: items.length,
-                  itemBuilder: (_, i) => _RequestCard(
-                    request: items[i],
-                    canDecide: _isOwner,
-                    busy: _busyId == items[i].id,
-                    onApprove: () => _approve(items[i]),
-                    onReject: () => _reject(items[i]),
-                  ),
                 ),
-        ),
+                data: (items) => items.isEmpty
+                    ? ListView(
+                        children: [
+                          const SizedBox(height: 120),
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                _period == Period.all
+                                    ? 'No hay requerimientos por atender.'
+                                    : 'No hay requerimientos en este periodo.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: items.length,
+                        itemBuilder: (_, i) => _RequestCard(
+                          request: items[i],
+                          canDecide: _isOwner,
+                          busy: _busyId == items[i].id,
+                          onApprove: () => _approve(items[i]),
+                          onReject: () => _reject(items[i]),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Fila de filtros por fecha. Vive aquí porque la bandeja fue la primera en necesitarla.
+class PeriodBar extends StatelessWidget {
+  const PeriodBar({required this.value, required this.onChanged, super.key});
+
+  final Period value;
+  final ValueChanged<Period> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          for (final period in Period.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(period.label),
+                selected: period == value,
+                onSelected: (_) => onChanged(period),
+              ),
+            ),
+        ],
       ),
     );
   }

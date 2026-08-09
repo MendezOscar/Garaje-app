@@ -12,6 +12,7 @@ import {
   type User,
 } from '@/types/domain'
 import { formatDate, relativeTime, whatsappLink } from '@/utils/format'
+import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -22,13 +23,19 @@ const loading = ref(false)
 const error = ref('')
 const busyId = ref<string | null>(null)
 
+/** Filtro de fechas. Arranca en el mes: la bandeja de un taller con meses de uso es larga. */
+const period = ref<PeriodKey>('month')
+
 /** Técnico elegido por requerimiento, para poder asignar en el mismo gesto que se aprueba. */
 const chosenTechnician = ref<Record<string, string>>({})
 
 async function load() {
   loading.value = true
   try {
-    const result = await serviceRequestsApi.list({ pageSize: 100 })
+    const result = await serviceRequestsApi.list({
+      pageSize: 100,
+      from: periodFrom(period.value),
+    })
     requests.value = result.items
   } catch (e) {
     error.value = errorMessage(e, 'No se pudieron cargar los requerimientos.')
@@ -88,6 +95,19 @@ onMounted(async () => {
       Los pendientes aparecen primero.
       <template v-if="!auth.isOwner"> El Dueño es quien los aprueba.</template>
     </p>
+
+    <div class="periods">
+      <button
+        v-for="p in PERIODS"
+        :key="p.key"
+        type="button"
+        class="chip"
+        :class="{ on: period === p.key }"
+        @click="period = p.key; load()"
+      >
+        {{ p.label }}
+      </button>
+    </div>
 
     <NewServiceRequestForm @created="load" />
 
@@ -163,6 +183,29 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+.chip {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.chip.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
 h1 {
   margin: 0;
 }

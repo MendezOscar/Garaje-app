@@ -252,16 +252,19 @@ public class SaleService(
 
             foreach (var task in order.Tasks.OrderBy(t => t.Sequence))
             {
-                if (task.LaborServiceId is not { } serviceId ||
-                    !services.TryGetValue(serviceId, out var service)) continue;
+                var service = task.LaborServiceId is { } serviceId
+                    ? services.GetValueOrDefault(serviceId)
+                    : null;
 
-                // Se cobran las horas reales si el técnico las registró; si no, las estimadas.
-                var price = service.PriceFor(task.ActualHours ?? task.EstimatedHours);
+                // El precio a mano manda; si no lo hay, la tarifa del catálogo con las horas
+                // reales, y si el técnico no las registró, las estimadas. Un paso sin precio
+                // es trabajo que no se cobra y no genera línea.
+                if (task.PriceWith(service) is not { } price || price <= 0) continue;
 
                 sale.Lines.Add(new SaleLine
                 {
                     LineType = LineType.Labor,
-                    LaborServiceId = service.Id,
+                    LaborServiceId = service?.Id,
                     Description = task.Title,
                     Sequence = ++sequence,
                     Quantity = 1,

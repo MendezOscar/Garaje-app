@@ -9,6 +9,7 @@ entorno local.
     python3 backend/tests/smoke/fase9_smoke.py
 """
 
+import datetime
 import json
 import sys
 import time
@@ -83,6 +84,7 @@ matriz = next(b for b in branches if b["code"] == "MTZ")
 # Placas y teléfonos únicos para poder repetir el humo sin sembrar de nuevo la base.
 suffix = str(int(time.time()))[-5:]
 counter = [0]
+last_request = {}
 
 _, staff = api("GET", "/api/users?role=Technician", token=owner)
 tech_id = next(t["id"] for t in staff if t["email"] == "tecnico1@garaj.test")
@@ -106,6 +108,8 @@ def new_order(labor_ids):
         "branchId": matriz["id"], "vehicleId": vehicle["id"],
         "description": "Servicio completo",
     }, token=owner)
+
+    last_request["id"] = request["id"]
 
     _, approved = api("POST", f"/api/service-requests/{request['id']}/approve", {},
                       token=owner)
@@ -299,6 +303,96 @@ check("con repuestos sí, y sin mano de obra", status == 201, f"{status} {sale}"
 check("la factura solo trae repuestos",
       all(l["lineType"] == PART for l in sale["lines"]),
       str([l["lineType"] for l in sale["lines"]]))
+
+# ------------------------------------------------------------ precio a mano
+
+print("\n[precio a mano]")
+
+free_order = new_order([])
+
+status, free = api("POST", f"/api/work-orders/{free_order}/tasks", {
+    "title": "Fabricar soporte a la medida", "laborPrice": 750,
+}, token=owner)
+check("un paso se cobra sin estar en el catálogo", status == 200, f"{status} {free}")
+check("con el precio que se le puso", free["laborPrice"] == 750, str(free.get("laborPrice")))
+check("y sin servicio asignado", free["laborServiceId"] is None, str(free.get("laborServiceId")))
+
+_, order = api("GET", f"/api/work-orders/{free_order}", token=owner)
+check("la orden lo suma igual", order["laborTotal"] == 750, str(order.get("laborTotal")))
+
+status, over = api("PUT", f"/api/work-orders/{free_order}/tasks/{free['id']}", {
+    "title": free["title"], "laborServiceId": first["id"], "laborPrice": 900,
+}, token=owner)
+check("el precio a mano manda sobre el del catálogo", over["laborPrice"] == 900,
+      f'{over.get("laborPrice")} vs {first["price"]}')
+
+status, back = api("PUT", f"/api/work-orders/{free_order}/tasks/{free['id']}", {
+    "title": free["title"], "laborServiceId": first["id"],
+}, token=owner)
+check("y al quitarlo vuelve el del catálogo", back["laborPrice"] == first["price"],
+      f'{back.get("laborPrice")} vs {first["price"]}')
+
+status, _ = api("PUT", f"/api/work-orders/{free_order}/tasks/{free['id']}", {
+    "title": free["title"], "laborPrice": -50,
+}, token=owner)
+check("un precio negativo se rechaza", status == 400, str(status))
+
+status, free2 = api("POST", f"/api/work-orders/{free_order}/tasks", {
+    "title": "Trabajo suelto", "laborPrice": 300,
+}, token=technician)
+check("el técnico también le pone precio", status == 200, f"{status} {free2}")
+
+status, sale = api("POST", "/api/sales/close-work-order", {
+    "workOrderId": free_order, "paymentMethod": CASH,
+}, token=owner)
+check("se factura lo puesto a mano", status == 201, f"{status} {sale}")
+labor_lines = [l for l in sale["lines"] if l["lineType"] == LABOR]
+check("con una línea por paso con precio", len(labor_lines) == 2, str(len(labor_lines)))
+check("y el trabajo fuera de catálogo entre ellas",
+      any(l["description"] == "Trabajo suelto" and l["total"] == 300 for l in labor_lines),
+      str([(l["description"], l["total"]) for l in labor_lines]))
+
+# ------------------------------------------------------------ filtros por fecha
+
+print("\n[filtros por fecha]")
+
+now = datetime.datetime.now(datetime.timezone.utc)
+tomorrow = (now + datetime.timedelta(days=1)).isoformat().replace("+00:00", "Z")
+last_month = (now - datetime.timedelta(days=30)).isoformat().replace("+00:00", "Z")
+
+filtered_order = new_order([first["id"]])
+recent_id = last_request["id"]
+
+_, mes = api("GET", f"/api/service-requests?pageSize=100&from={last_month}", token=owner)
+check("el requerimiento de hoy entra en el mes",
+      recent_id in [r["id"] for r in mes["items"]], str(len(mes["items"])))
+
+_, manana = api("GET", f"/api/service-requests?pageSize=100&from={tomorrow}", token=owner)
+check("y no en un rango que empieza mañana", manana["total"] == 0, str(manana["total"]))
+
+_, hasta_ayer = api("GET", f"/api/service-requests?pageSize=100&to={last_month}", token=owner)
+check("ni en uno que termina el mes pasado",
+      recent_id not in [r["id"] for r in hasta_ayer["items"]], str(hasta_ayer["total"]))
+
+_, quote_now = api("POST", "/api/quotes/from-work-order", {
+    "workOrderId": filtered_order, "includeTasks": True,
+}, token=owner)
+
+_, quotes_mes = api("GET", f"/api/quotes?pageSize=100&from={last_month}", token=owner)
+check("la cotización de hoy entra en el mes",
+      quote_now["id"] in [q["id"] for q in quotes_mes["items"]], str(len(quotes_mes["items"])))
+
+_, quotes_manana = api("GET", f"/api/quotes?pageSize=100&from={tomorrow}", token=owner)
+check("y no si el rango empieza mañana", quotes_manana["total"] == 0,
+      str(quotes_manana["total"]))
+
+# Se factura para dejarla entregada: el humo del móvil comprueba que el técnico ve una sola
+# orden abierta, y una asignación suelta de este archivo se la rompería.
+status, _ = api("POST", "/api/sales/close-work-order", {
+    "workOrderId": filtered_order, "paymentMethod": CASH,
+}, token=owner)
+check("y la orden del filtro queda entregada", status == 201, str(status))
+
 
 print(f"\n{ok} comprobaciones bien, {len(failed)} mal")
 if failed:

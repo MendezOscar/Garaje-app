@@ -27,6 +27,8 @@ public class QuoteService(
         if (query.Status is { } status) q = q.Where(x => x.Status == status);
         if (query.CustomerId is { } customerId) q = q.Where(x => x.CustomerId == customerId);
         if (query.WorkOrderId is { } workOrderId) q = q.Where(x => x.WorkOrderId == workOrderId);
+        if (query.From is { } from) q = q.Where(x => x.CreatedAt >= from);
+        if (query.To is { } to) q = q.Where(x => x.CreatedAt <= to);
 
         if (query.BranchId is { } branchId)
         {
@@ -182,16 +184,17 @@ public class QuoteService(
 
             foreach (var task in order.Tasks.OrderBy(t => t.Sequence))
             {
-                if (task.LaborServiceId is not { } serviceId ||
-                    !services.TryGetValue(serviceId, out var service)) continue;
+                var service = task.LaborServiceId is { } serviceId
+                    ? services.GetValueOrDefault(serviceId)
+                    : null;
 
-                var price = service.PriceFor(task.ActualHours ?? task.EstimatedHours);
+                if (task.PriceWith(service) is not { } price || price <= 0) continue;
 
                 db.QuoteLines.Add(new QuoteLine
                 {
                     QuoteId = quote.Id,
                     LineType = LineType.Labor,
-                    LaborServiceId = service.Id,
+                    LaborServiceId = service?.Id,
                     Description = task.Title,
                     Sequence = ++sequence,
                     Quantity = 1,

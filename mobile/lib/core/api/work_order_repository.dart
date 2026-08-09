@@ -101,20 +101,28 @@ class WorkOrderRepository {
     String workOrderId,
     String title, {
     String? laborServiceId,
+    double? laborPrice,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks',
-      data: {'title': title, 'laborServiceId': laborServiceId},
+      data: {
+        'title': title,
+        'laborServiceId': laborServiceId,
+        'laborPrice': laborPrice,
+      },
     );
     return WorkOrderTask.fromJson(response.data!);
   }
 
-  /// Le pone (o le quita) precio a un paso. Sin servicio del catálogo el paso no se factura.
+  /// Le pone (o le quita) precio a un paso, del catálogo o a mano. Un paso sin precio no se
+  /// factura. Lo que no se manda se borra: elegir servicio limpia el precio a mano, y poner
+  /// precio a mano deja el servicio como estaba.
   Future<WorkOrderTask> setTaskLabor(
     String workOrderId,
-    WorkOrderTask task,
+    WorkOrderTask task, {
     String? laborServiceId,
-  ) async {
+    double? laborPrice,
+  }) async {
     final response = await _dio.put<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks/${task.id}',
       // Las horas van sin mandar a propósito: al cambiar de servicio el backend vuelve a
@@ -123,6 +131,7 @@ class WorkOrderRepository {
         'title': task.title,
         'description': task.description,
         'laborServiceId': laborServiceId,
+        'laborPrice': laborPrice,
       },
     );
     return WorkOrderTask.fromJson(response.data!);

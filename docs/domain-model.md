@@ -36,8 +36,11 @@ Testing → Ready → Delivered`, más `Cancelled`. Las transiciones válidas es
 porque el móvil puede enviar un cambio desde la cola offline sobre una orden que ya avanzó.
 
 `WorkOrderTask` es el paso a paso de la reparación y, además, **donde vive el precio de la
-mano de obra**: `LaborServiceId` apunta al servicio del catálogo que le pone tarifa. Un paso
-sin servicio es trabajo que no se cobra —queda registrado, pero no llega a la factura—, y
+mano de obra**. Lo resuelve `WorkOrderTask.PriceWith(servicio)` y sale de dos sitios, en este
+orden: `LaborPrice`, escrito a mano en el paso, o el servicio del catálogo al que apunta
+`LaborServiceId`. El precio a mano manda porque el taller cobra trabajos que no están en la
+lista y obligar a darlos de alta antes de cobrarlos dejaba pasos en cero. Un paso sin ninguno
+de los dos es trabajo que no se cobra: queda registrado, pero no llega a la factura.
 `LaborService.PriceFor(horas)` resuelve en un solo lugar la regla de precio fijo contra
 horas × tarifa, para que el paso, la cotización y la factura nunca muestren tres números
 distintos. Se cobran las horas reales si el técnico las registró; si no, las estimadas.
