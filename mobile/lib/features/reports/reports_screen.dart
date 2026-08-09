@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/report_repository.dart';
 import '../../core/api/service_request_repository.dart';
+import '../../core/api/staff_repository.dart';
 import '../../core/theme/garaj_brand.dart';
 
 /// Los reportes de ingresos en el teléfono.

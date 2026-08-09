@@ -7,6 +7,7 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
+import '../../features/service_requests/service_requests_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
@@ -56,6 +57,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
+      GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
     ],
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
@@ -91,6 +93,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null
             : homeRouteFor(auth.user.role);
+      }
+
+      // La bandeja de requerimientos es del taller. Al Cliente no le corresponde: los suyos
+      // los ve dentro de sus vehículos.
+      if (location == '/requerimientos') {
+        return (auth as AuthSignedIn).user.role == AppRole.customer
+            ? homeRouteFor(auth.user.role)
+            : null;
       }
 
       final home = homeRouteFor((auth as AuthSignedIn).user.role);

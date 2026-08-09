@@ -192,19 +192,6 @@ class ReportFilter {
   int get hashCode => Object.hash(groupBy, days, branchId, technicianId);
 }
 
-/// Técnico del taller, en lo mínimo para llenar el filtro.
-class TechnicianOption {
-  const TechnicianOption({required this.id, required this.name});
-
-  factory TechnicianOption.fromJson(Map<String, dynamic> json) => TechnicianOption(
-        id: json['id'] as String,
-        name: json['fullName'] as String,
-      );
-
-  final String id;
-  final String name;
-}
-
 final reportRepositoryProvider = Provider<ReportRepository>(
   (ref) => ReportRepository(ref.watch(apiClientProvider).dio),
 );
@@ -231,26 +218,10 @@ class ReportRepository {
 
     return RevenueReport.fromJson(response.data!);
   }
-
-  Future<List<TechnicianOption>> technicians() async {
-    final response = await _dio.get<List<dynamic>>(
-      '/api/users',
-      queryParameters: {'role': 'Technician'},
-    );
-
-    return response.data!
-        .map((e) => TechnicianOption.fromJson(e as Map<String, dynamic>))
-        .where((t) => t.id.isNotEmpty)
-        .toList();
-  }
 }
 
 /// Solo lo puede pedir el Dueño: a los demás la API responde 403.
 final revenueReportProvider =
     FutureProvider.autoDispose.family<RevenueReport, ReportFilter>(
   (ref, filter) => ref.watch(reportRepositoryProvider).revenue(filter),
-);
-
-final technicianOptionsProvider = FutureProvider.autoDispose<List<TechnicianOption>>(
-  (ref) => ref.watch(reportRepositoryProvider).technicians(),
 );

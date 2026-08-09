@@ -167,6 +167,7 @@ class WorkOrderDetail {
   const WorkOrderDetail({
     required this.id,
     required this.number,
+    required this.branchId,
     required this.branchName,
     required this.status,
     required this.allowedNextStatuses,
@@ -184,12 +185,14 @@ class WorkOrderDetail {
     this.diagnosis,
     this.mileageIn,
     this.promisedAt,
+    this.assignedTechnicianId,
     this.assignedTechnicianName,
   });
 
   factory WorkOrderDetail.fromJson(Map<String, dynamic> json) => WorkOrderDetail(
         id: json['id'] as String,
         number: json['number'] as String,
+        branchId: json['branchId'] as String,
         branchName: json['branchName'] as String,
         status: WorkOrderStatus.fromValue(json['status'] as int),
         allowedNextStatuses: (json['allowedNextStatuses'] as List<dynamic>)
@@ -200,6 +203,7 @@ class WorkOrderDetail {
         plate: json['plate'] as String?,
         customerName: json['customerName'] as String,
         customerPhone: json['customerPhone'] as String,
+        assignedTechnicianId: json['assignedTechnicianId'] as String?,
         assignedTechnicianName: json['assignedTechnicianName'] as String?,
         description: json['description'] as String,
         diagnosis: json['diagnosis'] as String?,
@@ -222,6 +226,7 @@ class WorkOrderDetail {
 
   final String id;
   final String number;
+  final String branchId;
   final String branchName;
   final WorkOrderStatus status;
   final List<WorkOrderStatus> allowedNextStatuses;
@@ -230,6 +235,7 @@ class WorkOrderDetail {
   final String? plate;
   final String customerName;
   final String customerPhone;
+  final String? assignedTechnicianId;
   final String? assignedTechnicianName;
   final String description;
   final String? diagnosis;

@@ -66,6 +66,16 @@ class WorkOrderRepository {
     return WorkOrderTask.fromJson(response.data!);
   }
 
+  /// Asigna —o quita— el técnico responsable. Solo el Dueño; la API rechaza a un técnico
+  /// que no trabaje en la sucursal de la orden.
+  Future<WorkOrderDetail> assign(String id, String? technicianId) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$id/assign',
+      data: {'technicianId': technicianId},
+    );
+    return WorkOrderDetail.fromJson(response.data!);
+  }
+
   /// Guarda el diagnóstico: lo que el técnico encontró al revisar el vehículo.
   ///
   /// El motivo de ingreso y la fecha prometida se reenvían tal cual porque el endpoint

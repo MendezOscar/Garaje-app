@@ -46,6 +46,81 @@ class BranchOption {
   final String name;
 }
 
+enum ServiceRequestStatus {
+  pending(1, 'Pendiente'),
+  quoted(2, 'Cotizado'),
+  approved(3, 'Aprobado'),
+  rejected(4, 'Rechazado'),
+  converted(5, 'Convertido en orden');
+
+  const ServiceRequestStatus(this.value, this.label);
+
+  final int value;
+  final String label;
+
+  static ServiceRequestStatus fromValue(int value) =>
+      ServiceRequestStatus.values.firstWhere((s) => s.value == value, orElse: () => pending);
+}
+
+/// Un requerimiento en la bandeja del taller.
+class ServiceRequestItem {
+  const ServiceRequestItem({
+    required this.id,
+    required this.branchId,
+    required this.branchName,
+    required this.vehicleLabel,
+    required this.customerName,
+    required this.customerPhone,
+    required this.description,
+    required this.status,
+    required this.createdAt,
+    this.reportedSymptoms,
+    this.preferredDate,
+    this.mileage,
+    this.rejectionReason,
+    this.workOrderId,
+    this.workOrderNumber,
+  });
+
+  factory ServiceRequestItem.fromJson(Map<String, dynamic> json) => ServiceRequestItem(
+        id: json['id'] as String,
+        branchId: json['branchId'] as String,
+        branchName: json['branchName'] as String,
+        vehicleLabel: json['vehicleLabel'] as String,
+        customerName: json['customerName'] as String,
+        customerPhone: json['customerPhone'] as String,
+        description: json['description'] as String,
+        status: ServiceRequestStatus.fromValue(json['status'] as int),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        reportedSymptoms: json['reportedSymptoms'] as String?,
+        preferredDate: json['preferredDate'] == null
+            ? null
+            : DateTime.parse(json['preferredDate'] as String),
+        mileage: json['mileage'] as int?,
+        rejectionReason: json['rejectionReason'] as String?,
+        workOrderId: json['workOrderId'] as String?,
+        workOrderNumber: json['workOrderNumber'] as String?,
+      );
+
+  final String id;
+  final String branchId;
+  final String branchName;
+  final String vehicleLabel;
+  final String customerName;
+  final String customerPhone;
+  final String description;
+  final ServiceRequestStatus status;
+  final DateTime createdAt;
+  final String? reportedSymptoms;
+  final DateTime? preferredDate;
+  final int? mileage;
+  final String? rejectionReason;
+  final String? workOrderId;
+  final String? workOrderNumber;
+
+  bool get isPending => status == ServiceRequestStatus.pending;
+}
+
 final serviceRequestRepositoryProvider = Provider<ServiceRequestRepository>(
   (ref) => ServiceRequestRepository(ref.watch(apiClientProvider).dio),
 );
@@ -132,7 +207,43 @@ class ServiceRequestRepository {
 
     return response.data!['id'] as String;
   }
+
+  /// La bandeja. La API ya la recorta por perfil: el Técnico ve la de sus sucursales y el
+  /// Cliente solo lo de sus vehículos, así que aquí no hay que filtrar nada.
+  Future<List<ServiceRequestItem>> list() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/service-requests',
+      queryParameters: {'pageSize': 100},
+    );
+
+    return (response.data!['items'] as List<dynamic>)
+        .map((e) => ServiceRequestItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Lo convierte en orden de trabajo y devuelve el id de la orden creada.
+  Future<String> approve(String id, {String? technicianId}) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/service-requests/$id/approve',
+      data: {'assignedTechnicianId': technicianId},
+    );
+
+    return response.data!['workOrderId'] as String;
+  }
+
+  Future<void> reject(String id, String reason) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/api/service-requests/$id/reject',
+      data: {'reason': reason},
+    );
+  }
 }
+
+/// `autoDispose` para que al volver de aprobar uno se recargue: si no, el requerimiento
+/// recién convertido seguiría apareciendo como pendiente.
+final serviceRequestsProvider = FutureProvider.autoDispose<List<ServiceRequestItem>>(
+  (ref) => ref.watch(serviceRequestRepositoryProvider).list(),
+);
 
 /// Parametrizado por el texto de búsqueda: cadena vacía es "los primeros que haya", que es
 /// todo lo que necesita el Cliente, y con texto es la búsqueda del mostrador.

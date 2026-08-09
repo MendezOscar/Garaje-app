@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/staff_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
@@ -27,6 +28,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   bool get _canEdit {
     final auth = ref.read(authControllerProvider);
     return auth is AuthSignedIn && auth.user.role != AppRole.customer;
+  }
+
+  bool get _isOwner {
+    final auth = ref.read(authControllerProvider);
+    return auth is AuthSignedIn && auth.user.role == AppRole.owner;
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -152,6 +158,24 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                       );
                 }),
               ),
+              if (_isOwner)
+                _AssignSection(
+                  order: order,
+                  busy: _busy,
+                  technicians: ref.watch(technicianOptionsProvider).value ?? const [],
+                  onAssign: (technicianId) => _run(() async {
+                    await ref
+                        .read(workOrderRepositoryProvider)
+                        .assign(widget.id, technicianId);
+                  }),
+                )
+              // Al Cliente le interesa saber quién tiene su moto; al Técnico no, que solo
+              // ve las suyas y leería su propio nombre en cada orden.
+              else if (!_canEdit && order.assignedTechnicianName != null)
+                _Section(
+                  title: 'Técnico responsable',
+                  child: Text(order.assignedTechnicianName!),
+                ),
               _TasksSection(
                 order: order,
                 canEdit: _canEdit,
@@ -345,6 +369,47 @@ class _DiagnosisSectionState extends State<_DiagnosisSection> {
             child: const Text('Guardar diagnóstico'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Quién responde por la orden. Lo cambia solo el Dueño, y desde el teléfono porque el
+/// reparto del trabajo se decide en el patio: llega una moto urgente y hay que mover a
+/// alguien, y nadie va a subir a la oficina a hacerlo en la computadora.
+class _AssignSection extends StatelessWidget {
+  const _AssignSection({
+    required this.order,
+    required this.technicians,
+    required this.busy,
+    required this.onAssign,
+  });
+
+  final WorkOrderDetail order;
+  final List<TechnicianOption> technicians;
+  final bool busy;
+  final void Function(String? technicianId) onAssign;
+
+  @override
+  Widget build(BuildContext context) {
+    // Solo los de la sucursal de la orden: la API rechaza a los demás con un 400, y
+    // ofrecerlos sería enseñar opciones que solo pueden dar error.
+    final available = technicians.where((t) => t.worksAt(order.branchId)).toList();
+
+    return _Section(
+      title: 'Técnico responsable',
+      child: DropdownButtonFormField<String?>(
+        initialValue: available.any((t) => t.id == order.assignedTechnicianId)
+            ? order.assignedTechnicianId
+            : null,
+        isExpanded: true,
+        decoration: const InputDecoration(isDense: true),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Sin asignar')),
+          for (final technician in available)
+            DropdownMenuItem(value: technician.id, child: Text(technician.name)),
+        ],
+        onChanged: busy ? null : onAssign,
       ),
     );
   }

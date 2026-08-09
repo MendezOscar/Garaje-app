@@ -119,22 +119,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('MOTIVO DE INGRESO'), findsOneWidget);
+    expect(find.text('DIAGNÓSTICO'), findsOneWidget);
     expect(find.text('PASOS DE LA REPARACIÓN'), findsOneWidget);
-    expect(find.text('REPUESTOS'), findsOneWidget);
-    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
+
+    // Lo de más abajo hay que traerlo a la vista: el ListView no construye lo que no se ve.
+    // Y hay que decirle por cuál desplazarse: el cuadro del diagnóstico también es
+    // desplazable, así que el buscador encontraría dos y no sabría por cuál decidirse.
+    final page = find.byType(Scrollable).first;
+
+    await tester.scrollUntilVisible(find.text('FOTOS DEL PROCESO'), 300, scrollable: page);
     // Puede documentar y consumir: cámara, galería y catálogo.
     expect(find.text('Cargar repuesto'), findsOneWidget);
     expect(find.byTooltip('Tomar foto'), findsOneWidget);
     expect(find.byTooltip('Elegir de la galería'), findsOneWidget);
 
-    // El resto queda bajo el pliegue: el ListView no construye lo que no se ve. Hay que
-    // decirle cuál es: el cuadro del diagnóstico también es desplazable y, sin señalar el
-    // de fuera, el buscador encuentra dos y no sabe por cuál decidirse.
-    await tester.scrollUntilVisible(
-      find.text('LÍNEA DE TIEMPO'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300, scrollable: page);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     // Al Técnico sí se le ofrecen transiciones; al Cliente no.
     expect(find.text('CAMBIAR ESTADO'), findsOneWidget);
@@ -152,12 +151,16 @@ void main() {
 
     // Ve lo que le hicieron, pero ninguna de las acciones del taller.
     expect(find.text('REPUESTOS'), findsOneWidget);
-    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
     expect(find.text('Cargar repuesto'), findsNothing);
     expect(find.text('Agregar paso'), findsNothing);
+    // Ve quién tiene su vehículo, que es lo que preguntaría por teléfono.
+    expect(find.text('TÉCNICO RESPONSABLE'), findsOneWidget);
+
+    final page = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(find.text('FOTOS DEL PROCESO'), 300, scrollable: page);
     expect(find.byTooltip('Tomar foto'), findsNothing);
 
-    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300);
+    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300, scrollable: page);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
     expect(find.text('CAMBIAR ESTADO'), findsNothing);
   });
@@ -194,7 +197,44 @@ void main() {
     expect(find.text('TOTAL FACTURADO'), findsOneWidget);
     // Los filtros que solo existen aquí: rango, agrupación y el reparto por técnico.
     expect(find.text('30 días'), findsOneWidget);
-    expect(find.text('POR TÉCNICO'), findsOneWidget);
+    // El filtro por técnico es lo nuevo. El reparto de abajo depende de que haya ventas
+    // en el rango, así que no se comprueba aquí: eso lo cubre el humo del backend.
+    expect(find.text('Todos los técnicos'), findsOneWidget);
+  });
+
+  testWidgets('el Dueño aprueba y asigna desde la bandeja', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await tester.tap(find.byTooltip('Requerimientos'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    // El seeder deja uno pendiente y otro ya convertido en orden.
+    expect(find.text('Aprobar y asignar'), findsWidgets);
+
+    // Aprobar abre la hoja para elegir técnico sin salir de la bandeja.
+    await tester.tap(find.text('Aprobar y asignar').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Quién lo atiende?'), findsOneWidget);
+    expect(find.text('Asignar después'), findsOneWidget);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('¿Quién lo atiende?'), findsNothing);
+  });
+
+  testWidgets('el Técnico ve la bandeja pero no decide', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
+
+    await tester.tap(find.byTooltip('Requerimientos'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Requerimientos'), findsOneWidget);
+    // Puede recibir vehículos, pero aprobar es del Dueño.
+    expect(find.text('Recibir vehículo'), findsOneWidget);
+    expect(find.text('Aprobar y asignar'), findsNothing);
   });
 
   testWidgets('la campana abre los avisos del usuario', (tester) async {
