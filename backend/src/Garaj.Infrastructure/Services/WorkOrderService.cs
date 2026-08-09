@@ -289,7 +289,7 @@ public class WorkOrderService(
             AssignedTechnicianId = request.AssignedTechnicianId ?? order.AssignedTechnicianId
         };
 
-        Apply(task, request);
+        await ApplyAsync(task, request, ct);
         db.WorkOrderTasks.Add(task);
         await db.SaveChangesAsync(ct);
 
@@ -307,7 +307,7 @@ public class WorkOrderService(
         var task = await FindTaskAsync(workOrderId, taskId, ct);
         task.AssignedTechnicianId = request.AssignedTechnicianId ?? task.AssignedTechnicianId;
 
-        Apply(task, request);
+        await ApplyAsync(task, request, ct);
         await db.SaveChangesAsync(ct);
 
         return await MapTaskAsync(task, ct);
@@ -476,12 +476,21 @@ public class WorkOrderService(
         await db.WorkOrderTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.WorkOrderId == workOrderId, ct)
         ?? throw new NotFoundException("El paso no existe en esta orden.");
 
-    private static void Apply(WorkOrderTask task, SaveWorkOrderTaskRequest request)
+    private async Task ApplyAsync(
+        WorkOrderTask task, SaveWorkOrderTaskRequest request, CancellationToken ct)
     {
         task.Title = request.Title.Trim();
         task.Description = request.Description?.Trim();
         task.LaborServiceId = request.LaborServiceId;
-        task.EstimatedHours = request.EstimatedHours;
+
+        var service = request.LaborServiceId is { } serviceId
+            ? await db.LaborServices.FirstOrDefaultAsync(s => s.Id == serviceId, ct)
+                ?? throw new NotFoundException("El servicio de mano de obra no existe.")
+            : null;
+
+        // Sin horas indicadas se toman las estándar del servicio: así el paso queda con precio
+        // desde que se crea y el Dueño ve lo que va a cobrar sin teclear nada.
+        task.EstimatedHours = request.EstimatedHours ?? service?.StandardHours;
     }
 
     private async Task EnsureTechnicianAsync(Guid technicianId, Guid branchId, CancellationToken ct)
@@ -549,13 +558,25 @@ public class WorkOrderService(
                 h.IsVisibleToCustomer))
             .ToList();
 
+        var services = await LaborServicesOfAsync(order.Tasks, ct);
+
         var tasks = order.Tasks
             .OrderBy(t => t.Sequence)
-            .Select(t => new WorkOrderTaskDto(
-                t.Id, t.Title, t.Description, t.Sequence, t.IsDone,
-                t.AssignedTechnicianId,
-                t.AssignedTechnicianId is { } id ? names.GetValueOrDefault(id) : null,
-                t.EstimatedHours, t.ActualHours, t.TechnicianNotes, t.StartedAt, t.CompletedAt))
+            .Select(t =>
+            {
+                var service = t.LaborServiceId is { } serviceId
+                    ? services.GetValueOrDefault(serviceId)
+                    : null;
+
+                return new WorkOrderTaskDto(
+                    t.Id, t.Title, t.Description, t.Sequence, t.IsDone,
+                    t.AssignedTechnicianId,
+                    t.AssignedTechnicianId is { } id ? names.GetValueOrDefault(id) : null,
+                    t.LaborServiceId,
+                    service?.Name,
+                    service?.PriceFor(t.ActualHours ?? t.EstimatedHours),
+                    t.EstimatedHours, t.ActualHours, t.TechnicianNotes, t.StartedAt, t.CompletedAt);
+            })
             .ToList();
 
         return new WorkOrderDetailDto(
@@ -586,7 +607,24 @@ public class WorkOrderService(
             tasks,
             timeline,
             parts,
-            parts.Sum(p => p.Total));
+            parts.Sum(p => p.Total),
+            tasks.Sum(t => t.LaborPrice ?? 0));
+    }
+
+    /// <summary>Los servicios del catálogo que dan precio a los pasos, en una sola consulta.</summary>
+    private async Task<Dictionary<Guid, LaborService>> LaborServicesOfAsync(
+        IEnumerable<WorkOrderTask> tasks, CancellationToken ct)
+    {
+        var ids = tasks.Where(t => t.LaborServiceId is not null)
+            .Select(t => t.LaborServiceId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (ids.Count == 0) return [];
+
+        return await db.LaborServices.AsNoTracking()
+            .Where(s => ids.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, ct);
     }
 
     private async Task<WorkOrderTaskDto> MapTaskAsync(WorkOrderTask task, CancellationToken ct)
@@ -595,9 +633,16 @@ public class WorkOrderService(
             ? await db.Users.Where(u => u.Id == id).Select(u => u.FullName).FirstOrDefaultAsync(ct)
             : null;
 
+        var service = task.LaborServiceId is { } serviceId
+            ? await db.LaborServices.AsNoTracking().FirstOrDefaultAsync(s => s.Id == serviceId, ct)
+            : null;
+
         return new WorkOrderTaskDto(
             task.Id, task.Title, task.Description, task.Sequence, task.IsDone,
-            task.AssignedTechnicianId, name, task.EstimatedHours, task.ActualHours,
+            task.AssignedTechnicianId, name,
+            task.LaborServiceId, service?.Name,
+            service?.PriceFor(task.ActualHours ?? task.EstimatedHours),
+            task.EstimatedHours, task.ActualHours,
             task.TechnicianNotes, task.StartedAt, task.CompletedAt);
     }
 

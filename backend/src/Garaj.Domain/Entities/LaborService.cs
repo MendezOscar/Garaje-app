@@ -24,4 +24,12 @@ public class LaborService : TenantEntity
     public decimal FixedPrice { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Lo que se cobra por una unidad del servicio con las horas que llevó. Sin horas se
+    /// usan las estándar. La regla vive aquí para que la cotización, la factura y lo que se
+    /// muestra en el paso siempre den el mismo número.
+    /// </summary>
+    public decimal PriceFor(decimal? hours) =>
+        IsFixedPrice ? FixedPrice : (hours ?? StandardHours) * HourlyRate;
 }

@@ -35,6 +35,13 @@ Testing → Ready → Delivered`, más `Cancelled`. Las transiciones válidas es
 [WorkOrderStatusTransitions](../backend/src/Garaj.Domain/Rules/WorkOrderStatusTransitions.cs),
 porque el móvil puede enviar un cambio desde la cola offline sobre una orden que ya avanzó.
 
+`WorkOrderTask` es el paso a paso de la reparación y, además, **donde vive el precio de la
+mano de obra**: `LaborServiceId` apunta al servicio del catálogo que le pone tarifa. Un paso
+sin servicio es trabajo que no se cobra —queda registrado, pero no llega a la factura—, y
+`LaborService.PriceFor(horas)` resuelve en un solo lugar la regla de precio fijo contra
+horas × tarifa, para que el paso, la cotización y la factura nunca muestren tres números
+distintos. Se cobran las horas reales si el técnico las registró; si no, las estimadas.
+
 ## Evidencia fotográfica
 
 `MediaAttachment` se relaciona de forma polimórfica por `(OwnerType, OwnerId)` con

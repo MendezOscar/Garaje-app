@@ -97,14 +97,65 @@ class WorkOrderRepository {
     return WorkOrderDetail.fromJson(response.data!);
   }
 
-  Future<WorkOrderTask> addTask(String workOrderId, String title) async {
+  Future<WorkOrderTask> addTask(
+    String workOrderId,
+    String title, {
+    String? laborServiceId,
+  }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks',
-      data: {'title': title},
+      data: {'title': title, 'laborServiceId': laborServiceId},
     );
     return WorkOrderTask.fromJson(response.data!);
   }
+
+  /// Le pone (o le quita) precio a un paso. Sin servicio del catálogo el paso no se factura.
+  Future<WorkOrderTask> setTaskLabor(
+    String workOrderId,
+    WorkOrderTask task,
+    String? laborServiceId,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/tasks/${task.id}',
+      // Las horas van sin mandar a propósito: al cambiar de servicio el backend vuelve a
+      // poner las estándar del nuevo, que es lo que se quiere cobrar.
+      data: {
+        'title': task.title,
+        'description': task.description,
+        'laborServiceId': laborServiceId,
+      },
+    );
+    return WorkOrderTask.fromJson(response.data!);
+  }
+
+  /// El catálogo de mano de obra del taller. El backend se lo niega al Cliente.
+  Future<List<LaborServiceOption>> laborServices() async {
+    final response = await _dio.get<List<dynamic>>('/api/labor-services');
+    return response.data!
+        .map((e) => LaborServiceOption.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
 }
+
+/// Un servicio del catálogo, con el precio ya resuelto por el backend.
+class LaborServiceOption {
+  const LaborServiceOption({required this.id, required this.name, required this.price});
+
+  factory LaborServiceOption.fromJson(Map<String, dynamic> json) => LaborServiceOption(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        price: (json['price'] as num).toDouble(),
+      );
+
+  final String id;
+  final String name;
+  final double price;
+}
+
+/// El catálogo cambia poco: se pide una vez y se comparte entre pantallas.
+final laborServicesProvider = FutureProvider<List<LaborServiceOption>>(
+  (ref) => ref.watch(workOrderRepositoryProvider).laborServices(),
+);
 
 /// Lista de órdenes del usuario. `autoDispose` para que al volver a la pantalla se recargue:
 /// el técnico necesita ver lo que el dueño le asignó mientras estaba en otra vista.

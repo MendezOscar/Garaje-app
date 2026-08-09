@@ -53,8 +53,11 @@ public record WorkOrderDetailDto(
     IReadOnlyList<WorkOrderTaskDto> Tasks,
     IReadOnlyList<WorkOrderStatusEntryDto> Timeline,
     IReadOnlyList<WorkOrderPartDto> Parts,
-    // Lo que suman los repuestos consumidos. La mano de obra entra en la Fase 4.
-    decimal PartsTotal);
+    // Lo que suman los repuestos consumidos.
+    decimal PartsTotal,
+    // Lo que suma la mano de obra de los pasos que tienen servicio del catálogo asignado.
+    // Es lo que se cobraría hoy al cerrar la orden.
+    decimal LaborTotal);
 
 public record WorkOrderTaskDto(
     Guid Id,
@@ -64,6 +67,10 @@ public record WorkOrderTaskDto(
     bool IsDone,
     Guid? AssignedTechnicianId,
     string? AssignedTechnicianName,
+    // El servicio del catálogo que le pone precio al paso. Sin él, el paso no se cobra.
+    Guid? LaborServiceId,
+    string? LaborServiceName,
+    decimal? LaborPrice,
     decimal? EstimatedHours,
     decimal? ActualHours,
     string? TechnicianNotes,

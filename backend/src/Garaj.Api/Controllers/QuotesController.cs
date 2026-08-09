@@ -5,8 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Garaj.Api.Controllers;
 
+// Las políticas se acumulan: la del controlador se suma a la de cada acción, así que aquí va
+// solo la sesión y cada acción pone la suya. Con OwnerOnly arriba, el Técnico quedaba fuera
+// del listado por más que su acción dijera StaffOnly.
 [ApiController]
-[Authorize(Policy = AppPolicies.OwnerOnly)]
+[Authorize]
 [Route("api/labor-services")]
 public class LaborServicesController(ILaborServiceCatalog service) : ControllerBase
 {
@@ -17,12 +20,15 @@ public class LaborServicesController(ILaborServiceCatalog service) : ControllerB
         [FromQuery] bool includeInactive, CancellationToken ct)
         => Ok(await service.ListAsync(includeInactive, ct));
 
+    /// <summary>Los precios los pone el Dueño.</summary>
     [HttpPost]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<LaborServiceDto>> Create(
         SaveLaborServiceRequest request, CancellationToken ct)
         => Ok(await service.CreateAsync(request, ct));
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<LaborServiceDto>> Update(
         Guid id, SaveLaborServiceRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));

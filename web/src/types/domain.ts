@@ -249,6 +249,10 @@ export interface WorkOrderTask {
   isDone: boolean
   assignedTechnicianId: string | null
   assignedTechnicianName: string | null
+  /** El servicio del catálogo que le pone precio al paso. Sin él, el paso no se cobra. */
+  laborServiceId: string | null
+  laborServiceName: string | null
+  laborPrice: number | null
   estimatedHours: number | null
   actualHours: number | null
   technicianNotes: string | null
@@ -637,6 +641,8 @@ export interface WorkOrderDetail {
   timeline: WorkOrderStatusEntry[]
   parts: WorkOrderPart[]
   partsTotal: number
+  /** Lo que suman los pasos con servicio asignado: la mano de obra que se cobraría hoy. */
+  laborTotal: number
 }
 
 export const NotificationType = {

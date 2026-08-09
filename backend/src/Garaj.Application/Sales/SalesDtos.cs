@@ -114,6 +114,9 @@ public record CloseWorkOrderRequest(
     decimal? TaxRate,
     // Añade la mano de obra de los pasos que tengan servicio del catálogo asignado.
     bool IncludeLabor = true,
+    // Cobra la mano de obra de esta cotización en lugar de la de los pasos. Es lo que el
+    // cliente aprobó, así que la factura le cuadra con lo que se le mandó por WhatsApp.
+    Guid? LaborFromQuoteId = null,
     // Marca la orden como entregada. Falso si el vehículo todavía no se lo llevan.
     bool MarkAsDelivered = true,
     // Fecha acordada de pago, en las que se entregan a crédito.

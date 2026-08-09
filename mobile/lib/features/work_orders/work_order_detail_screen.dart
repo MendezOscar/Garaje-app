@@ -96,33 +96,99 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
   Future<void> _addTask() async {
     final controller = TextEditingController();
+    final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
+    String? serviceId;
 
     final title = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nuevo paso'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '¿Qué hay que hacer?'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Agregar'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setInner) => AlertDialog(
+          title: const Text('Nuevo paso'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: '¿Qué hay que hacer?'),
+              ),
+              const SizedBox(height: 12),
+              // Sin servicio del catálogo el paso no tiene precio y no entra en la factura.
+              DropdownButtonFormField<String?>(
+                initialValue: serviceId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Mano de obra'),
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('Sin cobro')),
+                  for (final s in services)
+                    DropdownMenuItem<String?>(
+                      value: s.id,
+                      child: Text('${s.name} · ${_money(s.price)}', overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (value) => setInner(() => serviceId = value),
+              ),
+            ],
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
       ),
     );
 
     if (title == null || title.isEmpty) return;
-    await _run(() => ref.read(workOrderRepositoryProvider).addTask(widget.id, title));
+    await _run(() => ref
+        .read(workOrderRepositoryProvider)
+        .addTask(widget.id, title, laborServiceId: serviceId));
+  }
+
+  /// Cambia el servicio que le pone precio a un paso ya creado.
+  Future<void> _changeTaskLabor(WorkOrderTask task) async {
+    final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
+
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: const Text('Sin cobro de mano de obra'),
+              selected: task.laborServiceId == null,
+              // Cadena vacía y no null: null es "se salió del menú sin elegir".
+              onTap: () => Navigator.pop(context, ''),
+            ),
+            for (final s in services)
+              ListTile(
+                title: Text(s.name),
+                trailing: Text(_money(s.price)),
+                selected: s.id == task.laborServiceId,
+                onTap: () => Navigator.pop(context, s.id),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == null) return;
+    await _run(() => ref
+        .read(workOrderRepositoryProvider)
+        .setTaskLabor(widget.id, task, choice.isEmpty ? null : choice));
   }
 
   @override
   Widget build(BuildContext context) {
     final detail = ref.watch(workOrderDetailProvider(widget.id));
+
+    // El catálogo de mano de obra se pide desde que se abre la orden: cuando el técnico va a
+    // agregar un paso ya está en memoria. Al Cliente no se le pide: el backend se lo niega.
+    if (_canEdit) ref.watch(laborServicesProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(detail.asData?.value.number ?? 'Orden')),
@@ -180,6 +246,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 order: order,
                 canEdit: _canEdit,
                 busy: _busy,
+                onChangeLabor: _changeTaskLabor,
                 onToggle: (task, value) => _run(() async {
                   await ref.read(workOrderRepositoryProvider).completeTask(
                         widget.id,
@@ -422,6 +489,7 @@ class _TasksSection extends StatelessWidget {
     required this.busy,
     required this.onToggle,
     required this.onAdd,
+    required this.onChangeLabor,
   });
 
   final WorkOrderDetail order;
@@ -429,17 +497,20 @@ class _TasksSection extends StatelessWidget {
   final bool busy;
   final void Function(WorkOrderTask task, bool value) onToggle;
   final VoidCallback onAdd;
+  final void Function(WorkOrderTask task) onChangeLabor;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return _Section(
       title: 'Pasos de la reparación',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (order.tasks.isEmpty)
-            Text('Todavía no hay pasos.', style: Theme.of(context).textTheme.bodySmall),
-          for (final task in order.tasks)
+            Text('Todavía no hay pasos.', style: theme.textTheme.bodySmall),
+          for (final task in order.tasks) ...[
             CheckboxListTile(
               value: task.isDone,
               onChanged: canEdit && !busy ? (v) => onToggle(task, v ?? false) : null,
@@ -458,6 +529,36 @@ class _TasksSection extends StatelessWidget {
                       if (task.technicianNotes != null) task.technicianNotes!,
                     ].join(' · '))
                   : null,
+              // Lo que se va a cobrar por el paso, a la vista: es la parte que más se olvida
+              // y la razón más común de que la factura salga corta.
+              secondary: canEdit
+                  ? TextButton(
+                      onPressed: busy ? null : () => onChangeLabor(task),
+                      child: Text(
+                        task.laborPrice != null ? _money(task.laborPrice!) : 'Sin cobro',
+                        style: task.laborPrice == null
+                            ? TextStyle(color: theme.colorScheme.onSurfaceVariant)
+                            : null,
+                      ),
+                    )
+                  : null,
+            ),
+            if (canEdit && task.laborServiceName != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 48, bottom: 4),
+                child: Text(task.laborServiceName!, style: theme.textTheme.bodySmall),
+              ),
+          ],
+          if (canEdit && order.tasks.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Mano de obra', style: theme.textTheme.bodySmall),
+                  Text(_money(order.laborTotal), style: theme.textTheme.titleSmall),
+                ],
+              ),
             ),
           if (canEdit)
             TextButton.icon(
@@ -470,6 +571,8 @@ class _TasksSection extends StatelessWidget {
     );
   }
 }
+
+String _money(double value) => 'L ${value.toStringAsFixed(2)}';
 
 class _TimelineSection extends StatelessWidget {
   const _TimelineSection({required this.entries});

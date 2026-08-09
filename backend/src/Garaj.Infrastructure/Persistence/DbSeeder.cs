@@ -254,10 +254,16 @@ public class DbSeeder(
         request.WorkOrderId = workOrder.Id;
         await db.SaveChangesAsync(ct);
 
+        // Los dos pasos que se cobran llevan su servicio del catálogo; el de recepción no,
+        // que es trabajo del taller y no se factura. Así la orden de ejemplo enseña las dos
+        // caras: lo que entra en la factura y lo que no.
+        var aceite = await db.LaborServices.FirstAsync(s => s.Code == "MO-ACE", ct);
+        var frenos = await db.LaborServices.FirstAsync(s => s.Code == "MO-FRE", ct);
+
         db.WorkOrderTasks.AddRange(
             new WorkOrderTask { WorkOrderId = workOrder.Id, Sequence = 1, Title = "Recepción e inspección visual", IsDone = true, AssignedTechnicianId = tech1Id, StartedAt = now.AddDays(-1), CompletedAt = now.AddDays(-1).AddHours(1), ActualHours = 0.5m },
-            new WorkOrderTask { WorkOrderId = workOrder.Id, Sequence = 2, Title = "Cambio de aceite y filtro", IsDone = true, AssignedTechnicianId = tech1Id, EstimatedHours = 0.5m, ActualHours = 0.6m, StartedAt = now.AddHours(-6), CompletedAt = now.AddHours(-5) },
-            new WorkOrderTask { WorkOrderId = workOrder.Id, Sequence = 3, Title = "Cambio de pastillas delanteras", IsDone = false, AssignedTechnicianId = tech1Id, EstimatedHours = 2m, StartedAt = now.AddHours(-2), TechnicianNotes = "Esperando rectificado de discos." });
+            new WorkOrderTask { WorkOrderId = workOrder.Id, Sequence = 2, Title = "Cambio de aceite y filtro", IsDone = true, AssignedTechnicianId = tech1Id, LaborServiceId = aceite.Id, EstimatedHours = 0.5m, ActualHours = 0.6m, StartedAt = now.AddHours(-6), CompletedAt = now.AddHours(-5) },
+            new WorkOrderTask { WorkOrderId = workOrder.Id, Sequence = 3, Title = "Cambio de pastillas delanteras", IsDone = false, AssignedTechnicianId = tech1Id, LaborServiceId = frenos.Id, EstimatedHours = 2m, StartedAt = now.AddHours(-2), TechnicianNotes = "Esperando rectificado de discos." });
 
         db.WorkOrderParts.AddRange(
             new WorkOrderPart { WorkOrderId = workOrder.Id, PartId = parts[0].Id, Quantity = 4m, UnitPrice = parts[0].SalePrice, UnitCost = parts[0].CostPrice },

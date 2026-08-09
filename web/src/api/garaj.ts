@@ -166,8 +166,31 @@ export const workOrdersApi = {
     const { data } = await api.post<WorkOrderDetail>(`/api/work-orders/${id}/status`, body)
     return data
   },
-  async addTask(id: string, body: { title: string; description?: string; estimatedHours?: number }) {
+  async addTask(
+    id: string,
+    body: {
+      title: string
+      description?: string
+      /** El servicio del catálogo que le pone precio al paso. */
+      laborServiceId?: string | null
+      estimatedHours?: number
+    },
+  ) {
     const { data } = await api.post<WorkOrderTask>(`/api/work-orders/${id}/tasks`, body)
+    return data
+  },
+  /** Reemplaza el paso completo: lo que se omite se borra. */
+  async updateTask(
+    id: string,
+    taskId: string,
+    body: {
+      title: string
+      description?: string | null
+      laborServiceId?: string | null
+      estimatedHours?: number | null
+    },
+  ) {
+    const { data } = await api.put<WorkOrderTask>(`/api/work-orders/${id}/tasks/${taskId}`, body)
     return data
   },
   async completeTask(
@@ -488,6 +511,8 @@ export const salesApi = {
     paymentMethod: PaymentMethod
     notes?: string
     includeLabor?: boolean
+    /** Cobra la mano de obra de esta cotización en vez de la de los pasos. */
+    laborFromQuoteId?: string | null
     markAsDelivered?: boolean
     /** Solo a crédito: fecha acordada de pago. */
     dueDate?: string

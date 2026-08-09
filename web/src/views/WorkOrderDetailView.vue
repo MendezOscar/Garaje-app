@@ -2,17 +2,22 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
-import { quotesApi, salesApi, usersApi, workOrdersApi } from '@/api/garaj'
+import { laborServicesApi, quotesApi, salesApi, usersApi, workOrdersApi } from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  LineType,
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
+  QUOTE_STATUS_LABEL,
+  QuoteStatus,
   VEHICLE_TYPE_LABEL,
   WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
+  type LaborService,
+  type QuoteDetail,
   type SaleDetail,
   type User,
   type WorkOrderDetail,
@@ -41,7 +46,16 @@ const newPayment = ref({ amount: '' as number | string, method: PaymentMethod.Ca
 
 const statusNote = ref('')
 const noteIsInternal = ref(false)
-const newTaskTitle = ref('')
+const newTask = ref({ title: '', laborServiceId: '' })
+
+/** Catálogo de mano de obra: es lo que le pone precio a cada paso. */
+const laborServices = ref<LaborService[]>([])
+
+/** Cotizaciones de esta orden, con sus líneas: de ahí sale la mano de obra a facturar. */
+const quotes = ref<QuoteDetail[]>([])
+
+/** Qué mano de obra se cobra: `'tasks'`, `'none'` o el id de una cotización. */
+const laborSource = ref('tasks')
 
 /** Copia editable del diagnóstico. Se refresca en cada carga, incluida la de después de guardar. */
 const diagnosis = ref('')
@@ -57,10 +71,34 @@ async function load() {
       // El detalle de cada venta, no el listado: hacen falta los abonos, que solo vienen ahí.
       const page = await salesApi.list({ workOrderId: id.value })
       sales.value = await Promise.all(page.items.map((s) => salesApi.get(s.id)))
+
+      // Igual con las cotizaciones: el listado no trae las líneas, y son las líneas de mano
+      // de obra las que se van a facturar.
+      const quotePage = await quotesApi.list({ workOrderId: id.value })
+      quotes.value = await Promise.all(quotePage.items.map((q) => quotesApi.get(q.id)))
+      laborSource.value = defaultLaborSource()
     }
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar la orden.')
   }
+}
+
+/** Lo que suma la mano de obra de una cotización, sin sus repuestos. */
+function laborOf(quote: QuoteDetail) {
+  return quote.lines
+    .filter((l) => l.lineType === LineType.Labor)
+    .reduce((sum, l) => sum + l.total, 0)
+}
+
+const quotesWithLabor = computed(() => quotes.value.filter((q) => laborOf(q) > 0))
+
+/**
+ * Si el cliente aprobó una cotización, esa es la mano de obra que espera pagar: cobrarle otra
+ * cosa al entregar es donde se pierden los clientes. Si no hay, se cobran los pasos.
+ */
+function defaultLaborSource() {
+  const approved = quotesWithLabor.value.find((q) => q.status === QuoteStatus.Approved)
+  return approved?.id ?? 'tasks'
 }
 
 /**
@@ -70,10 +108,14 @@ async function load() {
 function closeAndInvoice() {
   if (!confirm('Se facturará lo trabajado y la orden quedará entregada. ¿Continuar?')) return
 
+  const fromQuote = laborSource.value !== 'tasks' && laborSource.value !== 'none'
+
   return run(() =>
     salesApi.closeWorkOrder({
       workOrderId: id.value,
       paymentMethod: paymentMethod.value,
+      includeLabor: laborSource.value !== 'none',
+      laborFromQuoteId: fromQuote ? laborSource.value : undefined,
       // Sin crédito no se manda nada y el backend cobra el total, que es el caso normal.
       initialPayment: onCredit.value ? Number(initialPayment.value) || 0 : undefined,
       dueDate: onCredit.value && dueDate.value ? new Date(dueDate.value).toISOString() : undefined,
@@ -158,13 +200,32 @@ function changeStatus(status: WorkOrderStatus) {
 }
 
 function addTask() {
-  const title = newTaskTitle.value.trim()
+  const title = newTask.value.title.trim()
   if (!title) return
 
   return run(async () => {
-    await workOrdersApi.addTask(id.value, { title })
-    newTaskTitle.value = ''
+    await workOrdersApi.addTask(id.value, {
+      title,
+      laborServiceId: newTask.value.laborServiceId || null,
+    })
+    newTask.value = { title: '', laborServiceId: '' }
   })
+}
+
+/**
+ * Le pone precio a un paso. Sin servicio del catálogo el paso no se cobra, y esa es la razón
+ * más común de que una factura salga corta.
+ */
+function setTaskLabor(task: WorkOrderDetail['tasks'][number], laborServiceId: string) {
+  return run(() =>
+    workOrdersApi.updateTask(id.value, task.id, {
+      title: task.title,
+      description: task.description,
+      laborServiceId: laborServiceId || null,
+      // Se omiten las horas a propósito: al cambiar de servicio el backend vuelve a poner
+      // las estándar del nuevo, que es lo que se quiere cobrar.
+    }),
+  )
 }
 
 function toggleTask(taskId: string, isDone: boolean) {
@@ -203,6 +264,7 @@ const availableTechnicians = computed(() =>
 
 onMounted(async () => {
   if (auth.isOwner) technicians.value = await usersApi.list('Technician').catch(() => [])
+  if (canEdit.value) laborServices.value = await laborServicesApi.list().catch(() => [])
   await load()
 })
 </script>
@@ -263,30 +325,59 @@ onMounted(async () => {
 
         <article class="card">
           <h2>Pasos de la reparación</h2>
+          <p v-if="canEdit" class="muted small">
+            La mano de obra se cobra por el servicio del catálogo que lleve cada paso. El paso
+            que quede sin servicio no entra en la factura.
+          </p>
 
           <ul class="tasks">
             <li v-for="task in order.tasks" :key="task.id">
-              <label>
-                <input
-                  type="checkbox"
-                  :checked="task.isDone"
-                  :disabled="!canEdit || busy"
-                  @change="toggleTask(task.id, ($event.target as HTMLInputElement).checked)"
-                />
-                <span :class="{ done: task.isDone }">{{ task.title }}</span>
-              </label>
-              <span class="muted small">
-                {{ task.assignedTechnicianName ?? 'sin asignar' }}
-                <template v-if="task.actualHours"> · {{ task.actualHours }} h</template>
-              </span>
+              <div class="task-head">
+                <label>
+                  <input
+                    type="checkbox"
+                    :checked="task.isDone"
+                    :disabled="!canEdit || busy"
+                    @change="toggleTask(task.id, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span :class="{ done: task.isDone }">{{ task.title }}</span>
+                </label>
+                <span class="muted small">
+                  {{ task.assignedTechnicianName ?? 'sin asignar' }}
+                  <template v-if="task.actualHours"> · {{ task.actualHours }} h</template>
+                </span>
+              </div>
+
+              <div v-if="canEdit" class="task-labor">
+                <select
+                  :value="task.laborServiceId ?? ''"
+                  :disabled="busy"
+                  @change="setTaskLabor(task, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Sin cobro de mano de obra</option>
+                  <option v-for="s in laborServices" :key="s.id" :value="s.id">
+                    {{ s.name }} · {{ formatMoney(s.price) }}
+                  </option>
+                </select>
+                <strong v-if="task.laborPrice" class="num">{{ formatMoney(task.laborPrice) }}</strong>
+              </div>
             </li>
           </ul>
 
           <p v-if="!order.tasks.length" class="muted">Todavía no hay pasos registrados.</p>
+          <p v-else-if="canEdit" class="labor-total">
+            Mano de obra de los pasos <strong>{{ formatMoney(order.laborTotal) }}</strong>
+          </p>
 
           <form v-if="canEdit" class="inline" @submit.prevent="addTask">
-            <input v-model="newTaskTitle" placeholder="Agregar paso…" />
-            <button type="submit" :disabled="busy || !newTaskTitle.trim()">Agregar</button>
+            <input v-model="newTask.title" placeholder="Agregar paso…" />
+            <select v-model="newTask.laborServiceId">
+              <option value="">Sin cobro</option>
+              <option v-for="s in laborServices" :key="s.id" :value="s.id">
+                {{ s.name }} · {{ formatMoney(s.price) }}
+              </option>
+            </select>
+            <button type="submit" :disabled="busy || !newTask.title.trim()">Agregar</button>
           </form>
         </article>
 
@@ -306,9 +397,27 @@ onMounted(async () => {
         <article v-if="auth.isOwner && !sales.length && order.status !== WorkOrderStatus.Cancelled" class="card">
           <h2>Cerrar y facturar</h2>
           <p class="muted small">
-            Cobra los repuestos ya cargados y la mano de obra de los pasos con servicio
-            asignado, y entrega el vehículo.
+            Cobra los repuestos ya cargados ({{ formatMoney(order.partsTotal) }}) más la mano
+            de obra que se elija abajo, y entrega el vehículo.
           </p>
+
+          <fieldset class="labor-source">
+            <legend>Mano de obra</legend>
+            <label v-for="quote in quotesWithLabor" :key="quote.id">
+              <input v-model="laborSource" type="radio" :value="quote.id" />
+              Cotización {{ quote.number }} · {{ formatMoney(laborOf(quote)) }}
+              <span class="muted small">{{ QUOTE_STATUS_LABEL[quote.status] }}</span>
+            </label>
+            <label>
+              <input v-model="laborSource" type="radio" value="tasks" />
+              Los pasos de la orden · {{ formatMoney(order.laborTotal) }}
+            </label>
+            <label>
+              <input v-model="laborSource" type="radio" value="none" />
+              No cobrar mano de obra
+            </label>
+          </fieldset>
+
           <select v-model.number="paymentMethod">
             <option v-for="(label, value) in PAYMENT_METHOD_LABEL" :key="value" :value="Number(value)">
               {{ label }}
@@ -569,10 +678,59 @@ dd {
 
 .tasks li {
   display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.task-head {
+  display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.task-labor {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.task-labor select {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+}
+
+.labor-total {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.labor-source {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.labor-source legend {
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.labor-source label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
 }
 
 .tasks label {

@@ -111,6 +111,9 @@ class WorkOrderTask {
     required this.isDone,
     this.description,
     this.assignedTechnicianName,
+    this.laborServiceId,
+    this.laborServiceName,
+    this.laborPrice,
     this.estimatedHours,
     this.actualHours,
     this.technicianNotes,
@@ -123,6 +126,9 @@ class WorkOrderTask {
         sequence: json['sequence'] as int,
         isDone: json['isDone'] as bool,
         assignedTechnicianName: json['assignedTechnicianName'] as String?,
+        laborServiceId: json['laborServiceId'] as String?,
+        laborServiceName: json['laborServiceName'] as String?,
+        laborPrice: (json['laborPrice'] as num?)?.toDouble(),
         estimatedHours: (json['estimatedHours'] as num?)?.toDouble(),
         actualHours: (json['actualHours'] as num?)?.toDouble(),
         technicianNotes: json['technicianNotes'] as String?,
@@ -134,6 +140,11 @@ class WorkOrderTask {
   final int sequence;
   final bool isDone;
   final String? assignedTechnicianName;
+
+  /// El servicio del catálogo que le pone precio al paso. Sin él, el paso no se cobra.
+  final String? laborServiceId;
+  final String? laborServiceName;
+  final double? laborPrice;
   final double? estimatedHours;
   final double? actualHours;
   final String? technicianNotes;
@@ -181,6 +192,7 @@ class WorkOrderDetail {
     required this.timeline,
     required this.parts,
     required this.partsTotal,
+    required this.laborTotal,
     this.plate,
     this.diagnosis,
     this.mileageIn,
@@ -222,6 +234,7 @@ class WorkOrderDetail {
             .map((p) => WorkOrderPart.fromJson(p as Map<String, dynamic>))
             .toList(),
         partsTotal: (json['partsTotal'] as num).toDouble(),
+        laborTotal: (json['laborTotal'] as num).toDouble(),
       );
 
   final String id;
@@ -246,6 +259,9 @@ class WorkOrderDetail {
   final List<WorkOrderStatusEntry> timeline;
   final List<WorkOrderPart> parts;
 
-  /// Lo que suman los repuestos consumidos. La mano de obra entra en la Fase 4.
+  /// Lo que suman los repuestos consumidos.
   final double partsTotal;
+
+  /// Lo que suma la mano de obra de los pasos con servicio asignado.
+  final double laborTotal;
 }

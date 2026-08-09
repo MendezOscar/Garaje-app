@@ -209,7 +209,37 @@ public class SaleService(
             });
         }
 
-        if (request.IncludeLabor)
+        // La mano de obra de la cotización aprobada manda sobre la de los pasos: es el precio
+        // que el cliente vio y aceptó, y cobrarle otro al entregar es donde se pierden los
+        // clientes. Los repuestos no salen de aquí: esos se cobran como salieron de la bodega.
+        if (request.IncludeLabor && request.LaborFromQuoteId is { } quoteId)
+        {
+            var quote = await db.Quotes.AsNoTracking()
+                .Include(q => q.Lines)
+                .FirstOrDefaultAsync(q => q.Id == quoteId, ct)
+                ?? throw new NotFoundException("La cotización no existe.");
+
+            if (quote.WorkOrderId != order.Id)
+                throw new AppException("La cotización no es de esta orden de trabajo.");
+
+            foreach (var line in quote.Lines.Where(l => l.LineType == LineType.Labor)
+                         .OrderBy(l => l.Sequence))
+            {
+                sale.Lines.Add(new SaleLine
+                {
+                    LineType = LineType.Labor,
+                    LaborServiceId = line.LaborServiceId,
+                    Description = line.Description,
+                    Sequence = ++sequence,
+                    Quantity = line.Quantity,
+                    UnitPrice = line.UnitPrice,
+                    Discount = line.Discount,
+                    UnitCost = 0,
+                    Total = line.Total
+                });
+            }
+        }
+        else if (request.IncludeLabor)
         {
             var serviceIds = order.Tasks.Where(t => t.LaborServiceId is not null)
                 .Select(t => t.LaborServiceId!.Value)
@@ -226,8 +256,7 @@ public class SaleService(
                     !services.TryGetValue(serviceId, out var service)) continue;
 
                 // Se cobran las horas reales si el técnico las registró; si no, las estimadas.
-                var hours = task.ActualHours ?? task.EstimatedHours ?? service.StandardHours;
-                var price = service.IsFixedPrice ? service.FixedPrice : hours * service.HourlyRate;
+                var price = service.PriceFor(task.ActualHours ?? task.EstimatedHours);
 
                 sale.Lines.Add(new SaleLine
                 {
@@ -436,9 +465,7 @@ public class SaleService(
             line.LaborServiceId = service?.Id;
             line.Description = Describe(request.Description, service?.Name);
             line.UnitPrice = request.UnitPrice
-                ?? (service is null
-                    ? 0
-                    : service.IsFixedPrice ? service.FixedPrice : service.StandardHours * service.HourlyRate);
+                ?? service?.PriceFor(null) ?? 0;
             line.UnitCost = 0;
         }
 

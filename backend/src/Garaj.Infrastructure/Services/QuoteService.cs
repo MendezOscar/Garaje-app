@@ -185,8 +185,7 @@ public class QuoteService(
                 if (task.LaborServiceId is not { } serviceId ||
                     !services.TryGetValue(serviceId, out var service)) continue;
 
-                var hours = task.EstimatedHours ?? service.StandardHours;
-                var price = service.IsFixedPrice ? service.FixedPrice : hours * service.HourlyRate;
+                var price = service.PriceFor(task.ActualHours ?? task.EstimatedHours);
 
                 db.QuoteLines.Add(new QuoteLine
                 {
@@ -538,9 +537,7 @@ public class QuoteService(
             line.PartId = null;
             line.Description = Describe(request.Description, service?.Name);
             line.UnitPrice = request.UnitPrice
-                ?? (service is null
-                    ? 0
-                    : service.IsFixedPrice ? service.FixedPrice : service.StandardHours * service.HourlyRate);
+                ?? service?.PriceFor(null) ?? 0;
         }
 
         line.Total = Math.Max(0, line.Quantity * line.UnitPrice - line.Discount);

@@ -203,6 +203,7 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 | GET | `/api/sales/{id}` | Owner o Cliente | Detalle con líneas |
 | POST | `/api/sales` | Owner | Venta directa de mostrador; descuenta inventario |
 | POST | `/api/sales/close-work-order` | Owner | Cierra la orden y factura lo trabajado |
+| ↳ | `laborFromQuoteId` | | Cobra la mano de obra de esa cotización en vez de la de los pasos |
 | POST | `/api/sales/{id}/payments` | Owner | Registra un abono |
 | DELETE | `/api/sales/{id}/payments/{paymentId}` | Owner | Borra un abono mal capturado |
 | POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
@@ -216,6 +217,14 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 Decisiones que conviene conocer antes de tocar esto:
 
+- **La mano de obra se cobra por el servicio del catálogo que lleve cada paso.** Un paso sin
+  `laborServiceId` no tiene precio y no entra en la factura: meterlo en cero haría que una
+  orden pareciera cobrada cuando no lo está. El detalle de la orden trae `laborPrice` por paso
+  y `laborTotal` en el total, que es lo que se cobraría hoy.
+- **Al facturar se puede cobrar la mano de obra de la cotización aprobada** (`laborFromQuoteId`)
+  en lugar de la de los pasos. Es el precio que el cliente vio y aceptó, y suele incluir cosas
+  que nunca se registraron como paso. Los repuestos no salen de ahí: esos se cobran como
+  salieron de la bodega, porque es lo que de verdad se consumió.
 - **Lo cobrado sale de los abonos, no de un campo en la venta.** Cada venta tiene su lista
   de `payments`, y `amountPaid` / `balance` se calculan sumándolos —igual que el stock se
   deriva de los movimientos—. Una venta de contado también genera su abono, por el total y
