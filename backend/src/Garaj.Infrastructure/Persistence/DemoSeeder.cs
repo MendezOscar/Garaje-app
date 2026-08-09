@@ -111,6 +111,7 @@ public class DemoSeeder(
         await db.Notifications.ExecuteDeleteAsync(ct);
         await db.DeviceTokens.ExecuteDeleteAsync(ct);
         await db.MediaAttachments.ExecuteDeleteAsync(ct);
+        await db.SalePayments.ExecuteDeleteAsync(ct);
         await db.SaleLines.ExecuteDeleteAsync(ct);
         await db.Sales.ExecuteDeleteAsync(ct);
         await db.QuoteLines.ExecuteDeleteAsync(ct);
@@ -903,6 +904,44 @@ public class DemoSeeder(
         sale.CostTotal = Math.Round(cost, 2);
         sale.TaxTotal = Math.Round(subtotal * sale.TaxRate / 100m, 2);
         sale.Total = sale.Subtotal + sale.TaxTotal;
+
+        // Una de cada ocho se entrega a crédito: es lo que pasa en un taller de barrio con
+        // los clientes de siempre. Sin ninguna, la pantalla de cuentas por cobrar aparece
+        // vacía en la demostración y no se entiende para qué está.
+        var onCredit = _rnd.Next(8) == 0;
+
+        if (onCredit)
+        {
+            // Deja algo y queda debiendo. La fecha acordada es a dos semanas: algunas ya
+            // vencieron y otras no, que es justo lo que hace útil la lista.
+            var down = Math.Round(sale.Total * (_rnd.Next(20, 61) / 100m), 2);
+
+            sale.DueDate = when.AddDays(14);
+
+            if (down > 0)
+            {
+                sale.Payments.Add(new SalePayment
+                {
+                    Amount = down,
+                    Method = sale.PaymentMethod,
+                    PaidAt = when,
+                    Notes = "Pago inicial",
+                    CreatedAt = when,
+                    CreatedByUserId = world.Staff.Owner.Id
+                });
+            }
+        }
+        else
+        {
+            sale.Payments.Add(new SalePayment
+            {
+                Amount = sale.Total,
+                Method = sale.PaymentMethod,
+                PaidAt = when,
+                CreatedAt = when,
+                CreatedByUserId = world.Staff.Owner.Id
+            });
+        }
 
         db.Sales.Add(sale);
         order.SaleId = sale.Id;

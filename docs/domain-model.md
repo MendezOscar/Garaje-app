@@ -59,6 +59,13 @@ WhatsApp: aleatorio, único global (la consulta corre sin filtro de tenant) y no
 los reportes de ingresos por repuestos vs mano de obra. `SaleLine.UnitCost` congela el costo
 al momento de la venta para poder calcular margen sin depender del catálogo actual.
 
+`SalePayment` es cada entrada de dinero de una venta. **Es la única fuente de lo cobrado**,
+igual que `StockMovement` lo es de las existencias: la venta no guarda un "pagado" que haya
+que mantener al día, se suma. Una venta de contado también genera su abono —por el total y
+con la fecha de la venta— para que no existan dos maneras distintas de saber qué entró en
+caja. Tampoco hay una bandera "es a crédito": una venta lo es mientras `Total` sea mayor que
+la suma de sus abonos, y `Sale.DueDate` solo dice para cuándo se acordó terminar de pagar.
+
 ## Avisos
 
 `Notification` es una fila por destinatario, no por hecho: el mismo cambio de estado genera

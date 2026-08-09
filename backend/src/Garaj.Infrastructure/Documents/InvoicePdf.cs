@@ -62,7 +62,16 @@ public static class InvoicePdf
                 column.Item().AlignRight()
                     .Text($"Fecha: {sale.SaleDate.ToLocalTime():dd/MM/yyyy HH:mm}").FontSize(9);
                 column.Item().AlignRight()
-                    .Text(PaymentLabel(sale.PaymentMethod)).FontSize(9).FontColor(Colors.Grey.Darken1);
+                    .Text(sale.Balance > 0 ? "CRÉDITO" : PaymentLabel(sale.PaymentMethod))
+                    .FontSize(9).FontColor(Colors.Grey.Darken1);
+
+                if (sale.DueDate is { } due)
+                {
+                    column.Item().AlignRight()
+                        .Text($"Vence: {due.ToLocalTime():dd/MM/yyyy}")
+                        .FontSize(9)
+                        .FontColor(sale.IsOverdue ? Colors.Red.Darken2 : Colors.Grey.Darken1);
+                }
 
                 // Una factura anulada se sigue pudiendo imprimir —el cliente puede tener la
                 // copia vieja en la mano— pero tiene que decirlo en grande.
@@ -169,7 +178,45 @@ public static class InvoicePdf
                         row.ConstantItem(110).AlignRight()
                             .Text(Money(sale.Total, sale.Currency)).Bold().FontSize(13);
                     });
+
+                // El saldo solo se imprime cuando lo hay: en una venta de contado, una línea
+                // que dice "saldo 0.00" siembra la duda de si se debe algo.
+                if (sale.Balance > 0)
+                {
+                    Total(totals, "Abonado", Money(sale.AmountPaid, sale.Currency));
+
+                    totals.Item().PaddingTop(2).Row(row =>
+                    {
+                        row.RelativeItem().Text("SALDO PENDIENTE").Bold().FontSize(10);
+                        row.ConstantItem(110).AlignRight()
+                            .Text(Money(sale.Balance, sale.Currency))
+                            .Bold().FontSize(12).FontColor(Colors.Red.Darken2);
+                    });
+                }
             });
+
+            // Los abonos van impresos: es el comprobante que el cliente lleva encima de lo
+            // que ya pagó, y evita la discusión de "yo le aboné hace quince días".
+            if (sale.Payments.Count > 1 || sale.Balance > 0)
+            {
+                column.Item().PaddingTop(4).Column(payments =>
+                {
+                    payments.Item().Text("Abonos").SemiBold().FontSize(9);
+
+                    foreach (var payment in sale.Payments)
+                    {
+                        payments.Item().PaddingTop(2).Row(row =>
+                        {
+                            row.RelativeItem().Text(
+                                $"{payment.PaidAt.ToLocalTime():dd/MM/yyyy} · {PaymentLabel(payment.Method)}"
+                                + (payment.Reference is null ? "" : $" · {payment.Reference}"))
+                                .FontSize(9);
+                            row.ConstantItem(110).AlignRight()
+                                .Text(Money(payment.Amount, sale.Currency)).FontSize(9);
+                        });
+                    }
+                });
+            }
         });
     }
 

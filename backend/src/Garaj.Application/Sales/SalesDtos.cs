@@ -16,6 +16,15 @@ public record SaleLineDto(
     decimal Discount,
     decimal Total);
 
+public record SalePaymentDto(
+    Guid Id,
+    decimal Amount,
+    PaymentMethod Method,
+    DateTimeOffset PaidAt,
+    string? Reference,
+    string? Notes,
+    string? RegisteredByName);
+
 public record SaleListItemDto(
     Guid Id,
     string Number,
@@ -28,6 +37,10 @@ public record SaleListItemDto(
     DateTimeOffset SaleDate,
     PaymentMethod PaymentMethod,
     decimal Total,
+    decimal AmountPaid,
+    decimal Balance,
+    DateTimeOffset? DueDate,
+    bool IsOverdue,
     bool IsVoided);
 
 public record SaleDetailDto(
@@ -55,7 +68,14 @@ public record SaleDetailDto(
     string? Notes,
     bool IsVoided,
     string? VoidReason,
-    IReadOnlyList<SaleLineDto> Lines);
+    // Lo cobrado hasta hoy y lo que falta. Salen de sumar los abonos, no de un campo que
+    // haya que mantener al día.
+    decimal AmountPaid,
+    decimal Balance,
+    DateTimeOffset? DueDate,
+    bool IsOverdue,
+    IReadOnlyList<SaleLineDto> Lines,
+    IReadOnlyList<SalePaymentDto> Payments);
 
 /// <param name="PartId">Para una línea de repuesto: descuenta de la bodega de la sucursal.</param>
 public record SaleLineRequest(
@@ -68,6 +88,11 @@ public record SaleLineRequest(
     decimal Discount = 0);
 
 /// <summary>Venta directa de mostrador: alguien entra, compra un repuesto y se va.</summary>
+/// <param name="DueDate">Solo en ventas a crédito: la fecha en que se acordó terminar de pagar.</param>
+/// <param name="InitialPayment">
+/// Lo que el cliente deja en el momento. Si se omite se cobra el total —la venta de
+/// mostrador normal—; si viene, la diferencia queda como saldo pendiente.
+/// </param>
 public record CreateSaleRequest(
     Guid BranchId,
     Guid? CustomerId,
@@ -75,7 +100,9 @@ public record CreateSaleRequest(
     DateTimeOffset? SaleDate,
     string? Notes,
     decimal? TaxRate,
-    IReadOnlyList<SaleLineRequest> Lines);
+    IReadOnlyList<SaleLineRequest> Lines,
+    DateTimeOffset? DueDate = null,
+    decimal? InitialPayment = null);
 
 /// <summary>
 /// Cierre de la orden: la entrega al cliente y genera la venta con lo que se le hizo.
@@ -88,7 +115,19 @@ public record CloseWorkOrderRequest(
     // Añade la mano de obra de los pasos que tengan servicio del catálogo asignado.
     bool IncludeLabor = true,
     // Marca la orden como entregada. Falso si el vehículo todavía no se lo llevan.
-    bool MarkAsDelivered = true);
+    bool MarkAsDelivered = true,
+    // Fecha acordada de pago, en las que se entregan a crédito.
+    DateTimeOffset? DueDate = null,
+    // Lo que el cliente deja al recoger. Omitido significa que paga todo.
+    decimal? InitialPayment = null);
+
+/// <summary>Un abono a una venta con saldo.</summary>
+public record RegisterPaymentRequest(
+    decimal Amount,
+    PaymentMethod Method,
+    DateTimeOffset? PaidAt,
+    string? Reference,
+    string? Notes);
 
 public record VoidSaleRequest(string Reason);
 
@@ -100,6 +139,9 @@ public record SaleQuery : PageQuery
     public DateTimeOffset? From { get; init; }
     public DateTimeOffset? To { get; init; }
     public bool IncludeVoided { get; init; }
+
+    /// <summary>Solo las que tienen saldo: la lista de cuentas por cobrar.</summary>
+    public bool OnlyUnpaid { get; init; }
 }
 
 // ---------- Reportes ----------
@@ -199,6 +241,9 @@ public record DashboardDto(
     int LateWorkOrders,
     int QuotesAwaitingResponse,
     int PartsBelowMinimum,
+    // Cuánto se ha facturado y todavía no se ha cobrado, y cuánto de eso ya venció.
+    decimal Receivables,
+    decimal OverdueReceivables,
     IReadOnlyList<StatusCountDto> WorkOrdersByStatus,
     IReadOnlyList<RevenuePointDto> LastDays);
 
@@ -221,6 +266,13 @@ public interface ISaleService
 
     /// <summary>La factura en PDF, para imprimirla o mandarla por WhatsApp.</summary>
     Task<byte[]> PdfAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Registra un abono. Nunca por encima del saldo.</summary>
+    Task<SaleDetailDto> RegisterPaymentAsync(
+        Guid id, RegisterPaymentRequest request, CancellationToken ct = default);
+
+    /// <summary>Borra un abono mal capturado. Es una corrección, no una devolución.</summary>
+    Task<SaleDetailDto> RemovePaymentAsync(Guid id, Guid paymentId, CancellationToken ct = default);
 }
 
 public interface IReportService

@@ -47,6 +47,20 @@ public class SalesController(ISaleService service) : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = sale.Id }, sale);
     }
 
+    /// <summary>Registra un abono a una venta con saldo.</summary>
+    [HttpPost("{id:guid}/payments")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<SaleDetailDto>> RegisterPayment(
+        Guid id, RegisterPaymentRequest request, CancellationToken ct)
+        => Ok(await service.RegisterPaymentAsync(id, request, ct));
+
+    /// <summary>Borra un abono mal capturado. Para devolver dinero se anula la venta.</summary>
+    [HttpDelete("{id:guid}/payments/{paymentId:guid}")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<SaleDetailDto>> RemovePayment(
+        Guid id, Guid paymentId, CancellationToken ct)
+        => Ok(await service.RemovePaymentAsync(id, paymentId, ct));
+
     /// <summary>La factura en PDF. El Cliente puede bajar las suyas; el Técnico, ninguna.</summary>
     [HttpGet("{id:guid}/pdf")]
     public async Task<IActionResult> Pdf(Guid id, CancellationToken ct)

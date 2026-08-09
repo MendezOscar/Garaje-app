@@ -202,6 +202,26 @@ void main() {
     expect(find.text('Todos los técnicos'), findsOneWidget);
   });
 
+  testWidgets('el Dueño registra un abono desde los reportes', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await tester.tap(find.byTooltip('Reportes'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    // El humo de la Fase 8 deja facturas con saldo. Sin ellas la sección no se pinta y
+    // este caso no tiene nada que comprobar.
+    if (find.text('POR COBRAR').evaluate().isEmpty) return;
+
+    await tester.tap(find.text('Abonar').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Abono'), findsOneWidget);
+    expect(find.text('Registrar abono'), findsOneWidget);
+    // Propone el saldo completo, que es lo que pasa la mayoría de las veces.
+    expect(find.widgetWithText(TextField, '575.00'), findsOneWidget);
+  });
+
   testWidgets('el Dueño aprueba y asigna desde la bandeja', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 

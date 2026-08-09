@@ -292,6 +292,7 @@ export interface StockItem {
   quantity: number
   minQuantity: number
   location: string | null
+  costPrice: number
   salePrice: number
   isBelowMinimum: boolean
 }
@@ -473,7 +474,22 @@ export interface SaleListItem {
   saleDate: string
   paymentMethod: PaymentMethod
   total: number
+  amountPaid: number
+  /** Lo que falta por cobrar. Cero en una venta de contado. */
+  balance: number
+  dueDate: string | null
+  isOverdue: boolean
   isVoided: boolean
+}
+
+export interface SalePayment {
+  id: string
+  amount: number
+  method: PaymentMethod
+  paidAt: string
+  reference: string | null
+  notes: string | null
+  registeredByName: string | null
 }
 
 export interface SaleDetail extends SaleListItem {
@@ -489,6 +505,7 @@ export interface SaleDetail extends SaleListItem {
   notes: string | null
   voidReason: string | null
   lines: SaleLine[]
+  payments: SalePayment[]
 }
 
 export interface RevenuePoint {
@@ -559,6 +576,9 @@ export interface Dashboard {
   lateWorkOrders: number
   quotesAwaitingResponse: number
   partsBelowMinimum: number
+  /** Facturado y no cobrado, y cuánto de eso ya venció. */
+  receivables: number
+  overdueReceivables: number
   workOrdersByStatus: { status: WorkOrderStatus; count: number }[]
   lastDays: RevenuePoint[]
 }

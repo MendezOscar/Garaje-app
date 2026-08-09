@@ -286,6 +286,7 @@ onMounted(async () => {
           <th>Sucursal</th>
           <th class="num">Existencia</th>
           <th class="num">Mínimo</th>
+          <th v-if="canManage" class="num">Costo</th>
           <th class="num">Venta</th>
           <th>Ubicación</th>
           <th></th>
@@ -302,6 +303,9 @@ onMounted(async () => {
             {{ formatQuantity(item.quantity) }} {{ item.unit }}
           </td>
           <td class="num muted">{{ formatQuantity(item.minQuantity) }}</td>
+          <!-- El costo es del negocio: se le enseña al Dueño, no al técnico que consulta
+               existencias antes de prometer una reparación. -->
+          <td v-if="canManage" class="num muted">{{ formatMoney(item.costPrice) }}</td>
           <td class="num">{{ formatMoney(item.salePrice) }}</td>
           <td class="muted small">{{ item.location ?? '—' }}</td>
           <td class="row-actions">

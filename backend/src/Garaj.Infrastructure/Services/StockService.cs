@@ -334,6 +334,7 @@ public class StockService(
             s.Quantity,
             s.MinQuantity,
             s.Location,
+            s.Part.CostPrice,
             s.Part.SalePrice,
             s.MinQuantity > 0 && s.Quantity <= s.MinQuantity));
 

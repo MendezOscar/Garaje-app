@@ -452,6 +452,7 @@ export const salesApi = {
     from?: string
     to?: string
     includeVoided?: boolean
+    onlyUnpaid?: boolean
     page?: number
     pageSize?: number
   } = {}) {
@@ -488,8 +489,28 @@ export const salesApi = {
     notes?: string
     includeLabor?: boolean
     markAsDelivered?: boolean
+    /** Solo a crédito: fecha acordada de pago. */
+    dueDate?: string
+    /** Lo que el cliente deja al recoger. Omitido = paga todo. */
+    initialPayment?: number
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
+    return data
+  },
+  /** Un abono a una venta con saldo. Nunca por encima de lo que falta. */
+  async registerPayment(id: string, body: {
+    amount: number
+    method: PaymentMethod
+    paidAt?: string
+    reference?: string
+    notes?: string
+  }) {
+    const { data } = await api.post<SaleDetail>(`/api/sales/${id}/payments`, body)
+    return data
+  },
+  /** Borra un abono mal capturado. Para devolver dinero se anula la venta. */
+  async removePayment(id: string, paymentId: string) {
+    const { data } = await api.delete<SaleDetail>(`/api/sales/${id}/payments/${paymentId}`)
     return data
   },
   async void(id: string, reason: string) {

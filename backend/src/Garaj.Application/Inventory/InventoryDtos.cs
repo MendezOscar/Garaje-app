@@ -53,6 +53,9 @@ public record StockItemDto(
     decimal Quantity,
     decimal MinQuantity,
     string? Location,
+    // Los dos precios del catálogo: sirven para decidir en la misma pantalla si conviene
+    // reponer, sin tener que abrir la ficha del repuesto para ver en cuánto se compró.
+    decimal CostPrice,
     decimal SalePrice,
     bool IsBelowMinimum);
 

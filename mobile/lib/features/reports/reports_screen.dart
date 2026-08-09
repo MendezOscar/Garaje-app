@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/report_repository.dart';
+import '../../core/api/sale_repository.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/theme/garaj_brand.dart';
@@ -25,9 +26,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   static const _ranges = {7: '7 días', 30: '30 días', 90: '90 días'};
 
+  Future<void> _collect(Receivable sale) async {
+    final registered = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PaymentSheet(sale: sale),
+    );
+
+    if (registered != true) return;
+
+    ref.invalidate(receivablesProvider(_filter.branchId));
+    // El abono no cambia lo facturado, pero sí lo que queda por cobrar en el resumen.
+    ref.invalidate(revenueReportProvider(_filter));
+  }
+
   @override
   Widget build(BuildContext context) {
     final report = ref.watch(revenueReportProvider(_filter));
+    final receivables = ref.watch(receivablesProvider(_filter.branchId));
     final branches = ref.watch(branchOptionsProvider);
     final technicians = ref.watch(technicianOptionsProvider);
 
@@ -46,6 +62,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               onChanged: (next) => setState(() => _filter = next),
             ),
             const SizedBox(height: 20),
+
+            _Receivables(
+              sales: receivables.value ?? const [],
+              onCollect: _collect,
+            ),
 
             report.when(
               loading: () => const Padding(
@@ -272,6 +293,228 @@ class _Report extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// Lo facturado que todavía no entró en caja.
+///
+/// Está en el teléfono porque el cobro pasa en el mostrador: el cliente llega a dejar un
+/// abono y quien lo atiende tiene el teléfono en la mano, no la computadora de la oficina.
+/// Se ordena por vencimiento —es el orden en que hay que cobrar— y lo vencido va en rojo.
+class _Receivables extends StatelessWidget {
+  const _Receivables({required this.sales, required this.onCollect});
+
+  final List<Receivable> sales;
+  final Future<void> Function(Receivable sale) onCollect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sales.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final total = sales.fold<double>(0, (sum, s) => sum + s.balance);
+    final overdue = sales.where((s) => s.isOverdue).fold<double>(0, (sum, s) => sum + s.balance);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('POR COBRAR', style: _labelStyle(theme))),
+            Text(
+              money(total, 'HNL'),
+              style: theme.textTheme.titleMedium?.copyWith(fontFamily: GarajFonts.mono),
+            ),
+          ],
+        ),
+        if (overdue > 0)
+          Text(
+            '${money(overdue, 'HNL')} ya vencido',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+          ),
+        const SizedBox(height: 8),
+
+        for (final sale in sales.take(10))
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              contentPadding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+              title: Text(sale.customerName ?? 'Mostrador'),
+              subtitle: Text(
+                [
+                  sale.number,
+                  if (sale.dueDate != null)
+                    '${sale.isOverdue ? 'venció' : 'vence'} ${_date(sale.dueDate!)}'
+                  else
+                    'sin fecha acordada',
+                  'abonado ${money(sale.amountPaid, 'HNL')} de ${money(sale.total, 'HNL')}',
+                ].join(' · '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: sale.isOverdue ? theme.colorScheme.error : null,
+                ),
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    money(sale.balance, 'HNL'),
+                    style: theme.textTheme.titleSmall?.copyWith(fontFamily: GarajFonts.mono),
+                  ),
+                  TextButton(
+                    onPressed: () => onCollect(sale),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Abonar'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        if (sales.length > 10)
+          Text(
+            'y ${sales.length - 10} más. El resto se ve en el panel.',
+            style: theme.textTheme.bodySmall,
+          ),
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  static String _date(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Captura de un abono. Propone el saldo completo porque es lo más frecuente —el cliente
+/// llega a terminar de pagar— y deja bajarlo si trae menos.
+class _PaymentSheet extends ConsumerStatefulWidget {
+  const _PaymentSheet({required this.sale});
+
+  final Receivable sale;
+
+  @override
+  ConsumerState<_PaymentSheet> createState() => _PaymentSheetState();
+}
+
+class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
+  late final TextEditingController _amount =
+      TextEditingController(text: widget.sale.balance.toStringAsFixed(2));
+  final _reference = TextEditingController();
+
+  PaymentMethod _method = PaymentMethod.cash;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _reference.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = double.tryParse(_amount.text.trim().replaceAll(',', ''));
+
+    if (amount == null || amount <= 0) {
+      setState(() => _error = 'Escriba cuánto abonó.');
+      return;
+    }
+    if (amount > widget.sale.balance) {
+      setState(() => _error = 'El abono no puede pasar del saldo.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(saleRepositoryProvider).registerPayment(
+            widget.sale.id,
+            amount: amount,
+            method: _method,
+            reference: _reference.text.trim().isEmpty ? null : _reference.text.trim(),
+          );
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      setState(() => _error = apiErrorMessage(e, 'No se pudo registrar el abono.'));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Abono', style: theme.textTheme.titleMedium),
+          Text(
+            '${widget.sale.customerName ?? 'Mostrador'} · ${widget.sale.number} · '
+            'saldo ${money(widget.sale.balance, 'HNL')}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+
+          TextField(
+            controller: _amount,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Cuánto abona'),
+          ),
+          const SizedBox(height: 12),
+
+          DropdownButtonFormField<PaymentMethod>(
+            initialValue: _method,
+            decoration: const InputDecoration(labelText: 'Forma de pago'),
+            items: [
+              for (final method in PaymentMethod.values)
+                DropdownMenuItem(value: method, child: Text(method.label)),
+            ],
+            onChanged: (value) => setState(() => _method = value ?? PaymentMethod.cash),
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            controller: _reference,
+            decoration: const InputDecoration(
+              labelText: 'Referencia (opcional)',
+              hintText: 'Recibo, depósito, transferencia…',
+            ),
+          ),
+
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+          ],
+
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            child: Text(_saving ? 'Guardando…' : 'Registrar abono'),
+          ),
+        ],
+      ),
     );
   }
 }

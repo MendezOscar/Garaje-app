@@ -205,6 +205,17 @@ public class ReportService(
             .CountAsync(q => q.Status == QuoteStatus.Sent && q.RespondedAt == null
                              && (branchId == null || q.BranchId == branchId), ct);
 
+        // Cuentas por cobrar: lo facturado que todavía no entró en caja. Se calcula en SQL
+        // sobre las ventas vivas; las anuladas ya no se cobran.
+        var pending = await ScopedSales(scope, branchId, DateTimeOffset.MinValue, now)
+            .Select(s => new
+            {
+                s.DueDate,
+                Balance = s.Total - (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0)
+            })
+            .Where(x => x.Balance > 0)
+            .ToListAsync(ct);
+
         var belowMinimum = await db.StockItems.AsNoTracking()
             .CountAsync(s => s.MinQuantity > 0 && s.Quantity <= s.MinQuantity
                              && (branchId == null || s.BranchId == branchId), ct);
@@ -243,6 +254,8 @@ public class ReportService(
             late,
             awaitingQuotes,
             belowMinimum,
+            pending.Sum(x => x.Balance),
+            pending.Where(x => x.DueDate != null && x.DueDate < now).Sum(x => x.Balance),
             byStatus.OrderBy(s => s.Status).ToList(),
             lastDays);
     }

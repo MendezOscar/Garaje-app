@@ -199,10 +199,12 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
-| GET | `/api/sales?branchId=&from=&to=&includeVoided=` | Owner o Cliente | Ventas visibles |
+| GET | `/api/sales?branchId=&from=&to=&includeVoided=&onlyUnpaid=` | Owner o Cliente | Ventas visibles; `onlyUnpaid` son las cuentas por cobrar |
 | GET | `/api/sales/{id}` | Owner o Cliente | Detalle con líneas |
 | POST | `/api/sales` | Owner | Venta directa de mostrador; descuenta inventario |
 | POST | `/api/sales/close-work-order` | Owner | Cierra la orden y factura lo trabajado |
+| POST | `/api/sales/{id}/payments` | Owner | Registra un abono |
+| DELETE | `/api/sales/{id}/payments/{paymentId}` | Owner | Borra un abono mal capturado |
 | POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
 | GET | `/api/sales/{id}/pdf` | Owner o Cliente | La factura en PDF |
 | GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=&technicianId=` | Owner | Ingresos, con reparto por sucursal y por técnico |
@@ -214,6 +216,20 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 Decisiones que conviene conocer antes de tocar esto:
 
+- **Lo cobrado sale de los abonos, no de un campo en la venta.** Cada venta tiene su lista
+  de `payments`, y `amountPaid` / `balance` se calculan sumándolos —igual que el stock se
+  deriva de los movimientos—. Una venta de contado también genera su abono, por el total y
+  con la fecha de la venta: si el contado no dejara rastro habría dos maneras distintas de
+  saber qué entró en caja, y el corte del día dependería de cuál se mirara.
+- **Un abono nunca puede superar el saldo** (400). Cobrar de más no es un abono: o el total
+  está mal —y entonces se anula la venta— o hay que devolver la diferencia. Aceptarlo dejaría
+  un saldo negativo que ningún reporte sabe leer.
+- **Borrar un abono es corregir una captura, no devolver dinero.** Para eso último se anula
+  la venta entera, que es lo que también devuelve los repuestos a la bodega.
+- **El reporte de ingresos es de lo facturado, no de lo cobrado.** Una venta a crédito cuenta
+  entera el día que se emitió; lo que falta por entrar está en `onlyUnpaid` y en los dos
+  campos `receivables` del tablero. Son dos preguntas distintas y mezclarlas haría que ningún
+  número sirviera para ninguna.
 - **El reparto por técnico se atribuye por la orden, no por el paso.** Cuenta el técnico
   responsable de la orden que se facturó: es quien responde por el trabajo completo, y es la
   única atribución que reparte también los repuestos, que no cuelgan de un paso. Lo vendido
@@ -342,6 +358,9 @@ python3 backend/tests/smoke/fase6_smoke.py
 
 # Fase 7: recepción en el mostrador, diagnóstico y documentos en PDF
 python3 backend/tests/smoke/fase7_smoke.py
+
+# Fase 8: crédito, abonos y costo en existencias
+python3 backend/tests/smoke/fase8_smoke.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.

@@ -57,6 +57,25 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
     }
 }
 
+public class SalePaymentConfiguration : IEntityTypeConfiguration<SalePayment>
+{
+    public void Configure(EntityTypeBuilder<SalePayment> b)
+    {
+        b.Property(x => x.Reference).HasMaxLength(100);
+        b.Property(x => x.Notes).HasMaxLength(500);
+
+        b.HasOne(x => x.Sale)
+            .WithMany(s => s.Payments)
+            .HasForeignKey(x => x.SaleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // El saldo de una venta se calcula sumando por aquí, y el corte de caja del día
+        // agrupa por fecha de pago.
+        b.HasIndex(x => x.SaleId);
+        b.HasIndex(x => new { x.TenantId, x.PaidAt });
+    }
+}
+
 public class SaleLineConfiguration : IEntityTypeConfiguration<SaleLine>
 {
     public void Configure(EntityTypeBuilder<SaleLine> b)

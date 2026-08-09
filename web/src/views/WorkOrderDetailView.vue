@@ -13,7 +13,7 @@ import {
   VEHICLE_TYPE_LABEL,
   WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
-  type SaleListItem,
+  type SaleDetail,
   type User,
   type WorkOrderDetail,
 } from '@/types/domain'
@@ -28,8 +28,16 @@ const technicians = ref<User[]>([])
 const error = ref('')
 const busy = ref(false)
 
-const sales = ref<SaleListItem[]>([])
+const sales = ref<SaleDetail[]>([])
 const paymentMethod = ref<PaymentMethod>(PaymentMethod.Cash)
+
+/** Cierre a crédito: qué deja el cliente hoy y para cuándo queda el resto. */
+const onCredit = ref(false)
+const initialPayment = ref<number | string>('')
+const dueDate = ref('')
+
+/** Abono que se está capturando, por venta. */
+const newPayment = ref({ amount: '' as number | string, method: PaymentMethod.Cash, reference: '' })
 
 const statusNote = ref('')
 const noteIsInternal = ref(false)
@@ -46,7 +54,9 @@ async function load() {
     order.value = await workOrdersApi.get(id.value)
     diagnosis.value = order.value.diagnosis ?? ''
     if (auth.isOwner) {
-      sales.value = (await salesApi.list({ workOrderId: id.value })).items
+      // El detalle de cada venta, no el listado: hacen falta los abonos, que solo vienen ahí.
+      const page = await salesApi.list({ workOrderId: id.value })
+      sales.value = await Promise.all(page.items.map((s) => salesApi.get(s.id)))
     }
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar la orden.')
@@ -64,12 +74,34 @@ function closeAndInvoice() {
     salesApi.closeWorkOrder({
       workOrderId: id.value,
       paymentMethod: paymentMethod.value,
+      // Sin crédito no se manda nada y el backend cobra el total, que es el caso normal.
+      initialPayment: onCredit.value ? Number(initialPayment.value) || 0 : undefined,
+      dueDate: onCredit.value && dueDate.value ? new Date(dueDate.value).toISOString() : undefined,
     }),
   )
 }
 
+function registerPayment(sale: SaleDetail) {
+  const amount = Number(newPayment.value.amount)
+  if (!amount || amount <= 0) return
+
+  return run(async () => {
+    await salesApi.registerPayment(sale.id, {
+      amount,
+      method: newPayment.value.method,
+      reference: newPayment.value.reference.trim() || undefined,
+    })
+    newPayment.value = { amount: '', method: PaymentMethod.Cash, reference: '' }
+  })
+}
+
+function removePayment(sale: SaleDetail, paymentId: string) {
+  if (!confirm('¿Borrar este abono? Es para corregir una captura, no para devolver dinero.')) return
+  return run(() => salesApi.removePayment(sale.id, paymentId))
+}
+
 /** Se baja con la sesión puesta: un enlace directo al endpoint responde 401. */
-async function downloadInvoice(sale: SaleListItem) {
+async function downloadInvoice(sale: SaleDetail) {
   busy.value = true
   error.value = ''
   try {
@@ -282,6 +314,23 @@ onMounted(async () => {
               {{ label }}
             </option>
           </select>
+
+          <label class="checkbox">
+            <input v-model="onCredit" type="checkbox" />
+            Queda debiendo: dejar saldo a crédito
+          </label>
+
+          <div v-if="onCredit" class="credit">
+            <label>
+              Abona hoy
+              <input v-model="initialPayment" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+            <label>
+              Fecha de pago
+              <input v-model="dueDate" type="date" />
+            </label>
+          </div>
+
           <div class="actions">
             <button type="button" :disabled="busy" @click="closeAndInvoice">
               Facturar y entregar
@@ -298,6 +347,51 @@ onMounted(async () => {
                 {{ PAYMENT_METHOD_LABEL[sale.paymentMethod] }} · {{ formatDateTime(sale.saleDate) }}
               </span>
             </p>
+
+            <p v-if="sale.balance > 0" class="balance" :class="{ overdue: sale.isOverdue }">
+              Saldo pendiente {{ formatMoney(sale.balance) }}
+              <span class="muted small">
+                de {{ formatMoney(sale.total) }}<template v-if="sale.dueDate">
+                  · {{ sale.isOverdue ? 'venció' : 'vence' }}
+                  {{ formatDateTime(sale.dueDate) }}</template>
+              </span>
+            </p>
+            <p v-else class="paid">Pagada</p>
+
+            <ul v-if="sale.payments.length" class="payments">
+              <li v-for="payment in sale.payments" :key="payment.id">
+                <span>
+                  {{ formatDateTime(payment.paidAt) }} ·
+                  {{ PAYMENT_METHOD_LABEL[payment.method] }}
+                  <template v-if="payment.reference"> · {{ payment.reference }}</template>
+                </span>
+                <span class="num">{{ formatMoney(payment.amount) }}</span>
+                <button type="button" class="link" :disabled="busy" @click="removePayment(sale, payment.id)">
+                  Quitar
+                </button>
+              </li>
+            </ul>
+
+            <form v-if="sale.balance > 0" class="credit" @submit.prevent="registerPayment(sale)">
+              <label>
+                Abono
+                <input v-model="newPayment.amount" type="number" min="0.01" step="0.01" :max="sale.balance" />
+              </label>
+              <label>
+                Forma
+                <select v-model.number="newPayment.method">
+                  <option v-for="(label, value) in PAYMENT_METHOD_LABEL" :key="value" :value="Number(value)">
+                    {{ label }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                Referencia
+                <input v-model="newPayment.reference" placeholder="Recibo, depósito…" />
+              </label>
+              <button type="submit" :disabled="busy">Registrar abono</button>
+            </form>
+
             <div class="actions">
               <button type="button" :disabled="busy" @click="downloadInvoice(sale)">
                 Factura en PDF
@@ -522,6 +616,69 @@ dd {
 
 .sale + .sale {
   margin-top: 0.75rem;
+}
+
+.credit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.credit label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.credit input,
+.credit select {
+  width: 8rem;
+}
+
+.balance {
+  margin: 0.25rem 0;
+  font-weight: 600;
+  color: var(--warning, #b45309);
+}
+
+.balance.overdue {
+  color: var(--danger);
+}
+
+.paid {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+  color: var(--success, #15803d);
+}
+
+.payments {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.payments li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--danger);
+  font-size: 0.75rem;
+  cursor: pointer;
 }
 
 .sale p {

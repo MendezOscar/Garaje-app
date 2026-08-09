@@ -31,6 +31,12 @@ public class SaleService(
         var q = Scoped(scope);
 
         if (!query.IncludeVoided) q = q.Where(s => !s.IsVoided);
+
+        // La suma se hace en SQL: traer los abonos a memoria para restarlos convertiría la
+        // lista de cuentas por cobrar en una consulta por cada venta.
+        if (query.OnlyUnpaid)
+            q = q.Where(s => !s.IsVoided
+                             && s.Total > (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0));
         if (query.CustomerId is { } customerId) q = q.Where(s => s.CustomerId == customerId);
         if (query.WorkOrderId is { } workOrderId) q = q.Where(s => s.WorkOrderId == workOrderId);
         if (query.From is { } from) q = q.Where(s => s.SaleDate >= from);
@@ -43,9 +49,16 @@ public class SaleService(
         }
 
         var total = await q.CountAsync(ct);
+        var now = clock.UtcNow;
 
-        var items = await q
-            .OrderByDescending(s => s.SaleDate)
+        // En cuentas por cobrar manda el vencimiento —es el orden en que hay que cobrar— y las
+        // que no tienen fecha acordada van al final. En el resto, la venta más reciente arriba.
+        var ordered = query.OnlyUnpaid
+            ? q.OrderBy(s => s.DueDate == null).ThenBy(s => s.DueDate)
+            : q.OrderByDescending(s => s.SaleDate).ThenBy(s => s.Number);
+
+        var items = await ordered
+            .ThenByDescending(s => s.SaleDate)
             .Skip(query.Skip)
             .Take(query.PageSize)
             .Select(s => new SaleListItemDto(
@@ -60,6 +73,12 @@ public class SaleService(
                 s.SaleDate,
                 s.PaymentMethod,
                 s.Total,
+                s.Payments.Sum(p => (decimal?)p.Amount) ?? 0,
+                s.Total - (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
+                s.DueDate,
+                s.DueDate != null
+                    && s.DueDate < now
+                    && s.Total > (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
                 s.IsVoided))
             .ToListAsync(ct);
 
@@ -73,6 +92,7 @@ public class SaleService(
         var sale = await Scoped(scope)
             .Include(s => s.Branch)
             .Include(s => s.Lines)
+            .Include(s => s.Payments)
             .FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("La venta no existe.");
 
@@ -107,6 +127,7 @@ public class SaleService(
             SaleDate = request.SaleDate ?? clock.UtcNow,
             PaymentMethod = request.PaymentMethod,
             TaxRate = request.TaxRate ?? tenant.DefaultTaxRate,
+            DueDate = request.DueDate,
             Notes = Truncate(request.Notes, 2000)
         };
 
@@ -117,6 +138,8 @@ public class SaleService(
             sequence = await AddLineAsync(sale, line, scope, ++sequence, ct);
 
         Recalculate(sale);
+        SettleOnCreation(sale, request.InitialPayment, request.PaymentMethod);
+
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(sale.Id, ct);
@@ -153,6 +176,7 @@ public class SaleService(
             SaleDate = clock.UtcNow,
             PaymentMethod = request.PaymentMethod,
             TaxRate = request.TaxRate ?? tenant.DefaultTaxRate,
+            DueDate = request.DueDate,
             Notes = Truncate(request.Notes, 2000)
         };
 
@@ -224,6 +248,7 @@ public class SaleService(
                 "La orden no tiene repuestos ni mano de obra que cobrar. Cargue lo trabajado antes de cerrarla.");
 
         Recalculate(sale);
+        SettleOnCreation(sale, request.InitialPayment, request.PaymentMethod);
 
         if (request.MarkAsDelivered && order.Status != WorkOrderStatus.Delivered)
         {
@@ -279,6 +304,66 @@ public class SaleService(
         }
 
         await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    public async Task<SaleDetailDto> RegisterPaymentAsync(
+        Guid id, RegisterPaymentRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        var sale = await db.Sales.Include(s => s.Payments)
+            .FirstOrDefaultAsync(s => s.Id == id, ct)
+            ?? throw new NotFoundException("La venta no existe.");
+
+        if (sale.IsVoided)
+            throw new ConflictException("La venta está anulada: no admite abonos.");
+
+        if (request.Amount <= 0)
+            throw new AppException("El abono tiene que ser mayor que cero.");
+
+        var balance = sale.Total - sale.Payments.Sum(p => p.Amount);
+
+        if (balance <= 0)
+            throw new ConflictException("La venta ya está pagada por completo.");
+
+        // Cobrar de más no es un abono, es otra cosa: o el total está mal —y entonces se
+        // anula la venta— o hay que devolver la diferencia. Aceptarlo dejaría un saldo
+        // negativo que ningún reporte sabría leer.
+        if (request.Amount > balance)
+            throw new AppException($"El abono excede el saldo pendiente ({balance:0.00}).");
+
+        db.SalePayments.Add(new SalePayment
+        {
+            SaleId = sale.Id,
+            Amount = request.Amount,
+            Method = request.Method,
+            PaidAt = request.PaidAt ?? clock.UtcNow,
+            Reference = Truncate(request.Reference, 100),
+            Notes = Truncate(request.Notes, 500)
+        });
+
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Borrar un abono es corregir una captura, no devolver dinero: para eso se anula la
+    /// venta entera. Por eso no pide motivo ni deja rastro más allá del saldo.
+    /// </summary>
+    public async Task<SaleDetailDto> RemovePaymentAsync(
+        Guid id, Guid paymentId, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var payment = await db.SalePayments
+            .FirstOrDefaultAsync(p => p.Id == paymentId && p.SaleId == id, ct)
+            ?? throw new NotFoundException("El abono no existe.");
+
+        db.SalePayments.Remove(payment);
+        await db.SaveChangesAsync(ct);
+
         return await GetAsync(id, ct);
     }
 
@@ -419,6 +504,21 @@ public class SaleService(
         // no cuánto ganó el taller con ella.
         var showCost = !scope.IsCustomer;
 
+        var paid = sale.Payments.Sum(p => p.Amount);
+
+        // Quién recibió el dinero. Solo para el taller: al cliente le da igual y es un dato
+        // interno de quién estaba en caja.
+        var authorIds = showCost
+            ? sale.Payments.Where(p => p.CreatedByUserId != null)
+                .Select(p => p.CreatedByUserId!.Value).Distinct().ToList()
+            : [];
+
+        var names = authorIds.Count == 0
+            ? []
+            : await db.Users.AsNoTracking()
+                .Where(u => authorIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+
         return new SaleDetailDto(
             sale.Id,
             sale.Number,
@@ -443,12 +543,49 @@ public class SaleService(
             sale.Notes,
             sale.IsVoided,
             sale.VoidReason,
+            paid,
+            sale.Total - paid,
+            sale.DueDate,
+            sale.DueDate is { } due && due < clock.UtcNow && sale.Total > paid,
             sale.Lines
                 .OrderBy(l => l.Sequence)
                 .Select(l => new SaleLineDto(
                     l.Id, l.LineType, l.PartId, l.LaborServiceId, l.Description, l.Sequence,
                     l.Quantity, l.UnitPrice, showCost ? l.UnitCost : 0, l.Discount, l.Total))
+                .ToList(),
+            sale.Payments
+                .OrderBy(p => p.PaidAt)
+                .Select(p => new SalePaymentDto(
+                    p.Id, p.Amount, p.Method, p.PaidAt, p.Reference, p.Notes,
+                    names.GetValueOrDefault(p.CreatedByUserId ?? Guid.Empty)))
                 .ToList());
+    }
+
+    /// <summary>
+    /// Deja registrado lo que el cliente pagó al momento de facturar.
+    /// </summary>
+    /// <remarks>
+    /// Sin prima indicada se asume que pagó todo: es la venta normal, y es importante que
+    /// también genere su abono. Si el contado no dejara rastro, habría dos maneras distintas
+    /// de saber qué se cobró —una por el método de pago y otra por los abonos— y la caja del
+    /// día dependería de cuál se mirara.
+    /// </remarks>
+    private void SettleOnCreation(Sale sale, decimal? initialPayment, PaymentMethod method)
+    {
+        var amount = initialPayment ?? sale.Total;
+
+        if (amount <= 0) return;
+
+        if (amount > sale.Total)
+            throw new AppException("El pago inicial no puede superar el total de la venta.");
+
+        sale.Payments.Add(new SalePayment
+        {
+            Amount = amount,
+            Method = method,
+            PaidAt = sale.SaleDate,
+            Notes = amount < sale.Total ? "Pago inicial" : null
+        });
     }
 
     private static string? Truncate(string? value, int max)
