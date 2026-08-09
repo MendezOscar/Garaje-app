@@ -55,9 +55,13 @@ public record WorkOrderDetailDto(
     IReadOnlyList<WorkOrderPartDto> Parts,
     // Lo que suman los repuestos consumidos.
     decimal PartsTotal,
-    // Lo que suma la mano de obra de los pasos que tienen servicio del catálogo asignado.
-    // Es lo que se cobraría hoy al cerrar la orden.
-    decimal LaborTotal);
+    // La mano de obra que se cobraría hoy: la suma de los pasos en modo catálogo, o el total
+    // escrito a mano en modo manual.
+    decimal LaborTotal,
+    // Cómo se cobra la mano de obra de esta orden.
+    LaborMode LaborMode,
+    // El total escrito a mano. Solo cuenta en modo manual.
+    decimal? ManualLaborTotal);
 
 public record WorkOrderTaskDto(
     Guid Id,
@@ -100,6 +104,13 @@ public record UpdateWorkOrderRequest(
 
 public record AssignTechnicianRequest(Guid? TechnicianId);
 
+/// <param name="Total">
+/// El total del modo manual. Omitirlo deja el que ya había —el total sobrevive a ir y volver
+/// entre modos— y para dejarlo en nada se manda 0. En modo catálogo no tiene efecto: ahí el
+/// precio sale de los pasos.
+/// </param>
+public record SetLaborModeRequest(LaborMode Mode, decimal? Total);
+
 /// <param name="IsVisibleToCustomer">
 /// Permite dejar notas internas del taller que el cliente no ve en su línea de tiempo.
 /// </param>
@@ -113,10 +124,7 @@ public record SaveWorkOrderTaskRequest(
     string? Description,
     Guid? AssignedTechnicianId,
     Guid? LaborServiceId,
-    decimal? EstimatedHours,
-    // Precio a mano para este paso. Manda sobre el del catálogo, y sirve para el trabajo que
-    // no está en la lista de servicios.
-    decimal? LaborPrice = null);
+    decimal? EstimatedHours);
 
 public record CompleteTaskRequest(
     bool IsDone,
@@ -142,6 +150,9 @@ public interface IWorkOrderService
     Task<WorkOrderDetailDto> CreateAsync(CreateWorkOrderRequest request, CancellationToken ct = default);
     Task<WorkOrderDetailDto> UpdateAsync(Guid id, UpdateWorkOrderRequest request, CancellationToken ct = default);
     Task<WorkOrderDetailDto> AssignAsync(Guid id, AssignTechnicianRequest request, CancellationToken ct = default);
+
+    /// <summary>Elige si la mano de obra sale del catálogo o de un total escrito a mano.</summary>
+    Task<WorkOrderDetailDto> SetLaborModeAsync(Guid id, SetLaborModeRequest request, CancellationToken ct = default);
     Task<WorkOrderDetailDto> ChangeStatusAsync(Guid id, ChangeStatusRequest request, CancellationToken ct = default);
 
     Task<WorkOrderTaskDto> AddTaskAsync(Guid workOrderId, SaveWorkOrderTaskRequest request, CancellationToken ct = default);

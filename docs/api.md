@@ -44,6 +44,7 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST | `/api/work-orders` | Owner | Abre la orden |
 | PUT | `/api/work-orders/{id}` | Owner o Técnico | Descripción y diagnóstico |
 | PUT | `/api/work-orders/{id}/assign` | Owner | Asigna o quita el técnico |
+| PUT | `/api/work-orders/{id}/labor` | Owner | Modo de mano de obra: `1` catálogo · `2` a mano, con `total` |
 | POST | `/api/work-orders/{id}/status` | Owner o Técnico | Cambia estado; 409 si no es válida |
 | POST/PUT | `/api/work-orders/{id}/tasks[/{taskId}]` | Owner o Técnico | Pasos de la reparación |
 | POST | `/api/work-orders/{id}/tasks/{taskId}/complete` | Owner o Técnico | Marca el paso |
@@ -217,13 +218,13 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 Decisiones que conviene conocer antes de tocar esto:
 
-- **La mano de obra se cobra por paso.** El precio sale del servicio del catálogo que lleve
-  asignado o de `laborPrice`, escrito a mano en el propio paso, que manda sobre el catálogo.
-  El precio a mano existe porque el taller cobra trabajos que no están en la lista, y obligar
-  a darlos de alta antes de poder cobrarlos terminaba en pasos sin precio. Un paso sin
-  ninguno de los dos no entra en la factura: cobrarlo en cero haría que una orden pareciera
-  cobrada cuando no lo está. El detalle de la orden trae `laborPrice` ya resuelto por paso y
-  `laborTotal` en el total, que es lo que se cobraría hoy.
+- **La mano de obra se cobra de una de dos maneras, nunca de las dos.** `LaborMode.Catalog`:
+  cada paso lleva un servicio del catálogo y la orden cobra la suma; el paso sin servicio no
+  entra en la factura. `LaborMode.Manual`: los pasos van sueltos, sin precio, y se cobra
+  `manualLaborTotal` como una sola línea llamada "Mano de obra". Son excluyentes porque
+  mezclar precios por paso con un total global deja dos maneras de sumar lo mismo y ninguna
+  en la que confiar. `laborTotal` en el detalle ya viene resuelto según el modo, y es lo que
+  se cobraría hoy. Cambiar de modo no borra lo del otro: se deja de mirar.
 - **Al facturar se puede cobrar la mano de obra de la cotización aprobada** (`laborFromQuoteId`)
   en lugar de la de los pasos. Es el precio que el cliente vio y aceptó, y suele incluir cosas
   que nunca se registraron como paso. Los repuestos no salen de ahí: esos se cobran como

@@ -32,6 +32,13 @@ export const WorkOrderStatus = {
 } as const
 export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus]
 
+/** Cómo se cobra la mano de obra de una orden. Espejo de `Garaj.Domain.Enums.LaborMode`. */
+export const LaborMode = {
+  Catalog: 1,
+  Manual: 2,
+} as const
+export type LaborMode = (typeof LaborMode)[keyof typeof LaborMode]
+
 export const PaymentMethod = {
   Cash: 1,
   Card: 2,
@@ -641,8 +648,11 @@ export interface WorkOrderDetail {
   timeline: WorkOrderStatusEntry[]
   parts: WorkOrderPart[]
   partsTotal: number
-  /** Lo que suman los pasos con servicio asignado: la mano de obra que se cobraría hoy. */
+  /** La mano de obra que se cobraría hoy: la suma de los pasos, o el total escrito a mano. */
   laborTotal: number
+  laborMode: LaborMode
+  /** El total escrito a mano. Solo cuenta en modo manual. */
+  manualLaborTotal: number | null
 }
 
 export const NotificationType = {

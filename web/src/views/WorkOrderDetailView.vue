@@ -8,6 +8,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  LaborMode,
   LineType,
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
@@ -46,7 +47,14 @@ const newPayment = ref({ amount: '' as number | string, method: PaymentMethod.Ca
 
 const statusNote = ref('')
 const noteIsInternal = ref(false)
-const newTask = ref({ title: '', laborServiceId: '', laborPrice: '' as number | string })
+const newTask = ref({ title: '', laborServiceId: '' })
+
+/** Total de mano de obra en modo manual, mientras se edita. */
+const manualLabor = ref<number | string>('')
+
+/** Alta de un servicio del catálogo sin salir de la orden. */
+const showNewService = ref(false)
+const newService = ref({ code: '', name: '', isFixedPrice: true, fixedPrice: 0, standardHours: 1, hourlyRate: 0 })
 
 /** Catálogo de mano de obra: es lo que le pone precio a cada paso. */
 const laborServices = ref<LaborService[]>([])
@@ -67,6 +75,7 @@ async function load() {
   try {
     order.value = await workOrdersApi.get(id.value)
     diagnosis.value = order.value.diagnosis ?? ''
+    manualLabor.value = order.value.manualLaborTotal ?? ''
     if (auth.isOwner) {
       // El detalle de cada venta, no el listado: hacen falta los abonos, que solo vienen ahí.
       const page = await salesApi.list({ workOrderId: id.value })
@@ -206,32 +215,84 @@ function addTask() {
   return run(async () => {
     await workOrdersApi.addTask(id.value, {
       title,
-      laborServiceId: newTask.value.laborServiceId || null,
-      laborPrice: Number(newTask.value.laborPrice) || null,
+      // En modo manual el paso va suelto: el precio es uno solo para toda la orden.
+      laborServiceId: isCatalog.value ? newTask.value.laborServiceId || null : null,
     })
-    newTask.value = { title: '', laborServiceId: '', laborPrice: '' }
+    newTask.value = { title: '', laborServiceId: '' }
   })
 }
 
-/**
- * Le pone precio a un paso, del catálogo o a mano. Un paso sin precio no se cobra, y esa es
- * la razón más común de que una factura salga corta.
- *
- * Al elegir un servicio se manda el precio en blanco a propósito: vuelve a mandar la tarifa
- * del catálogo, que es lo que se está pidiendo al elegirlo.
- */
-function setTaskLabor(
-  task: WorkOrderDetail['tasks'][number],
-  changes: { laborServiceId?: string | null; laborPrice?: number | null },
-) {
+/** Le pone (o le quita) el servicio del catálogo que da precio al paso. */
+function setTaskLabor(task: WorkOrderDetail['tasks'][number], laborServiceId: string) {
   return run(() =>
     workOrdersApi.updateTask(id.value, task.id, {
       title: task.title,
       description: task.description,
-      laborServiceId: task.laborServiceId,
-      ...changes,
+      laborServiceId: laborServiceId || null,
+      // Se omiten las horas a propósito: al cambiar de servicio el backend vuelve a poner
+      // las estándar del nuevo, que es lo que se quiere cobrar.
     }),
   )
+}
+
+const isCatalog = computed(() => order.value?.laborMode !== LaborMode.Manual)
+
+/**
+ * Elige de dónde sale el precio de la mano de obra. Son excluyentes: o cada paso lleva su
+ * servicio del catálogo, o los pasos van sueltos y se cobra un total escrito a mano. Mezclar
+ * las dos formas deja dos maneras de sumar lo mismo y ninguna en la que confiar.
+ */
+function setLaborMode(mode: LaborMode) {
+  if (order.value?.laborMode === mode) return
+
+  return run(() =>
+    workOrdersApi.setLaborMode(id.value, {
+      mode,
+      total: mode === LaborMode.Manual ? Number(manualLabor.value) || 0 : undefined,
+    }),
+  )
+}
+
+function saveManualLabor() {
+  return run(() =>
+    workOrdersApi.setLaborMode(id.value, {
+      mode: LaborMode.Manual,
+      total: Number(manualLabor.value) || 0,
+    }),
+  )
+}
+
+const manualLaborChanged = computed(
+  () => (Number(manualLabor.value) || 0) !== (order.value?.manualLaborTotal ?? 0),
+)
+
+/**
+ * Agrega el servicio al catálogo desde la propia orden y lo deja elegido. El trabajo que se
+ * cobra dos veces al mes merece estar en la lista, y mandarlo a otra pantalla a media orden
+ * es la manera más segura de que nunca se agregue.
+ */
+function createService() {
+  const f = newService.value
+  if (!f.code.trim() || !f.name.trim()) return
+
+  return run(async () => {
+    const created = await laborServicesApi.create({
+      code: f.code.trim().toUpperCase(),
+      name: f.name.trim(),
+      description: null,
+      category: null,
+      standardHours: Number(f.standardHours) || 0,
+      hourlyRate: Number(f.hourlyRate) || 0,
+      isFixedPrice: f.isFixedPrice,
+      fixedPrice: Number(f.fixedPrice) || 0,
+      isActive: true,
+    })
+
+    laborServices.value = await laborServicesApi.list()
+    newTask.value.laborServiceId = created.id
+    showNewService.value = false
+    newService.value = { code: '', name: '', isFixedPrice: true, fixedPrice: 0, standardHours: 1, hourlyRate: 0 }
+  })
 }
 
 function toggleTask(taskId: string, isDone: boolean) {
@@ -331,9 +392,36 @@ onMounted(async () => {
 
         <article class="card">
           <h2>Pasos de la reparación</h2>
+
+          <fieldset v-if="auth.isOwner" class="labor-mode">
+            <legend>Cómo se cobra la mano de obra</legend>
+            <label>
+              <input
+                type="radio"
+                :checked="isCatalog"
+                :disabled="busy"
+                @change="setLaborMode(LaborMode.Catalog)"
+              />
+              Con el catálogo: cada paso lleva su servicio y su precio
+            </label>
+            <label>
+              <input
+                type="radio"
+                :checked="!isCatalog"
+                :disabled="busy"
+                @change="setLaborMode(LaborMode.Manual)"
+              />
+              A mano: los pasos van sueltos y se cobra un total
+            </label>
+          </fieldset>
+
           <p v-if="canEdit" class="muted small">
-            Cada paso se cobra por el servicio del catálogo o por el precio que se le escriba
-            aquí mismo. El paso que quede sin precio no entra en la factura.
+            <template v-if="isCatalog">
+              El paso que quede sin servicio del catálogo no entra en la factura.
+            </template>
+            <template v-else>
+              Los pasos quedan como registro de lo que se hizo; a la factura va el total.
+            </template>
           </p>
 
           <ul class="tasks">
@@ -354,61 +442,115 @@ onMounted(async () => {
                 </span>
               </div>
 
-              <div v-if="canEdit" class="task-labor">
+              <div v-if="canEdit && isCatalog" class="task-labor">
                 <select
                   :value="task.laborServiceId ?? ''"
                   :disabled="busy"
-                  @change="
-                    setTaskLabor(task, {
-                      laborServiceId: ($event.target as HTMLSelectElement).value || null,
-                      laborPrice: null,
-                    })
-                  "
+                  @change="setTaskLabor(task, ($event.target as HTMLSelectElement).value)"
                 >
-                  <option value="">Sin servicio del catálogo</option>
+                  <option value="">Sin cobro de mano de obra</option>
                   <option v-for="s in laborServices" :key="s.id" :value="s.id">
                     {{ s.name }} · {{ formatMoney(s.price) }}
                   </option>
                 </select>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Precio"
-                  :value="task.laborPrice ?? ''"
-                  :disabled="busy"
-                  @change="
-                    setTaskLabor(task, {
-                      laborPrice: Number(($event.target as HTMLInputElement).value) || null,
-                    })
-                  "
-                />
+                <strong v-if="task.laborPrice" class="num">{{ formatMoney(task.laborPrice) }}</strong>
               </div>
             </li>
           </ul>
 
           <p v-if="!order.tasks.length" class="muted">Todavía no hay pasos registrados.</p>
-          <p v-else-if="canEdit" class="labor-total">
-            Mano de obra de los pasos <strong>{{ formatMoney(order.laborTotal) }}</strong>
-          </p>
 
           <form v-if="canEdit" class="inline new-task" @submit.prevent="addTask">
             <input v-model="newTask.title" placeholder="Agregar paso…" />
-            <select v-model="newTask.laborServiceId">
-              <option value="">Sin servicio</option>
+            <select v-if="isCatalog" v-model="newTask.laborServiceId">
+              <option value="">Sin cobro</option>
               <option v-for="s in laborServices" :key="s.id" :value="s.id">
                 {{ s.name }} · {{ formatMoney(s.price) }}
               </option>
             </select>
-            <input
-              v-model="newTask.laborPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Precio"
-            />
             <button type="submit" :disabled="busy || !newTask.title.trim()">Agregar</button>
           </form>
+
+          <!-- El servicio que falta se agrega aquí mismo: mandar al Dueño a otra pantalla a
+               media orden es la manera más segura de que el paso termine sin precio. -->
+          <template v-if="auth.isOwner && isCatalog">
+            <button
+              v-if="!showNewService"
+              type="button"
+              class="link"
+              @click="showNewService = true"
+            >
+              ¿No está en el catálogo? Agregar servicio
+            </button>
+
+            <form v-else class="new-service" @submit.prevent="createService">
+              <div class="row">
+                <label>
+                  Código
+                  <input v-model="newService.code" placeholder="MO-SOL" />
+                </label>
+                <label>
+                  Nombre
+                  <input v-model="newService.name" placeholder="Soldadura de soporte" />
+                </label>
+              </div>
+
+              <label class="checkbox">
+                <input v-model="newService.isFixedPrice" type="checkbox" />
+                Precio fijo
+              </label>
+
+              <div class="row">
+                <template v-if="newService.isFixedPrice">
+                  <label>
+                    Precio
+                    <input v-model.number="newService.fixedPrice" type="number" min="0" step="0.01" />
+                  </label>
+                </template>
+                <template v-else>
+                  <label>
+                    Horas
+                    <input v-model.number="newService.standardHours" type="number" min="0" step="0.25" />
+                  </label>
+                  <label>
+                    Tarifa por hora
+                    <input v-model.number="newService.hourlyRate" type="number" min="0" step="0.01" />
+                  </label>
+                </template>
+              </div>
+
+              <div class="actions">
+                <button type="submit" :disabled="busy">Agregar al catálogo</button>
+                <button type="button" class="link" @click="showNewService = false">Cancelar</button>
+              </div>
+            </form>
+          </template>
+
+          <div v-if="canEdit && !isCatalog" class="manual-labor">
+            <label>
+              Total de mano de obra
+              <input
+                v-model="manualLabor"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                :disabled="!auth.isOwner || busy"
+              />
+            </label>
+            <button
+              v-if="auth.isOwner"
+              type="button"
+              :disabled="busy || !manualLaborChanged"
+              @click="saveManualLabor"
+            >
+              Guardar
+            </button>
+          </div>
+
+          <p v-if="canEdit" class="labor-total">
+            Mano de obra <strong>{{ formatMoney(order.laborTotal) }}</strong>
+          </p>
         </article>
 
         <WorkOrderParts
@@ -733,16 +875,82 @@ dd {
   font-size: 0.8125rem;
 }
 
-.task-labor input,
-.new-task input[type='number'] {
-  width: 6.5rem;
-  flex: none;
-  font-size: 0.8125rem;
-}
-
 .new-task select {
   width: auto;
   max-width: 12rem;
+}
+
+.labor-mode {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.labor-mode legend {
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.labor-mode label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.manual-labor {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.manual-labor label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.manual-labor input {
+  width: 9rem;
+}
+
+.new-service {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.new-service .row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.new-service label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.new-service .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.new-service .checkbox input {
+  width: auto;
 }
 
 .labor-total {

@@ -8,6 +8,7 @@ import type {
   MediaOwnerType,
   Notification,
   Dashboard,
+  LaborMode,
   Paged,
   Part,
   PaymentMethod,
@@ -169,6 +170,11 @@ export const workOrdersApi = {
     const { data } = await api.put<WorkOrderDetail>(`/api/work-orders/${id}/assign`, { technicianId })
     return data
   },
+  /** Elige si la mano de obra sale del catálogo o de un total escrito a mano. */
+  async setLaborMode(id: string, body: { mode: LaborMode; total?: number | null }) {
+    const { data } = await api.put<WorkOrderDetail>(`/api/work-orders/${id}/labor`, body)
+    return data
+  },
   async changeStatus(
     id: string,
     body: { status: WorkOrderStatus; note?: string; isVisibleToCustomer?: boolean },
@@ -183,8 +189,6 @@ export const workOrdersApi = {
       description?: string
       /** El servicio del catálogo que le pone precio al paso. */
       laborServiceId?: string | null
-      /** Precio a mano. Manda sobre el del catálogo. */
-      laborPrice?: number | null
       estimatedHours?: number
     },
   ) {
@@ -199,7 +203,6 @@ export const workOrdersApi = {
       title: string
       description?: string | null
       laborServiceId?: string | null
-      laborPrice?: number | null
       estimatedHours?: number | null
     },
   ) {

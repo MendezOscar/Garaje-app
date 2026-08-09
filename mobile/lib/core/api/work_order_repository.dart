@@ -101,27 +101,20 @@ class WorkOrderRepository {
     String workOrderId,
     String title, {
     String? laborServiceId,
-    double? laborPrice,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks',
-      data: {
-        'title': title,
-        'laborServiceId': laborServiceId,
-        'laborPrice': laborPrice,
-      },
+      data: {'title': title, 'laborServiceId': laborServiceId},
     );
     return WorkOrderTask.fromJson(response.data!);
   }
 
-  /// Le pone (o le quita) precio a un paso, del catálogo o a mano. Un paso sin precio no se
-  /// factura. Lo que no se manda se borra: elegir servicio limpia el precio a mano, y poner
-  /// precio a mano deja el servicio como estaba.
+  /// Le pone (o le quita) el servicio del catálogo que da precio al paso. Solo cuenta en las
+  /// órdenes en modo catálogo: en las manuales el precio es uno solo para toda la orden.
   Future<WorkOrderTask> setTaskLabor(
     String workOrderId,
     WorkOrderTask task, {
     String? laborServiceId,
-    double? laborPrice,
   }) async {
     final response = await _dio.put<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks/${task.id}',
@@ -131,10 +124,23 @@ class WorkOrderRepository {
         'title': task.title,
         'description': task.description,
         'laborServiceId': laborServiceId,
-        'laborPrice': laborPrice,
       },
     );
     return WorkOrderTask.fromJson(response.data!);
+  }
+
+  /// Elige si la mano de obra sale del catálogo o de un total escrito a mano. Solo el Dueño:
+  /// decide lo que se le cobra al cliente.
+  Future<WorkOrderDetail> setLaborMode(
+    String id,
+    LaborMode mode, {
+    double? total,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$id/labor',
+      data: {'mode': mode.value, 'total': total},
+    );
+    return WorkOrderDetail.fromJson(response.data!);
   }
 
   /// El catálogo de mano de obra del taller. El backend se lo niega al Cliente.

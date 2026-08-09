@@ -103,6 +103,19 @@ class WorkOrderListItem {
       promisedAt != null && promisedAt!.isBefore(DateTime.now()) && status.isOpen;
 }
 
+/// Cómo se cobra la mano de obra de una orden. Espejo de `Garaj.Domain.Enums.LaborMode`.
+enum LaborMode {
+  catalog(1),
+  manual(2);
+
+  const LaborMode(this.value);
+
+  final int value;
+
+  static LaborMode fromValue(int value) =>
+      LaborMode.values.firstWhere((m) => m.value == value, orElse: () => catalog);
+}
+
 class WorkOrderTask {
   const WorkOrderTask({
     required this.id,
@@ -193,6 +206,8 @@ class WorkOrderDetail {
     required this.parts,
     required this.partsTotal,
     required this.laborTotal,
+    required this.laborMode,
+    this.manualLaborTotal,
     this.plate,
     this.diagnosis,
     this.mileageIn,
@@ -235,6 +250,8 @@ class WorkOrderDetail {
             .toList(),
         partsTotal: (json['partsTotal'] as num).toDouble(),
         laborTotal: (json['laborTotal'] as num).toDouble(),
+        laborMode: LaborMode.fromValue(json['laborMode'] as int),
+        manualLaborTotal: (json['manualLaborTotal'] as num?)?.toDouble(),
       );
 
   final String id;
@@ -262,6 +279,12 @@ class WorkOrderDetail {
   /// Lo que suman los repuestos consumidos.
   final double partsTotal;
 
-  /// Lo que suma la mano de obra de los pasos con servicio asignado.
+  /// La mano de obra que se cobraría hoy: la suma de los pasos, o el total escrito a mano.
   final double laborTotal;
+
+  /// De dónde sale ese número.
+  final LaborMode laborMode;
+  final double? manualLaborTotal;
+
+  bool get isCatalogLabor => laborMode == LaborMode.catalog;
 }

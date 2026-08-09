@@ -23,6 +23,7 @@ PASSWORD = "Garaj123!"
 MOTORCYCLE = 2
 CASH = 1
 PART, LABOR = 1, 2
+CATALOG, MANUAL = 1, 2
 
 ok = 0
 failed = []
@@ -304,52 +305,64 @@ check("la factura solo trae repuestos",
       all(l["lineType"] == PART for l in sale["lines"]),
       str([l["lineType"] for l in sale["lines"]]))
 
-# ------------------------------------------------------------ precio a mano
+# ------------------------------------------------------------ modo manual
 
-print("\n[precio a mano]")
+print("\n[la mano de obra a mano, sin catálogo]")
 
-free_order = new_order([])
+manual_order = new_order([])
 
-status, free = api("POST", f"/api/work-orders/{free_order}/tasks", {
-    "title": "Fabricar soporte a la medida", "laborPrice": 750,
+status, manual = api("PUT", f"/api/work-orders/{manual_order}/labor", {
+    "mode": MANUAL, "total": 1500,
 }, token=owner)
-check("un paso se cobra sin estar en el catálogo", status == 200, f"{status} {free}")
-check("con el precio que se le puso", free["laborPrice"] == 750, str(free.get("laborPrice")))
-check("y sin servicio asignado", free["laborServiceId"] is None, str(free.get("laborServiceId")))
+check("la orden pasa a cobrar un total", status == 200, f"{status} {manual}")
+check("y queda en modo manual", manual["laborMode"] == MANUAL, str(manual.get("laborMode")))
+check("con el total escrito", manual["laborTotal"] == 1500, str(manual.get("laborTotal")))
 
-_, order = api("GET", f"/api/work-orders/{free_order}", token=owner)
-check("la orden lo suma igual", order["laborTotal"] == 750, str(order.get("laborTotal")))
-
-status, over = api("PUT", f"/api/work-orders/{free_order}/tasks/{free['id']}", {
-    "title": free["title"], "laborServiceId": first["id"], "laborPrice": 900,
+status, loose = api("POST", f"/api/work-orders/{manual_order}/tasks", {
+    "title": "Fabricar soporte a la medida",
 }, token=owner)
-check("el precio a mano manda sobre el del catálogo", over["laborPrice"] == 900,
-      f'{over.get("laborPrice")} vs {first["price"]}')
+check("los pasos se agregan sueltos", status == 200, f"{status} {loose}")
+check("y sin precio propio", loose["laborPrice"] is None, str(loose.get("laborPrice")))
 
-status, back = api("PUT", f"/api/work-orders/{free_order}/tasks/{free['id']}", {
-    "title": free["title"], "laborServiceId": first["id"],
+_, order = api("GET", f"/api/work-orders/{manual_order}", token=owner)
+check("el total no cambia por agregar pasos", order["laborTotal"] == 1500,
+      str(order.get("laborTotal")))
+
+status, _ = api("PUT", f"/api/work-orders/{manual_order}/labor", {
+    "mode": MANUAL, "total": -10,
 }, token=owner)
-check("y al quitarlo vuelve el del catálogo", back["laborPrice"] == first["price"],
-      f'{back.get("laborPrice")} vs {first["price"]}')
+check("un total negativo se rechaza", status == 400, str(status))
 
-status, _ = api("PUT", f"/api/work-orders/{free_order}/tasks/{free['id']}", {
-    "title": free["title"], "laborPrice": -50,
-}, token=owner)
-check("un precio negativo se rechaza", status == 400, str(status))
-
-status, free2 = api("POST", f"/api/work-orders/{free_order}/tasks", {
-    "title": "Trabajo suelto", "laborPrice": 300,
+status, _ = api("PUT", f"/api/work-orders/{manual_order}/labor", {
+    "mode": CATALOG,
 }, token=technician)
-check("el técnico también le pone precio", status == 200, f"{status} {free2}")
+check("el técnico no cambia el modo", status == 403, str(status))
+
+# El modo se puede ir y volver sin perder lo escrito: quien se equivoca lo recupera.
+_, back = api("PUT", f"/api/work-orders/{manual_order}/labor", {"mode": CATALOG}, token=owner)
+check("en catálogo, los pasos sueltos no cobran nada", back["laborTotal"] == 0,
+      str(back.get("laborTotal")))
+_, again = api("PUT", f"/api/work-orders/{manual_order}/labor", {"mode": MANUAL}, token=owner)
+check("y al volver a manual sigue el total de antes", again["laborTotal"] == 1500,
+      str(again.get("laborTotal")))
+
+status, manual_quote = api("POST", "/api/quotes/from-work-order", {
+    "workOrderId": manual_order, "includeTasks": True,
+}, token=owner)
+labor_lines = [l for l in manual_quote["lines"] if l["lineType"] == LABOR]
+check("la cotización lleva una sola línea de mano de obra", len(labor_lines) == 1,
+      str(len(labor_lines)))
+check("por el total acordado", labor_lines and labor_lines[0]["total"] == 1500,
+      str([l["total"] for l in labor_lines]))
 
 status, sale = api("POST", "/api/sales/close-work-order", {
-    "workOrderId": free_order, "paymentMethod": CASH,
+    "workOrderId": manual_order, "paymentMethod": CASH,
 }, token=owner)
-check("se factura lo puesto a mano", status == 201, f"{status} {sale}")
+check("la factura también", status == 201, f"{status} {sale}")
 labor_lines = [l for l in sale["lines"] if l["lineType"] == LABOR]
-check("con una línea por paso con precio", len(labor_lines) == 2, str(len(labor_lines)))
-check("y el trabajo fuera de catálogo entre ellas",
-      any(l["description"] == "Trabajo suelto" and l["total"] == 300 for l in labor_lines),
+check("con una línea de mano de obra", len(labor_lines) == 1, str(len(labor_lines)))
+check("por el total, sin desglosar pasos que nadie coticó",
+      labor_lines and labor_lines[0]["total"] == 1500,
       str([(l["description"], l["total"]) for l in labor_lines]))
 
 # ------------------------------------------------------------ filtros por fecha

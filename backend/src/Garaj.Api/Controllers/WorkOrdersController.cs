@@ -47,6 +47,16 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
         => Ok(await service.AssignAsync(id, request, ct));
 
     /// <summary>
+    /// Elige cómo se cobra la mano de obra: por el catálogo en cada paso, o un total escrito
+    /// a mano para toda la orden. Es del Dueño porque decide lo que se le cobra al cliente.
+    /// </summary>
+    [HttpPut("{id:guid}/labor")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<WorkOrderDetailDto>> SetLaborMode(
+        Guid id, SetLaborModeRequest request, CancellationToken ct)
+        => Ok(await service.SetLaborModeAsync(id, request, ct));
+
+    /// <summary>
     /// Cambia el estado y deja entrada en la línea de tiempo. Devuelve 409 si la transición
     /// no es válida desde el estado actual.
     /// </summary>

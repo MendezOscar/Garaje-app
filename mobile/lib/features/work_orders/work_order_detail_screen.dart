@@ -94,9 +94,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     );
   }
 
-  Future<void> _addTask() async {
+  Future<void> _addTask(bool catalogLabor) async {
     final controller = TextEditingController();
-    final price = TextEditingController();
     final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
     String? serviceId;
 
@@ -113,38 +112,28 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 autofocus: true,
                 decoration: const InputDecoration(labelText: '¿Qué hay que hacer?'),
               ),
-              const SizedBox(height: 12),
-              // El paso se cobra por el servicio del catálogo o por el precio que se escriba
-              // aquí. Sin ninguno de los dos no entra en la factura.
-              DropdownButtonFormField<String?>(
-                initialValue: serviceId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Mano de obra'),
-                items: [
-                  const DropdownMenuItem<String?>(value: null, child: Text('Sin servicio')),
-                  for (final s in services)
-                    DropdownMenuItem<String?>(
-                      value: s.id,
-                      child: Text('${s.name} · ${_money(s.price)}', overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (value) => setInner(() {
-                  serviceId = value;
-                  // Al elegir del catálogo se propone su precio, pero se puede cambiar.
-                  price.text = value == null
-                      ? ''
-                      : services.firstWhere((s) => s.id == value).price.toStringAsFixed(2);
-                }),
-              ),
-              TextField(
-                controller: price,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Precio',
-                  prefixText: 'L ',
-                  helperText: 'Déjelo vacío si el paso no se cobra.',
+              // En modo manual el paso va suelto: el precio es uno solo para toda la orden.
+              if (catalogLabor) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: serviceId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Mano de obra',
+                    helperText: 'Sin servicio, el paso no se cobra.',
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Sin cobro')),
+                    for (final s in services)
+                      DropdownMenuItem<String?>(
+                        value: s.id,
+                        child: Text('${s.name} · ${_money(s.price)}',
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (value) => setInner(() => serviceId = value),
                 ),
-              ),
+              ],
             ],
           ),
           actions: [
@@ -159,22 +148,14 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     );
 
     if (title == null || title.isEmpty) return;
-    await _run(() => ref.read(workOrderRepositoryProvider).addTask(
-          widget.id,
-          title,
-          laborServiceId: serviceId,
-          laborPrice: _parsePrice(price.text),
-        ));
+    await _run(() => ref
+        .read(workOrderRepositoryProvider)
+        .addTask(widget.id, title, laborServiceId: catalogLabor ? serviceId : null));
   }
 
-  /// Cambia lo que se cobra por un paso ya creado: un servicio del catálogo, un precio a
-  /// mano, o nada.
+  /// Cambia el servicio del catálogo que le pone precio a un paso.
   Future<void> _changeTaskLabor(WorkOrderTask task) async {
     final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
-
-    // Cadena vacía es "sin cobro" y `_custom` es "precio a mano": null queda para cuando se
-    // sale del menú sin elegir.
-    const custom = '_custom';
 
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -184,15 +165,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           shrinkWrap: true,
           children: [
             ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Precio a mano'),
-              subtitle: const Text('Para el trabajo que no está en el catálogo'),
-              onTap: () => Navigator.pop(context, custom),
-            ),
-            const Divider(height: 1),
-            ListTile(
               title: const Text('Sin cobro de mano de obra'),
-              selected: task.laborPrice == null,
+              selected: task.laborServiceId == null,
+              // Cadena vacía y no null: null es "se salió del menú sin elegir".
               onTap: () => Navigator.pop(context, ''),
             ),
             for (final s in services)
@@ -209,20 +184,6 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     if (choice == null) return;
 
-    if (choice == custom) {
-      final price = await _askPrice(task);
-      if (price == null) return;
-
-      await _run(() => ref.read(workOrderRepositoryProvider).setTaskLabor(
-            widget.id,
-            task,
-            laborServiceId: task.laborServiceId,
-            // Cero es quitarle el precio a mano, no cobrar cero.
-            laborPrice: price > 0 ? price : null,
-          ));
-      return;
-    }
-
     await _run(() => ref.read(workOrderRepositoryProvider).setTaskLabor(
           widget.id,
           task,
@@ -230,20 +191,40 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ));
   }
 
-  Future<double?> _askPrice(WorkOrderTask task) async {
+  /// Elige de dónde sale el precio de la mano de obra de la orden. En manual pide el total,
+  /// porque cambiar de modo sin número dejaría la orden sin nada que cobrar.
+  Future<void> _changeLaborMode(WorkOrderDetail order, LaborMode mode) async {
+    if (order.laborMode == mode) return;
+
+    double? total;
+    if (mode == LaborMode.manual) {
+      total = await _askTotal(order);
+      if (total == null) return;
+    }
+
+    await _run(() => ref
+        .read(workOrderRepositoryProvider)
+        .setLaborMode(widget.id, mode, total: total));
+  }
+
+  Future<double?> _askTotal(WorkOrderDetail order) async {
     final controller = TextEditingController(
-      text: task.laborPrice?.toStringAsFixed(2) ?? '',
+      text: order.manualLaborTotal?.toStringAsFixed(2) ?? '',
     );
 
     return showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(task.title),
+        title: const Text('Total de mano de obra'),
         content: TextField(
           controller: controller,
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Precio', prefixText: 'L '),
+          decoration: const InputDecoration(
+            labelText: 'Total',
+            prefixText: 'L ',
+            helperText: 'Es lo que va a la factura por el trabajo.',
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
@@ -328,7 +309,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                         isDone: value,
                       );
                 }),
-                onAdd: _addTask,
+                isOwner: _isOwner,
+                onAdd: () => _addTask(order.isCatalogLabor),
+                onChangeMode: (mode) => _changeLaborMode(order, mode),
+                onEditTotal: () async {
+                  final total = await _askTotal(order);
+                  if (total == null) return;
+                  await _run(() => ref
+                      .read(workOrderRepositoryProvider)
+                      .setLaborMode(widget.id, LaborMode.manual, total: total));
+                },
               ),
               PartsSection(
                 order: order,
@@ -560,28 +550,50 @@ class _TasksSection extends StatelessWidget {
   const _TasksSection({
     required this.order,
     required this.canEdit,
+    required this.isOwner,
     required this.busy,
     required this.onToggle,
     required this.onAdd,
     required this.onChangeLabor,
+    required this.onChangeMode,
+    required this.onEditTotal,
   });
 
   final WorkOrderDetail order;
   final bool canEdit;
+  final bool isOwner;
   final bool busy;
   final void Function(WorkOrderTask task, bool value) onToggle;
   final VoidCallback onAdd;
   final void Function(WorkOrderTask task) onChangeLabor;
+  final void Function(LaborMode mode) onChangeMode;
+  final VoidCallback onEditTotal;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final catalog = order.isCatalogLabor;
 
     return _Section(
       title: 'Pasos de la reparación',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Las dos formas de cobrar la mano de obra son excluyentes: o cada paso lleva su
+          // servicio del catálogo, o se cobra un total por toda la orden.
+          if (isOwner)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SegmentedButton<LaborMode>(
+                segments: const [
+                  ButtonSegment(value: LaborMode.catalog, label: Text('Catálogo')),
+                  ButtonSegment(value: LaborMode.manual, label: Text('A mano')),
+                ],
+                selected: {order.laborMode},
+                showSelectedIcon: false,
+                onSelectionChanged: busy ? null : (s) => onChangeMode(s.first),
+              ),
+            ),
           if (order.tasks.isEmpty)
             Text('Todavía no hay pasos.', style: theme.textTheme.bodySmall),
           for (final task in order.tasks) ...[
@@ -605,7 +617,7 @@ class _TasksSection extends StatelessWidget {
                   : null,
               // Lo que se va a cobrar por el paso, a la vista: es la parte que más se olvida
               // y la razón más común de que la factura salga corta.
-              secondary: canEdit
+              secondary: canEdit && catalog
                   ? TextButton(
                       onPressed: busy ? null : () => onChangeLabor(task),
                       child: Text(
@@ -617,20 +629,33 @@ class _TasksSection extends StatelessWidget {
                     )
                   : null,
             ),
-            if (canEdit && task.laborServiceName != null)
+            if (canEdit && catalog && task.laborServiceName != null)
               Padding(
                 padding: const EdgeInsets.only(left: 48, bottom: 4),
                 child: Text(task.laborServiceName!, style: theme.textTheme.bodySmall),
               ),
           ],
-          if (canEdit && order.tasks.isNotEmpty)
+          if (canEdit)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Mano de obra', style: theme.textTheme.bodySmall),
-                  Text(_money(order.laborTotal), style: theme.textTheme.titleSmall),
+                  Text(
+                    catalog ? 'Mano de obra' : 'Mano de obra (total)',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  Row(
+                    children: [
+                      Text(_money(order.laborTotal), style: theme.textTheme.titleSmall),
+                      if (isOwner && !catalog)
+                        IconButton(
+                          tooltip: 'Cambiar el total',
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          onPressed: busy ? null : onEditTotal,
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),

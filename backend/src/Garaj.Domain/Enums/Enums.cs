@@ -58,6 +58,19 @@ public enum QuoteStatus
     Expired = 5
 }
 
+/// <summary>
+/// Cómo se cobra la mano de obra de una orden. Son excluyentes a propósito: mezclar precios
+/// por paso con un total global deja dos maneras de sumar lo mismo y ninguna confiable.
+/// </summary>
+public enum LaborMode
+{
+    /// <summary>Cada paso lleva un servicio del catálogo y la orden cobra la suma.</summary>
+    Catalog = 1,
+
+    /// <summary>Los pasos van sueltos, sin precio, y se cobra un total escrito a mano.</summary>
+    Manual = 2
+}
+
 /// <summary>Distingue ingresos por repuestos de ingresos por mano de obra en cotizaciones y ventas.</summary>
 public enum LineType
 {

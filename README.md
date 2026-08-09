@@ -171,7 +171,7 @@ python3 backend/tests/smoke/fase7_smoke.py
 # Humo de crédito: 40 comprobaciones de abonos, saldos y cuentas por cobrar
 python3 backend/tests/smoke/fase8_smoke.py
 
-# Humo de mano de obra: 51 comprobaciones del precio del paso, qué se factura y los filtros
+# Humo de mano de obra: 55 comprobaciones de los dos modos de cobro y de los filtros
 python3 backend/tests/smoke/fase9_smoke.py
 
 # Humo del móvil en el simulador

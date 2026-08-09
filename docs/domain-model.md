@@ -35,15 +35,22 @@ Testing → Ready → Delivered`, más `Cancelled`. Las transiciones válidas es
 [WorkOrderStatusTransitions](../backend/src/Garaj.Domain/Rules/WorkOrderStatusTransitions.cs),
 porque el móvil puede enviar un cambio desde la cola offline sobre una orden que ya avanzó.
 
-`WorkOrderTask` es el paso a paso de la reparación y, además, **donde vive el precio de la
-mano de obra**. Lo resuelve `WorkOrderTask.PriceWith(servicio)` y sale de dos sitios, en este
-orden: `LaborPrice`, escrito a mano en el paso, o el servicio del catálogo al que apunta
-`LaborServiceId`. El precio a mano manda porque el taller cobra trabajos que no están en la
-lista y obligar a darlos de alta antes de cobrarlos dejaba pasos en cero. Un paso sin ninguno
-de los dos es trabajo que no se cobra: queda registrado, pero no llega a la factura.
-`LaborService.PriceFor(horas)` resuelve en un solo lugar la regla de precio fijo contra
-horas × tarifa, para que el paso, la cotización y la factura nunca muestren tres números
-distintos. Se cobran las horas reales si el técnico las registró; si no, las estimadas.
+`WorkOrder.LaborMode` decide **cómo se cobra la mano de obra**, y son dos caminos que no se
+cruzan:
+
+- **Catálogo** — cada `WorkOrderTask` apunta con `LaborServiceId` a un `LaborService` y la
+  orden cobra la suma de los pasos. `WorkOrderTask.PriceWith(servicio)` y
+  `LaborService.PriceFor(horas)` resuelven el precio en un solo lugar, para que el paso, la
+  cotización y la factura nunca muestren tres números distintos: precio fijo, u horas ×
+  tarifa con las horas reales si el técnico las registró y las estimadas si no. Un paso sin
+  servicio es trabajo que no se cobra: queda registrado, pero no llega a la factura.
+- **Manual** — los pasos son solo el registro de lo que se hizo y el precio es uno solo,
+  `WorkOrder.ManualLaborTotal`, que viaja a la cotización y a la factura como una única línea
+  "Mano de obra". Es para el taller que acuerda un precio por el trabajo completo.
+
+Excluyentes a propósito: con precios por paso *y* un total global habría dos maneras de sumar
+lo mismo, y nadie sabría cuál mira la factura. Cambiar de modo no borra lo registrado en el
+otro —el total sobrevive a ir y volver—, simplemente se deja de mirar.
 
 ## Evidencia fotográfica
 

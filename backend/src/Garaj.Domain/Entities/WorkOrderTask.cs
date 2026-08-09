@@ -26,15 +26,11 @@ public class WorkOrderTask : TenantEntity
     public Guid? LaborServiceId { get; set; }
 
     /// <summary>
-    /// Precio puesto a mano para este paso. Manda sobre el del catálogo: el taller cotiza
-    /// trabajos que no están en la lista, y obligar a darlos de alta antes de poder cobrarlos
-    /// terminaría en pasos sin precio, que es como quedaba antes.
+    /// Lo que se cobra por el paso, según el servicio del catálogo que lleve. Solo cuenta en
+    /// las órdenes en modo catálogo: en las manuales el precio es uno solo para toda la orden.
     /// </summary>
-    public decimal? LaborPrice { get; set; }
-
-    /// <summary>Lo que se cobra por el paso: el precio a mano si lo hay, y si no el del catálogo.</summary>
     public decimal? PriceWith(LaborService? service) =>
-        LaborPrice ?? service?.PriceFor(ActualHours ?? EstimatedHours);
+        service?.PriceFor(ActualHours ?? EstimatedHours);
 
     public decimal? EstimatedHours { get; set; }
     public decimal? ActualHours { get; set; }

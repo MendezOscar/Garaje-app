@@ -28,6 +28,17 @@ public class WorkOrder : TenantEntity, IBranchEntity
     /// <summary>Diagnóstico del técnico tras revisar el vehículo.</summary>
     public string? Diagnosis { get; set; }
 
+    /// <summary>
+    /// De dónde sale el precio de la mano de obra de esta orden. Con
+    /// <see cref="LaborMode.Catalog"/> se suma lo que valga cada paso; con
+    /// <see cref="LaborMode.Manual"/>, los pasos no llevan precio y se cobra
+    /// <see cref="ManualLaborTotal"/>.
+    /// </summary>
+    public LaborMode LaborMode { get; set; } = LaborMode.Catalog;
+
+    /// <summary>Total de mano de obra escrito a mano. Solo cuenta en modo manual.</summary>
+    public decimal? ManualLaborTotal { get; set; }
+
     public int? MileageIn { get; set; }
     public DateTimeOffset OpenedAt { get; set; }
     public DateTimeOffset? PromisedAt { get; set; }

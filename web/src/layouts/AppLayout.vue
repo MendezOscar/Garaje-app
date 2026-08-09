@@ -18,6 +18,7 @@ const navItems = computed(() => {
         { to: { name: 'service-requests' }, label: 'Requerimientos' },
         { to: { name: 'customers' }, label: 'Clientes' },
         { to: { name: 'inventory' }, label: 'Inventario' },
+        { to: { name: 'labor-services' }, label: 'Mano de obra' },
         { to: { name: 'quotes' }, label: 'Cotizaciones' },
         { to: { name: 'reports' }, label: 'Reportes' },
       ]

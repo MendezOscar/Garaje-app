@@ -239,6 +239,24 @@ public class SaleService(
                 });
             }
         }
+        // En modo manual la mano de obra es una sola línea: el taller acordó un precio por el
+        // trabajo, no por cada paso, y desglosarlo inventando cifras sería mentir en la factura.
+        else if (request.IncludeLabor && order.LaborMode == LaborMode.Manual)
+        {
+            if (order.ManualLaborTotal is { } manual && manual > 0)
+            {
+                sale.Lines.Add(new SaleLine
+                {
+                    LineType = LineType.Labor,
+                    Description = "Mano de obra",
+                    Sequence = ++sequence,
+                    Quantity = 1,
+                    UnitPrice = manual,
+                    UnitCost = 0,
+                    Total = manual
+                });
+            }
+        }
         else if (request.IncludeLabor)
         {
             var serviceIds = order.Tasks.Where(t => t.LaborServiceId is not null)

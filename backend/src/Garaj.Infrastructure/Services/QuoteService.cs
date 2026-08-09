@@ -169,7 +169,25 @@ public class QuoteService(
             }
         }
 
-        if (request.IncludeTasks)
+        // En modo manual la mano de obra va como una sola línea, igual que en la factura: la
+        // cotización tiene que enseñar el mismo precio que después se cobra.
+        if (request.IncludeTasks && order.LaborMode == LaborMode.Manual)
+        {
+            if (order.ManualLaborTotal is { } manual && manual > 0)
+            {
+                db.QuoteLines.Add(new QuoteLine
+                {
+                    QuoteId = quote.Id,
+                    LineType = LineType.Labor,
+                    Description = "Mano de obra",
+                    Sequence = ++sequence,
+                    Quantity = 1,
+                    UnitPrice = manual,
+                    Total = manual
+                });
+            }
+        }
+        else if (request.IncludeTasks)
         {
             // Solo los pasos con servicio del catálogo: un paso suelto no tiene precio, y
             // meterlo en cero haría que la cotización parezca completa cuando no lo está.

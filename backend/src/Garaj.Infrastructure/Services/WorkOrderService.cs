@@ -192,6 +192,30 @@ public class WorkOrderService(
         return await GetAsync(id, ct);
     }
 
+    public async Task<WorkOrderDetailDto> SetLaborModeAsync(
+        Guid id, SetLaborModeRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
+            ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        if (request.Total is < 0)
+            throw new AppException("El total de mano de obra no puede ser negativo.");
+
+        order.LaborMode = request.Mode;
+
+        // Sin total no se toca el que había: el total se conserva al ir y volver de modo, y
+        // quien se equivoca lo recupera en vez de teclearlo otra vez. Para dejarlo en nada se
+        // manda 0, que sí es un número.
+        if (request.Mode == LaborMode.Manual && request.Total is { } total)
+            order.ManualLaborTotal = total;
+
+        await db.SaveChangesAsync(ct);
+        return await GetAsync(id, ct);
+    }
+
     public async Task<WorkOrderDetailDto> ChangeStatusAsync(
         Guid id, ChangeStatusRequest request, CancellationToken ct = default)
     {
@@ -488,13 +512,6 @@ public class WorkOrderService(
                 ?? throw new NotFoundException("El servicio de mano de obra no existe.")
             : null;
 
-        if (request.LaborPrice is < 0)
-            throw new AppException("El precio de la mano de obra no puede ser negativo.");
-
-        // Se guarda tal cual llega: al elegir un servicio del catálogo sin escribir precio, el
-        // precio a mano se borra y vuelve a mandar la tarifa del catálogo.
-        task.LaborPrice = request.LaborPrice;
-
         // Sin horas indicadas se toman las estándar del servicio: así el paso queda con precio
         // desde que se crea y el Dueño ve lo que va a cobrar sin teclear nada.
         task.EstimatedHours = request.EstimatedHours ?? service?.StandardHours;
@@ -615,7 +632,12 @@ public class WorkOrderService(
             timeline,
             parts,
             parts.Sum(p => p.Total),
-            tasks.Sum(t => t.LaborPrice ?? 0));
+            // En modo manual los pasos no llevan precio: lo que se cobra es el total escrito.
+            order.LaborMode == LaborMode.Manual
+                ? order.ManualLaborTotal ?? 0
+                : tasks.Sum(t => t.LaborPrice ?? 0),
+            order.LaborMode,
+            order.ManualLaborTotal);
     }
 
     /// <summary>Los servicios del catálogo que dan precio a los pasos, en una sola consulta.</summary>
