@@ -66,9 +66,16 @@ public class UserService(
         if (await db.Users.AnyAsync(u => u.NormalizedEmail == email.ToUpperInvariant(), ct))
             throw new ConflictException("Ya existe un usuario con ese correo.");
 
-        if (request.CustomerId is { } customerId
-            && !await db.Customers.AnyAsync(c => c.Id == customerId, ct))
-            throw new NotFoundException("El cliente asociado no existe.");
+        if (request.CustomerId is { } customerId)
+        {
+            var linked = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct)
+                ?? throw new NotFoundException("El cliente asociado no existe.");
+
+            // Un segundo usuario para el mismo cliente dejaría dos accesos a los mismos
+            // vehículos y solo uno visible en la ficha: el otro no habría cómo quitarlo.
+            if (linked.AppUserId is not null)
+                throw new ConflictException("Ese cliente ya tiene acceso a la app.");
+        }
 
         var user = new AppUser
         {
@@ -128,10 +135,11 @@ public class UserService(
 
         var user = await FindInTenantAsync(id, ct);
 
-        // El Dueño no conoce la contraseña actual, así que se usa el token de restablecimiento
-        // en vez de ChangePasswordAsync.
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
+        // El Dueño no conoce la contraseña actual, así que se reemplaza en vez de cambiarla.
+        // No se usa el token de restablecimiento a propósito: exige registrar los proveedores
+        // de tokens de Identity, que solo harían falta para esto.
+        await userManager.RemovePasswordAsync(user);
+        var result = await userManager.AddPasswordAsync(user, request.NewPassword);
 
         if (!result.Succeeded)
             throw new AppException(string.Join(" ", result.Errors.Select(e => e.Description)));

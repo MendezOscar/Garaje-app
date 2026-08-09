@@ -52,6 +52,24 @@ Excluyentes a propósito: con precios por paso *y* un total global habría dos m
 lo mismo, y nadie sabría cuál mira la factura. Cambiar de modo no borra lo registrado en el
 otro —el total sobrevive a ir y volver—, simplemente se deja de mirar.
 
+## Usuarios y acceso
+
+`AppUser` no lleva el filtro global de tenant —el login tiene que encontrar al usuario por
+correo antes de saber de qué taller es—, así que para listarlos se usa
+`GarajDbContext.UsersInTenant`. El Técnico se ata a sus sucursales con `UserBranch`: sin
+ninguna no vería ninguna orden, porque su bandeja filtra por asignación pero el resto de la
+app filtra por sucursal. El Dueño no lleva filas de asignación: ve todo el taller.
+
+`Customer.AppUserId` es el acceso a la app del cliente, y es **opcional**: la mayoría de los
+clientes de un taller nunca lo pide, y crearle un usuario a cada uno llenaría la lista de
+accesos que nadie abre. Se le abre desde su ficha, nunca al revés, para que todo usuario con
+perfil Cliente corresponda a alguien del padrón; y solo uno por cliente, porque un segundo
+acceso a los mismos vehículos no habría cómo quitarlo desde ninguna pantalla.
+
+Un usuario **no se borra, se da de baja**: las órdenes, las fotos y los movimientos de bodega
+llevan su nombre, y borrarlo dejaría el histórico sin responsable. El Dueño tampoco puede
+desactivarse a sí mismo: dejaría el taller sin quien administre y sin forma de revertirlo.
+
 ## Evidencia fotográfica
 
 `MediaAttachment` se relaciona de forma polimórfica por `(OwnerType, OwnerId)` con

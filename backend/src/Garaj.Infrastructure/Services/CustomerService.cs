@@ -1,14 +1,42 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Customers;
+using Garaj.Application.Users;
 using Garaj.Domain.Entities;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garaj.Infrastructure.Services;
 
-public class CustomerService(GarajDbContext db, ITenantContext tenantContext) : ICustomerService
+public class CustomerService(
+    GarajDbContext db, ITenantContext tenantContext, IUserService users) : ICustomerService
 {
+    /// <summary>
+    /// Le da acceso a la app a un cliente del padrón. Es opcional a propósito: la mayoría de
+    /// los clientes de un taller nunca lo va a usar, y crearle un usuario a cada uno llenaría
+    /// la lista de accesos muertos. El usuario queda con perfil Cliente y solo ve lo suyo.
+    /// </summary>
+    public async Task<CustomerDto> GrantAppAccessAsync(
+        Guid id, GrantAppAccessRequest request, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw new NotFoundException("El cliente no existe.");
+
+        // El alta la valida IUserService: correo repetido, contraseña débil y el enlace con
+        // el cliente. Aquí solo se decide a quién se le abre.
+        await users.CreateAsync(new CreateUserRequest(
+            request.Email,
+            customer.FullName,
+            AppRoles.Customer,
+            request.Password,
+            null,
+            customer.Id), ct);
+
+        return await GetAsync(id, ct);
+    }
+
     public async Task<PagedResult<CustomerDto>> ListAsync(CustomerQuery query, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
@@ -38,7 +66,9 @@ public class CustomerService(GarajDbContext db, ITenantContext tenantContext) : 
             .Take(query.PageSize)
             .Select(c => new CustomerDto(
                 c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.Address, c.Notes, c.IsActive,
-                c.Vehicles.Count(v => v.IsActive)))
+                c.Vehicles.Count(v => v.IsActive),
+                c.AppUserId != null,
+                db.Users.Where(u => u.Id == c.AppUserId).Select(u => u.Email).FirstOrDefault()))
             .ToListAsync(ct);
 
         return new PagedResult<CustomerDto>(items, total, query.Page, query.PageSize);
@@ -52,7 +82,9 @@ public class CustomerService(GarajDbContext db, ITenantContext tenantContext) : 
             .Where(c => c.Id == id)
             .Select(c => new CustomerDto(
                 c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.Address, c.Notes, c.IsActive,
-                c.Vehicles.Count(v => v.IsActive)))
+                c.Vehicles.Count(v => v.IsActive),
+                c.AppUserId != null,
+                db.Users.Where(u => u.Id == c.AppUserId).Select(u => u.Email).FirstOrDefault()))
             .FirstOrDefaultAsync(ct)
             ?? throw new NotFoundException("El cliente no existe.");
     }
@@ -85,7 +117,10 @@ public class CustomerService(GarajDbContext db, ITenantContext tenantContext) : 
         await db.SaveChangesAsync(ct);
 
         var vehicleCount = await db.Vehicles.CountAsync(v => v.CustomerId == id && v.IsActive, ct);
-        return Map(customer, vehicleCount);
+        var email = await db.Users.Where(u => u.Id == customer.AppUserId)
+            .Select(u => u.Email).FirstOrDefaultAsync(ct);
+
+        return Map(customer, vehicleCount, email);
     }
 
     /// <summary>Un Cliente solo puede verse a sí mismo; el personal del taller ve todo el padrón.</summary>
@@ -106,6 +141,7 @@ public class CustomerService(GarajDbContext db, ITenantContext tenantContext) : 
         customer.IsActive = request.IsActive;
     }
 
-    private static CustomerDto Map(Customer c, int vehicleCount) =>
-        new(c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.Address, c.Notes, c.IsActive, vehicleCount);
+    private static CustomerDto Map(Customer c, int vehicleCount, string? appUserEmail = null) =>
+        new(c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.Address, c.Notes, c.IsActive,
+            vehicleCount, c.AppUserId != null, appUserEmail);
 }

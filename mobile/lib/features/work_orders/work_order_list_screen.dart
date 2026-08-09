@@ -35,12 +35,18 @@ class WorkOrderListScreen extends ConsumerWidget {
               icon: const Icon(Icons.inbox_outlined),
               onPressed: () => context.push('/requerimientos'),
             ),
-          if (auth is AuthSignedIn && auth.user.role == AppRole.owner)
+          if (auth is AuthSignedIn && auth.user.role == AppRole.owner) ...[
             IconButton(
               tooltip: 'Reportes',
               icon: const Icon(Icons.insights_outlined),
               onPressed: () => context.push('/reportes'),
             ),
+            IconButton(
+              tooltip: 'Usuarios',
+              icon: const Icon(Icons.group_outlined),
+              onPressed: () => context.push('/usuarios'),
+            ),
+          ],
           const NotificationBell(),
           IconButton(
             tooltip: 'Salir',

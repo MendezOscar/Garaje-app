@@ -149,8 +149,9 @@ class ServiceRequestRepository {
   }
 
   /// Da de alta cliente y vehículo de una vez: es lo que pasa en el mostrador cuando llega
-  /// alguien que nunca ha venido. Devuelve el vehículo, que es lo que hace falta después.
-  Future<VehicleOption> registerCustomerAndVehicle({
+  /// alguien que nunca ha venido. Devuelve el vehículo —que es lo que hace falta después— y
+  /// el id del cliente, por si se le va a abrir acceso a la app.
+  Future<({VehicleOption vehicle, String customerId})> registerCustomerAndVehicle({
     required String fullName,
     required String phone,
     required int vehicleType,
@@ -174,7 +175,18 @@ class ServiceRequestRepository {
       },
     );
 
-    return VehicleOption.fromJson(vehicle.data!);
+    return (
+      vehicle: VehicleOption.fromJson(vehicle.data!),
+      customerId: customer.data!['id'] as String,
+    );
+  }
+
+  /// Le abre acceso a la app a un cliente ya registrado. Solo el Dueño.
+  Future<void> grantAppAccess(String customerId, String email, String password) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/api/customers/$customerId/app-access',
+      data: {'email': email, 'password': password},
+    );
   }
 
   Future<List<BranchOption>> branches() async {

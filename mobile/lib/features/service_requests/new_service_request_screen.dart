@@ -405,10 +405,24 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
   final _brand = TextEditingController();
   final _model = TextEditingController();
   final _plate = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
 
   VehicleType _type = VehicleType.motorcycle;
   bool _saving = false;
   String? _error;
+
+  /// Acceso a la app para el cliente. Va apagado porque la mayoría no lo pide, y crearle un
+  /// usuario a cada uno llenaría la lista de accesos que nadie abre.
+  bool _withAccess = false;
+
+  /// Lo ya creado, para que un fallo al abrir el acceso no obligue a registrarlo otra vez.
+  ({VehicleOption vehicle, String customerId})? _created;
+
+  bool get _isOwner {
+    final auth = ref.read(authControllerProvider);
+    return auth is AuthSignedIn && auth.user.role == AppRole.owner;
+  }
 
   @override
   void dispose() {
@@ -417,6 +431,8 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
     _brand.dispose();
     _model.dispose();
     _plate.dispose();
+    _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -429,7 +445,12 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
     });
 
     try {
-      final vehicle = await ref.read(serviceRequestRepositoryProvider).registerCustomerAndVehicle(
+      final repository = ref.read(serviceRequestRepositoryProvider);
+
+      // Si el cliente ya quedó registrado y lo que falló fue el acceso, no se vuelve a crear:
+      // reintentar el alta completa chocaría con la placa repetida.
+      final created = _created ??
+          await repository.registerCustomerAndVehicle(
             fullName: _name.text.trim(),
             phone: _phone.text.trim(),
             vehicleType: _type.value,
@@ -438,9 +459,22 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
             plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(),
           );
 
-      if (mounted) Navigator.pop(context, vehicle);
+      _created = created;
+
+      if (_withAccess) {
+        await repository.grantAppAccess(
+          created.customerId,
+          _email.text.trim(),
+          _password.text.trim(),
+        );
+      }
+
+      if (mounted) Navigator.pop(context, created.vehicle);
     } catch (e) {
-      setState(() => _error = apiErrorMessage(e, 'No se pudo registrar el cliente.'));
+      setState(() => _error = _created == null
+          ? apiErrorMessage(e, 'No se pudo registrar el cliente.')
+          : 'El cliente quedó registrado, pero el acceso no: '
+              '${apiErrorMessage(e, 'revise el correo y la contraseña.')}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -523,6 +557,40 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
               ),
               textCapitalization: TextCapitalization.characters,
             ),
+
+            const SizedBox(height: 12),
+            if (_isOwner) ...[
+              SwitchListTile(
+                value: _withAccess,
+                onChanged: (v) => setState(() => _withAccess = v),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Darle acceso a la app'),
+                subtitle: const Text('Podrá seguir su vehículo y aprobar cotizaciones.'),
+              ),
+              if (_withAccess) ...[
+                TextFormField(
+                  controller: _email,
+                  decoration: const InputDecoration(labelText: 'Correo con el que entra'),
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  validator: (v) => !_withAccess || (v != null && v.contains('@'))
+                      ? null
+                      : 'Falta el correo.',
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _password,
+                  decoration: const InputDecoration(
+                    labelText: 'Contraseña',
+                    helperText: 'Se la entrega usted. Mínimo 8 caracteres.',
+                  ),
+                  validator: (v) => !_withAccess || (v != null && v.trim().length >= 8)
+                      ? null
+                      : 'Mínimo 8 caracteres.',
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
 
             if (_error != null) ...[
               const SizedBox(height: 16),

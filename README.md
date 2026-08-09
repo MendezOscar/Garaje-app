@@ -174,6 +174,9 @@ python3 backend/tests/smoke/fase8_smoke.py
 # Humo de mano de obra: 55 comprobaciones de los dos modos de cobro y de los filtros
 python3 backend/tests/smoke/fase9_smoke.py
 
+# Humo de usuarios: 34 comprobaciones del alta de técnicos y del acceso de los clientes
+python3 backend/tests/smoke/fase10_smoke.py
+
 # Humo del móvil en el simulador
 cd mobile && flutter test integration_test/login_test.dart \
   -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080

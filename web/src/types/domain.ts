@@ -188,6 +188,9 @@ export interface Customer {
   notes: string | null
   isActive: boolean
   vehicleCount: number
+  /** Si el cliente puede entrar a la app, y con qué correo. */
+  hasAppAccess: boolean
+  appUserEmail: string | null
 }
 
 export interface Vehicle {

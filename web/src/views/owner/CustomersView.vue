@@ -2,8 +2,11 @@
 import { onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { customersApi, vehiclesApi } from '@/api/garaj'
+import { useAuthStore } from '@/stores/auth'
 import { VEHICLE_TYPE_LABEL, type Customer, type Vehicle } from '@/types/domain'
 import { whatsappLink } from '@/utils/format'
+
+const auth = useAuthStore()
 
 const customers = ref<Customer[]>([])
 const search = ref('')
@@ -13,6 +16,12 @@ const error = ref('')
 /** Vehículos del cliente expandido. Se cargan al abrir, no antes: la lista sería enorme. */
 const expandedId = ref<string | null>(null)
 const vehicles = ref<Vehicle[]>([])
+
+const busy = ref(false)
+const notice = ref('')
+
+/** Alta de acceso a la app, por cliente. Se abre con el botón de su fila. */
+const access = ref<{ customer: Customer; email: string; password: string } | null>(null)
 
 let searchToken = 0
 
@@ -42,6 +51,37 @@ async function toggle(customer: Customer) {
   vehicles.value = (await vehiclesApi.list({ customerId: customer.id })).items
 }
 
+/**
+ * Le abre acceso a la app a un cliente. Es opcional a propósito: la mayoría no lo va a usar,
+ * y crearle un usuario a cada uno llenaría la lista de accesos que nadie abre nunca.
+ */
+function openAccess(customer: Customer) {
+  notice.value = ''
+  error.value = ''
+  access.value = { customer, email: customer.email ?? '', password: '' }
+}
+
+async function grantAccess() {
+  const form = access.value
+  if (!form || !form.email.trim() || !form.password.trim()) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    await customersApi.grantAppAccess(form.customer.id, {
+      email: form.email.trim(),
+      password: form.password.trim(),
+    })
+    notice.value = `${form.customer.fullName} ya puede entrar con ${form.email.trim()}.`
+    access.value = null
+    await load()
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo crear el acceso.')
+  } finally {
+    busy.value = false
+  }
+}
+
 onMounted(load)
 
 let timer: ReturnType<typeof setTimeout>
@@ -59,6 +99,7 @@ watch(search, () => {
     </header>
 
     <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="notice" class="notice">{{ notice }}</p>
 
     <table>
       <thead>
@@ -66,6 +107,7 @@ watch(search, () => {
           <th>Cliente</th>
           <th>Teléfono</th>
           <th>Vehículos</th>
+          <th>App</th>
           <th></th>
         </tr>
       </thead>
@@ -81,11 +123,46 @@ watch(search, () => {
             <td>{{ customer.phone }}</td>
             <td>{{ customer.vehicleCount }}</td>
             <td>
+              <span v-if="customer.hasAppAccess" class="access">
+                Sí
+                <div class="muted small">{{ customer.appUserEmail }}</div>
+              </span>
+              <button
+                v-else-if="auth.isOwner"
+                type="button"
+                class="link"
+                @click="openAccess(customer)"
+              >
+                Dar acceso
+              </button>
+              <span v-else class="muted small">—</span>
+            </td>
+            <td>
               <a :href="whatsappLink(customer.phone)" target="_blank" rel="noopener">WhatsApp</a>
             </td>
           </tr>
+
+          <tr v-if="access?.customer.id === customer.id">
+            <td colspan="5">
+              <form class="access-form" @submit.prevent="grantAccess">
+                <label>
+                  Correo con el que entra
+                  <input v-model="access.email" type="email" required />
+                </label>
+                <label>
+                  Contraseña
+                  <input v-model="access.password" type="text" placeholder="Mínimo 8 caracteres" required />
+                </label>
+                <button type="submit" :disabled="busy">Crear acceso</button>
+                <button type="button" class="link" @click="access = null">Cancelar</button>
+              </form>
+              <p class="muted small">
+                Podrá ver sus vehículos, seguir la reparación y aprobar cotizaciones. Nada más.
+              </p>
+            </td>
+          </tr>
           <tr v-if="expandedId === customer.id">
-            <td colspan="4" class="vehicles">
+            <td colspan="5" class="vehicles">
               <ul v-if="vehicles.length">
                 <li v-for="v in vehicles" :key="v.id">
                   <span class="plate" v-if="v.plate">{{ v.plate }}</span>
@@ -109,6 +186,29 @@ watch(search, () => {
 </template>
 
 <style scoped>
+.access {
+  font-size: 0.875rem;
+}
+
+.access-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.access-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.notice {
+  color: var(--success, #15803d);
+}
+
 .toolbar {
   display: flex;
   align-items: center;

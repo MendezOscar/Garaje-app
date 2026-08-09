@@ -28,10 +28,11 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST/PUT | `/api/branches[/{id}]` | Owner | Alta y edición; el código debe ser único |
 | GET | `/api/users?role=` | Owner | Usuarios del taller |
 | POST/PUT | `/api/users[/{id}]` | Owner | Alta y edición, con asignación a sucursales |
-| POST | `/api/users/{id}/password` | Owner | Restablece contraseña y cierra sus sesiones |
+| POST | `/api/users/{id}/password` | Owner | Reemplaza la contraseña y cierra sus sesiones |
 | GET | `/api/customers?search=` | cualquiera | Busca por nombre, teléfono o placa |
 | POST | `/api/customers` | Owner o Técnico | Lo registra quien recibe el vehículo |
 | PUT | `/api/customers/{id}` | Owner | Edición |
+| POST | `/api/customers/{id}/app-access` | Owner | Le crea el usuario para entrar a la app |
 | GET | `/api/vehicles?search=&customerId=` | cualquiera | Vehículos |
 | POST | `/api/vehicles` | cualquiera | El Cliente los suyos; el taller, los de cualquiera |
 | PUT | `/api/vehicles/{id}` | Owner o Customer | El Técnico no edita |

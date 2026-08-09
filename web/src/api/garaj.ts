@@ -56,6 +56,25 @@ export const usersApi = {
     const { data } = await api.get<User[]>('/api/users', { params: params({ role }) })
     return data
   },
+  async create(body: {
+    email: string
+    fullName: string
+    role: string
+    password: string
+    branchIds?: string[]
+    customerId?: string
+  }) {
+    const { data } = await api.post<User>('/api/users', body)
+    return data
+  },
+  async update(id: string, body: { fullName: string; isActive: boolean; branchIds?: string[] }) {
+    const { data } = await api.put<User>(`/api/users/${id}`, body)
+    return data
+  },
+  /** El Dueño no conoce la contraseña actual: la reemplaza y cierra las sesiones abiertas. */
+  async resetPassword(id: string, newPassword: string) {
+    await api.post(`/api/users/${id}/password`, { newPassword })
+  },
 }
 
 export const customersApi = {
@@ -77,6 +96,23 @@ export const customersApi = {
     notes?: string
   }) {
     const { data } = await api.post<Customer>('/api/customers', body)
+    return data
+  },
+  async update(id: string, body: {
+    fullName: string
+    phone: string
+    email?: string | null
+    documentId?: string | null
+    address?: string | null
+    notes?: string | null
+    isActive?: boolean
+  }) {
+    const { data } = await api.put<Customer>(`/api/customers/${id}`, body)
+    return data
+  },
+  /** Le abre acceso a la app. Opcional: el cliente que no lo pide no lo necesita. */
+  async grantAppAccess(id: string, body: { email: string; password: string }) {
+    const { data } = await api.post<Customer>(`/api/customers/${id}/app-access`, body)
     return data
   },
 }

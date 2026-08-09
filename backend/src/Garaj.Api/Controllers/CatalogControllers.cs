@@ -85,6 +85,13 @@ public class CustomersController(ICustomerService service) : ControllerBase
     public async Task<ActionResult<CustomerDto>> Get(Guid id, CancellationToken ct)
         => Ok(await service.GetAsync(id, ct));
 
+    /// <summary>Le abre acceso a la app. Opcional: el cliente que no lo pide no lo necesita.</summary>
+    [HttpPost("{id:guid}/app-access")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<CustomerDto>> GrantAppAccess(
+        Guid id, GrantAppAccessRequest request, CancellationToken ct)
+        => Ok(await service.GrantAppAccessAsync(id, request, ct));
+
     /// <summary>Lo registra cualquiera del taller: el que recibe el vehículo en el mostrador.</summary>
     [HttpPost]
     [Authorize(Policy = AppPolicies.StaffOnly)]

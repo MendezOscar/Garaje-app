@@ -6,6 +6,7 @@ import '../../features/login/login_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
 import '../../features/splash/splash_screen.dart';
@@ -57,6 +58,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
+      GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
       GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
     ],
     redirect: (context, state) {
@@ -87,9 +89,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Los reportes son del Dueño: la API responde 403 a los demás, pero rebotarlos aquí
-      // evita enseñarles una pantalla que solo puede fallar.
-      if (location == '/reportes') {
+      // Los reportes y los usuarios son del Dueño: la API responde 403 a los demás, pero
+      // rebotarlos aquí evita enseñarles una pantalla que solo puede fallar.
+      if (location == '/reportes' || location == '/usuarios') {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null
             : homeRouteFor(auth.user.role);
