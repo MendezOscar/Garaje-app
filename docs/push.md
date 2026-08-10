@@ -10,12 +10,19 @@ Firebase configurado, el envío queda apagado y nada más falla.
 | --- | --- |
 | Avisos guardados y campana (API, web, móvil) | Listo y verificado |
 | Registro y baja de dispositivos (`/api/notifications/devices`) | Listo y verificado (humo de la Fase 6) |
-| Envío por FCM desde la API | Escrito, **sin probar contra FCM**: hace falta el proyecto |
-| Recepción en la app Flutter | Escrita y compilando en iOS y Android; **sin probar** por lo mismo |
+| Recepción en la app Flutter | Escrita; compila en iOS y Android |
+| Proyecto de Firebase (`garajapp-e5a7d`) y sus dos archivos | Listos, en el repositorio |
+| Clave de APNs, clave de la cuenta de servicio y capacidad en Xcode | **Pendientes** |
+| Envío por FCM de punta a punta | **Sin probar**: depende de lo anterior |
 
-Ya no falta código de la app: falta el proyecto de Firebase. La app **se compila y funciona
-sin él** —lo comprobado en iOS y en Android—, y en ese caso simplemente no registra el
-aparato: los avisos se guardan igual y se ven en la campana.
+**Aparcado a propósito**, no olvidado: la clave de APNs sale de una cuenta de Apple Developer
+pagada, y hasta que exista el push no llega a ningún iPhone por bien que esté todo lo demás.
+Mientras tanto la API no envía nada —le faltan las dos variables— y la app se limita a
+registrar el aparato. Nadie se queda sin avisos por esto: se guardan siempre y se ven en la
+campana, que es el canal principal.
+
+La app **se compila y funciona sin proyecto de Firebase** —comprobado en iOS y en Android—, y
+en ese caso simplemente no registra el aparato.
 
 Cómo se sostienen las dos cosas a la vez:
 
@@ -34,24 +41,34 @@ Un cambio que sí hubo que hacer: **el mínimo de iOS subió a 15.0** (lo exige
 
 ## Lo que hay que hacer en Firebase
 
-1. Crear un proyecto en <https://console.firebase.google.com> (por ejemplo `garaj-app`).
-2. Agregar una app Android con el paquete **`com.garaj.garaj_app`** y descargar
-   `google-services.json` → `mobile/android/app/`.
-3. Agregar una app iOS con el bundle id **`com.garaj.garajApp`** y descargar
-   `GoogleService-Info.plist` → `mobile/ios/Runner/` (arrastrándolo dentro de Xcode, para que
-   quede incluido en el bundle; copiarlo con el Finder no lo agrega al proyecto).
-4. Para iOS, subir la clave de APNs (Apple Developer → Keys → Apple Push Notifications
-   service) en Firebase → Configuración → Cloud Messaging. **Sin esto el push no llega a
-   ningún iPhone**, aunque todo lo demás esté bien.
-5. Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada. Baja un
-   JSON: esa es la credencial de la API.
+Los pasos 1 a 3 ya están hechos: el proyecto es **`garajapp-e5a7d`**, con la app Android
+`com.garaj.garaj_app` y la app iOS `com.garaj.garajApp`. Sus dos archivos están en el
+repositorio (`mobile/android/app/google-services.json` y
+`mobile/ios/Runner/GoogleService-Info.plist`, este último registrado en el proyecto de Xcode:
+copiado con el Finder no entra al bundle y Firebase no lo encuentra al arrancar).
+
+**No son credenciales**: viajan dentro de la app instalada, así que cualquiera con el APK los
+tiene. La credencial es la clave de la cuenta de servicio del paso 5.
+
+Lo que queda:
+
+4. **Clave de APNs.** Apple Developer → Certificates, Identifiers & Profiles → Keys → **+**,
+   marcar *Apple Push Notifications service (APNs)*, registrar y **descargar el `.p8`**: solo
+   se puede bajar una vez. Con el Key ID (los 10 caracteres del nombre del archivo) y el Team
+   ID, subirlo en Firebase → Configuración → Cloud Messaging → *APNs Authentication Key*.
+   Exige cuenta de Apple Developer **pagada**. Sin esto el push no llega a ningún iPhone,
+   aunque todo lo demás esté bien; en Android funciona sin nada de Apple.
+5. **Clave de la cuenta de servicio.** Firebase → Configuración del proyecto → Cuentas de
+   servicio → Generar nueva clave privada. Baja un JSON: esa es la credencial de la API.
+6. **Capacidad en Xcode**, una vez: Runner → Signing & Capabilities → + Capability → Push
+   Notifications (ver la sección de abajo).
 
 ## Configuración de la API
 
 Dos variables de entorno, en el panel de Render:
 
 ```
-Push__ProjectId          garaj-app
+Push__ProjectId          garajapp-e5a7d
 Push__ServiceAccountJson {"type":"service_account", … }   ← el JSON entero, en una línea
 ```
 
