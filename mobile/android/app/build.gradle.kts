@@ -5,6 +5,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// El plugin de Firebase solo se aplica si el archivo del proyecto está en su sitio. Aplicarlo
+// sin `google-services.json` rompe la compilación para todo el mundo, y la app funciona sin
+// push: los avisos se guardan igual y se ven en la campana. Ver docs/push.md.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.garaj.garaj_app"
     compileSdk = flutter.compileSdkVersion

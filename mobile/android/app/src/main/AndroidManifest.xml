@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+ exige permiso para mostrar avisos. Se pide al entrar a la sesión;
+         negarlo no rompe nada: los avisos se siguen viendo en la campana. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
         android:label="GarajApp"
         android:name="${applicationName}"

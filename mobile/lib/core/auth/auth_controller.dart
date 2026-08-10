@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../models/current_user.dart';
+import '../push/push_messaging.dart';
 import 'token_store.dart';
 
 final tokenStoreProvider = Provider<TokenStore>((ref) => TokenStore());
@@ -74,6 +75,10 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Primero se da de baja el aparato, mientras la sesión todavía sirve: después el
+    // endpoint respondería 401 y el teléfono seguiría recibiendo los avisos de quien salió.
+    await ref.read(pushMessagingProvider).stop();
+
     final refreshToken = await _tokens.readRefreshToken();
 
     if (refreshToken != null) {

@@ -41,6 +41,11 @@ class NotificationRepository {
         '/api/notifications/devices',
         data: {'token': token, 'platform': platform == 'ios' ? 2 : 1},
       );
+
+  /// Da de baja el aparato al salir. En el taller el teléfono se comparte: sin esto, el
+  /// siguiente en entrar recibiría los avisos del anterior.
+  Future<void> unregisterDevice(String token) =>
+      _dio.delete<void>('/api/notifications/devices/$token');
 }
 
 final notificationsProvider =

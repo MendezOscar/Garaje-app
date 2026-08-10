@@ -30,6 +30,11 @@ dependencies:
   # endpoint va con la sesión puesta, así que el archivo se baja aquí y se comparte —a
   # WhatsApp, al correo o a la impresora— en vez de abrir una URL que respondería 401.
   share_plus: ^12.0.2
+  # Push. La app funciona sin proyecto de Firebase: si faltan `google-services.json` o
+  # `GoogleService-Info.plist`, la inicialización falla, se registra y todo lo demás sigue
+  # igual —los avisos se guardan en la API y se ven en la campana—. Ver docs/push.md.
+  firebase_core: ^4.13.0
+  firebase_messaging: ^16.5.0
 
 dev_dependencies:
   flutter_test:

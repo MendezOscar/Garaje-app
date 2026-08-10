@@ -22,6 +22,8 @@ escritorio: exportar a Excel, el tablero por estados y la vista pública de la c
 | Inventario: entradas, ajustes, traslados, kardex | Sí | Sí |
 | Clientes y acceso a la app | Sí | Sí |
 | Usuarios y reportes | Sí | Sí |
+| Avisos: campana dentro de la app | Sí | Sí |
+| Avisos: push que hace sonar el teléfono | — | Sí, con Firebase configurado ([docs/push.md](docs/push.md)) |
 | Exportar reportes a CSV | Sí | — |
 | Catálogo de mano de obra | Sí | Solo elegir |
 | Vista pública de la cotización | Sí | — |
