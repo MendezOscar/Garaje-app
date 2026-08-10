@@ -15,8 +15,13 @@ public static class QuotePdf
 {
     private static readonly CultureInfo Culture = new("es-HN");
 
+    /// <param name="logo">
+    /// PNG del logo del taller, o null. Va como bytes y no como URL: el PDF viaja por
+    /// WhatsApp y tiene que verse igual sin conexión.
+    /// </param>
     public static byte[] Render(
-        QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId)
+        QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId,
+        byte[]? logo = null)
     {
         var document = Document.Create(container =>
         {
@@ -26,7 +31,7 @@ public static class QuotePdf
                 page.Margin(2, Unit.Centimetre);
                 page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken4));
 
-                page.Header().Element(header => Header(header, quote, tenantName, legalName, phone, taxId));
+                page.Header().Element(header => Header(header, quote, tenantName, legalName, phone, taxId, logo));
                 page.Content().PaddingVertical(1, Unit.Centimetre).Element(content => Content(content, quote));
                 page.Footer().Element(footer => Footer(footer, quote));
             });
@@ -37,11 +42,15 @@ public static class QuotePdf
 
     private static void Header(
         IContainer container, QuoteDetailDto quote,
-        string tenantName, string? legalName, string? phone, string? taxId)
+        string tenantName, string? legalName, string? phone, string? taxId, byte[]? logo)
     {
         container.Row(row =>
         {
-            row.RelativeItem().Column(column =>
+            // El logo del taller manda en el encabezado: esta hoja la lee su cliente, no él.
+            if (logo is not null)
+                row.ConstantItem(64).Height(48).AlignMiddle().Image(logo).FitArea();
+
+            row.RelativeItem().PaddingLeft(logo is null ? 0 : 10).Column(column =>
             {
                 column.Item().Text(tenantName).FontSize(16).Bold();
                 if (!string.IsNullOrWhiteSpace(legalName)) column.Item().Text(legalName).FontSize(9);

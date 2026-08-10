@@ -12,6 +12,10 @@ public record AuthResponse(
     CurrentUserDto User);
 
 /// <summary>Lo que los tres clientes necesitan para armar su navegación tras el login.</summary>
+/// <param name="TenantLogoUrl">
+/// Ruta relativa a la base de la API, o null si el taller no tiene logo. Con ella el panel y
+/// la app pintan «GarajApp para [logo del taller]».
+/// </param>
 public record CurrentUserDto(
     Guid Id,
     string Email,
@@ -19,6 +23,7 @@ public record CurrentUserDto(
     string Role,
     Guid TenantId,
     string TenantName,
+    string? TenantLogoUrl,
     IReadOnlyList<BranchSummaryDto> Branches,
     Guid? CustomerId);
 

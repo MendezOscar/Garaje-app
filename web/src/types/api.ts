@@ -22,6 +22,8 @@ export interface CurrentUser {
   role: Role
   tenantId: string
   tenantName: string
+  /** Ruta del logo del taller relativa a la base de la API, o null si no ha subido ninguno. */
+  tenantLogoUrl: string | null
   branches: BranchSummary[]
   customerId: string | null
 }

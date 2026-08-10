@@ -8,6 +8,7 @@ using Garaj.Application.Notifications;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
+using Garaj.Application.Tenants;
 using Garaj.Application.Users;
 using Garaj.Application.WorkOrders;
 using Garaj.Infrastructure.Auth;
@@ -73,6 +74,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DbSeeder>();
         services.AddScoped<DemoSeeder>();
+        services.AddScoped<TenantProvisioner>();
+
+        services.AddScoped<ITenantService, TenantService>();
 
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IUserService, UserService>();

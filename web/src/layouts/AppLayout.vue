@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { apiUrl } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -8,6 +9,12 @@ import { Roles } from '@/types/api'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+/**
+ * El logo del taller, si lo subió. La ruta es pública porque un `<img>` no manda la cabecera
+ * Authorization; ver el comentario de TenantLogoController en el backend.
+ */
+const logoTaller = computed(() => apiUrl(auth.user?.tenantLogoUrl))
 
 /** El menú se arma por perfil: cada rol solo ve lo suyo. */
 const navItems = computed(() => {
@@ -22,6 +29,7 @@ const navItems = computed(() => {
         { to: { name: 'quotes' }, label: 'Cotizaciones' },
         { to: { name: 'reports' }, label: 'Reportes' },
         { to: { name: 'users' }, label: 'Usuarios' },
+        { to: { name: 'workshop' }, label: 'Taller' },
       ]
     case Roles.Technician:
       return [
@@ -47,7 +55,14 @@ async function logout() {
     <header>
       <div class="brand">
         <BrandLogo variant="horizontal" :height="26" />
-        <span class="tenant">{{ auth.user?.tenantName }}</span>
+        <span class="para">para</span>
+        <img
+          v-if="logoTaller"
+          class="logo-taller"
+          :src="logoTaller"
+          :alt="auth.user?.tenantName"
+        />
+        <span v-else class="tenant">{{ auth.user?.tenantName }}</span>
       </div>
 
       <nav>
@@ -98,18 +113,29 @@ header {
   background: var(--surface);
 }
 
+/* «GarajApp para [el taller]», en una línea: el sistema es nuestro, el taller es suyo. */
 .brand {
   display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* Alineado con la palabra del logotipo, no con la tuerca: el nombre del taller cuelga del
-   texto, y el bloque se lee como una sola cosa. */
-.tenant {
-  padding-left: 2.5rem;
+.para {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.tenant {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Tope de ancho además de alto: un logo muy horizontal se comería la navegación. */
+.logo-taller {
+  height: 26px;
+  width: auto;
+  max-width: 9rem;
+  object-fit: contain;
 }
 
 nav {

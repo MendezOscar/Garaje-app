@@ -435,6 +435,8 @@ export interface PublicQuote {
   number: string
   status: QuoteStatus
   tenantName: string
+  /** Ruta del logo bajo el token de la cotización, relativa a la base de la API. */
+  tenantLogoUrl: string | null
   tenantPhone: string | null
   branchName: string
   customerName: string
@@ -685,4 +687,22 @@ export interface Notification {
   serviceRequestId: string | null
   isRead: boolean
   createdAt: string
+}
+
+/**
+ * La ficha del taller. Estos datos se imprimen en la cotización y en la factura que recibe
+ * el cliente final, así que el Dueño los corrige desde la pantalla «Taller».
+ */
+export interface TenantSettings {
+  id: string
+  name: string
+  legalName: string | null
+  taxId: string | null
+  phone: string | null
+  email: string | null
+  currency: string
+  defaultTaxRate: number
+  defaultPhoneCountryCode: string
+  /** Ruta relativa a la base de la API, o null. Se abre con `apiUrl()`. */
+  logoUrl: string | null
 }

@@ -20,8 +20,10 @@ public static class InvoicePdf
 {
     private static readonly CultureInfo Culture = new("es-HN");
 
+    /// <param name="logo">PNG del logo del taller, o null. Ver <see cref="QuotePdf"/>.</param>
     public static byte[] Render(
-        SaleDetailDto sale, string tenantName, string? legalName, string? phone, string? taxId)
+        SaleDetailDto sale, string tenantName, string? legalName, string? phone, string? taxId,
+        byte[]? logo = null)
     {
         var document = Document.Create(container =>
         {
@@ -31,7 +33,7 @@ public static class InvoicePdf
                 page.Margin(2, Unit.Centimetre);
                 page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken4));
 
-                page.Header().Element(header => Header(header, sale, tenantName, legalName, phone, taxId));
+                page.Header().Element(header => Header(header, sale, tenantName, legalName, phone, taxId, logo));
                 page.Content().PaddingVertical(1, Unit.Centimetre).Element(content => Content(content, sale));
                 page.Footer().Element(Footer);
             });
@@ -42,11 +44,14 @@ public static class InvoicePdf
 
     private static void Header(
         IContainer container, SaleDetailDto sale,
-        string tenantName, string? legalName, string? phone, string? taxId)
+        string tenantName, string? legalName, string? phone, string? taxId, byte[]? logo)
     {
         container.Row(row =>
         {
-            row.RelativeItem().Column(column =>
+            if (logo is not null)
+                row.ConstantItem(64).Height(48).AlignMiddle().Image(logo).FitArea();
+
+            row.RelativeItem().PaddingLeft(logo is null ? 0 : 10).Column(column =>
             {
                 column.Item().Text(tenantName).FontSize(16).Bold();
                 if (!string.IsNullOrWhiteSpace(legalName)) column.Item().Text(legalName).FontSize(9);

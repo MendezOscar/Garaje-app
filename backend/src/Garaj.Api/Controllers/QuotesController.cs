@@ -143,4 +143,15 @@ public class PublicQuotesController(IQuoteService service) : ControllerBase
         var quote = await service.GetPublicAsync(token, ct);
         return File(await service.PdfPublicAsync(token, ct), "application/pdf", $"{quote.Number}.pdf");
     }
+
+    /// <summary>El logo del taller para el encabezado de la página. 404 si no tiene.</summary>
+    [HttpGet("{token:guid}/logo")]
+    public async Task<IActionResult> Logo(Guid token, CancellationToken ct)
+    {
+        var logo = await service.LogoPublicAsync(token, ct);
+        if (logo is null) return NotFound();
+
+        Response.Headers.CacheControl = "public, max-age=3600";
+        return File(logo.Bytes, logo.ContentType);
+    }
 }

@@ -22,6 +22,7 @@ escritorio: exportar a Excel, el tablero por estados y la vista pública de la c
 | Inventario: entradas, ajustes, traslados, kardex | Sí | Sí |
 | Clientes y acceso a la app | Sí | Sí |
 | Usuarios y reportes | Sí | Sí |
+| Ficha del taller y su logo (sale en cotizaciones y facturas) | Sí | — |
 | Avisos: campana dentro de la app | Sí | Sí |
 | Avisos: push que hace sonar el teléfono | — | Sí, con Firebase configurado ([docs/push.md](docs/push.md)) |
 | Exportar reportes a CSV | Sí | — |
@@ -199,6 +200,14 @@ python3 backend/tests/smoke/fase9_smoke.py
 
 # Humo de usuarios: 34 comprobaciones del alta de técnicos y del acceso de los clientes
 python3 backend/tests/smoke/fase10_smoke.py
+
+# Humo del taller: 29 comprobaciones de la ficha, el logo y las dos rutas que lo sirven
+python3 backend/tests/smoke/fase11_smoke.py
+
+# Alta del taller de un cliente (imprime la contraseña del Dueño una sola vez)
+cd backend && dotnet run --project src/Garaj.Api -- provision-tenant \
+  --name "Taller del Cliente" --branch "Matriz" --city Tegucigalpa \
+  --owner-email dueno@cliente.hn --owner-name "Nombre del Dueño"
 
 # Humo del móvil: 16 casos de sesión, alcance por perfil y las pantallas del taller
 cd mobile && flutter test integration_test/login_test.dart \

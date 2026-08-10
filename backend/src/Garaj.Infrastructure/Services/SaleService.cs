@@ -1,6 +1,7 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Sales;
+using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
@@ -22,6 +23,7 @@ public class SaleService(
     GarajDbContext db,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
+    ITenantService tenants,
     StockService stock) : ISaleService
 {
     public async Task<PagedResult<SaleListItemDto>> ListAsync(
@@ -429,7 +431,9 @@ public class SaleService(
             .FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct)
             ?? throw new NotFoundException("El taller no existe.");
 
-        return InvoicePdf.Render(sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId);
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+
+        return InvoicePdf.Render(sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo);
     }
 
     // ---------- Interno ----------

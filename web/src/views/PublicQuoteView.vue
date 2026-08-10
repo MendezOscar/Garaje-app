@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { errorMessage } from '@/api/client'
+import { apiUrl, errorMessage } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { publicQuotesApi } from '@/api/garaj'
 import { LINE_TYPE_LABEL, QuoteStatus, type PublicQuote } from '@/types/domain'
@@ -18,6 +18,9 @@ const loading = ref(true)
 const busy = ref(false)
 const note = ref('')
 const confirming = ref<'approve' | 'reject' | null>(null)
+
+/** El logo llega bajo el token de la cotización, no bajo el id del taller. */
+const logoTaller = computed(() => apiUrl(quote.value?.tenantLogoUrl))
 
 /** El taller decide la moneda; aquí solo se formatea con el código que llega. */
 const money = (value: number) =>
@@ -70,6 +73,14 @@ onMounted(load)
     <article v-else class="card">
       <header>
         <div>
+          <!-- El logo del taller antes que nada: quien abre esto quiere reconocer a quién le
+               está cotizando su carro. -->
+          <img
+            v-if="logoTaller"
+            class="logo-taller"
+            :src="logoTaller"
+            :alt="quote.tenantName"
+          />
           <p class="tenant">{{ quote.tenantName }}</p>
           <h1>Cotización {{ quote.number }}</h1>
           <p class="muted small">
@@ -247,6 +258,14 @@ header {
   gap: 1rem;
   flex-wrap: wrap;
   margin-bottom: 1.25rem;
+}
+
+.logo-taller {
+  display: block;
+  max-width: 12rem;
+  max-height: 3.5rem;
+  margin-bottom: 0.5rem;
+  object-fit: contain;
 }
 
 .tenant {

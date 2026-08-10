@@ -10,6 +10,7 @@ import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
 import '../notifications/notifications_screen.dart';
 import '../shared/status_chip.dart';
+import '../shared/tenant_logo.dart';
 
 /// Bandeja de órdenes. La comparten el Técnico ("mis asignaciones"), el Dueño (las del
 /// taller) y el Cliente (las de sus vehículos): el backend ya filtra por perfil, así que
@@ -27,7 +28,15 @@ class WorkOrderListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        // El logo del taller a la izquierda del título: la aplicación es de su taller, y en
+        // un teléfono compartido eso también dice en qué taller está uno metido.
+        title: Row(
+          children: [
+            const TenantLogo(),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
         actions: [
           if (auth is AuthSignedIn && auth.user.role != AppRole.customer)
             IconButton(

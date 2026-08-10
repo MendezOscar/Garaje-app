@@ -1,6 +1,7 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Auth;
 using Garaj.Application.Common;
+using Garaj.Application.Tenants;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -153,6 +154,7 @@ public class AuthService(
             role,
             user.TenantId,
             tenant.Name,
+            tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id),
             branches,
             user.CustomerId);
     }

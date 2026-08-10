@@ -323,6 +323,43 @@ Decisiones que conviene conocer antes de tocar esto:
 - El **Cliente** puede crear requerimientos y adjuntarles fotos; el **Técnico** no participa
   en esa etapa y no recibe nada de ella.
 
+### Ficha del taller y su marca
+
+El taller es el tenant, así que su ficha es una sola fila y no hay listado: todas las rutas
+operan sobre el taller de la sesión.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/tenant` | Owner | Nombre, razón social, RTN, teléfonos, moneda e ISV por defecto |
+| PUT | `/api/tenant` | Owner | Los guarda. Nombre obligatorio, ISV entre 0 y 100 |
+| POST | `/api/tenant/logo` | Owner | `multipart/form-data` con `file`. PNG o JPEG, hasta 2 MB |
+| DELETE | `/api/tenant/logo` | Owner | Quita el logo |
+| GET | `/api/tenants/{tenantId}/logo` | **ninguna** | Los bytes del logo, o 404 |
+| GET | `/public/quotes/{token}/logo` | **ninguna** | El mismo logo, bajo el token de la cotización |
+
+`tenantLogoUrl` aparece en `/api/auth/me` y en la cotización pública como **ruta relativa** a
+la base de la API; el panel y la app la vuelven absoluta con la URL que ya tienen configurada.
+
+Decisiones que conviene conocer:
+
+- **Las dos rutas del logo son anónimas.** Una etiqueta `<img>` no manda la cabecera
+  `Authorization`, y una URL prefirmada caduca a los 15 minutos: dejaría el logo roto en un
+  panel abierto toda la tarde. Ese logo, además, ya viaja en cada cotización que el taller
+  manda por WhatsApp.
+- **La página pública sirve el logo por el token de la cotización**, no por el id del taller:
+  en esa página el token es la única credencial y no se filtra ningún id interno.
+- **El logo se normaliza en el servidor**: se decodifica —si no decodifica, no es una imagen y
+  responde 400—, se reduce a 512 px de lado mayor y se reencoda PNG, que conserva la
+  transparencia. SVG queda fuera: puede traer script y se serviría desde el origen de la API.
+- **El logo del PDF va como bytes**, leídos del almacenamiento al generar el documento, y
+  envueltos en `try/catch`: un bucket caído no puede impedir facturar.
+- **Los datos de esta ficha son los que imprime la cotización y la factura.** Antes solo los
+  ponía el instalador, y quedaban los de demostración.
+
+Un taller nuevo no se crea por la API: se da de alta con
+`dotnet run --project src/Garaj.Api -- provision-tenant …`, que crea el taller, su primera
+sucursal y el usuario Dueño. Ver [deployment.md](deployment.md#6-alta-de-un-taller).
+
 ### Datos de demostración
 
 | Método | Ruta | Auth | Qué hace |

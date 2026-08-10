@@ -100,6 +100,17 @@ export async function download(
   setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
 }
 
+/**
+ * Convierte una ruta que devuelve la API (`/api/tenants/…/logo`) en URL absoluta.
+ *
+ * Hace falta para lo que se pinta con `<img>`: ahí el navegador no manda la cabecera
+ * Authorization, así que esas rutas son públicas y se cargan directo contra la API en lugar
+ * de pasar por axios.
+ */
+export function apiUrl(path: string | null | undefined): string | null {
+  return path ? `${baseURL}${path}` : null
+}
+
 /** Extrae el mensaje legible de un error de la API para mostrarlo en pantalla. */
 export function errorMessage(error: unknown, fallback = 'Ocurrió un error inesperado.'): string {
   if (axios.isAxiosError<ProblemDetails>(error)) {

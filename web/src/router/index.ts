@@ -68,6 +68,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // La ficha del taller: lo que sale impreso en la cotización y en la factura.
+        path: 'taller',
+        name: 'workshop',
+        component: () => import('@/views/owner/WorkshopView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         path: 'usuarios',
         name: 'users',
         component: () => import('@/views/owner/UsersView.vue'),

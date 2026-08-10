@@ -29,7 +29,7 @@ public class DbSeeder(
         // todo lo que acaba de insertar y crearía duplicados en cada arranque.
         tenantContext.BypassTenantFilter = true;
 
-        await SeedRolesAsync();
+        await RoleSeeder.EnsureAsync(roleManager);
 
         if (await db.Tenants.AnyAsync(ct))
         {
@@ -71,15 +71,6 @@ public class DbSeeder(
         logger.LogInformation(
             "Seed completo. Usuarios demo: owner@garaj.test / tecnico1@garaj.test / tecnico2@garaj.test / cliente@garaj.test — contraseña {Password}",
             DemoPassword);
-    }
-
-    private async Task SeedRolesAsync()
-    {
-        foreach (var role in AppRoles.All)
-        {
-            if (!await roleManager.RoleExistsAsync(role))
-                await roleManager.CreateAsync(new AppRole(role));
-        }
     }
 
     private async Task<AppUser> CreateUserAsync(

@@ -156,10 +156,15 @@ public record WhatsAppLinkDto(string Url, string Phone, string Message);
 /// Lo que ve el cliente al abrir el link de WhatsApp. Sin datos internos del taller y sin
 /// ids que permitan navegar a otra cosa: es una página anónima.
 /// </summary>
+/// <param name="TenantLogoUrl">
+/// Ruta del logo relativa a la base de la API, o null. Va aquí porque la página es del
+/// taller: lo primero que ve el cliente tiene que ser la marca de su taller, no la nuestra.
+/// </param>
 public record PublicQuoteDto(
     string Number,
     QuoteStatus Status,
     string TenantName,
+    string? TenantLogoUrl,
     string? TenantPhone,
     string BranchName,
     string CustomerName,
@@ -231,4 +236,10 @@ public interface IQuoteService
     Task<PublicQuoteDto> RespondPublicAsync(
         Guid token, RespondToQuoteRequest request, CancellationToken ct = default);
     Task<byte[]> PdfPublicAsync(Guid token, CancellationToken ct = default);
+
+    /// <summary>
+    /// El logo del taller para la página pública. Va por el token de la cotización y no por
+    /// el id del taller: en esta página el token es la única credencial.
+    /// </summary>
+    Task<Tenants.TenantLogo?> LogoPublicAsync(Guid token, CancellationToken ct = default);
 }

@@ -86,6 +86,14 @@ builder.Services.AddHealthChecks().AddDbContextCheck<GarajDbContext>();
 
 var app = builder.Build();
 
+// `dotnet run -- provision-tenant …` da de alta el taller de un cliente y sale sin montar el
+// servidor. A propósito no hay endpoint equivalente: sería una puerta permanente para crear
+// talleres en producción, y esto se hace una vez por cliente desde la máquina de quien instala.
+if (args.FirstOrDefault() == "provision-tenant")
+{
+    return await ProvisionTenantAsync(app, args);
+}
+
 // Serilog va por fuera del manejo de errores a propósito. Al revés, el middleware de
 // request logging ve la excepción antes de que se traduzca y registra un 500 aunque al
 // cliente le llegue un 401 o un 404: los logs de producción mentirían.
@@ -120,6 +128,7 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
+return 0;
 
 static async Task MigrateAsync(WebApplication app)
 {
@@ -131,6 +140,95 @@ static async Task SeedAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<DbSeeder>().SeedAsync();
+}
+
+/// <summary>
+/// Alta del taller de un cliente. Los argumentos se leen a mano —son diez y se usan una vez
+/// por cliente— y el resultado se imprime en pantalla: la contraseña del Dueño no se guarda
+/// en ninguna parte, así que esta es la única vez que se ve.
+/// </summary>
+static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
+{
+    var values = ParseArguments(args);
+
+    if (values.ContainsKey("help") || values.Count == 0)
+    {
+        Console.WriteLine(
+            """
+            Uso: dotnet run --project src/Garaj.Api -- provision-tenant [argumentos]
+
+              --name          Nombre del taller (obligatorio)
+              --owner-email   Correo del Dueño (obligatorio)
+              --owner-name    Nombre completo del Dueño (obligatorio)
+              --branch        Nombre de la primera sucursal (obligatorio)
+              --branch-code   Código corto de la sucursal, ej. MTZ
+              --city          Ciudad de la sucursal
+              --address       Dirección de la sucursal
+              --legal-name    Razón social, como sale en la cotización
+              --tax-id        RTN
+              --phone         Teléfono del taller
+              --email         Correo del taller
+              --logo          Ruta a un PNG o JPEG con el logo
+              --password      Contraseña del Dueño; si se omite, se genera y se imprime
+            """);
+
+        return values.Count == 0 ? 1 : 0;
+    }
+
+    using var scope = app.Services.CreateScope();
+    var provisioner = scope.ServiceProvider.GetRequiredService<TenantProvisioner>();
+
+    try
+    {
+        var result = await provisioner.RunAsync(new TenantProvisioner.Request(
+            Name: values.GetValueOrDefault("name") ?? "",
+            OwnerEmail: values.GetValueOrDefault("owner-email") ?? "",
+            OwnerName: values.GetValueOrDefault("owner-name") ?? "",
+            BranchName: values.GetValueOrDefault("branch") ?? "",
+            BranchCode: values.GetValueOrDefault("branch-code"),
+            City: values.GetValueOrDefault("city"),
+            Address: values.GetValueOrDefault("address"),
+            LegalName: values.GetValueOrDefault("legal-name"),
+            TaxId: values.GetValueOrDefault("tax-id"),
+            Phone: values.GetValueOrDefault("phone"),
+            Email: values.GetValueOrDefault("email"),
+            Password: values.GetValueOrDefault("password"),
+            LogoPath: values.GetValueOrDefault("logo")));
+
+        Console.WriteLine();
+        Console.WriteLine($"Taller creado: {values["name"]}");
+        Console.WriteLine($"  Id del taller : {result.TenantId}");
+        Console.WriteLine($"  Sucursal      : {result.BranchId}");
+        Console.WriteLine($"  Dueño         : {result.OwnerEmail}");
+        Console.WriteLine($"  Contraseña    : {result.Password}");
+        Console.WriteLine();
+        Console.WriteLine("Anótela ahora: no queda guardada. Cámbiela al entrar la primera vez.");
+
+        return 0;
+    }
+    catch (AppException e)
+    {
+        Console.Error.WriteLine($"No se dio de alta el taller: {e.Message}");
+        return 1;
+    }
+}
+
+/// <summary>Convierte `--clave valor` en un diccionario. `provision-tenant` ya se consumió.</summary>
+static Dictionary<string, string> ParseArguments(string[] args)
+{
+    var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    for (var i = 1; i < args.Length; i++)
+    {
+        if (!args[i].StartsWith("--")) continue;
+
+        var key = args[i][2..];
+        var value = i + 1 < args.Length && !args[i + 1].StartsWith("--") ? args[++i] : "";
+
+        values[key] = value;
+    }
+
+    return values;
 }
 
 /// <summary>Necesario para que WebApplicationFactory pueda arrancar la API en los tests.</summary>

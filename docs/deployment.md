@@ -199,7 +199,44 @@ repositorio.
 
 ---
 
-## 6. Móvil
+## 6. Alta de un taller
+
+En producción no hay pantalla ni endpoint para crear un taller: el sembrador de demostración
+solo corre en Development y `POST /api/demo/seed` **borra la base entera** antes de sembrar.
+Un taller real se da de alta con un comando, desde la máquina de quien instala, apuntando a
+la base de producción con la cadena en user secrets (ver [README](../README.md)):
+
+```bash
+cd backend
+dotnet run --project src/Garaj.Api -- provision-tenant \
+  --name "Taller del Cliente" \
+  --legal-name "Taller del Cliente S. de R.L." --tax-id 08019995123456 \
+  --phone 50499001111 --email contacto@cliente.hn \
+  --branch "Matriz" --branch-code MTZ --city Tegucigalpa \
+  --owner-email dueno@cliente.hn --owner-name "Nombre del Dueño" \
+  --logo ~/Descargas/logo-cliente.png
+```
+
+Crea el taller, su primera sucursal y el usuario Dueño, e imprime la contraseña generada
+**una sola vez**: no queda guardada en ninguna parte. Si el taller ya existe o el correo ya
+tiene usuario, no escribe nada y lo dice. `dotnet run … -- provision-tenant` sin argumentos
+lista todos los que acepta.
+
+El catálogo de repuestos, la mano de obra y los técnicos los carga el Dueño desde el panel.
+El logo se puede subir después en **Taller** sin volver a la consola.
+
+Antes de entregarle el sistema a un cliente:
+
+- [ ] **Quitar `Demo__AllowSeeding` de Render.** Con datos reales en esa base,
+      `POST /api/demo/seed` es un botón de borrado total.
+- [ ] Confirmar `Storage__*` (sin ellas no hay fotos ni logo), `Jwt__SigningKey` y
+      `PublicBaseUrl`.
+- [ ] Entrar como el Dueño nuevo, cambiar la contraseña y completar la ficha en **Taller**:
+      esos datos son los que salen impresos en cada cotización y factura.
+
+---
+
+## 7. Móvil
 
 La app apunta a la API por `--dart-define`:
 

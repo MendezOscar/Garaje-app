@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Notifications;
 using Garaj.Application.Quotes;
+using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Documents;
@@ -16,6 +17,7 @@ public class QuoteService(
     ITenantContext tenantContext,
     IDateTimeProvider clock,
     IConfiguration configuration,
+    ITenantService tenants,
     INotificationPublisher notifications) : IQuoteService
 {
     public async Task<PagedResult<QuoteListItemDto>> ListAsync(
@@ -344,8 +346,9 @@ public class QuoteService(
     {
         var detail = await GetAsync(id, ct);
         var tenant = await CurrentTenantAsync(ct);
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
 
-        return QuotePdf.Render(detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId);
+        return QuotePdf.Render(detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo);
     }
 
     public async Task<QuoteDetailDto> RespondAsync(
@@ -401,7 +404,15 @@ public class QuoteService(
                 .FirstAsync(q => q.Id == quote.Id, ct),
             ct);
 
-        return QuotePdf.Render(detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId);
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+
+        return QuotePdf.Render(detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo);
+    }
+
+    public async Task<TenantLogo?> LogoPublicAsync(Guid token, CancellationToken ct = default)
+    {
+        var quote = await FindByTokenAsync(token, ct);
+        return await tenants.GetLogoAsync(quote.TenantId, ct);
     }
 
     // ---------- Interno ----------
@@ -753,6 +764,9 @@ public class QuoteService(
             quote.Number,
             quote.Status,
             tenant.Name,
+            // Bajo el token de la cotización y no bajo el id del taller: en esta página el
+            // token es la única credencial y no se filtra ningún id interno.
+            tenant.LogoStorageKey is null ? null : $"/public/quotes/{quote.PublicToken}/logo",
             tenant.Phone,
             branch.Name,
             customer.FullName,

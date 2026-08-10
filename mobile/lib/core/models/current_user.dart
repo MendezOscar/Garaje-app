@@ -40,6 +40,7 @@ class CurrentUser {
     required this.tenantId,
     required this.tenantName,
     required this.branches,
+    this.tenantLogoUrl,
     this.customerId,
   });
 
@@ -50,6 +51,7 @@ class CurrentUser {
         role: AppRole.fromValue(json['role'] as String),
         tenantId: json['tenantId'] as String,
         tenantName: json['tenantName'] as String,
+        tenantLogoUrl: json['tenantLogoUrl'] as String?,
         branches: (json['branches'] as List<dynamic>)
             .map((e) => BranchSummary.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -62,6 +64,11 @@ class CurrentUser {
   final AppRole role;
   final String tenantId;
   final String tenantName;
+
+  /// Ruta del logo del taller relativa a la base de la API, o null si no subió ninguno.
+  /// La sirve una ruta pública porque `Image.network` no manda cabecera de autorización.
+  final String? tenantLogoUrl;
+
   final List<BranchSummary> branches;
   final String? customerId;
 }

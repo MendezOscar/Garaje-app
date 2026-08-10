@@ -26,6 +26,7 @@ import type {
   StockItem,
   StockMovement,
   StockMovementType,
+  TenantSettings,
   User,
   Vehicle,
   VehicleType,
@@ -647,5 +648,42 @@ export const notificationsApi = {
   },
   async markAllRead() {
     await api.post('/api/notifications/read-all')
+  },
+}
+
+export const tenantApi = {
+  async get(): Promise<TenantSettings> {
+    const { data } = await api.get<TenantSettings>('/api/tenant')
+    return data
+  },
+  async update(body: {
+    name: string
+    legalName: string | null
+    taxId: string | null
+    phone: string | null
+    email: string | null
+    defaultTaxRate: number
+    defaultPhoneCountryCode: string | null
+  }): Promise<TenantSettings> {
+    const { data } = await api.put<TenantSettings>('/api/tenant', body)
+    return data
+  },
+  /**
+   * El logo sí pasa por la API, al revés que las fotos: es un archivo pequeño que se sube
+   * una vez, y el servidor lo valida y lo normaliza a PNG de 512 px.
+   */
+  async setLogo(file: File): Promise<TenantSettings> {
+    const form = new FormData()
+    form.append('file', file)
+
+    // Sin Content-Type explícito: axios le pone el boundary que necesita el multipart.
+    const { data } = await api.post<TenantSettings>('/api/tenant/logo', form, {
+      headers: { 'Content-Type': undefined },
+    })
+    return data
+  },
+  async removeLogo(): Promise<TenantSettings> {
+    const { data } = await api.delete<TenantSettings>('/api/tenant/logo')
+    return data
   },
 }
