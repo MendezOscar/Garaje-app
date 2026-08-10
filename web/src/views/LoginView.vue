@@ -10,6 +10,8 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
+const mostrarDemo = import.meta.env.DEV
+
 const email = ref('')
 const password = ref('')
 const error = ref('')
@@ -53,7 +55,10 @@ async function submit() {
         {{ loading ? 'Ingresando…' : 'Ingresar' }}
       </button>
 
-      <p class="hint">
+      <!-- Solo en desarrollo. Desde que la raíz del sitio es una página pública que trae
+           visitantes aquí, dejar las credenciales impresas sería regalar el panel de
+           demostración a cualquiera que llegue. -->
+      <p v-if="mostrarDemo" class="hint">
         Demostración: eduar@rvm.hn · caleb@rvm.hn · daleth.moran@gmail.com<br />
         Contraseña: Garaj123!
       </p>

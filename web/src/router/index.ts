@@ -27,16 +27,19 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    // La raíz es la página de venta, no el panel: quien recibe el enlace por WhatsApp no
+    // tiene cuenta, y antes caía en el formulario de acceso. El panel entra por "/login".
+    path: '/',
+    name: 'landing',
+    component: () => import('@/views/LandingView.vue'),
+    meta: { public: true },
+  },
+  {
+    // Sigue montado en "/" —así ninguna ruta del panel cambió— pero ya no resuelve la ruta
+    // vacía: de eso se encarga el registro de arriba.
     path: '/',
     component: () => import('@/layouts/AppLayout.vue'),
     children: [
-      {
-        path: '',
-        name: 'home',
-        // El guard rebota a la pantalla del perfil: un Técnico o un Cliente que entre a "/"
-        // no se queda en el tablero del Dueño.
-        redirect: { name: 'work-orders' },
-      },
       {
         path: 'ordenes',
         name: 'work-orders',
@@ -147,7 +150,10 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.public) {
-    return auth.isAuthenticated && to.name === 'login'
+    // A quien ya entró no se le enseña ni el login ni la página de venta: va a su pantalla.
+    const forVisitorsOnly = to.name === 'login' || to.name === 'landing'
+
+    return auth.isAuthenticated && forVisitorsOnly
       ? { name: homeRouteFor(auth.role) }
       : true
   }

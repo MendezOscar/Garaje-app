@@ -109,7 +109,7 @@ onMounted(load)
           <tr>
             <th>Detalle</th>
             <th class="num">Cant.</th>
-            <th class="num">P. unit.</th>
+            <th class="num unitario">P. unit.</th>
             <th class="num">Total</th>
           </tr>
         </thead>
@@ -120,7 +120,7 @@ onMounted(load)
               <div class="muted small">{{ LINE_TYPE_LABEL[line.lineType] }}</div>
             </td>
             <td class="num">{{ quantity(line.quantity) }}</td>
-            <td class="num">{{ money(line.unitPrice) }}</td>
+            <td class="num unitario">{{ money(line.unitPrice) }}</td>
             <td class="num">{{ money(line.total) }}</td>
           </tr>
         </tbody>
@@ -331,6 +331,18 @@ th {
 .num {
   text-align: right;
   white-space: nowrap;
+}
+
+/*
+ * En un teléfono angosto las tres columnas de importes no caben —cada monto lleva su moneda
+ * y ninguna parte— y la tabla se sale de la pantalla, que es justo donde esta página se abre
+ * casi siempre. Se esconde el precio unitario: lo que el cliente necesita ver es el total de
+ * la línea, y el detalle completo lo tiene en el PDF.
+ */
+@media (max-width: 26rem) {
+  .unitario {
+    display: none;
+  }
 }
 
 .totals {

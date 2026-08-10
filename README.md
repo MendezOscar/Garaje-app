@@ -33,7 +33,7 @@ escritorio: exportar a Excel, el tablero por estados y la vista pública de la c
 | Carpeta | Qué es |
 | --- | --- |
 | [backend/](backend/) | API en .NET 8 (Domain / Application / Infrastructure / Api) |
-| [web/](web/) | Panel web en Vue 3 + Vite + TypeScript |
+| [web/](web/) | Panel web en Vue 3 + Vite + TypeScript. La raíz del sitio es la página de venta ([LandingView](web/src/views/LandingView.vue)); el panel entra por `/login` |
 | [mobile/](mobile/) | App móvil en Flutter (Dueño, Técnico y Cliente) |
 | [marca-garajapp/](marca-garajapp/) | Paquete de marca: logotipos, iconos y tokens. Ver su [LEEME](marca-garajapp/LEEME.md) |
 | [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md), [despliegue](docs/deployment.md), [notificaciones push](docs/push.md) y [datos de demostración](docs/demo.md) |
