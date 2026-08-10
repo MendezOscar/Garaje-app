@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "213670698615",
+    "project_id": "garajapp-e5a7d",
+    "storage_bucket": "garajapp-e5a7d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:213670698615:android:e0b8a5341e7b4543763072",
+        "android_client_info": {
+          "package_name": "com.garaj.garaj_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZoJMQ32-grl0_xD7wc9TWumCVg-wVw0g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
