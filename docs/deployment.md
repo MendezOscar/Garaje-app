@@ -257,6 +257,44 @@ flutter build ipa
 flutter build appbundle
 ```
 
+### Firma de Android
+
+Sin llave propia, el release se firma con la **llave de depuración**, que genera Flutter sola
+en cada máquina. Eso funciona para probar, pero tiene dos consecuencias que solo se ven tarde:
+
+- Android **no deja instalar encima** de un APK firmado con otra llave. Al actualizar el
+  teléfono del taller hay que desinstalar, y con eso se va la sesión y la cola de fotos que
+  todavía no habían subido.
+- Google Play **no acepta** un binario firmado con llave de depuración.
+
+La llave se crea una vez y **se guarda para siempre**: si se pierde, no hay forma de publicar
+una actualización de la misma aplicación. Ni la llave ni sus contraseñas entran al repositorio
+—`android/.gitignore` ya excluye `key.properties`, `*.jks` y `*.keystore`—.
+
+```bash
+# 1. Crear la llave (validez larga a propósito: Play exige más de 2033)
+keytool -genkey -v -keystore ~/llaves/garajapp.jks \
+  -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias garajapp
+
+# 2. Decirle a Gradle dónde está
+cat > mobile/android/key.properties <<'FIN'
+storePassword=<la que puso>
+keyPassword=<la que puso>
+keyAlias=garajapp
+storeFile=/Users/<usuario>/llaves/garajapp.jks
+FIN
+
+# 3. Compilar
+cd mobile && flutter build apk --release        # para instalar a mano en el taller
+cd mobile && flutter build appbundle            # para Google Play
+```
+
+`android/app/build.gradle.kts` lee ese archivo si existe y, si no, sigue firmando con la de
+depuración: así CI y cualquier máquina nueva compilan igual sin tener la llave.
+
+Guarde en sitio seguro —gestor de contraseñas, no el repo— el `.jks`, las dos contraseñas y el
+alias. Conviene también respaldar el `.jks` fuera de la máquina.
+
 ---
 
 ## Puertos en desarrollo local

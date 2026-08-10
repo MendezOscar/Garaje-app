@@ -1,9 +1,25 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Llave de firma del taller. Vive en `android/key.properties`, que está en .gitignore junto
+// con el keystore: es una credencial y no entra al repositorio.
+//
+// Si no existe, el release se firma con la llave de depuración y todo sigue compilando —CI y
+// cualquier máquina nueva incluida—. Lo que no se puede es instalar encima de un APK firmado
+// con otra llave: Android lo rechaza y hay que desinstalar, y con eso se van la sesión y la
+// cola de fotos pendientes del teléfono.
+val propiedadesDeFirma = Properties().apply {
+    val archivo = rootProject.file("key.properties")
+    if (archivo.exists()) archivo.inputStream().use { load(it) }
+}
+
+val hayLlavePropia = propiedadesDeFirma.getProperty("storeFile") != null
 
 // El plugin de Firebase solo se aplica si el archivo del proyecto está en su sitio. Aplicarlo
 // sin `google-services.json` rompe la compilación para todo el mundo, y la app funciona sin
@@ -37,11 +53,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hayLlavePropia) {
+            create("release") {
+                storeFile = rootProject.file(propiedadesDeFirma.getProperty("storeFile"))
+                storePassword = propiedadesDeFirma.getProperty("storePassword")
+                keyAlias = propiedadesDeFirma.getProperty("keyAlias")
+                keyPassword = propiedadesDeFirma.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hayLlavePropia) "release" else "debug")
         }
     }
 }
