@@ -18,6 +18,7 @@ class WorkOrderRepository {
   Future<List<WorkOrderListItem>> list({
     bool onlyOpen = true,
     String? vehicleId,
+    String? search,
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/work-orders',
@@ -25,6 +26,8 @@ class WorkOrderRepository {
         'onlyOpen': onlyOpen,
         'pageSize': 100,
         if (vehicleId != null) 'vehicleId': vehicleId,
+        // El backend busca por número, por placa normalizada y por nombre del cliente.
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
       },
     );
 
@@ -191,12 +194,30 @@ class OnlyOpenOrders extends Notifier<bool> {
   void set(bool value) => state = value;
 }
 
+/// Lo que se escribió en el buscador de la bandeja. Vive fuera de la pantalla para que la
+/// búsqueda sobreviva a ir al detalle de una orden y volver.
+final ordersSearchProvider = NotifierProvider<OrdersSearch, String>(OrdersSearch.new);
+
+class OrdersSearch extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String value) => state = value;
+}
+
 /// Lista de órdenes del usuario. `autoDispose` para que al volver a la pantalla se recargue:
 /// el técnico necesita ver lo que el dueño le asignó mientras estaba en otra vista.
 final myWorkOrdersProvider = FutureProvider.autoDispose<List<WorkOrderListItem>>(
-  (ref) => ref
-      .watch(workOrderRepositoryProvider)
-      .list(onlyOpen: ref.watch(onlyOpenOrdersProvider)),
+  (ref) {
+    final search = ref.watch(ordersSearchProvider);
+
+    return ref.watch(workOrderRepositoryProvider).list(
+          // Buscando se deja de filtrar: quien teclea una placa la quiere encontrar aunque
+          // el vehículo ya haya salido del taller.
+          onlyOpen: search.trim().isEmpty && ref.watch(onlyOpenOrdersProvider),
+          search: search,
+        );
+  },
 );
 
 /// Todo lo que se le ha hecho a un vehículo, entregado incluido. Es lo que se pregunta en el

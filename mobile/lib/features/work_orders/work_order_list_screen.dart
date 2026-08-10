@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -127,7 +129,14 @@ class WorkOrderListScreen extends ConsumerWidget {
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
-                        child: Text(emptyMessage, textAlign: TextAlign.center),
+                        child: Text(
+                          // Con una búsqueda escrita, el mensaje de "no hay nada" del perfil
+                          // haría dudar de la búsqueda misma.
+                          ref.watch(ordersSearchProvider).trim().isEmpty
+                              ? emptyMessage
+                              : 'Ninguna orden coincide con esa búsqueda.',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
                   ],
@@ -159,33 +168,94 @@ class WorkOrderListScreen extends ConsumerWidget {
   }
 }
 
-/// Abiertas o todas. Una orden entregada salía de la bandeja y no había forma de volver a
-/// ella —ni para ver qué se le hizo al vehículo, ni para compartir otra vez la factura—.
-class _OrdersFilter extends ConsumerWidget implements PreferredSizeWidget {
+/// Buscador y filtro de la bandeja.
+///
+/// Una orden entregada salía de la bandeja y no había forma de volver a ella —ni para ver qué
+/// se le hizo al vehículo, ni para compartir otra vez la factura—. Buscando, el filtro se
+/// ignora: quien teclea una placa la quiere encontrar aunque el carro ya haya salido.
+class _OrdersFilter extends ConsumerStatefulWidget implements PreferredSizeWidget {
   const _OrdersFilter();
 
   @override
-  Size get preferredSize => const Size.fromHeight(52);
+  Size get preferredSize => const Size.fromHeight(108);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_OrdersFilter> createState() => _OrdersFilterState();
+}
+
+class _OrdersFilterState extends ConsumerState<_OrdersFilter> {
+  late final TextEditingController _controller =
+      TextEditingController(text: ref.read(ordersSearchProvider));
+
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Media pausa antes de preguntar: en el taller la señal es mala y una petición por tecla
+  /// haría que la lista bailara mientras se escribe la placa.
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) ref.read(ordersSearchProvider.notifier).set(value);
+    });
+  }
+
+  void _clear() {
+    _debounce?.cancel();
+    _controller.clear();
+    ref.read(ordersSearchProvider.notifier).set('');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final onlyOpen = ref.watch(onlyOpenOrdersProvider);
+    final buscando = ref.watch(ordersSearchProvider).trim().isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: true, label: Text('En el taller')),
-            ButtonSegment(value: false, label: Text('Todas')),
-          ],
-          selected: {onlyOpen},
-          showSelectedIcon: false,
-          style: const ButtonStyle(visualDensity: VisualDensity.compact),
-          onSelectionChanged: (value) =>
-              ref.read(onlyOpenOrdersProvider.notifier).set(value.first),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            textInputAction: TextInputAction.search,
+            onChanged: _onChanged,
+            onSubmitted: (value) => ref.read(ordersSearchProvider.notifier).set(value),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              hintText: 'Placa, número de orden o cliente',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: buscando || _controller.text.isNotEmpty
+                  ? IconButton(
+                      tooltip: 'Limpiar',
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: _clear,
+                    )
+                  : null,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Buscando, el selector no manda: se apaga para no prometer un filtro que no aplica.
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true, label: Text('En el taller')),
+              ButtonSegment(value: false, label: Text('Todas')),
+            ],
+            selected: {buscando ? false : onlyOpen},
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            onSelectionChanged: buscando
+                ? null
+                : (value) => ref.read(onlyOpenOrdersProvider.notifier).set(value.first),
+          ),
+        ],
       ),
     );
   }
