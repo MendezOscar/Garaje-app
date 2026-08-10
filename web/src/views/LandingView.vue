@@ -128,7 +128,7 @@ const incluye = [
           <a class="boton" :href="whatsapp" target="_blank" rel="noopener">
             Escribir por WhatsApp
           </a>
-          <a class="boton fantasma" href="#precio">Ver el precio</a>
+          <a class="boton fantasma" href="#propuesta">Ver qué incluye</a>
         </div>
         <p class="fino">
           Instalado con los datos de su taller. Sin equipo nuevo: sirve el teléfono que ya
@@ -264,20 +264,24 @@ const incluye = [
       />
     </section>
 
-    <!-- ------------------------------------------------------------------ precio -->
-    <section id="precio" class="seccion">
-      <h2>Precio</h2>
-      <div class="precio">
-        <p class="cifra num">L 1,200<span>/ mes</span></p>
-        <p class="cifra-pie">por taller, con una sucursal incluida</p>
+    <!-- ------------------------------------------------------------------ propuesta -->
+    <!-- El precio no va en la página: se manda en la propuesta (propuesta-garajapp.html),
+         que se adapta a las sucursales y a la forma de pago de cada taller. -->
+    <section id="propuesta" class="seccion">
+      <h2>Qué recibe al contratar</h2>
+      <div class="propuesta">
         <ul>
-          <li><strong class="num">+ L 400 / mes</strong> por cada sucursal adicional</li>
           <li>Usuarios, órdenes, fotos y cotizaciones <strong>sin límite</strong></li>
           <li>Instalación, traslado de sus datos y capacitación <strong>sin costo</strong></li>
           <li>Alojamiento, respaldos y soporte incluidos</li>
+          <li>Sus datos aparte de los de cualquier otro taller</li>
         </ul>
+        <p class="cifra-pie">
+          El precio depende de cuántas sucursales tenga y de la forma de pago. Escríbame y le
+          paso la propuesta.
+        </p>
         <a class="boton" :href="whatsapp" target="_blank" rel="noopener">
-          Escribir por WhatsApp
+          Pedir la propuesta por WhatsApp
         </a>
         <p class="fino">
           La factura en PDF sirve como comprobante de entrega para su cliente; no sustituye el
@@ -573,9 +577,9 @@ h1 {
   border-radius: var(--radius-md);
 }
 
-/* ------------------------------------------------------------------ precio */
+/* ------------------------------------------------------------------ propuesta */
 
-.precio {
+.propuesta {
   width: min(28rem, 100%);
   margin: 0 auto;
   padding: 1.75rem;
@@ -585,25 +589,14 @@ h1 {
   text-align: center;
 }
 
-.cifra {
-  margin: 0;
-  font-size: 2.5rem;
-  font-weight: 500;
-  line-height: 1.1;
-}
-
-.cifra span {
-  font-size: 1rem;
-  color: var(--text-muted);
-}
-
 .cifra-pie {
-  margin: 0.25rem 0 1.25rem;
+  margin: 0 0 1.25rem;
   color: var(--text-muted);
+  line-height: 1.5;
 }
 
-.precio ul {
-  margin: 0 0 1.5rem;
+.propuesta ul {
+  margin: 0 0 1.25rem;
   padding: 0;
   list-style: none;
   text-align: left;
@@ -611,13 +604,13 @@ h1 {
   gap: 0.5rem;
 }
 
-.precio li {
+.propuesta li {
   padding-left: 1.25rem;
   position: relative;
   line-height: 1.5;
 }
 
-.precio li::before {
+.propuesta li::before {
   content: '·';
   position: absolute;
   left: 0.375rem;

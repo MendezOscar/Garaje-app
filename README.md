@@ -36,6 +36,7 @@ escritorio: exportar a Excel, el tablero por estados y la vista pública de la c
 | [web/](web/) | Panel web en Vue 3 + Vite + TypeScript. La raíz del sitio es la página de venta ([LandingView](web/src/views/LandingView.vue)); el panel entra por `/login` |
 | [mobile/](mobile/) | App móvil en Flutter (Dueño, Técnico y Cliente) |
 | [marca-garajapp/](marca-garajapp/) | Paquete de marca: logotipos, iconos y tokens. Ver su [LEEME](marca-garajapp/LEEME.md) |
+| [propuesta-garajapp.html](propuesta-garajapp.html) | Propuesta comercial con precios, para mandar o imprimir a PDF. La página de venta no publica precios: dependen de las sucursales y de la forma de pago |
 | [docs/](docs/) | [Modelo de dominio](docs/domain-model.md), [contrato de la API](docs/api.md), [despliegue](docs/deployment.md), [notificaciones push](docs/push.md) y [datos de demostración](docs/demo.md) |
 
 ## Marca

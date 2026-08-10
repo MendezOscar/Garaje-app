@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!--
+  Propuesta comercial de GarajApp. Documento aparte, a propósito: la página de venta
+  (web/src/views/LandingView.vue) no publica precios porque dependen de las sucursales y de la
+  forma de pago del taller. Esto se manda por WhatsApp o correo, o se imprime a PDF
+  (Cmd+P → Guardar como PDF) con los datos del cliente ya llenos.
+
+  Antes de mandarla, llene los tres campos marcados con «___» arriba a la derecha.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Propuesta de implementación — GarajApp</title>
+<style>
+  :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
+  h1 { font-size: 26px; letter-spacing:-0.02em; }
+  h2 { font-size: 17px; color:var(--brand-dark); margin: 26px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
+  h3 { font-size:15px; margin:22px 0 6px; color:var(--brand-dark); }
+  p, li { font-size: 14.5px; }
+  .muted { color: var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:22px; }
+  .logo { width:38px; height:38px; border-radius:10px; background:linear-gradient(160deg,var(--brand),var(--brand-dark)); display:grid; place-items:center; color:#fff; font-size:19px; }
+  .meta { text-align:right; font-size:13px; color:var(--muted); }
+  ul { margin: 6px 0 6px 20px; }
+  ul li { margin: 3px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; font-size:14px; }
+  th, td { text-align:left; padding: 10px 12px; border-bottom:1px solid var(--border); }
+  th { background: var(--brand-light); color:var(--brand-dark); }
+  td.num, th.num { text-align:right; white-space:nowrap; }
+  .cards { display:flex; gap:14px; margin-top:12px; }
+  .card { flex:1; border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .card.pop { border:2px solid var(--brand); }
+  .card .n { font-weight:800; }
+  .card .pr { font-size:24px; font-weight:800; margin:4px 0; }
+  .card .pr span { font-size:13px; font-weight:600; color:var(--muted); }
+  .card small { color:var(--muted); }
+  .tag { display:inline-block; background:var(--brand); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; margin-left:6px; }
+  .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:10px; font-size:14px; }
+  .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+  @media print {
+    body { background:#fff; }
+    .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
+    @page { margin: 14mm; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <div class="brand"><span class="logo">🔧</span> GarajApp</div>
+      <p class="muted" style="margin-top:6px">El taller ordenado, desde el teléfono</p>
+    </div>
+    <div class="meta">
+      <strong>Propuesta de implementación</strong><br />
+      Preparada para: <strong>___</strong><br />
+      Fecha: ___<br />
+      Válida por 30 días
+    </div>
+  </div>
+
+  <h2>1. Resumen</h2>
+  <p>GarajApp es una plataforma para administrar un taller de autos y motos: la orden de trabajo con evidencia fotográfica, el inventario de repuestos por sucursal, las cotizaciones que el cliente aprueba por WhatsApp y el cobro con abonos. Tiene <strong>app móvil</strong> para trabajar con el teléfono en la mano —que es como trabaja el taller— y <strong>panel web</strong> para la administración, los reportes y las exportaciones a Excel.</p>
+  <p style="margin-top:8px">Tres perfiles con lo que a cada uno le toca: el <strong>Dueño</strong> ve todo el taller, el <strong>Técnico</strong> solo su trabajo y su sucursal, y el <strong>Cliente</strong> el estado de sus vehículos.</p>
+
+  <h2>2. Alcance — qué incluye</h2>
+  <ul>
+    <li><strong>Recepción y órdenes de trabajo</strong>: alta en mostrador con cliente, vehículo y motivo de ingreso; diagnóstico, pasos de la reparación y línea de tiempo de quién movió qué.</li>
+    <li><strong>Evidencia fotográfica</strong> de lo que se encontró y lo que se cambió, guardada con la orden.</li>
+    <li><strong>Cotizaciones</strong> con repuestos y mano de obra, en PDF y como página que el cliente abre por WhatsApp sin instalar nada y aprueba con un toque.</li>
+    <li><strong>Inventario por sucursal</strong>: existencias, entradas de compra, ajustes por conteo, traslados y kardex. El stock no se edita a mano: cada movimiento queda con su responsable.</li>
+    <li><strong>Facturación y cobro</strong>: cierre de la orden con lo que de verdad se consumió, venta de mostrador, crédito con abonos y cuentas por cobrar con lo vencido aparte.</li>
+    <li><strong>Reportes</strong> de lo facturado hoy, esta semana y este mes, separado en repuestos y mano de obra, con el reparto por sucursal y por técnico. Exportables a Excel.</li>
+    <li><strong>Usuarios y sucursales</strong> sin límite, con acceso a la app para los clientes que lo pidan.</li>
+    <li><strong>Avisos</strong> dentro de la app para cada perfil (aprobación de cotización, orden lista, stock bajo).</li>
+  </ul>
+
+  <h2>3. Inversión</h2>
+  <p>La puesta en marcha —instalación, carga de los datos del taller y capacitación del equipo— <strong>no tiene costo</strong>. Se paga una mensualidad que cubre todo: alojamiento en la nube, respaldos, actualizaciones y soporte.</p>
+
+  <div class="cards">
+    <div class="card pop">
+      <div class="n">Taller <span class="tag">Una sucursal</span></div>
+      <div class="pr">L 1,200 <span>/ mes</span></div>
+      <small>Un taller con una sucursal · usuarios, órdenes, fotos y cotizaciones sin límite · todos los módulos incluidos.</small>
+    </div>
+    <div class="card">
+      <div class="n">Sucursal adicional</div>
+      <div class="pr">L 400 <span>/ mes</span></div>
+      <small>Por cada sucursal después de la primera, con su propio inventario, sus técnicos y su reporte.</small>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Concepto</th><th>Detalle</th><th class="num">Monto (HNL)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Puesta en marcha</strong><br /><span class="muted">pago único</span></td>
+        <td>Instalación del taller y sus sucursales, carga del catálogo de repuestos y de la mano de obra, alta de usuarios y capacitación del equipo.</td>
+        <td class="num">Sin costo</td>
+      </tr>
+      <tr>
+        <td><strong>Mensualidad</strong><br /><span class="muted">todo incluido</span></td>
+        <td>Alojamiento en la nube, respaldos, actualizaciones y soporte. Una sucursal incluida.</td>
+        <td class="num">L 1,200 / mes</td>
+      </tr>
+      <tr>
+        <td><strong>Sucursal adicional</strong></td>
+        <td>Cada sucursal después de la primera.</td>
+        <td class="num">L 400 / mes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="hl">💡 <strong>Pago anual:</strong> paga 10 meses y obtiene 2 gratis (un taller de una sucursal: <strong>L 12,000 al año</strong>).</div>
+  <p class="muted" style="margin-top:10px;font-size:13px">La publicación de la app en App Store y Google Play es opcional y se cotiza aparte; mientras tanto la app se instala directamente en los teléfonos del taller.</p>
+
+  <h2>4. Puesta en marcha — cómo sería</h2>
+  <ul>
+    <li><strong>Día 1:</strong> se crea el taller con sus sucursales, su razón social y su RTN, y se dan de alta el Dueño y los técnicos.</li>
+    <li><strong>Semana 1:</strong> carga del catálogo de repuestos con existencias iniciales y de los precios de mano de obra; instalación de la app en los teléfonos.</li>
+    <li><strong>Semana 2:</strong> capacitación en el mostrador con trabajos de verdad —recibir, cotizar, facturar— y ajustes de lo que haga falta.</li>
+    <li><strong>Después:</strong> acompañamiento por WhatsApp durante el primer mes.</li>
+  </ul>
+
+  <h2>5. Condiciones</h2>
+  <ul>
+    <li>La mensualidad se factura por adelantado (mensual o anual).</li>
+    <li>Los costos de infraestructura en la nube y los respaldos están incluidos en la mensualidad.</li>
+    <li>Los datos son del taller: si decide dejar el servicio, se le entrega una exportación completa.</li>
+    <li>Desarrollos a la medida fuera de este alcance se cotizan por separado.</li>
+    <li>La factura en PDF sirve como comprobante de entrega para el cliente del taller; <strong>no sustituye el talonario autorizado por el SAR</strong>.</li>
+  </ul>
+
+  <h2>6. Licenciamiento</h2>
+  <ul>
+    <li>Se otorga una <strong>licencia de uso no exclusiva</strong> del sistema (app móvil + panel web) para el taller, vigente mientras la suscripción esté activa.</li>
+    <li>El <strong>código fuente y la propiedad intelectual permanecen en el proveedor</strong>; la licencia no transfiere la propiedad del software.</li>
+    <li>No incluye derechos de reventa, redistribución ni sublicenciamiento.</li>
+    <li>El proveedor conserva el derecho de ofrecer el mismo producto a otros talleres. <strong>Cada taller opera con sus datos aislados</strong> de los demás.</li>
+  </ul>
+
+  <div class="foot">
+    <strong>Óscar Méndez</strong> · GarajApp<br />
+    ✉️ mendez01developer@gmail.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 garaje-app.pages.dev
+  </div>
+</div>
+</body>
+</html>
