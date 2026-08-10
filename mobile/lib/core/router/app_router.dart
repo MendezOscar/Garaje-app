@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/customers/customers_screen.dart';
+import '../../features/inventory/inventory_screen.dart';
 import '../../features/login/login_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
@@ -59,6 +61,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
       GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
+      GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
+      GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
       GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
     ],
     redirect: (context, state) {
@@ -89,12 +93,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Los reportes y los usuarios son del Dueño: la API responde 403 a los demás, pero
-      // rebotarlos aquí evita enseñarles una pantalla que solo puede fallar.
-      if (location == '/reportes' || location == '/usuarios') {
+      // Los reportes, los usuarios y el padrón de clientes son del Dueño: la API responde
+      // 403 a los demás, pero rebotarlos aquí evita enseñarles una pantalla que solo puede
+      // fallar. Toda ruta que no esté en esta lista termina en el inicio del perfil.
+      if (location == '/reportes' || location == '/usuarios' || location == '/clientes') {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null
             : homeRouteFor(auth.user.role);
+      }
+
+      // El inventario también lo ve el Técnico: necesita saber si hay existencia antes de
+      // prometer una reparación. Los movimientos se los niega el backend.
+      if (location == '/inventario') {
+        return (auth as AuthSignedIn).user.role == AppRole.customer
+            ? homeRouteFor(auth.user.role)
+            : null;
       }
 
       // La bandeja de requerimientos es del taller. Al Cliente no le corresponde: los suyos

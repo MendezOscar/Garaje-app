@@ -6,6 +6,26 @@ WhatsApp, reportes de ingresos y avisos a cada perfil.
 
 Tres perfiles: **Dueño**, **Técnico** y **Cliente**. Un taller (tenant) con N sucursales.
 
+## Qué hace cada cliente
+
+El taller trabaja con el teléfono en la mano, así que la app cubre la operación completa del
+Dueño: recibir el vehículo, repartir el trabajo, cargar repuestos, cotizar, cobrar y mover la
+bodega. El web es la misma información con más sitio para leerla, y se queda con lo que es de
+escritorio: exportar a Excel, el tablero por estados y la vista pública de la cotización.
+
+| | Web | App |
+| --- | --- | --- |
+| Órdenes, pasos, fotos, estados | Tablero por estado | Lista y detalle |
+| Requerimientos y recepción en mostrador | Sí | Sí |
+| Cotizar: armar líneas, PDF, WhatsApp | Sí | Sí |
+| Cerrar y facturar, abonos, factura en PDF | Sí | Sí |
+| Inventario: entradas, ajustes, traslados, kardex | Sí | Sí |
+| Clientes y acceso a la app | Sí | Sí |
+| Usuarios y reportes | Sí | Sí |
+| Exportar reportes a CSV | Sí | — |
+| Catálogo de mano de obra | Sí | Solo elegir |
+| Vista pública de la cotización | Sí | — |
+
 ## Estructura
 
 | Carpeta | Qué es |
@@ -177,7 +197,7 @@ python3 backend/tests/smoke/fase9_smoke.py
 # Humo de usuarios: 34 comprobaciones del alta de técnicos y del acceso de los clientes
 python3 backend/tests/smoke/fase10_smoke.py
 
-# Humo del móvil en el simulador
+# Humo del móvil: 16 casos de sesión, alcance por perfil y las pantallas del taller
 cd mobile && flutter test integration_test/login_test.dart \
   -d "iPhone 16 Pro" --dart-define=API_URL=http://localhost:5080
 ```

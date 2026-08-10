@@ -41,6 +41,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Abre una pantalla del menú «Más» de la bandeja. Reportes, Clientes, Usuarios e
+  /// Inventario dejaron de ser iconos sueltos: no cabían seis en la barra de un teléfono.
+  Future<void> openFromMenu(WidgetTester tester, String option) async {
+    await tester.tap(find.byTooltip('Más'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(option));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('la primera instalación abre en la bienvenida', (tester) async {
     await OnboardingStore().reset();
 
@@ -189,9 +200,7 @@ void main() {
   testWidgets('el Dueño abre los reportes desde la bandeja', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await tester.tap(find.byTooltip('Reportes'));
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
+    await openFromMenu(tester, 'Reportes');
 
     expect(find.text('Reportes'), findsOneWidget);
     expect(find.text('TOTAL FACTURADO'), findsOneWidget);
@@ -205,9 +214,7 @@ void main() {
   testWidgets('el Dueño registra un abono desde los reportes', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await tester.tap(find.byTooltip('Reportes'));
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
+    await openFromMenu(tester, 'Reportes');
 
     // El humo de la Fase 8 deja facturas con saldo. Sin ellas la sección no se pinta y
     // este caso no tiene nada que comprobar.
@@ -255,6 +262,70 @@ void main() {
     // Puede recibir vehículos, pero aprobar es del Dueño.
     expect(find.text('Recibir vehículo'), findsOneWidget);
     expect(find.text('Aprobar y asignar'), findsNothing);
+  });
+
+  testWidgets('el Dueño cotiza y cobra desde la orden', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await tester.tap(find.textContaining('MTZ-').first);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    final page = find.byType(Scrollable).first;
+
+    // La parte comercial de la orden, que hasta ahora solo estaba en el web.
+    await tester.scrollUntilVisible(find.text('COTIZACIONES'), 300, scrollable: page);
+    expect(find.text('COTIZACIONES'), findsOneWidget);
+
+    // «Cerrar y facturar» mientras no se ha cobrado; «Factura» después. Se comprueba lo
+    // común a los dos: qué de estos dos estados toca depende de por dónde vayan los humos.
+    await tester.scrollUntilVisible(find.textContaining('FACTURA'), 300, scrollable: page);
+    expect(find.textContaining('FACTURA'), findsWidgets);
+  });
+
+  testWidgets('el Dueño busca en el padrón de clientes', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await openFromMenu(tester, 'Clientes');
+
+    expect(find.text('Clientes'), findsWidgets);
+    expect(find.text('Nuevo cliente'), findsOneWidget);
+    // El seeder deja tres clientes con sus vehículos.
+    expect(find.textContaining('vehículo'), findsWidgets);
+  });
+
+  testWidgets('el Dueño ve la bodega y puede moverla', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await openFromMenu(tester, 'Inventario');
+
+    expect(find.text('Inventario'), findsOneWidget);
+    expect(find.text('Nuevo repuesto'), findsOneWidget);
+    expect(find.text('Bajo mínimo'), findsOneWidget);
+
+    // La ficha de una existencia ofrece los movimientos, que son cosa del Dueño.
+    await tester.tap(find.byType(Card).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrada por compra'), findsOneWidget);
+    expect(find.text('Ajuste por conteo'), findsOneWidget);
+    expect(find.text('Kardex'), findsOneWidget);
+  });
+
+  testWidgets('el Técnico ve existencias pero no las mueve', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
+
+    await openFromMenu(tester, 'Inventario');
+
+    expect(find.text('Inventario'), findsOneWidget);
+    // Ni alta de catálogo ni entradas: la API se lo negaría.
+    expect(find.text('Nuevo repuesto'), findsNothing);
+
+    await tester.tap(find.byType(Card).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrada por compra'), findsNothing);
+    expect(find.text('Kardex'), findsOneWidget);
   });
 
   testWidgets('la campana abre los avisos del usuario', (tester) async {

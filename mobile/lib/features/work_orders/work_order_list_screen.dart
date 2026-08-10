@@ -35,24 +35,57 @@ class WorkOrderListScreen extends ConsumerWidget {
               icon: const Icon(Icons.inbox_outlined),
               onPressed: () => context.push('/requerimientos'),
             ),
-          if (auth is AuthSignedIn && auth.user.role == AppRole.owner) ...[
-            IconButton(
-              tooltip: 'Reportes',
-              icon: const Icon(Icons.insights_outlined),
-              onPressed: () => context.push('/reportes'),
-            ),
-            IconButton(
-              tooltip: 'Usuarios',
-              icon: const Icon(Icons.group_outlined),
-              onPressed: () => context.push('/usuarios'),
-            ),
-          ],
           const NotificationBell(),
-          IconButton(
-            tooltip: 'Salir',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-          ),
+          // El resto del taller va en un menú y no en más iconos: la barra de un teléfono no
+          // aguanta seis, y estas pantallas se abren de vez en cuando, no a cada rato.
+          if (auth is AuthSignedIn)
+            PopupMenuButton<String>(
+              tooltip: 'Más',
+              onSelected: (value) {
+                if (value == 'salir') {
+                  ref.read(authControllerProvider.notifier).logout();
+                } else {
+                  context.push(value);
+                }
+              },
+              itemBuilder: (context) => [
+                if (auth.user.role == AppRole.owner) ...[
+                  const PopupMenuItem(
+                    value: '/reportes',
+                    child: ListTile(
+                      leading: Icon(Icons.insights_outlined),
+                      title: Text('Reportes'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: '/clientes',
+                    child: ListTile(
+                      leading: Icon(Icons.contacts_outlined),
+                      title: Text('Clientes'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: '/usuarios',
+                    child: ListTile(
+                      leading: Icon(Icons.group_outlined),
+                      title: Text('Usuarios'),
+                    ),
+                  ),
+                ],
+                if (auth.user.role != AppRole.customer)
+                  const PopupMenuItem(
+                    value: '/inventario',
+                    child: ListTile(
+                      leading: Icon(Icons.inventory_2_outlined),
+                      title: Text('Inventario'),
+                    ),
+                  ),
+                const PopupMenuItem(
+                  value: 'salir',
+                  child: ListTile(leading: Icon(Icons.logout), title: Text('Salir')),
+                ),
+              ],
+            ),
         ],
       ),
       // Los tres perfiles: el Cliente pide cita desde su casa y el taller recibe el vehículo

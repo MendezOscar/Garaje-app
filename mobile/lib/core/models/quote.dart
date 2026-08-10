@@ -31,6 +31,7 @@ enum LineType {
 
 class QuoteLine {
   const QuoteLine({
+    required this.id,
     required this.lineType,
     required this.description,
     required this.quantity,
@@ -39,6 +40,7 @@ class QuoteLine {
   });
 
   factory QuoteLine.fromJson(Map<String, dynamic> json) => QuoteLine(
+        id: json['id'] as String,
         lineType: LineType.fromValue(json['lineType'] as int),
         description: json['description'] as String,
         quantity: (json['quantity'] as num).toDouble(),
@@ -46,6 +48,7 @@ class QuoteLine {
         total: (json['total'] as num).toDouble(),
       );
 
+  final String id;
   final LineType lineType;
   final String description;
   final double quantity;
@@ -67,6 +70,7 @@ class Quote {
     required this.currency,
     required this.lines,
     required this.isExpired,
+    required this.isEditable,
     this.vehicleLabel,
     this.workOrderNumber,
     this.notes,
@@ -95,6 +99,9 @@ class Quote {
         customerResponseNote: json['customerResponseNote'] as String?,
         publicUrl: json['publicUrl'] as String?,
         isExpired: json['isExpired'] as bool? ?? false,
+        // El listado no lo trae: sin detalle se asume no editable, que es lo que impide
+        // enseñar botones de edición sobre una cotización que el backend rechazaría.
+        isEditable: json['isEditable'] as bool? ?? false,
         lines: ((json['lines'] as List<dynamic>?) ?? [])
             .map((l) => QuoteLine.fromJson(l as Map<String, dynamic>))
             .toList(),
@@ -120,6 +127,10 @@ class Quote {
   /// Link que se comparte por WhatsApp. Null mientras sea un borrador.
   final String? publicUrl;
   final bool isExpired;
+
+  /// Todavía se le pueden tocar las líneas. Una cotización respondida es un documento
+  /// cerrado: el backend devuelve 409 al editarla.
+  final bool isEditable;
   final List<QuoteLine> lines;
 
   /// El cliente todavía puede responderla.

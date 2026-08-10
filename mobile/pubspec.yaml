@@ -26,6 +26,10 @@ dependencies:
   # Solo para recordar que el recorrido de bienvenida ya se vio. Va en las preferencias del
   # sistema y no en el almacén seguro: no es un secreto y no debe sobrevivir a desinstalar.
   shared_preferences: ^2.3.5
+  # La hoja de compartir del sistema. Es como sale del teléfono la factura en PDF: el
+  # endpoint va con la sesión puesta, así que el archivo se baja aquí y se comparte —a
+  # WhatsApp, al correo o a la impresora— en vez de abrir una URL que respondería 401.
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

@@ -8,6 +8,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
 import '../shared/status_chip.dart';
+import 'invoice_section.dart';
 import 'parts_section.dart';
 import 'photo_gallery.dart';
 import 'quotes_section.dart';
@@ -330,6 +331,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               ),
               PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
               QuotesSection(workOrderId: order.id),
+              // Cobrar es lo último del trabajo y pasa en el taller, con el cliente
+              // enfrente: si solo estuviera en el web habría que subir a la computadora
+              // con el vehículo ya entregado.
+              if (_isOwner) InvoiceSection(order: order),
               if (_canEdit && order.allowedNextStatuses.isNotEmpty)
                 _Section(
                   title: 'Cambiar estado',
