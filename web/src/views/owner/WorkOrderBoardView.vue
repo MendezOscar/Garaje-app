@@ -7,6 +7,7 @@ import {
   KANBAN_COLUMNS,
   WORK_ORDER_STATUS_LABEL,
   VEHICLE_TYPE_LABEL,
+  WorkOrderStatus,
   type User,
   type WorkOrderListItem,
 } from '@/types/domain'
@@ -18,12 +19,20 @@ const orders = ref<WorkOrderListItem[]>([])
 const technicians = ref<User[]>([])
 const search = ref('')
 const branchId = ref<string>('')
+const verCerradas = ref(false)
 const loading = ref(false)
 const error = ref('')
 
 /**
- * Trae las órdenes abiertas de una vez y agrupa en memoria. Un taller tiene decenas de
- * órdenes vivas, no miles: siete peticiones —una por columna— sería peor.
+ * Con una búsqueda escrita se dejan de filtrar las cerradas aunque el interruptor esté
+ * apagado: quien escribe una placa la quiere encontrar aunque el carro ya salió del taller,
+ * y hasta ahora no aparecía por ningún lado.
+ */
+const soloAbiertas = computed(() => !verCerradas.value && !search.value.trim())
+
+/**
+ * Trae las órdenes de una vez y agrupa en memoria. Un taller tiene decenas de órdenes vivas,
+ * no miles: siete peticiones —una por columna— sería peor.
  */
 async function load() {
   loading.value = true
@@ -31,7 +40,7 @@ async function load() {
 
   try {
     const result = await workOrdersApi.list({
-      onlyOpen: true,
+      onlyOpen: soloAbiertas.value,
       branchId: branchId.value || undefined,
       search: search.value || undefined,
       pageSize: 200,
@@ -44,12 +53,24 @@ async function load() {
   }
 }
 
-const columns = computed(() =>
-  KANBAN_COLUMNS.map((status) => ({
+/** Entregada y Cancelada van al final, y solo cuando hay algo que poner en ellas. */
+const CERRADAS: WorkOrderStatus[] = [WorkOrderStatus.Delivered, WorkOrderStatus.Cancelled]
+
+const columns = computed(() => {
+  const visibles = [
+    ...KANBAN_COLUMNS,
+    ...CERRADAS.filter((status) => orders.value.some((o) => o.status === status)),
+  ]
+
+  return visibles.map((status) => ({
     status,
     label: WORK_ORDER_STATUS_LABEL[status],
     items: orders.value.filter((o) => o.status === status),
-  })),
+  }))
+})
+
+const abiertas = computed(
+  () => orders.value.filter((o) => !CERRADAS.includes(o.status)).length,
 )
 
 const branches = computed(() => auth.user?.branches ?? [])
@@ -69,6 +90,9 @@ function techniciansFor(order: WorkOrderListItem) {
 }
 
 function isLate(order: WorkOrderListItem) {
+  // Una orden entregada ya no se atrasa: marcarla en rojo sería alarmar por algo cerrado.
+  if (CERRADAS.includes(order.status)) return false
+
   return order.promisedAt != null && new Date(order.promisedAt) < new Date()
 }
 
@@ -77,7 +101,7 @@ onMounted(async () => {
   await load()
 })
 
-watch([search, branchId], load)
+watch([search, branchId, verCerradas], load)
 </script>
 
 <template>
@@ -92,7 +116,12 @@ watch([search, branchId], load)
         <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
 
-      <span class="count">{{ orders.length }} abiertas</span>
+      <label class="checkbox" title="Las entregadas y las canceladas salen del tablero">
+        <input v-model="verCerradas" type="checkbox" />
+        Ver entregadas
+      </label>
+
+      <span class="count">{{ abiertas }} abiertas</span>
     </header>
 
     <p v-if="error" class="error">{{ error }}</p>
@@ -293,6 +322,14 @@ watch([search, branchId], load)
 }
 
 .muted {
+  color: var(--text-muted);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
   color: var(--text-muted);
 }
 

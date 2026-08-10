@@ -15,10 +15,17 @@ class WorkOrderRepository {
 
   /// El backend ya limita el resultado a lo que corresponde al perfil: el Técnico recibe
   /// solo sus asignaciones y el Cliente solo las órdenes de sus vehículos.
-  Future<List<WorkOrderListItem>> list({bool onlyOpen = true}) async {
+  Future<List<WorkOrderListItem>> list({
+    bool onlyOpen = true,
+    String? vehicleId,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/work-orders',
-      queryParameters: {'onlyOpen': onlyOpen, 'pageSize': 100},
+      queryParameters: {
+        'onlyOpen': onlyOpen,
+        'pageSize': 100,
+        if (vehicleId != null) 'vehicleId': vehicleId,
+      },
     );
 
     return (response.data!['items'] as List<dynamic>)
@@ -172,10 +179,33 @@ final laborServicesProvider = FutureProvider<List<LaborServiceOption>>(
   (ref) => ref.watch(workOrderRepositoryProvider).laborServices(),
 );
 
+/// Si la bandeja muestra solo las órdenes vivas o también las entregadas y canceladas.
+/// Arranca en `true`: lo del día es lo que interesa al abrir la aplicación.
+final onlyOpenOrdersProvider =
+    NotifierProvider<OnlyOpenOrders, bool>(OnlyOpenOrders.new);
+
+class OnlyOpenOrders extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void set(bool value) => state = value;
+}
+
 /// Lista de órdenes del usuario. `autoDispose` para que al volver a la pantalla se recargue:
 /// el técnico necesita ver lo que el dueño le asignó mientras estaba en otra vista.
 final myWorkOrdersProvider = FutureProvider.autoDispose<List<WorkOrderListItem>>(
-  (ref) => ref.watch(workOrderRepositoryProvider).list(),
+  (ref) => ref
+      .watch(workOrderRepositoryProvider)
+      .list(onlyOpen: ref.watch(onlyOpenOrdersProvider)),
+);
+
+/// Todo lo que se le ha hecho a un vehículo, entregado incluido. Es lo que se pregunta en el
+/// mostrador cuando el cliente vuelve: «¿qué le hicieron la vez pasada?».
+final vehicleHistoryProvider =
+    FutureProvider.autoDispose.family<List<WorkOrderListItem>, String>(
+  (ref, vehicleId) => ref
+      .watch(workOrderRepositoryProvider)
+      .list(onlyOpen: false, vehicleId: vehicleId),
 );
 
 final workOrderDetailProvider =

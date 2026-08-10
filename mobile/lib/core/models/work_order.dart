@@ -195,6 +195,7 @@ class WorkOrderDetail {
     required this.branchName,
     required this.status,
     required this.allowedNextStatuses,
+    required this.vehicleId,
     required this.vehicleLabel,
     required this.vehicleType,
     required this.customerName,
@@ -225,6 +226,7 @@ class WorkOrderDetail {
         allowedNextStatuses: (json['allowedNextStatuses'] as List<dynamic>)
             .map((v) => WorkOrderStatus.fromValue(v as int))
             .toList(),
+        vehicleId: json['vehicleId'] as String,
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
@@ -260,6 +262,7 @@ class WorkOrderDetail {
   final String branchName;
   final WorkOrderStatus status;
   final List<WorkOrderStatus> allowedNextStatuses;
+  final String vehicleId;
   final String vehicleLabel;
   final VehicleType vehicleType;
   final String? plate;

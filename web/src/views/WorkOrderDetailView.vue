@@ -22,8 +22,9 @@ import {
   type SaleDetail,
   type User,
   type WorkOrderDetail,
+  type WorkOrderListItem,
 } from '@/types/domain'
-import { formatDateTime, formatMoney, relativeTime, whatsappLink } from '@/utils/format'
+import { formatDate, formatDateTime, formatMoney, relativeTime, whatsappLink } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,6 +69,13 @@ const laborSource = ref('tasks')
 /** Copia editable del diagnóstico. Se refresca en cada carga, incluida la de después de guardar. */
 const diagnosis = ref('')
 
+/**
+ * Las demás órdenes del mismo vehículo, entregadas incluidas. Es la pregunta del mostrador
+ * —«¿qué le hemos hecho a este carro?»— y hasta ahora no había forma de responderla: una
+ * orden entregada desaparecía del tablero.
+ */
+const historial = ref<WorkOrderListItem[]>([])
+
 const id = computed(() => route.params.id as string)
 const canEdit = computed(() => !auth.isCustomer)
 
@@ -75,6 +83,15 @@ async function load() {
   try {
     order.value = await workOrdersApi.get(id.value)
     diagnosis.value = order.value.diagnosis ?? ''
+
+    if (canEdit.value) {
+      const page = await workOrdersApi.list({
+        vehicleId: order.value.vehicleId,
+        onlyOpen: false,
+        pageSize: 20,
+      })
+      historial.value = page.items.filter((o) => o.id !== id.value)
+    }
     manualLabor.value = order.value.manualLaborTotal ?? ''
     if (auth.isOwner) {
       // El detalle de cada venta, no el listado: hacen falta los abonos, que solo vienen ahí.
@@ -730,6 +747,21 @@ onMounted(async () => {
           </div>
         </article>
 
+        <article v-if="historial.length" class="card">
+          <h2>Historial del vehículo</h2>
+          <ul class="historial">
+            <li v-for="previa in historial" :key="previa.id">
+              <RouterLink :to="{ name: 'work-order', params: { id: previa.id } }">
+                {{ previa.number }}
+              </RouterLink>
+              <span class="badge">{{ WORK_ORDER_STATUS_LABEL[previa.status] }}</span>
+              <div class="muted small">
+                {{ formatDate(previa.openedAt) }} · {{ previa.description }}
+              </div>
+            </li>
+          </ul>
+        </article>
+
         <article class="card">
           <h2>Línea de tiempo</h2>
           <ol class="timeline">
@@ -1091,6 +1123,33 @@ dd {
 
 .sale p {
   margin-bottom: 0.5rem;
+}
+
+.historial {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.625rem;
+}
+
+.historial li {
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.historial li:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.historial .badge {
+  margin-left: 0.5rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .timeline {

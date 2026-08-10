@@ -16,6 +16,7 @@ escritorio: exportar a Excel, el tablero por estados y la vista pública de la c
 | | Web | App |
 | --- | --- | --- |
 | Órdenes, pasos, fotos, estados | Tablero por estado | Lista y detalle |
+| Órdenes entregadas y historial del vehículo | Sí | Sí |
 | Requerimientos y recepción en mostrador | Sí | Sí |
 | Cotizar: armar líneas, PDF, WhatsApp | Sí | Sí |
 | Cerrar y facturar, abonos, factura en PDF | Sí | Sí |

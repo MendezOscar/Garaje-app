@@ -185,6 +185,7 @@ export const workOrdersApi = {
     status?: WorkOrderStatus
     branchId?: string
     technicianId?: string
+    vehicleId?: string
     search?: string
     onlyOpen?: boolean
     page?: number

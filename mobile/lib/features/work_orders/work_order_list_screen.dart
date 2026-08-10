@@ -96,6 +96,9 @@ class WorkOrderListScreen extends ConsumerWidget {
               ],
             ),
         ],
+        // El filtro va en la barra y no dentro de la lista: así no se va con el scroll
+        // justo cuando se está buscando una orden vieja.
+        bottom: auth is AuthSignedIn ? const _OrdersFilter() : null,
       ),
       // Los tres perfiles: el Cliente pide cita desde su casa y el taller recibe el vehículo
       // en el mostrador, que es de donde entra la mayoría de los ingresos.
@@ -152,6 +155,38 @@ class WorkOrderListScreen extends ConsumerWidget {
               ),
             )
           : null,
+    );
+  }
+}
+
+/// Abiertas o todas. Una orden entregada salía de la bandeja y no había forma de volver a
+/// ella —ni para ver qué se le hizo al vehículo, ni para compartir otra vez la factura—.
+class _OrdersFilter extends ConsumerWidget implements PreferredSizeWidget {
+  const _OrdersFilter();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(52);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onlyOpen = ref.watch(onlyOpenOrdersProvider);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: true, label: Text('En el taller')),
+            ButtonSegment(value: false, label: Text('Todas')),
+          ],
+          selected: {onlyOpen},
+          showSelectedIcon: false,
+          style: const ButtonStyle(visualDensity: VisualDensity.compact),
+          onSelectionChanged: (value) =>
+              ref.read(onlyOpenOrdersProvider.notifier).set(value.first),
+        ),
+      ),
     );
   }
 }

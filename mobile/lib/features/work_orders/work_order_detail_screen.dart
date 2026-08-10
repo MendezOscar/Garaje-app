@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/staff_repository.dart';
@@ -350,6 +351,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                     ],
                   ),
                 ),
+              _VehicleHistorySection(order: order),
               _TimelineSection(entries: order.timeline),
               const SizedBox(height: 32),
             ],
@@ -397,6 +399,63 @@ class _Header extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Las demás órdenes del mismo vehículo, entregadas incluidas. Responde la pregunta del
+/// mostrador cuando el cliente vuelve a los dos meses: qué se le hizo y cuándo.
+class _VehicleHistorySection extends ConsumerWidget {
+  const _VehicleHistorySection({required this.order});
+
+  final WorkOrderDetail order;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(vehicleHistoryProvider(order.vehicleId));
+    final theme = Theme.of(context);
+
+    return history.maybeWhen(
+      data: (items) {
+        final otras = items.where((o) => o.id != order.id).toList();
+        if (otras.isEmpty) return const SizedBox.shrink();
+
+        return _Section(
+          title: 'Historial del vehículo',
+          child: Column(
+            children: [
+              for (final previa in otras)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  title: Row(
+                    children: [
+                      Text(previa.number, style: theme.textTheme.titleSmall),
+                      const SizedBox(width: 8),
+                      StatusChip(status: previa.status),
+                    ],
+                  ),
+                  subtitle: Text(
+                    '${_fecha(previa.openedAt)} · ${previa.description}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  // `push` y no `go`: se vuelve a esta orden con la flecha de atrás.
+                  onTap: () => context.push('/ordenes/${previa.id}'),
+                ),
+            ],
+          ),
+        );
+      },
+      // Mientras carga, o si falla, no se dibuja nada: es información de apoyo y no puede
+      // ensuciar la pantalla de la orden que se está atendiendo.
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  static String _fecha(DateTime value) {
+    final d = value.toLocal();
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 }
 
