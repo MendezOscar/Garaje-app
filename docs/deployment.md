@@ -127,9 +127,26 @@ Lo que cambia respecto a producción:
    responde 500 al arrancar, es que hay que despausarlo en el dashboard.
 3. **Bucket**: `garaj-media-pruebas` en R2, con el mismo CORS de
    [r2-cors.json](../r2-cors.json) más la URL del preview de Pages.
-4. **Render**: aplicar el blueprint otra vez (**New → Blueprint**, o *Sync* en el existente).
-   Render muestra el diff antes de tocar nada: debe crear `garaj-api-pruebas` y no cambiar
-   producción. Luego cargar las variables `sync: false` de ese servicio.
+4. **Render**: crear el servicio **a mano**, no sincronizando el blueprint. Los servicios de
+   este workspace se crearon desde el dashboard y Render no adopta servicios existentes al
+   aplicar un blueprint: los crea de nuevo, así que un Sync duplicaría producción.
+
+   En el proyecto, **+ Add environment** con nombre `Pruebas`, y dentro **New → Web Service**:
+
+   | Campo | Valor |
+   | --- | --- |
+   | Repositorio | el mismo |
+   | Name | `garaje-app-pruebas` |
+   | Branch | `pruebas` |
+   | Language / Runtime | **Docker** |
+   | Dockerfile Path | `./backend/Dockerfile` |
+   | Docker Build Context Directory | `./backend` |
+   | Region | Virginia (US East) |
+   | Instance Type | **Free** |
+   | Health Check Path | `/health` |
+
+   Y las variables de entorno del bloque `garaje-app-pruebas` de
+   [render.yaml](../render.yaml): ahí está la lista completa con el valor de cada una.
 5. **Panel**: en el proyecto de Pages, **Settings → Environment variables → Preview**, poner
    `VITE_API_URL` con la URL del servicio de pruebas. Los despliegues de una rama que no es la
    de producción usan esas variables, así que la rama `pruebas` sale sola en
@@ -142,12 +159,12 @@ git switch pruebas && git merge main     # o trabajar directamente en la rama
 git push                                 # Render y Pages despliegan solos
 
 # Sembrar la demostración en pruebas, cuando haga falta
-TOKEN=$(curl -s https://garaj-api-pruebas.onrender.com/api/auth/login \
+TOKEN=$(curl -s https://garaje-app-pruebas.onrender.com/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"owner@garaj.test","password":"Garaj123!"}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
 
-curl -s https://garaj-api-pruebas.onrender.com/api/demo/seed \
+curl -s https://garaje-app-pruebas.onrender.com/api/demo/seed \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"confirm":"BORRAR Y SEMBRAR","weeks":6}'
 ```

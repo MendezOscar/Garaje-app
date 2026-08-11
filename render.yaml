@@ -1,9 +1,15 @@
-# Blueprint de Render. Se aplica desde el dashboard: New → Blueprint → conectar el repo.
+# Blueprint de Render: la especificación de los servicios, para poder reconstruirlos.
+#
+# OJO, no lo sincronice sobre el workspace actual: los dos servicios se crearon a mano desde el
+# dashboard, y Render no adopta servicios existentes al aplicar un blueprint —los crea de nuevo—,
+# así que un Sync duplicaría producción. Sirve como referencia de qué lleva cada servicio, y para
+# levantar todo de cero en un workspace vacío.
+#
 # Los valores con `sync: false` NO se guardan en el repo: se cargan a mano en el dashboard.
 
 services:
   - type: web
-    name: garaj-api
+    name: garaje-app
     runtime: docker
     plan: free
     # Virginia: la región de Render más cercana a Honduras y la misma en la que está el
@@ -60,7 +66,7 @@ services:
   # demostración, que necesita un Dueño autenticado— y los errores salen con detalle. Es
   # aceptable porque aquí no hay datos de nadie; no ponga nunca datos reales en este entorno.
   - type: web
-    name: garaj-api-pruebas
+    name: garaje-app-pruebas
     runtime: docker
     plan: free
     region: virginia
