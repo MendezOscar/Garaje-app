@@ -64,8 +64,8 @@ const pasos = [
   {
     titulo: 'Factura y cobra',
     texto:
-      'Al entregar, la orden se factura con lo que de verdad se consumió. Si el cliente ' +
-      'queda debiendo, el saldo queda en cuentas por cobrar con su fecha de pago.',
+      'Al entregar, la orden se factura con lo que de verdad se consumió, con CAI del SAR si ' +
+      'lo tiene. Si el cliente queda debiendo, el saldo queda en cuentas por cobrar.',
   },
 ]
 
@@ -93,6 +93,12 @@ const incluye = [
     texto:
       'Cierre de la orden, venta de mostrador, pagos a crédito con abonos y la lista de lo ' +
       'que falta por cobrar, con lo vencido aparte.',
+  },
+  {
+    titulo: 'Factura con CAI',
+    texto:
+      'Registra el CAI de cada sucursal y la factura sale con número autorizado, rango, fecha ' +
+      'límite, RTN del cliente y valor en letras. Le avisa cuando el rango se está acabando.',
   },
   {
     titulo: 'Reportes del día',
