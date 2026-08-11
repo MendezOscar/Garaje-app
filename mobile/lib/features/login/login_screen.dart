@@ -116,8 +116,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Demostración: eduar@rvm.hn · caleb@rvm.hn\n'
-                      'daleth.moran@gmail.com · contraseña Garaj123!',
+                      'Demostración: dueno@tallerdemo.hn · tecnico1@tallerdemo.hn\n'
+                      'cliente1@tallerdemo.hn · contraseña Garaj123!',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

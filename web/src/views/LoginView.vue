@@ -59,7 +59,7 @@ async function submit() {
            visitantes aquí, dejar las credenciales impresas sería regalar el panel de
            demostración a cualquiera que llegue. -->
       <p v-if="mostrarDemo" class="hint">
-        Demostración: eduar@rvm.hn · caleb@rvm.hn · daleth.moran@gmail.com<br />
+        Demostración: dueno@tallerdemo.hn · tecnico1@tallerdemo.hn · cliente1@tallerdemo.hn<br />
         Contraseña: Garaj123!
       </p>
     </form>

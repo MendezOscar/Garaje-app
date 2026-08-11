@@ -5,12 +5,12 @@ prueba la gráfica de ingresos es una sola barra y no se entiende para qué sirv
 semanas de historia se ve la forma del negocio —los lunes cargados, los sábados a medias, los
 domingos cerrado— y ahí sí se explica solo.
 
-El `DemoSeeder` genera eso para el **Taller RVM**: tres sucursales, tres técnicos, doce
+El `DemoSeeder` genera eso para el **Taller Demo**: tres sucursales, tres técnicos, doce
 clientes, unos 240 trabajos repartidos en el calendario, cotizaciones aprobadas y rechazadas,
 kardex con compras de reposición y dos repuestos bajo mínimo.
 
-**Solo motocicletas.** El sistema maneja autos igual de bien, pero RVM trabaja motos y una
-demostración con un Corolla en medio se nota postiza. Para volver a incluir autos hay que
+**Solo motocicletas.** El sistema maneja autos igual de bien, pero el taller de la
+demostración trabaja motos y un Corolla en medio se nota postizo. Para volver a incluir autos hay que
 añadir vehículos de tipo `Car` y entradas al catálogo de `Jobs` del sembrador; el resto no
 distingue.
 
@@ -19,13 +19,19 @@ distingue.
 
 ## Cómo dispararlo
 
+> **Antes de dispararlo en producción, lea esto.** La siembra **borra la base entera**, así que
+> solo se puede correr mientras ahí no haya ningún taller real. Una vez dado de alta el primer
+> cliente, este endpoint deja de ser una opción: ver el orden en
+> [deployment.md](deployment.md#puesta-en-marcha-del-primer-cliente).
+
 1. En Render, agregar la variable `Demo__AllowSeeding` con valor `true` y esperar el redespliegue.
-2. Entrar como Dueño y llamar al endpoint:
+2. Entrar como el Dueño que exista en esa base —el correo de abajo es el que queda **después**
+   de sembrar— y llamar al endpoint:
 
 ```bash
 TOKEN=$(curl -s https://garaje-app.onrender.com/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"eduar@rvm.hn","password":"Garaj123!"}' \
+  -d '{"email":"dueno@tallerdemo.hn","password":"Garaj123!"}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
 
 curl -s https://garaje-app.onrender.com/api/demo/seed \
@@ -46,8 +52,8 @@ En local es lo mismo, arrancando la API con `Demo__AllowSeeding=true` y apuntand
 
 | | |
 | --- | --- |
-| Taller | Taller RVM · ISV 15% · lempiras |
-| Sucursales | RVM 13 Calle (C13) y RVM 10 Calle (C10), San Pedro Sula · RVM Cuyamel (CUY), Omoa |
+| Taller | Taller Demo · ISV 15% · lempiras |
+| Sucursales | Sucursal Centro (CEN) y Sucursal Sur (SUR), San Pedro Sula · Sucursal Puerto (PTO), Puerto Cortés |
 | Usuarios | 1 Dueño, 3 Técnicos, 2 Clientes — contraseña `Garaj123!` |
 | Clientes | 12, con 17 motocicletas |
 | Catálogos | 26 repuestos y 14 servicios de mano de obra, todo de moto |
@@ -58,16 +64,18 @@ Accesos:
 
 | Perfil | Correo |
 | --- | --- |
-| Dueño | `eduar@rvm.hn` — Eduar Rivera |
-| Técnico (13 y 10 Calle) | `caleb@rvm.hn` — Caleb Rivera |
-| Técnico (Cuyamel) | `marlon@rvm.hn` — Marlon Interiano |
-| Cliente | `daleth.moran@gmail.com` — Daleth Morán |
-| Cliente | `oscar.mendez@gmail.com` — Óscar Méndez |
+| Dueño | `dueno@tallerdemo.hn` — Mario Alvarado |
+| Técnico (Centro y Sur) | `tecnico1@tallerdemo.hn` — Kevin Discua |
+| Técnico (Sur) | `tecnico2@tallerdemo.hn` — Nelson Aguilar |
+| Técnico (Puerto) | `tecnico3@tallerdemo.hn` — Wilmer Castellanos |
+| Cliente | `cliente1@tallerdemo.hn` — Ana Lucía Fajardo |
+| Cliente | `cliente2@tallerdemo.hn` — Marvin Alexis Portillo |
 
-**Datos de relleno que hay que corregir antes de enseñárselo al dueño de RVM:** la razón
-social, el RTN, los teléfonos y los correos del taller salen impresos en el PDF de la
-cotización y en la página pública. Los técnicos Keny Alvarado y Marlon Interiano también son
-inventados: con tres sucursales, un solo técnico no da la talla.
+**Todo el taller es inventado, y a propósito.** Este es el taller que se le enseña a quien
+todavía no ha comprado, así que ningún dato puede parecerse al de un taller de verdad: los
+teléfonos van al bloque 9000 xxxx, que no existe, para que un enlace de WhatsApp no le caiga
+a nadie, y los correos terminan en `tallerdemo.hn`. El taller del cliente **no se siembra**:
+se crea con `provision-tenant` (ver [deployment.md](deployment.md)).
 
 ## Decisiones que conviene conocer
 
@@ -84,7 +92,7 @@ inventados: con tres sucursales, un solo técnico no da la talla.
   el umbral, que es lo que hace creíble la advertencia.
 - **Solo uno de cada cuatro trabajos pasó por cotización.** En motos casi todo se autoriza
   de palabra en el mostrador; se cotiza cuando el trabajo es grande y el dueño quiere pensarlo.
-- **Cuyamel factura menos y carga menos inventario** que las dos de San Pedro. Repartir por
+- **La sucursal del puerto factura menos y carga menos inventario** que las dos de San Pedro. Repartir por
   igual haría que el desglose por sucursal fueran tres barras idénticas.
 - **Los motivos, diagnósticos y repuestos concuerdan entre sí**: quien entra porque le salta
   la cadena sale con un kit de arrastre, no con una batería. Es lo que hace que se lea como

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Garaj.Infrastructure.Persistence;
 
 /// <summary>
-/// Siembra el Taller RVM con varias semanas de historia, para presentar la aplicación.
+/// Siembra el Taller Demo con varias semanas de historia, para presentar la aplicación.
 /// </summary>
 /// <remarks>
 /// No es el <see cref="DbSeeder"/> de desarrollo. Aquel deja cuatro órdenes para tener contra
@@ -19,8 +19,8 @@ namespace Garaj.Infrastructure.Persistence;
 /// movimiento y repuestos que ya cayeron bajo mínimo. Sin eso, la gráfica de reportes es una
 /// sola barra y no se entiende para qué sirve.
 ///
-/// <b>Solo motocicletas.</b> El sistema maneja autos igual de bien, pero RVM trabaja motos y
-/// una demostración con un Corolla en medio se nota postiza. Para volver a incluir autos hay
+/// <b>Solo motocicletas.</b> El sistema maneja autos igual de bien, pero el taller de la
+/// demostración trabaja motos y un Corolla en medio se nota postizo. Para volver a incluir autos hay
 /// que añadir vehículos de tipo <see cref="VehicleType.Car"/> y entradas al catálogo de
 /// <see cref="Jobs"/>; el resto del sembrador no distingue.
 ///
@@ -149,14 +149,15 @@ public class DemoSeeder(
     {
         var tenant = new Tenant
         {
-            Name = "Taller RVM",
-            // Razón social, RTN, teléfono y correo son de relleno: salen impresos en el PDF
-            // de la cotización y en la página pública, así que hay que corregirlos con los
-            // datos reales de RVM antes de enseñárselo al dueño.
-            LegalName = "Rivera Motors S. de R.L.",
+            Name = "Taller Demo",
+            // Todo es inventado a propósito, y se nota: este taller se le enseña a un
+            // cliente que todavía no ha comprado, así que ningún dato de aquí puede
+            // parecerse al de un taller de verdad. Los teléfonos van a un bloque que no
+            // existe (9000 xxxx) para que un enlace de WhatsApp no le caiga a nadie.
+            LegalName = "Taller Demo S. de R.L.",
             TaxId = "05019012345678",
-            Phone = "50425500110",
-            Email = "contacto@tallerrvm.hn",
+            Phone = "50490000100",
+            Email = "contacto@tallerdemo.hn",
             Currency = "HNL",
             DefaultTaxRate = 15m,
             DefaultPhoneCountryCode = "504"
@@ -171,32 +172,32 @@ public class DemoSeeder(
 
     private async Task<List<Branch>> SeedBranchesAsync(CancellationToken ct)
     {
-        // El código prefija los correlativos: C13-000123, C10-000045, CUY-000012.
+        // El código prefija los correlativos: CEN-000123, SUR-000045, PTO-000012.
         var branches = new List<Branch>
         {
             new()
             {
-                Name = "RVM 13 Calle",
-                Code = "C13",
+                Name = "Sucursal Centro",
+                Code = "CEN",
                 City = "San Pedro Sula",
-                Address = "13 calle, entre 8 y 9 avenida",
-                Phone = "50425500110"
+                Address = "3 calle, entre 8 y 9 avenida",
+                Phone = "50490000100"
             },
             new()
             {
-                Name = "RVM 10 Calle",
-                Code = "C10",
+                Name = "Sucursal Sur",
+                Code = "SUR",
                 City = "San Pedro Sula",
-                Address = "10 calle, entre 6 y 7 avenida",
-                Phone = "50425500220"
+                Address = "Boulevard del sur, salida a La Lima",
+                Phone = "50490000200"
             },
             new()
             {
-                Name = "RVM Cuyamel",
-                Code = "CUY",
-                City = "Cuyamel, Omoa",
+                Name = "Sucursal Puerto",
+                Code = "PTO",
+                City = "Puerto Cortés",
                 Address = "Calle principal, contiguo al mercado",
-                Phone = "50426600330"
+                Phone = "50490000300"
             }
         };
 
@@ -208,27 +209,30 @@ public class DemoSeeder(
 
     private async Task<Staff> SeedStaffAsync(Guid tenantId, List<Branch> branches)
     {
-        var (c13, c10, cuyamel) = (branches[0], branches[1], branches[2]);
+        var (centro, sur, puerto) = (branches[0], branches[1], branches[2]);
 
-        var owner = await CreateUserAsync("eduar@rvm.hn", "Eduar Rivera", AppRoles.Owner, tenantId);
+        var owner = await CreateUserAsync(
+            "dueno@tallerdemo.hn", "Mario Alvarado", AppRoles.Owner, tenantId);
 
-        // Caleb cubre las dos sucursales de San Pedro: un técnico puede estar asignado a
-        // varias, y en la práctica se mueve entre ellas.
-        var caleb = await CreateUserAsync(
-            "caleb@rvm.hn", "Caleb Rivera", AppRoles.Technician, tenantId, [c13.Id, c10.Id]);
+        // El primero cubre las dos sucursales de San Pedro: un técnico puede estar asignado
+        // a varias, y en la práctica se mueve entre ellas.
+        var tecnico1 = await CreateUserAsync(
+            "tecnico1@tallerdemo.hn", "Kevin Discua", AppRoles.Technician, tenantId,
+            [centro.Id, sur.Id]);
 
-        // Los otros dos son inventados: con tres sucursales y doscientos trabajos, un solo
-        // técnico no da la talla y la demostración se vuelve inverosímil.
-        var keny = await CreateUserAsync(
-            "keny@rvm.hn", "Keny Alvarado", AppRoles.Technician, tenantId, [c10.Id]);
-        var marlon = await CreateUserAsync(
-            "marlon@rvm.hn", "Marlon Interiano", AppRoles.Technician, tenantId, [cuyamel.Id]);
+        // Con tres sucursales y doscientos trabajos, un solo técnico no da la talla y la
+        // demostración se vuelve inverosímil.
+        var tecnico2 = await CreateUserAsync(
+            "tecnico2@tallerdemo.hn", "Nelson Aguilar", AppRoles.Technician, tenantId, [sur.Id]);
+        var tecnico3 = await CreateUserAsync(
+            "tecnico3@tallerdemo.hn", "Wilmer Castellanos", AppRoles.Technician, tenantId,
+            [puerto.Id]);
 
         return new Staff(owner, new Dictionary<Guid, AppUser[]>
         {
-            [c13.Id] = [caleb],
-            [c10.Id] = [caleb, keny],
-            [cuyamel.Id] = [marlon]
+            [centro.Id] = [tecnico1],
+            [sur.Id] = [tecnico1, tecnico2],
+            [puerto.Id] = [tecnico3]
         });
     }
 
@@ -268,18 +272,18 @@ public class DemoSeeder(
         // hondureña, porque el detalle que delata un dato inventado es siempre la placa.
         (string Name, string Phone, string? Email)[] people =
         [
-            ("Daleth Morán", "50497451122", "daleth.moran@gmail.com"),
-            ("Óscar Méndez", "50488230145", "oscar.mendez@gmail.com"),
-            ("Karla Vanessa Discua", "50432117788", "kdiscua@hotmail.com"),
-            ("José Ramón Bustillo", "50499874512", null),
-            ("Mensajería Express SPS", "50425509911", "flota@mensajeriaexpress.hn"),
-            ("Digna Esperanza Núñez", "50496320014", null),
-            ("Elvin Josué Padilla", "50433458890", "elvinpadilla@yahoo.com"),
-            ("Sandra Yolany Mejía", "50487740023", null),
-            ("Pollos El Buen Sabor", "50422456600", "compras@elbuensabor.hn"),
-            ("Roberto Antonio Cálix", "50498112345", null),
-            ("Gladys Marleny Hernández", "50494567712", null),
-            ("Jorge Alberto Ordóñez", "50489900456", "jaordonez@gmail.com"),
+            ("Ana Lucía Fajardo", "50490001001", "cliente1@tallerdemo.hn"),
+            ("Marvin Alexis Portillo", "50490001002", "cliente2@tallerdemo.hn"),
+            ("Karla Vanessa Discua", "50490001003", null),
+            ("José Ramón Bustillo", "50490001004", null),
+            ("Mensajería Rápida Demo", "50490001005", null),
+            ("Digna Esperanza Núñez", "50490001006", null),
+            ("Elvin Josué Padilla", "50490001007", null),
+            ("Sandra Yolany Mejía", "50490001008", null),
+            ("Pollos El Buen Sabor Demo", "50490001009", null),
+            ("Roberto Antonio Cálix", "50490001010", null),
+            ("Gladys Marleny Hernández", "50490001011", null),
+            ("Jorge Alberto Ordóñez", "50490001012", null),
         ];
 
         var customers = people
@@ -289,9 +293,9 @@ public class DemoSeeder(
         db.Customers.AddRange(customers);
         await db.SaveChangesAsync(ct);
 
-        await CreateUserAsync("daleth.moran@gmail.com", customers[0].FullName, AppRoles.Customer,
+        await CreateUserAsync("cliente1@tallerdemo.hn", customers[0].FullName, AppRoles.Customer,
             tenantId, customerId: customers[0].Id);
-        await CreateUserAsync("oscar.mendez@gmail.com", customers[1].FullName, AppRoles.Customer,
+        await CreateUserAsync("cliente2@tallerdemo.hn", customers[1].FullName, AppRoles.Customer,
             tenantId, customerId: customers[1].Id);
 
         // Marcas y cilindradas del mercado hondureño: lo que de verdad entra a un taller de

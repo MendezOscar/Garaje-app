@@ -225,6 +225,24 @@ lista todos los que acepta.
 El catálogo de repuestos, la mano de obra y los técnicos los carga el Dueño desde el panel.
 El logo se puede subir después en **Taller** sin volver a la consola.
 
+### Puesta en marcha del primer cliente
+
+El orden importa, porque `POST /api/demo/seed` **borra la base entera** y en producción el
+taller de demostración y el del cliente viven en la misma:
+
+1. **Dejar la base de demostración como se quiere presentar.** Con
+   `Demo__AllowSeeding` puesta, sembrar el **Taller Demo** (ver [demo.md](demo.md)). Este es el
+   único momento en que se puede: después ya no.
+2. **Dar de alta el taller del cliente** con `provision-tenant`, como arriba. Queda aislado del
+   de demostración por el filtro de tenant: ninguno ve los datos del otro.
+3. **Quitar `Demo__AllowSeeding` de Render** y no volver a ponerla. Desde aquí, sembrar la
+   demostración borraría el taller del cliente.
+4. Entregar la contraseña del Dueño **por un canal aparte** —no por el mismo correo donde va el
+   enlace— y hacerlo cambiarla al entrar.
+
+Si más adelante hace falta refrescar la demostración, ya no se puede sembrar: se crea otro
+taller con `provision-tenant` y se le cargan a mano los datos que se quieran enseñar.
+
 Antes de entregarle el sistema a un cliente:
 
 - [ ] **Quitar `Demo__AllowSeeding` de Render.** Con datos reales en esa base,
