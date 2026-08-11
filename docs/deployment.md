@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Base de datos | Supabase (`us-east-1`) | — |
 | API .NET | Render (Docker, plan free, Virginia) | <https://garaje-app.onrender.com> |
-| Panel web | Cloudflare Pages | <https://garaje-app.pages.dev> |
+| Panel web | Cloudflare Pages | <https://www.garajeapp.com> (antes <https://garaje-app.pages.dev>) |
 | Fotos | Cloudflare R2 (a partir de la Fase 2) | — |
 
 Todo esto requiere cuentas propias. Los pasos de abajo son los que hay que hacer a mano una
@@ -74,8 +74,9 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
    | Variable | Valor |
    | --- | --- |
    | `ConnectionStrings__Default` | la cadena Npgsql del paso 1 |
-   | `Cors__AllowedOrigins__0` | `https://garaje-app.pages.dev` |
-   | `PublicBaseUrl` | `https://garaje-app.pages.dev` |
+   | `Cors__AllowedOrigins__0` | `https://www.garajeapp.com` |
+   | `Cors__AllowedOrigins__1` | `https://garajeapp.com` |
+   | `PublicBaseUrl` | `https://www.garajeapp.com` |
 
    Los dos guiones bajos de `Cors__AllowedOrigins__0` son la forma en que .NET mapea un
    elemento de arreglo desde variables de entorno; sin el `__0` final no lo lee. La URL va
@@ -113,8 +114,27 @@ VITE_API_URL = https://garaje-app.onrender.com
 `web/public/_redirects` ya manda todas las rutas a `index.html`, que es lo que necesita el
 history mode del router; sin eso, recargar `/dashboard` daría 404.
 
-Después del primer despliegue, vuelva a Render y ponga la URL real de Pages en
+Después del primer despliegue, vuelva a Render y ponga la URL real en
 `Cors__AllowedOrigins__0` y `PublicBaseUrl`.
+
+### Dominio propio
+
+Con el dominio en la misma cuenta de Cloudflare, se conecta desde **Workers & Pages → el
+proyecto → Custom domains → Set up a custom domain**, y hay que agregar **los dos nombres**:
+`garajeapp.com` y `www.garajeapp.com`. Cloudflare crea los registros DNS y emite el
+certificado; no hay que escribir ningún registro a mano. En **SSL/TLS** el modo va en
+**Full (strict)**: en «Flexible» la página entra en bucle de redirecciones.
+
+Tres cosas que hay que tocar después, o el dominio nuevo queda a medias:
+
+- `Cors__AllowedOrigins__*` y `PublicBaseUrl` en Render, como arriba. Sin lo primero el panel
+  carga pero no deja entrar; sin lo segundo los enlaces de cotización siguen saliendo con el
+  nombre viejo.
+- El **CORS del bucket R2** (paso 4): la subida de fotos va del navegador directo a R2, así que
+  el dominio nuevo tiene que estar en la lista de orígenes permitidos.
+- Si el dominio recién se registró, los resolvedores de DNS que ya habían preguntado guardan la
+  respuesta «no existe» hasta media hora. Se comprueba contra un resolvedor público
+  (`dig @1.1.1.1 www.garajeapp.com`) antes de dar por roto el despliegue.
 
 ---
 
@@ -140,7 +160,12 @@ Después del primer despliegue, vuelva a Render y ponga la URL real de Pages en
      "rules": [
        {
          "allowed": {
-           "origins": ["https://garaje-app.pages.dev", "http://localhost:5173"],
+           "origins": [
+             "https://www.garajeapp.com",
+             "https://garajeapp.com",
+             "https://garaje-app.pages.dev",
+             "http://localhost:5173"
+           ],
            "methods": ["GET", "PUT"],
            "headers": ["content-type"]
          },
@@ -158,7 +183,7 @@ Después del primer despliegue, vuelva a Render y ponga la URL real de Pages en
 
    ```bash
    curl -si -X OPTIONS "https://<account-id>.r2.cloudflarestorage.com/garaj-media/x" \
-     -H "Origin: https://garaje-app.pages.dev" \
+     -H "Origin: https://www.garajeapp.com" \
      -H "Access-Control-Request-Method: PUT" \
      -H "Access-Control-Request-Headers: content-type" | grep -i access-control
    ```
@@ -277,6 +302,57 @@ Los binarios de tienda ya salen apuntando a producción:
 flutter build ipa
 flutter build appbundle
 ```
+
+### iOS: cuenta de Apple y TestFlight
+
+La app se distribuye primero por **TestFlight**: el binario se sube y los técnicos del taller lo
+instalan por invitación, sin esperar la revisión pública. Cada versión sirve 90 días.
+
+Hace falta el **Apple Developer Program** (US$99 al año, inscripción *Individual*), y que el
+Apple ID de la cuenta tenga verificación en dos pasos. La cuenta la paga y la administra quien
+publica; el taller no necesita cuenta de nada.
+
+Datos del proyecto, ya fijados en el repositorio:
+
+| | |
+| --- | --- |
+| Bundle ID | `com.garaj.garajApp` |
+| Nombre visible | GarajApp |
+| Versión | `pubspec.yaml`, campo `version: 1.0.0+1` — el número tras el `+` sube en cada subida |
+| Dispositivos | **solo iPhone** (`TARGETED_DEVICE_FAMILY = 1`) |
+| Exportación | `ITSAppUsesNonExemptEncryption = false`: la app solo usa HTTPS, así que no hay que responder el cuestionario de criptografía en cada subida |
+| Política de privacidad | <https://www.garajeapp.com/privacidad.html> — obligatoria para publicar y para las pruebas externas de TestFlight |
+
+Pasos, una vez activa la cuenta:
+
+1. En **App Store Connect → Apps → +**, crear la app con el bundle ID de arriba, idioma
+   principal español (México o España, Apple no lista Honduras como idioma), y un SKU cualquiera
+   —`garajapp-001` sirve—.
+2. En Xcode, abrir `mobile/ios/Runner.xcworkspace`, seleccionar el equipo de la cuenta en
+   **Signing & Capabilities** y dejar la firma automática.
+3. Compilar y subir:
+
+   ```bash
+   cd mobile && flutter build ipa
+   # y subir build/ios/ipa/*.ipa con Transporter, o desde Xcode → Organizer → Distribute
+   ```
+
+4. En **TestFlight**, crear un grupo de prueba externa con enlace público y mandarle el enlace
+   al taller por WhatsApp. El primer grupo externo pasa por una revisión ligera de Apple —suele
+   tardar menos de un día— y pide una descripción de qué probar y un correo de contacto.
+5. Para la revisión, dar la cuenta del **Taller Demo** (`dueno@tallerdemo.hn` / `Garaj123!`): el
+   revisor de Apple necesita entrar, y no se le puede dar el taller de un cliente. Eso obliga a
+   tener el Taller Demo sembrado en producción.
+
+Dos cosas que conviene resolver antes de repartir el enlace:
+
+- **El plan free de Render duerme a los 15 minutos** y la app corta la conexión a los 15
+  segundos. Quien abra la app después de una pausa larga verá un error en el primer intento. Con
+  gente de verdad probando, el plan Starter (US$7/mes) deja de ser opcional.
+- **Los avisos push no están configurados** (falta la llave APNs y la capacidad de Push
+  Notifications en el proyecto). La app pide el permiso de notificaciones y luego no llega
+  ninguna: o se completa lo de [push.md](push.md), o conviene no pedir el permiso todavía. Los
+  avisos dentro de la app, en la campana, funcionan igual.
 
 ### Firma de Android
 

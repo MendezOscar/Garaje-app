@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<!--
+  Política de privacidad. Archivo estático en `web/public`, servido tal cual en /privacidad.html.
+  Apple y Google la exigen para publicar la app —y TestFlight con enlace público también—, así
+  que tiene que estar accesible sin sesión y desde una URL estable.
+
+  Si cambia lo que el sistema guarda o quién lo procesa, actualice la fecha de abajo y la
+  sección correspondiente: es un documento que el cliente puede citar.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de privacidad — GarajApp</title>
+  <meta name="description" content="Qué datos guarda GarajApp, para qué, con quién se comparten, cuánto duran y cómo pedir su copia o su borrado." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --brand: #1f6feb; --brand-deep: #124293; --brand-light: #e8f0fe;
+      --ink: #14171c; --muted: #6b7480; --bg: #f7f8fa; --card: #fff; --border: #d9dde4;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); background: var(--bg); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header { border-bottom: 1px solid var(--border); background: #fff; }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; max-width: 780px; margin: 0 auto; padding: 0 24px; }
+    .nav img { height: 26px; width: auto; display: block; }
+    .nav a.home { color: var(--muted); font-weight: 600; font-size: 15px; }
+    main { max-width: 780px; margin: 0 auto; padding: 32px 24px 80px; }
+    h1 { font-size: clamp(28px, 5vw, 38px); font-weight: 800; letter-spacing: -.02em; }
+    .fecha { color: var(--muted); font-size: 15px; margin: 6px 0 24px; }
+    h2 { font-size: 21px; font-weight: 800; margin: 34px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 20px 0 6px; }
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 8px 22px; }
+    li { margin: 5px 0; }
+    code { background: var(--brand-light); color: var(--brand-deep); padding: 1px 6px; border-radius: 5px; font-size: 13.5px; font-family: ui-monospace, Menlo, monospace; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14.5px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
+    .tbl-wrap { overflow-x: auto; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin: 16px 0; }
+    .note { border-left: 4px solid var(--brand); background: var(--brand-light); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14.5px; }
+    footer { border-top: 1px solid var(--border); padding: 24px; color: var(--muted); font-size: 14px; text-align: center; }
+    @media print { header { display: none; } body { background: #fff; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <a href="/"><img src="/brand/garajapp-horizontal.svg" alt="GarajApp" /></a>
+      <a href="/" class="home">← Volver al inicio</a>
+    </div>
+  </header>
+
+  <main>
+    <h1>Política de privacidad</h1>
+    <p class="fecha">Última actualización: 11 de agosto de 2026</p>
+
+    <p>GarajApp es un sistema de administración para talleres mecánicos, formado por una app móvil
+    y un panel web. Este documento explica qué datos guarda, para qué, con quién se comparten y
+    cómo pedir una copia o su borrado. Está escrito para que lo entienda quien lo usa, no para
+    cubrirnos las espaldas.</p>
+
+    <h2>1. Quién responde por sus datos</h2>
+    <p>El sistema lo desarrolla y opera <strong>Óscar Méndez</strong> (Honduras), a quien puede
+    escribir a <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a> o por
+    WhatsApp al <a href="https://wa.me/50498242108">+504 9824 2108</a>.</p>
+    <p>Hay que distinguir dos papeles, porque cambian a quién le reclama qué:</p>
+    <ul>
+      <li><strong>El taller</strong> que contrata GarajApp decide qué información carga de sus
+      clientes y vehículos, y es el responsable de esos datos frente a las personas.</li>
+      <li><strong>GarajApp</strong> los guarda y los procesa por encargo del taller, con las
+      medidas que se describen abajo, y no los usa para nada más.</li>
+    </ul>
+
+    <h2>2. Qué datos se guardan</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Dato</th><th>Para qué</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Cuentas de usuario</strong>: nombre, correo, rol, sucursales asignadas y una
+          versión cifrada de la contraseña.</td>
+          <td>Entrar al sistema y decidir qué puede ver cada quien. La contraseña se guarda con un
+          resumen criptográfico: nadie —tampoco nosotros— puede leerla.</td>
+        </tr>
+        <tr>
+          <td><strong>Clientes del taller</strong>: nombre, teléfono, correo, dirección, número de
+          identidad y RTN.</td>
+          <td>Identificar de quién es cada vehículo, mandarle su cotización y emitir su factura. La
+          identidad y el RTN son obligatorios en la factura fiscal hondureña.</td>
+        </tr>
+        <tr>
+          <td><strong>Vehículos</strong>: placa, marca, modelo, año, color y kilometraje.</td>
+          <td>Saber qué se le hizo a cada vehículo y llevar su historial.</td>
+        </tr>
+        <tr>
+          <td><strong>Trabajo del taller</strong>: órdenes, diagnósticos, pasos, repuestos,
+          cotizaciones, ventas y abonos.</td>
+          <td>Es la operación misma del taller: lo que se hizo, quién lo hizo y cuánto se cobró.</td>
+        </tr>
+        <tr>
+          <td><strong>Fotos</strong> tomadas con la app.</td>
+          <td>Documentar el estado del vehículo y las piezas cambiadas. Se guardan junto a la orden
+          de trabajo.</td>
+        </tr>
+        <tr>
+          <td><strong>Identificador de avisos</strong> del dispositivo (token de notificaciones).</td>
+          <td>Mandar avisos al teléfono: cotización aprobada, vehículo listo, repuesto bajo mínimo.
+          No identifica a la persona ni sirve para seguirla.</td>
+        </tr>
+        <tr>
+          <td><strong>Registros técnicos</strong>: fecha, hora, dirección IP y qué operación se
+          pidió al servidor.</td>
+          <td>Investigar fallas y detectar abuso. Se conservan poco tiempo y no se cruzan con nada
+          más.</td>
+        </tr>
+      </tbody>
+    </table></div>
+
+    <h3>Lo que no se hace</h3>
+    <ul>
+      <li><strong>No se vende ni se alquila</strong> ninguna información a nadie.</li>
+      <li><strong>No hay publicidad</strong> dentro de la app ni del panel.</li>
+      <li><strong>No hay seguimiento</strong> entre aplicaciones ni sitios de terceros, ni perfiles
+      de comportamiento.</li>
+      <li><strong>No se pide la ubicación</strong> del teléfono.</li>
+      <li><strong>No se lee la galería de fotos</strong> completa: solo la imagen que usted escoge o
+      toma para una orden.</li>
+      <li><strong>Los datos de un taller no se mezclan con los de otro.</strong> Cada taller está
+      aislado en el sistema y no puede ver información ajena.</li>
+    </ul>
+
+    <h2>3. Permisos que pide la app</h2>
+    <ul>
+      <li><strong>Cámara</strong>: para fotografiar el vehículo y las piezas. Sin este permiso todo
+      lo demás funciona igual.</li>
+      <li><strong>Fotos</strong>: para adjuntar una imagen que ya tenga en el teléfono.</li>
+      <li><strong>Notificaciones</strong>: para los avisos del taller. Si lo niega, los avisos
+      quedan igual dentro de la app, en la campana.</li>
+    </ul>
+
+    <h2>4. Con quién se comparten</h2>
+    <p>Con nadie más que con los proveedores necesarios para que el sistema funcione, y solo en lo
+    que hace falta:</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Proveedor</th><th>Qué hace</th><th>Dónde</th></tr></thead>
+      <tbody>
+        <tr><td>Supabase</td><td>Base de datos</td><td>Estados Unidos</td></tr>
+        <tr><td>Render</td><td>Servidor de la aplicación</td><td>Estados Unidos</td></tr>
+        <tr><td>Cloudflare</td><td>Almacenamiento de las fotos (R2), entrega del panel web y dominio</td><td>Red global</td></tr>
+        <tr><td>Google Firebase</td><td>Envío de las notificaciones al teléfono</td><td>Estados Unidos</td></tr>
+        <tr><td>Apple · Google</td><td>Distribución de la app en sus tiendas</td><td>Estados Unidos</td></tr>
+      </tbody>
+    </table></div>
+    <p>Al estar alojado en Estados Unidos, la información se guarda fuera de Honduras. También se
+    entrega cuando lo exija una autoridad competente con una orden válida.</p>
+
+    <h2>5. Cómo se protege</h2>
+    <ul>
+      <li>Todo el tráfico va <strong>cifrado con HTTPS</strong>, entre el teléfono, el panel y el
+      servidor.</li>
+      <li>Las <strong>contraseñas</strong> se guardan con un resumen criptográfico, nunca en claro.</li>
+      <li>Las <strong>fotos</strong> viven en un almacenamiento privado y se abren con enlaces
+      temporales que caducan en 15 minutos. No hay una dirección pública que se pueda adivinar.</li>
+      <li>Cada quien ve <strong>solo lo que su rol permite</strong>: el técnico su sucursal, el
+      cliente sus vehículos.</li>
+      <li>La base de datos tiene <strong>respaldos automáticos</strong>.</li>
+    </ul>
+    <p>Ningún sistema es infalible. Si ocurriera un acceso indebido que afecte información del
+    taller o de sus clientes, se le avisa al taller sin demora y se le explica qué pasó.</p>
+
+    <h2>6. Cuánto duran</h2>
+    <p>La información del taller se conserva mientras el servicio esté activo, porque es su
+    historial de trabajo y lo necesita para atender a sus clientes y para sus obligaciones fiscales
+    —en Honduras, los documentos de venta se guardan por años—. Si el taller deja el servicio, se le
+    entrega una <strong>exportación completa</strong> y sus datos se borran del sistema a los
+    <strong>90 días</strong>, salvo que pida otra cosa por escrito. Los registros técnicos se
+    conservan mucho menos.</p>
+
+    <h2>7. Sus derechos</h2>
+    <p>Puede pedir, en cualquier momento:</p>
+    <ul>
+      <li>Una <strong>copia</strong> de la información que le corresponde.</li>
+      <li>Que se <strong>corrija</strong> lo que esté mal.</li>
+      <li>Que se <strong>borre</strong> su cuenta y sus datos personales.</li>
+    </ul>
+    <div class="card">
+      <h3 style="margin-top:0">Cerrar una cuenta</h3>
+      <p>Las cuentas de GarajApp no se crean desde la app: las da de alta el dueño del taller. Para
+      cerrar una cuenta y borrar los datos personales asociados, pídalo al dueño del taller —que
+      puede hacerlo desde el panel— o escríbanos a
+      <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a> y lo resolvemos
+      en un plazo máximo de <strong>30 días</strong>.</p>
+      <p>Tenga en cuenta que si usted es cliente de un taller, parte de su información puede
+      permanecer en los documentos de venta que el taller está obligado a conservar por ley
+      tributaria. Eso no se puede borrar mientras el plazo legal siga corriendo.</p>
+    </div>
+
+    <h2>8. Menores de edad</h2>
+    <p>GarajApp es una herramienta de trabajo para un taller. No está dirigida a menores de 13 años
+    y no se recoge información de ellos a propósito.</p>
+
+    <h2>9. Cambios a esta política</h2>
+    <p>Si cambia lo que el sistema guarda o quién lo procesa, se actualiza esta página y su fecha.
+    Cuando el cambio sea importante, se le avisa al taller por correo o por WhatsApp antes de que
+    entre en vigor.</p>
+
+    <h2>10. Contacto</h2>
+    <p>📧 <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a><br />
+    💬 WhatsApp <a href="https://wa.me/50498242108">+504 9824 2108</a></p>
+    <div class="note">Si su duda es sobre información de un taller en concreto —sus clientes, sus
+    vehículos, sus facturas—, escríbale primero a ese taller: es quien decide sobre esos datos.
+    Nosotros lo atendemos igual y se coordina con ellos.</div>
+  </main>
+
+  <footer>© GarajApp · <a href="/manual.html">Manual de usuario</a> · <a href="/">garajeapp.com</a></footer>
+</body>
+</html>

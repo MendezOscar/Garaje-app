@@ -146,7 +146,7 @@ const incluye = [
         <img
           src="/capturas/telefono-taller.png"
           width="390"
-          height="808"
+          height="848"
           alt="La bandeja del taller en el teléfono, con los ingresos del día y las órdenes abiertas"
         />
       </div>
@@ -223,14 +223,14 @@ const incluye = [
         <img
           src="/capturas/telefono-orden.png"
           width="390"
-          height="808"
+          height="848"
           alt="El detalle de una orden en el teléfono, con el diagnóstico y los pasos de la reparación"
           loading="lazy"
         />
         <img
           src="/capturas/telefono-facturar.png"
           width="390"
-          height="808"
+          height="848"
           alt="La sección de cerrar y facturar en el teléfono, con el total y la forma de pago"
           loading="lazy"
         />
@@ -335,6 +335,7 @@ const incluye = [
       <!-- Archivo estático en `public`, así que va con <a> y no con RouterLink: el router de
            Vue no lo conoce y lo mandaría al 404. -->
       <a href="/manual.html">Manual de usuario</a>
+      <a href="/privacidad.html">Privacidad</a>
       <RouterLink :to="{ name: 'login' }">Entrar al panel</RouterLink>
     </footer>
   </div>

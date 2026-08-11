@@ -36,6 +36,10 @@
 		<string>Garaj usa la cámara para documentar con fotos el proceso de reparación de cada vehículo.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Garaj usa sus fotos para adjuntar evidencia a las órdenes de trabajo.</string>
+		<!-- La app solo usa HTTPS estándar, así que entra en la exención de criptografía: sin
+	     esta clave App Store Connect pregunta por «export compliance» en cada subida. -->
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>
