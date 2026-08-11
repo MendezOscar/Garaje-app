@@ -14,6 +14,7 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(x => x.TaxId).HasMaxLength(50);
         b.Property(x => x.Phone).HasMaxLength(30);
         b.Property(x => x.Email).HasMaxLength(200);
+        b.Property(x => x.Address).HasMaxLength(300);
         b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
         b.Property(x => x.DefaultPhoneCountryCode).HasMaxLength(5).IsRequired();
         b.Property(x => x.LogoStorageKey).HasMaxLength(500);

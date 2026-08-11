@@ -391,6 +391,11 @@ Decisiones que conviene conocer:
   la mayoría de los clientes no la pide.
 - El RTN sale del que se mande, y si no del de la ficha del cliente; sin ninguno, la factura
   va a **consumidor final**.
+- **Arriba de L 10,000 no hay consumidor final**: sin RTN, la factura se emite con el número de
+  identidad de la ficha del cliente, y sin ninguno de los dos responde 400 (Acuerdo 481-2017,
+  art. 11). El rechazo ocurre antes de guardar, así que no quema ningún correlativo.
+- La ficha del taller (`PUT /api/tenant`) tiene `address`, la **casa matriz**, que el régimen
+  pide aparte de la dirección del establecimiento que emite —esa sale de la sucursal—.
 
 ### Datos de demostración
 

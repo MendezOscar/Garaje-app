@@ -13,6 +13,13 @@ public class Tenant : AuditableEntity
     public string? TaxId { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
+
+    /// <summary>
+    /// Dirección de la casa matriz. El régimen de facturación la pide aparte de la del
+    /// establecimiento que emite, que es la de la sucursal.
+    /// </summary>
+    public string? Address { get; set; }
+
     public string? LogoStorageKey { get; set; }
 
     /// <summary>Código de país por defecto para armar los links de WhatsApp (ej. "504" = Honduras).</summary>

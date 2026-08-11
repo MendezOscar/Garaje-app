@@ -729,6 +729,8 @@ export interface TenantSettings {
   taxId: string | null
   phone: string | null
   email: string | null
+  /** Dirección de la casa matriz. La factura fiscal la pide aparte de la de la sucursal. */
+  address: string | null
   currency: string
   defaultTaxRate: number
   defaultPhoneCountryCode: string

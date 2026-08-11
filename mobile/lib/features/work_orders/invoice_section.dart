@@ -477,9 +477,14 @@ class _CloseCard extends StatelessWidget {
                 TextField(
                   controller: customerTaxId,
                   keyboardType: TextInputType.number,
+                  maxLines: 1,
                   decoration: const InputDecoration(
                     labelText: 'RTN del cliente',
-                    helperText: 'Vacío: la factura sale a consumidor final.',
+                    // Arriba de L 10,000 el régimen no admite «consumidor final»: hay que
+                    // consignar el RTN o la identidad, y esta última sale de su ficha.
+                    helperText: 'Vacío: consumidor final. Arriba de L 10,000 el SAR pide '
+                        'RTN o identidad.',
+                    helperMaxLines: 2,
                   ),
                 ),
 

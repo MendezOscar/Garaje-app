@@ -223,8 +223,10 @@ public static class QuotePdf
     private static IContainer BodyCell(IContainer container) =>
         container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5);
 
+    // Mismo criterio que la factura: el símbolo, no el código ISO.
     private static string Money(decimal value, string currency) =>
-        $"{currency} {value.ToString("N2", Culture)}";
+        $"{(currency == "HNL" ? "L" : currency == "USD" ? "$" : currency)} " +
+        value.ToString("N2", Culture);
 
     private static string Quantity(decimal value) =>
         value == Math.Truncate(value)

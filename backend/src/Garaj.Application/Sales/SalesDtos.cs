@@ -83,6 +83,8 @@ public record SaleDetailDto(
     string? FiscalRangeText,
     DateTimeOffset? FiscalIssueDeadline,
     string? CustomerTaxId,
+    // Identidad del cliente. La factura al consumidor final la exige arriba de L 10,000.
+    string? CustomerDocumentId,
     IReadOnlyList<SaleLineDto> Lines,
     IReadOnlyList<SalePaymentDto> Payments);
 

@@ -143,6 +143,7 @@ public class SaleService(
             sequence = await AddLineAsync(sale, line, scope, ++sequence, ct);
 
         Recalculate(sale);
+        await EnsureCustomerIdentifiedAsync(sale, ct);
         SettleOnCreation(sale, request.InitialPayment, request.PaymentMethod);
 
         await db.SaveChangesAsync(ct);
@@ -306,6 +307,7 @@ public class SaleService(
                 "La orden no tiene repuestos ni mano de obra que cobrar. Cargue lo trabajado antes de cerrarla.");
 
         Recalculate(sale);
+        await EnsureCustomerIdentifiedAsync(sale, ct);
         SettleOnCreation(sale, request.InitialPayment, request.PaymentMethod);
 
         if (request.MarkAsDelivered && order.Status != WorkOrderStatus.Delivered)
@@ -439,7 +441,9 @@ public class SaleService(
 
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
 
-        return InvoicePdf.Render(sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo);
+        return InvoicePdf.Render(
+            sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+            tenant.Email, tenant.Address, logo);
     }
 
     // ---------- Interno ----------
@@ -572,6 +576,34 @@ public class SaleService(
             : null);
     }
 
+    /// <summary>
+    /// Arriba de este monto, la factura fiscal no puede salir a nombre de «Consumidor final»:
+    /// el régimen obliga a consignar quién compró.
+    /// </summary>
+    private const decimal LimiteConsumidorFinal = 10_000m;
+
+    /// <summary>
+    /// Comprueba que una factura fiscal grande lleve identificado al cliente. Se llama después
+    /// de calcular el total, que es cuando se sabe si pasa del límite.
+    /// </summary>
+    private async Task EnsureCustomerIdentifiedAsync(Sale sale, CancellationToken ct)
+    {
+        if (sale.FiscalNumber is null || sale.Total <= LimiteConsumidorFinal) return;
+        if (!string.IsNullOrWhiteSpace(sale.CustomerTaxId)) return;
+
+        var identidad = sale.CustomerId is { } customerId
+            ? await db.Customers.AsNoTracking()
+                .Where(c => c.Id == customerId)
+                .Select(c => c.DocumentId)
+                .FirstOrDefaultAsync(ct)
+            : null;
+
+        if (string.IsNullOrWhiteSpace(identidad))
+            throw new AppException(
+                $"Arriba de L {LimiteConsumidorFinal:N0} la factura no puede salir a consumidor " +
+                "final: anote el RTN o el número de identidad del cliente en su ficha.");
+    }
+
     /// <summary>Correlativo por sucursal, ej. "VTA-MTZ-000312".</summary>
     private async Task<string> NextNumberAsync(Guid branchId, CancellationToken ct)
     {
@@ -593,7 +625,7 @@ public class SaleService(
         var customer = sale.CustomerId is { } customerId
             ? await db.Customers.AsNoTracking()
                 .Where(c => c.Id == customerId)
-                .Select(c => new { c.FullName, c.Phone })
+                .Select(c => new { c.FullName, c.Phone, c.DocumentId })
                 .FirstOrDefaultAsync(ct)
             : null;
 
@@ -660,6 +692,7 @@ public class SaleService(
             sale.FiscalRangeText,
             sale.FiscalIssueDeadline,
             sale.CustomerTaxId,
+            customer?.DocumentId,
             sale.Lines
                 .OrderBy(l => l.Sequence)
                 .Select(l => new SaleLineDto(

@@ -17,6 +17,7 @@ public record TenantSettingsDto(
     string? TaxId,
     string? Phone,
     string? Email,
+    string? Address,
     string Currency,
     decimal DefaultTaxRate,
     string DefaultPhoneCountryCode,
@@ -28,6 +29,7 @@ public record UpdateTenantRequest(
     string? TaxId,
     string? Phone,
     string? Email,
+    string? Address,
     decimal DefaultTaxRate,
     string? DefaultPhoneCountryCode);
 

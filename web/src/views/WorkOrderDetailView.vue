@@ -664,6 +664,10 @@ onMounted(async () => {
             RTN del cliente
             <input v-model="rtnFactura" placeholder="Sin RTN: consumidor final" />
           </label>
+          <p v-if="conCai && !rtnFactura.trim()" class="muted small">
+            Sale a consumidor final. Arriba de L 10,000 el SAR pide el RTN o el número de
+            identidad del cliente en su ficha.
+          </p>
 
           <label class="checkbox">
             <input v-model="onCredit" type="checkbox" />

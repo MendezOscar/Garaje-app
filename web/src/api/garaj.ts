@@ -671,6 +671,7 @@ export const tenantApi = {
     taxId: string | null
     phone: string | null
     email: string | null
+    address: string | null
     defaultTaxRate: number
     defaultPhoneCountryCode: string | null
   }): Promise<TenantSettings> {

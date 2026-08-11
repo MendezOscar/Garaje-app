@@ -20,10 +20,12 @@ public static class InvoicePdf
 {
     private static readonly CultureInfo Culture = new("es-HN");
 
+    /// <param name="headquarters">Dirección de la casa matriz, que el régimen pide aparte
+    /// de la del establecimiento emisor.</param>
     /// <param name="logo">PNG del logo del taller, o null. Ver <see cref="QuotePdf"/>.</param>
     public static byte[] Render(
         SaleDetailDto sale, string tenantName, string? legalName, string? phone, string? taxId,
-        byte[]? logo = null)
+        string? email = null, string? headquarters = null, byte[]? logo = null)
     {
         var document = Document.Create(container =>
         {
@@ -33,7 +35,8 @@ public static class InvoicePdf
                 page.Margin(2, Unit.Centimetre);
                 page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken4));
 
-                page.Header().Element(header => Header(header, sale, tenantName, legalName, phone, taxId, logo));
+                page.Header().Element(header =>
+                    Header(header, sale, tenantName, legalName, phone, taxId, email, headquarters, logo));
                 page.Content().PaddingVertical(1, Unit.Centimetre).Element(content => Content(content, sale));
                 page.Footer().Element(footer => Footer(footer, sale));
             });
@@ -44,7 +47,8 @@ public static class InvoicePdf
 
     private static void Header(
         IContainer container, SaleDetailDto sale,
-        string tenantName, string? legalName, string? phone, string? taxId, byte[]? logo)
+        string tenantName, string? legalName, string? phone, string? taxId,
+        string? email, string? headquarters, byte[]? logo)
     {
         container.Row(row =>
         {
@@ -57,6 +61,18 @@ public static class InvoicePdf
                 if (!string.IsNullOrWhiteSpace(legalName)) column.Item().Text(legalName).FontSize(9);
                 if (!string.IsNullOrWhiteSpace(taxId)) column.Item().Text($"RTN {taxId}").FontSize(9);
                 if (!string.IsNullOrWhiteSpace(phone)) column.Item().Text($"Tel. {phone}").FontSize(9);
+                if (!string.IsNullOrWhiteSpace(email)) column.Item().Text(email).FontSize(9);
+
+                // La casa matriz solo se imprime cuando difiere del establecimiento que emite:
+                // en un taller de una sucursal repetir la misma dirección dos veces confunde.
+                if (!string.IsNullOrWhiteSpace(headquarters)
+                    && !string.Equals(headquarters.Trim(), sale.BranchAddress?.Trim(),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    column.Item().Text($"Casa matriz: {headquarters}")
+                        .FontSize(8).FontColor(Colors.Grey.Darken1);
+                }
+
                 column.Item().Text(sale.BranchName).FontSize(9).FontColor(Colors.Grey.Darken1);
 
                 if (sale.BranchAddress is { } direccion)
@@ -138,9 +154,13 @@ public static class InvoicePdf
                     // sin RTN se emite a consumidor final, y hay que decirlo.
                     if (sale.FiscalNumber is not null)
                     {
+                        // Sin RTN va la identidad, que arriba de L 10,000 el régimen exige en
+                        // el espacio del RTN. Sin ninguno de los dos, consumidor final.
                         c.Item().Text(sale.CustomerTaxId is { } rtn
                                 ? $"RTN {rtn}"
-                                : "Consumidor final")
+                                : sale.CustomerDocumentId is { } identidad
+                                    ? $"Identidad {identidad}"
+                                    : "Consumidor final")
                             .FontSize(9);
                     }
                 });
@@ -290,8 +310,14 @@ public static class InvoicePdf
             if (sale.FiscalNumber is not null)
             {
                 column.Item().AlignCenter()
-                    .Text("Original: Cliente · Copia: Obligado tributario")
+                    .Text("Original: Cliente · Copia: Obligado tributario emisor")
                     .FontSize(8).SemiBold();
+
+                // No la exige el reglamento, pero es la que trae todo talonario y la que el
+                // cliente busca para saber que la factura es de verdad.
+                column.Item().AlignCenter()
+                    .Text("La factura es beneficio de todos, ¡exíjala!")
+                    .FontSize(8);
             }
             else
             {
@@ -330,8 +356,16 @@ public static class InvoicePdf
     private static IContainer BodyCell(IContainer container) =>
         container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5);
 
+    // El régimen pide la moneda literal o su símbolo, y «HNL 1,200.00» no es ninguno de los dos.
     private static string Money(decimal value, string currency) =>
-        $"{currency} {value.ToString("N2", Culture)}";
+        $"{Symbol(currency)} {value.ToString("N2", Culture)}";
+
+    private static string Symbol(string currency) => currency switch
+    {
+        "HNL" => "L",
+        "USD" => "$",
+        _ => currency
+    };
 
     private static string Quantity(decimal value) =>
         value == Math.Truncate(value)

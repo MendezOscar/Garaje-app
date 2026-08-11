@@ -73,6 +73,9 @@ public class TenantProvisioner(
             TaxId = Trim(request.TaxId),
             Phone = Trim(request.Phone),
             Email = Trim(request.Email),
+            // La casa matriz arranca en la dirección de la primera sucursal: al instalar es la
+            // misma, y el Dueño la corrige en «Taller» si el SAR le registró otra.
+            Address = Trim(request.Address),
             // Honduras: lempira, ISV general del 15% y el 504 al frente de los links de WhatsApp.
             Currency = "HNL",
             DefaultTaxRate = 15m,

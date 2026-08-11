@@ -234,6 +234,50 @@ status, pdf = api("GET", f"/api/sales/{conRtn['id']}/pdf", token=owner)
 check("y el PDF se genera", status == 200 and isinstance(pdf, bytes) and pdf[:4] == b"%PDF",
       str(status))
 
+print("\n[consumidor final arriba de L 10,000]")
+
+grande = {
+    "branchId": matriz["id"],
+    "paymentMethod": CASH,
+    "lines": [{"lineType": 2, "description": "Reparación mayor", "quantity": 1,
+               "unitPrice": 12000}],
+    "fiscal": True,
+}
+
+status, rechazada = api("POST", "/api/sales", grande, token=owner)
+check("una factura grande sin identificar al cliente se rechaza", status == 400, str(status))
+check("y explica que hace falta el RTN o la identidad",
+      status == 400 and "identidad" in json.dumps(rechazada).lower(), str(rechazada))
+
+_, antes = api("GET", "/api/tenant/fiscal-ranges", token=owner)
+disponibles = next(r["remaining"] for r in antes if r["isActive"])
+
+status, conIdentidad = api("POST", "/api/sales", dict(grande, customerId=customer["id"]),
+                           token=owner)
+check("con el cliente identificado sí se emite", status in (200, 201), str(status))
+
+_, luego = api("GET", "/api/tenant/fiscal-ranges", token=owner)
+check("y el rechazo anterior no había quemado ningún número",
+      next(r["remaining"] for r in luego if r["isActive"]) == disponibles - 1,
+      str(disponibles))
+
+print("\n[la ficha del taller]")
+
+_, ficha_taller = api("GET", "/api/tenant", token=owner)
+status, guardada = api("PUT", "/api/tenant", {
+    "name": ficha_taller["name"],
+    "legalName": ficha_taller["legalName"],
+    "taxId": ficha_taller["taxId"],
+    "phone": ficha_taller["phone"],
+    "email": ficha_taller["email"],
+    "address": "Bo. El Centro, 3 calle, Comayagüela",
+    "defaultTaxRate": ficha_taller["defaultTaxRate"],
+    "defaultPhoneCountryCode": ficha_taller["defaultPhoneCountryCode"],
+}, token=owner)
+check("el Dueño guarda la dirección de la casa matriz",
+      status == 200 and guardada["address"] == "Bo. El Centro, 3 calle, Comayagüela",
+      f"{status} {guardada}")
+
 # Deja el taller sin rango activo: los demás humos y el móvil esperan la base de demostración.
 _, finales = api("GET", "/api/tenant/fiscal-ranges", token=owner)
 for r in finales:

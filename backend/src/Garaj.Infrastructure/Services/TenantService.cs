@@ -61,6 +61,7 @@ public class TenantService(
         tenant.TaxId = Trim(request.TaxId);
         tenant.Phone = Trim(request.Phone);
         tenant.Email = Trim(request.Email);
+        tenant.Address = Trim(request.Address);
         tenant.DefaultTaxRate = request.DefaultTaxRate;
 
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
@@ -318,6 +319,7 @@ public class TenantService(
         tenant.TaxId,
         tenant.Phone,
         tenant.Email,
+        tenant.Address,
         tenant.Currency,
         tenant.DefaultTaxRate,
         tenant.DefaultPhoneCountryCode,

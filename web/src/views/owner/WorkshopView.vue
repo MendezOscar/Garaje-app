@@ -22,6 +22,7 @@ const form = ref({
   taxId: '',
   phone: '',
   email: '',
+  address: '',
   defaultTaxRate: 15,
   defaultPhoneCountryCode: '504',
 })
@@ -123,6 +124,7 @@ function fill(data: TenantSettings) {
     taxId: data.taxId ?? '',
     phone: data.phone ?? '',
     email: data.email ?? '',
+    address: data.address ?? '',
     defaultTaxRate: data.defaultTaxRate,
     defaultPhoneCountryCode: data.defaultPhoneCountryCode,
   }
@@ -153,6 +155,7 @@ async function save() {
         taxId: f.taxId.trim() || null,
         phone: f.phone.trim() || null,
         email: f.email.trim() || null,
+        address: f.address.trim() || null,
         defaultTaxRate: Number(f.defaultTaxRate) || 0,
         defaultPhoneCountryCode: f.defaultPhoneCountryCode.trim() || null,
       }),
@@ -254,6 +257,10 @@ onMounted(async () => {
         <label>
           Correo
           <input v-model="form.email" type="email" placeholder="contacto@sutaller.hn" />
+        </label>
+        <label>
+          Dirección de la casa matriz
+          <input v-model="form.address" placeholder="Bo. El Centro, 3 calle, Comayagüela" />
         </label>
 
         <div class="actions">
