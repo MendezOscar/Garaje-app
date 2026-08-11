@@ -11,7 +11,10 @@ services:
   - type: web
     name: garaje-app
     runtime: docker
-    plan: free
+    # Starter (US$7/mes): en el plan gratis el servicio se duerme a los 15 minutos y el primer
+    # acceso del día tardaba ~50 s en responder. Además así las 750 horas gratis del workspace
+    # quedan íntegras para el servicio de pruebas.
+    plan: starter
     # Virginia: la región de Render más cercana a Honduras y la misma en la que está el
     # proyecto de Supabase (us-east-1). Que API y base coincidan importa más que nada:
     # una pantalla hace varias consultas y cada una cruzaría el país si no.

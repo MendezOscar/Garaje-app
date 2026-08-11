@@ -3,7 +3,7 @@
 | Pieza | Servicio | URL |
 | --- | --- | --- |
 | Base de datos | Supabase (`us-east-1`) | — |
-| API .NET | Render (Docker, plan free, Virginia) | <https://garaje-app.onrender.com> |
+| API .NET | Render (Docker, plan Starter, Virginia) | <https://garaje-app.onrender.com> |
 | Panel web | Cloudflare Pages | <https://www.garajeapp.com> (antes <https://garaje-app.pages.dev>) |
 | Fotos | Cloudflare R2 (a partir de la Fase 2) | — |
 
@@ -88,9 +88,11 @@ sola vez; el repo ya trae [render.yaml](../render.yaml), el
 4. El health check es `/health` y comprueba también la conexión a la base: si Supabase no
    responde, Render marca el despliegue como fallido en lugar de dejar la API a medias.
 
-**Sobre el plan free**: el servicio se duerme tras 15 minutos sin tráfico y el primer request
-tarda ~40 segundos en responder. Sirve para probar; para el taller en uso real conviene el
-plan Starter (US$7/mes), que no duerme.
+**Sobre el plan**: producción va en **Starter** (US$7/mes) desde el 11 de agosto de 2026. El
+plan free se duerme tras 15 minutos sin tráfico y el primer request tarda ~40 segundos, que es
+inaceptable para un taller que abre la app a primera hora. Starter no duerme y no consume las
+750 horas gratis del workspace, que quedan enteras para el entorno de pruebas. Se cambia en
+**Settings → Instance Type** del servicio, prorrateado por hora.
 
 ---
 
@@ -172,10 +174,10 @@ curl -s https://garaje-app-pruebas.onrender.com/api/demo/seed \
 `owner@garaj.test` existe porque el entorno corre en Development y siembra los datos de
 desarrollo al encontrar la base vacía.
 
-**Sobre el costo:** los dos servicios van en plan free, así que son US$0, pero los servicios
-gratuitos de la cuenta comparten **750 horas de instancia al mes** y uno encendido todo el mes ya
-consume unas 730. El de pruebas duerme solo a los 15 minutos sin tráfico, y así solo gasta
-mientras se usa. Si algún día producción pasa a Starter, deja de compartir esa bolsa.
+**Sobre el costo:** este entorno va en plan free, así que son US$0. Los servicios gratuitos de la
+cuenta comparten **750 horas de instancia al mes**, pero producción ya está en Starter y no toca
+esa bolsa: las 750 horas son enteras para pruebas, que además duerme a los 15 minutos sin
+tráfico y solo gasta mientras se usa.
 
 **La demostración que ve el cliente sigue en producción.** La app que instalan sus técnicos —y la
 que revisa Apple— apunta a producción, así que el Taller Demo de allá no se toca: este entorno es
@@ -443,11 +445,8 @@ Pasos, una vez activa la cuenta:
    revisor de Apple necesita entrar, y no se le puede dar el taller de un cliente. Eso obliga a
    tener el Taller Demo sembrado en producción.
 
-Dos cosas que conviene resolver antes de repartir el enlace:
+Una cosa que conviene resolver antes de repartir el enlace:
 
-- **El plan free de Render duerme a los 15 minutos** y la app corta la conexión a los 15
-  segundos. Quien abra la app después de una pausa larga verá un error en el primer intento. Con
-  gente de verdad probando, el plan Starter (US$7/mes) deja de ser opcional.
 - **Los avisos push no están configurados** (falta la llave APNs y la capacidad de Push
   Notifications en el proyecto). La app pide el permiso de notificaciones y luego no llega
   ninguna: o se completa lo de [push.md](push.md), o conviene no pedir el permiso todavía. Los
