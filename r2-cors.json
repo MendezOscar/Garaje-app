@@ -1,0 +1,18 @@
+{
+  "//": "CORS del bucket de fotos. La subida va del navegador DIRECTO a R2, así que es R2 quien tiene que permitir el origen del panel, no la API. Se aplica con: npx wrangler@4.120.1 r2 bucket cors set garaj-media --file r2-cors.json  (ver docs/deployment.md §4). Este formato es el de la API de R2; el panel web de Cloudflare pide el de S3, que no es intercambiable.",
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://www.garajeapp.com",
+          "https://garajeapp.com",
+          "https://garaje-app.pages.dev",
+          "http://localhost:5173"
+        ],
+        "methods": ["GET", "PUT"],
+        "headers": ["content-type"]
+      },
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

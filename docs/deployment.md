@@ -150,9 +150,19 @@ Tres cosas que hay que tocar después, o el dominio nuevo queda a medias:
    Por línea de comandos, que es lo que se usó:
 
    ```bash
-   npx wrangler login
-   npx wrangler r2 bucket cors set garaj-media --file r2-cors.json
-   npx wrangler r2 bucket cors list garaj-media   # para comprobar
+   npx wrangler@4.120.1 login
+   npx wrangler@4.120.1 r2 bucket cors set garaj-media --file r2-cors.json
+   npx wrangler@4.120.1 r2 bucket cors list garaj-media   # para comprobar
+   ```
+
+   El archivo es [r2-cors.json](../r2-cors.json), en la raíz del repo. La versión va fijada a
+   propósito: `wrangler` publica varias veces por semana y en agosto de 2026 la última (4.121.0)
+   traía una dependencia inexistente, así que `npx wrangler` fallaba al instalar con
+   `ETARGET · No matching version found for miniflare@…`. Si la versión fijada envejece, se
+   busca una donde la `miniflare` que pide exista de verdad:
+
+   ```bash
+   npm view wrangler@<version> dependencies.miniflare   # y comprobar que esa exista
    ```
 
    ```json
