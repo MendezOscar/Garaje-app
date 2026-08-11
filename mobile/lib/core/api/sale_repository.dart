@@ -99,6 +99,8 @@ class Sale {
     required this.currency,
     required this.payments,
     this.dueDate,
+    this.fiscalNumber,
+    this.fiscalCai,
   });
 
   factory Sale.fromJson(Map<String, dynamic> json) => Sale(
@@ -116,6 +118,8 @@ class Sale {
         isOverdue: json['isOverdue'] as bool? ?? false,
         isVoided: json['isVoided'] as bool? ?? false,
         currency: json['currency'] as String? ?? 'HNL',
+        fiscalNumber: json['fiscalNumber'] as String?,
+        fiscalCai: json['fiscalCai'] as String?,
         payments: ((json['payments'] as List<dynamic>?) ?? [])
             .map((p) => SalePayment.fromJson(p as Map<String, dynamic>))
             .toList(),
@@ -131,6 +135,10 @@ class Sale {
   final DateTime? dueDate;
   final bool isOverdue;
   final bool isVoided;
+
+  /// Correlativo del SAR, o null si la factura salió sin CAI.
+  final String? fiscalNumber;
+  final String? fiscalCai;
   final String currency;
   final List<SalePayment> payments;
 }
@@ -213,6 +221,8 @@ class SaleRepository {
     String? laborFromQuoteId,
     double? initialPayment,
     DateTime? dueDate,
+    bool fiscal = false,
+    String? customerTaxId,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/sales/close-work-order',
@@ -223,6 +233,10 @@ class SaleRepository {
         'laborFromQuoteId': laborFromQuoteId,
         'initialPayment': initialPayment,
         'dueDate': dueDate?.toUtc().toIso8601String(),
+        // Consume un número del rango autorizado por el SAR. Falso salvo que el cliente
+        // pida la factura: cada una quema un correlativo.
+        'fiscal': fiscal,
+        'customerTaxId': customerTaxId,
       },
     );
 

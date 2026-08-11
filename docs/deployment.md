@@ -233,6 +233,9 @@ Antes de entregarle el sistema a un cliente:
       `PublicBaseUrl`.
 - [ ] Entrar como el Dueño nuevo, cambiar la contraseña y completar la ficha en **Taller**:
       esos datos son los que salen impresos en cada cotización y factura.
+- [ ] Si el taller factura con talonario del SAR, registrar su **CAI** y su rango en
+      **Taller → Facturación**. Sin eso el sistema trabaja igual, pero sus facturas son
+      comprobantes de entrega. Ver [api.md](api.md#facturación-con-cai).
 
 ---
 

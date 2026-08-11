@@ -24,6 +24,7 @@ escritorio: exportar a Excel, el tablero por estados y la vista pública de la c
 | Clientes y acceso a la app | Sí | Sí |
 | Usuarios y reportes | Sí | Sí |
 | Ficha del taller y su logo (sale en cotizaciones y facturas) | Sí | — |
+| Facturar con CAI del SAR (opcional) | Registrar el CAI y facturar | Facturar |
 | Avisos: campana dentro de la app | Sí | Sí |
 | Avisos: push que hace sonar el teléfono | — | Sí, con Firebase configurado ([docs/push.md](docs/push.md)) |
 | Exportar reportes a CSV | Sí | — |
@@ -202,8 +203,11 @@ python3 backend/tests/smoke/fase9_smoke.py
 # Humo de usuarios: 34 comprobaciones del alta de técnicos y del acceso de los clientes
 python3 backend/tests/smoke/fase10_smoke.py
 
-# Humo del taller: 29 comprobaciones de la ficha, el logo y las dos rutas que lo sirven
+# Humo del taller: 30 comprobaciones de la ficha, el logo y las dos rutas que lo sirven
 python3 backend/tests/smoke/fase11_smoke.py
+
+# Humo de facturación con CAI: 33 comprobaciones del rango, el correlativo y las anulaciones
+python3 backend/tests/smoke/fase12_smoke.py
 
 # Alta del taller de un cliente (imprime la contraseña del Dueño una sola vez)
 cd backend && dotnet run --project src/Garaj.Api -- provision-tenant \

@@ -48,6 +48,8 @@ public record SaleDetailDto(
     string Number,
     Guid BranchId,
     string BranchName,
+    // Dirección del establecimiento: la factura fiscal tiene que decir desde dónde se emite.
+    string? BranchAddress,
     Guid? CustomerId,
     string? CustomerName,
     string? CustomerPhone,
@@ -74,6 +76,13 @@ public record SaleDetailDto(
     decimal Balance,
     DateTimeOffset? DueDate,
     bool IsOverdue,
+    // Régimen de facturación: null en la venta que sale sin CAI, que es comprobante de
+    // entrega y no documento fiscal.
+    string? FiscalNumber,
+    string? FiscalCai,
+    string? FiscalRangeText,
+    DateTimeOffset? FiscalIssueDeadline,
+    string? CustomerTaxId,
     IReadOnlyList<SaleLineDto> Lines,
     IReadOnlyList<SalePaymentDto> Payments);
 
@@ -102,7 +111,13 @@ public record CreateSaleRequest(
     decimal? TaxRate,
     IReadOnlyList<SaleLineRequest> Lines,
     DateTimeOffset? DueDate = null,
-    decimal? InitialPayment = null);
+    decimal? InitialPayment = null,
+    // Consume un número del rango autorizado por el SAR. Falso por defecto: se marca cuando
+    // el cliente pide la factura, para no quemar un correlativo en cada venta.
+    bool Fiscal = false,
+    // RTN del cliente para esta factura. Si va vacío se usa el de su ficha, y si no tiene
+    // ninguno la factura sale a consumidor final.
+    string? CustomerTaxId = null);
 
 /// <summary>
 /// Cierre de la orden: la entrega al cliente y genera la venta con lo que se le hizo.
@@ -122,7 +137,10 @@ public record CloseWorkOrderRequest(
     // Fecha acordada de pago, en las que se entregan a crédito.
     DateTimeOffset? DueDate = null,
     // Lo que el cliente deja al recoger. Omitido significa que paga todo.
-    decimal? InitialPayment = null);
+    decimal? InitialPayment = null,
+    // Emite con CAI, consumiendo un número del rango de la sucursal. Ver CreateSaleRequest.
+    bool Fiscal = false,
+    string? CustomerTaxId = null);
 
 /// <summary>Un abono a una venta con saldo.</summary>
 public record RegisterPaymentRequest(

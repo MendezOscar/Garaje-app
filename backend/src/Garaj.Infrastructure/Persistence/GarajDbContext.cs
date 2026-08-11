@@ -40,6 +40,9 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<SaleLine> SaleLines => Set<SaleLine>();
     public DbSet<SalePayment> SalePayments => Set<SalePayment>();
 
+    /// <summary>Rangos de facturación autorizados por el SAR. Vacío en un taller sin CAI.</summary>
+    public DbSet<FiscalRange> FiscalRanges => Set<FiscalRange>();
+
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 

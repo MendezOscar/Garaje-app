@@ -41,6 +41,25 @@ public class TenantController(ITenantService service) : ControllerBase
     [HttpDelete("logo")]
     public async Task<ActionResult<TenantSettingsDto>> RemoveLogo(CancellationToken ct)
         => Ok(await service.RemoveLogoAsync(ct));
+
+    /// <summary>Rangos de facturación autorizados por el SAR. Vacío mientras no haya CAI.</summary>
+    [HttpGet("fiscal-ranges")]
+    public async Task<ActionResult<IReadOnlyList<FiscalRangeDto>>> FiscalRanges(CancellationToken ct)
+        => Ok(await service.ListFiscalRangesAsync(ct));
+
+    /// <summary>Registra el rango nuevo de una sucursal y desactiva el que tuviera.</summary>
+    [HttpPost("fiscal-ranges")]
+    public async Task<ActionResult<FiscalRangeDto>> SaveFiscalRange(
+        SaveFiscalRangeRequest request, CancellationToken ct)
+        => Ok(await service.SaveFiscalRangeAsync(request, ct));
+
+    /// <summary>Deja de emitir con ese rango. No lo borra: las facturas emitidas lo citan.</summary>
+    [HttpDelete("fiscal-ranges/{id:guid}")]
+    public async Task<IActionResult> DeactivateFiscalRange(Guid id, CancellationToken ct)
+    {
+        await service.DeactivateFiscalRangeAsync(id, ct);
+        return NoContent();
+    }
 }
 
 /// <summary>

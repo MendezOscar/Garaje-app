@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/quote_repository.dart';
+import '../../core/api/tenant_repository.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/models/quote.dart';
@@ -52,6 +53,11 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
   bool _busy = false;
   PaymentMethod _method = PaymentMethod.cash;
   _LaborSource? _laborSource;
+
+  /// Factura con CAI. Sin marcar por defecto: cada factura fiscal quema un número del rango
+  /// autorizado, y la mayoría de los clientes de taller no la pide.
+  bool _fiscal = false;
+  final _customerTaxId = TextEditingController();
 
   /// Entrega a crédito: lo que deja hoy y para cuándo queda el resto.
   bool _onCredit = false;
@@ -132,6 +138,8 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             initialPayment:
                 _onCredit ? double.tryParse(_initialPayment.text.trim()) ?? 0 : null,
             dueDate: _onCredit ? _dueDate : null,
+            fiscal: _fiscal,
+            customerTaxId: _fiscal ? _customerTaxId.text.trim() : null,
           );
     });
   }
@@ -302,6 +310,12 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
           source: source,
           method: _method,
           busy: _busy,
+          fiscal: _fiscal,
+          fiscalRange: ref
+              .watch(branchFiscalRangeProvider(widget.order.branchId))
+              .maybeWhen(data: (r) => r, orElse: () => null),
+          customerTaxId: _customerTaxId,
+          onFiscalChanged: (value) => setState(() => _fiscal = value),
           onCredit: _onCredit,
           initialPayment: _initialPayment,
           dueDate: _dueDate,
@@ -334,6 +348,10 @@ class _CloseCard extends StatelessWidget {
     required this.source,
     required this.method,
     required this.busy,
+    required this.fiscal,
+    required this.fiscalRange,
+    required this.customerTaxId,
+    required this.onFiscalChanged,
     required this.onCredit,
     required this.initialPayment,
     required this.dueDate,
@@ -358,6 +376,21 @@ class _CloseCard extends StatelessWidget {
   final void Function(bool) onCreditChanged;
   final VoidCallback onPickDueDate;
   final VoidCallback onClose;
+
+  final bool fiscal;
+  final FiscalRange? fiscalRange;
+  final TextEditingController customerTaxId;
+  final ValueChanged<bool> onFiscalChanged;
+
+  /// Por qué no se puede emitir con CAI, o null si sí se puede.
+  String? get _impedimento {
+    if (fiscalRange == null) {
+      return 'Esta sucursal no tiene CAI registrado. Se registra en el panel, en Taller.';
+    }
+    if (fiscalRange!.isExpired) return 'El CAI de esta sucursal venció.';
+    if (fiscalRange!.isExhausted) return 'Se agotó el rango autorizado de esta sucursal.';
+    return null;
+  }
 
   double get _labor => switch (source) {
         _FromQuote(:final amount) => amount,
@@ -426,6 +459,29 @@ class _CloseCard extends StatelessWidget {
                 ],
                 onChanged: busy ? null : (value) => onMethodChanged(value ?? method),
               ),
+
+              SwitchListTile(
+                value: fiscal,
+                // Apagada y con el motivo a la vista, en lugar de escondida: que se sepa que
+                // el sistema puede facturar con CAI aunque hoy falte registrarlo.
+                onChanged: busy || _impedimento != null ? null : onFiscalChanged,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Factura con CAI'),
+                subtitle: Text(
+                  _impedimento ??
+                      'Consume el número ${fiscalRange!.nextFiscalNumber} del rango autorizado.',
+                ),
+              ),
+
+              if (fiscal)
+                TextField(
+                  controller: customerTaxId,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'RTN del cliente',
+                    helperText: 'Vacío: la factura sale a consumidor final.',
+                  ),
+                ),
 
               SwitchListTile(
                 value: onCredit,
@@ -542,6 +598,16 @@ class _SaleCard extends StatelessWidget {
                 '${sale.paymentMethod.label} · ${_date(sale.saleDate)}',
                 style: theme.textTheme.bodySmall,
               ),
+
+              // El correlativo del SAR, cuando la factura salió con CAI: es el número con el
+              // que existe para hacienda, y el de arriba es el del taller.
+              if (sale.fiscalNumber case final fiscal?)
+                Text(
+                  'Factura fiscal $fiscal',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
 
               const SizedBox(height: 8),
               if (sale.balance > 0)

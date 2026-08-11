@@ -184,6 +184,8 @@ export interface Customer {
   phone: string
   email: string | null
   documentId: string | null
+  /** RTN, para la factura con CAI. Distinto de la identidad. */
+  taxId: string | null
   address: string | null
   notes: string | null
   isActive: boolean
@@ -520,8 +522,35 @@ export interface SaleDetail extends SaleListItem {
   currency: string
   notes: string | null
   voidReason: string | null
+  /** Régimen de facturación: null en la venta sin CAI, que es comprobante de entrega. */
+  fiscalNumber: string | null
+  fiscalCai: string | null
+  fiscalRangeText: string | null
+  fiscalIssueDeadline: string | null
+  customerTaxId: string | null
   lines: SaleLine[]
   payments: SalePayment[]
+}
+
+/** Rango de facturación autorizado por el SAR para una sucursal. */
+export interface FiscalRange {
+  id: string
+  branchId: string
+  branchName: string
+  cai: string
+  establishmentCode: string
+  pointOfSaleCode: string
+  documentType: string
+  rangeStart: number
+  rangeEnd: number
+  nextNumber: number
+  remaining: number
+  rangeText: string
+  nextFiscalNumber: string
+  issueDeadline: string
+  isActive: boolean
+  isExpired: boolean
+  isExhausted: boolean
 }
 
 export interface RevenuePoint {

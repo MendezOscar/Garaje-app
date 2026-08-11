@@ -283,6 +283,7 @@ class _CustomerSheetState extends ConsumerState<_CustomerSheet> {
               [
                 customer.phone,
                 if (customer.email != null) customer.email!,
+                if (customer.taxId != null) 'RTN ${customer.taxId!}',
                 if (customer.address != null) customer.address!,
               ].join(' · '),
             ),
@@ -396,6 +397,7 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
   late final _name = TextEditingController(text: widget.customer?.fullName ?? '');
   late final _phone = TextEditingController(text: widget.customer?.phone ?? '');
   late final _email = TextEditingController(text: widget.customer?.email ?? '');
+  late final _taxId = TextEditingController(text: widget.customer?.taxId ?? '');
   late final _address = TextEditingController(text: widget.customer?.address ?? '');
   late final _notes = TextEditingController(text: widget.customer?.notes ?? '');
 
@@ -404,7 +406,7 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _email, _address, _notes]) {
+    for (final c in [_name, _phone, _email, _taxId, _address, _notes]) {
       c.dispose();
     }
     super.dispose();
@@ -427,6 +429,7 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
             fullName: _name.text.trim(),
             phone: _phone.text.trim(),
             email: _email.text.trim().isEmpty ? null : _email.text.trim(),
+            taxId: _taxId.text.trim().isEmpty ? null : _taxId.text.trim(),
             address: _address.text.trim().isEmpty ? null : _address.text.trim(),
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           );
@@ -477,6 +480,15 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               decoration: const InputDecoration(labelText: 'Correo (opcional)'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _taxId,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'RTN (opcional)',
+                helperText: 'Para la factura con CAI.',
+              ),
             ),
             const SizedBox(height: 8),
             TextField(

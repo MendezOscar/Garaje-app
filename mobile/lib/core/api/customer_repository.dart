@@ -18,6 +18,7 @@ class Customer {
     this.address,
     this.notes,
     this.appUserEmail,
+    this.taxId,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
@@ -25,6 +26,7 @@ class Customer {
         fullName: json['fullName'] as String,
         phone: json['phone'] as String,
         email: json['email'] as String?,
+        taxId: json['taxId'] as String?,
         address: json['address'] as String?,
         notes: json['notes'] as String?,
         isActive: json['isActive'] as bool? ?? true,
@@ -43,6 +45,9 @@ class Customer {
   final int vehicleCount;
   final bool hasAppAccess;
   final String? appUserEmail;
+
+  /// RTN, para la factura con CAI. Se escribe desde el panel; aquí solo se muestra.
+  final String? taxId;
 }
 
 /// Un vehículo del cliente, tal como sale del padrón.
@@ -121,6 +126,7 @@ class CustomerRepository {
     String? email,
     String? address,
     String? notes,
+    String? taxId,
   }) async {
     final data = {
       'fullName': fullName,
@@ -128,6 +134,8 @@ class CustomerRepository {
       'email': email,
       'address': address,
       'notes': notes,
+      // RTN: solo lo tienen los clientes que piden factura con CAI.
+      'taxId': taxId,
     };
 
     final response = id == null

@@ -250,7 +250,7 @@ Decisiones que conviene conocer antes de tocar esto:
   en mostrador no pasó por nadie y sale agrupado como «Sin técnico»; filtrar por técnico lo
   deja fuera, porque sumárselo a alguien sería inventarle trabajo.
 - **La factura en PDF no es un documento fiscal.** Lleva el nombre, el RTN y el correlativo
-  del taller, pero no CAI ni rango autorizado por el SAR: sirve como comprobante de entrega
+  del taller. Sin CAI registrado sirve como comprobante de entrega
   para el cliente, no sustituye a la factura del talonario mientras no se implemente la
   facturación autorizada.
 - **Cerrar una orden no vuelve a descontar los repuestos.** Salieron de la bodega cuando el
@@ -359,6 +359,38 @@ Decisiones que conviene conocer:
 Un taller nuevo no se crea por la API: se da de alta con
 `dotnet run --project src/Garaj.Api -- provision-tenant …`, que crea el taller, su primera
 sucursal y el usuario Dueño. Ver [deployment.md](deployment.md#6-alta-de-un-taller).
+
+### Facturación con CAI
+
+Opcional: un taller sin CAI factura igual, pero su PDF es un comprobante de entrega. Con el
+CAI registrado, la factura sale con correlativo del SAR, rango autorizado, fecha límite, RTN
+del cliente, desglose de exento y gravado, valor en letras y «Original: Cliente».
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/tenant/fiscal-ranges` | Owner | Rangos del taller, el vigente de cada sucursal primero |
+| POST | `/api/tenant/fiscal-ranges` | Owner | Registra uno y desactiva el anterior de esa sucursal |
+| DELETE | `/api/tenant/fiscal-ranges/{id}` | Owner | Deja de emitir con él |
+
+`POST /api/sales` y `POST /api/sales/close-work-order` aceptan `fiscal` (falso por defecto) y
+`customerTaxId`.
+
+Decisiones que conviene conocer:
+
+- **Un rango activo por sucursal**, con índice único parcial: dos activos dejarían el
+  correlativo a suerte de cuál se lea primero.
+- **La venta guarda una fotografía** del CAI, del rango y de la fecha límite, no una
+  referencia: el rango se agota y se reemplaza, y una factura impresa no puede cambiar.
+- **Un número consumido no vuelve**, ni cuando la factura se anula: eso es lo que exige el
+  régimen, y la anulada ya se imprime con su sello.
+- **Índice único sobre `(TenantId, FiscalNumber)`** filtrado a los no nulos: si dos cajas
+  emiten a la vez, la segunda falla en la base en lugar de repetir un correlativo.
+- **Rango agotado o CAI vencido no facturan**: responden 400 diciendo qué pasó. El Dueño
+  puede emitir sin CAI mientras consigue el nuevo.
+- **`fiscal` es falso por defecto** porque cada factura fiscal quema un número, y en un taller
+  la mayoría de los clientes no la pide.
+- El RTN sale del que se mande, y si no del de la ficha del cliente; sin ninguno, la factura
+  va a **consumidor final**.
 
 ### Datos de demostración
 

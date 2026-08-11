@@ -3,6 +3,7 @@ import { api, download } from './client'
 import type {
   Branch,
   Customer,
+  FiscalRange,
   LaborService,
   MediaAttachment,
   MediaOwnerType,
@@ -93,6 +94,8 @@ export const customersApi = {
     phone: string
     email?: string
     documentId?: string
+    /** RTN, solo en los clientes que piden factura con CAI. */
+    taxId?: string
     address?: string
     notes?: string
   }) {
@@ -104,6 +107,7 @@ export const customersApi = {
     phone: string
     email?: string | null
     documentId?: string | null
+    taxId?: string | null
     address?: string | null
     notes?: string | null
     isActive?: boolean
@@ -575,6 +579,10 @@ export const salesApi = {
     dueDate?: string
     /** Lo que el cliente deja al recoger. Omitido = paga todo. */
     initialPayment?: number
+    /** Consume un número del rango autorizado por el SAR. */
+    fiscal?: boolean
+    /** RTN para esta factura. Vacío = el de la ficha del cliente. */
+    customerTaxId?: string
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
     return data
@@ -686,5 +694,27 @@ export const tenantApi = {
   async removeLogo(): Promise<TenantSettings> {
     const { data } = await api.delete<TenantSettings>('/api/tenant/logo')
     return data
+  },
+
+  async fiscalRanges(): Promise<FiscalRange[]> {
+    const { data } = await api.get<FiscalRange[]>('/api/tenant/fiscal-ranges')
+    return data
+  },
+  /** Registrar uno nuevo desactiva el que la sucursal tuviera: el SAR autoriza uno a la vez. */
+  async saveFiscalRange(body: {
+    branchId: string
+    cai: string
+    establishmentCode: string
+    pointOfSaleCode: string
+    documentType: string
+    rangeStart: number
+    rangeEnd: number
+    issueDeadline: string
+  }): Promise<FiscalRange> {
+    const { data } = await api.post<FiscalRange>('/api/tenant/fiscal-ranges', body)
+    return data
+  },
+  async deactivateFiscalRange(id: string) {
+    await api.delete(`/api/tenant/fiscal-ranges/${id}`)
   },
 }

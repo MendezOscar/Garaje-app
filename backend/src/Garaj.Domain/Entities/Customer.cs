@@ -14,7 +14,12 @@ public class Customer : TenantEntity
     public string Phone { get; set; } = null!;
 
     public string? Email { get; set; }
+
+    /// <summary>Número de identidad. No sirve para la factura: para eso está el RTN.</summary>
     public string? DocumentId { get; set; }
+
+    /// <summary>RTN, para la factura con CAI. Solo lo tienen los clientes que la piden.</summary>
+    public string? TaxId { get; set; }
     public string? Address { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;

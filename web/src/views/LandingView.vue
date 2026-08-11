@@ -284,8 +284,8 @@ const incluye = [
           Pedir la propuesta por WhatsApp
         </a>
         <p class="fino">
-          La factura en PDF sirve como comprobante de entrega para su cliente; no sustituye el
-          talonario autorizado por el SAR.
+          Si su taller tiene CAI, la factura sale con él: número autorizado, rango, fecha
+          límite y valor en letras. Sin CAI sirve como comprobante de entrega.
         </p>
       </div>
     </section>

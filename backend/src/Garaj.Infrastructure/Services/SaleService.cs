@@ -135,6 +135,9 @@ public class SaleService(
 
         db.Sales.Add(sale);
 
+        if (request.Fiscal)
+            await AssignFiscalNumberAsync(sale, request.CustomerTaxId, ct);
+
         var sequence = 0;
         foreach (var line in request.Lines)
             sequence = await AddLineAsync(sale, line, scope, ++sequence, ct);
@@ -183,6 +186,9 @@ public class SaleService(
         };
 
         db.Sales.Add(sale);
+
+        if (request.Fiscal)
+            await AssignFiscalNumberAsync(sale, request.CustomerTaxId, ct);
 
         var sequence = 0;
 
@@ -520,6 +526,52 @@ public class SaleService(
         sale.Total = taxable + sale.TaxTotal;
     }
 
+    /// <summary>
+    /// Emite el correlativo fiscal de la sucursal y deja en la venta una copia del CAI, del
+    /// rango y de la fecha límite.
+    ///
+    /// La copia es a propósito: el rango se agota y se reemplaza, y una factura ya impresa no
+    /// puede cambiar de contenido porque el taller renovó su CAI. El número consumido no
+    /// vuelve al rango ni cuando la factura se anula, que es lo que exige el régimen.
+    /// </summary>
+    private async Task AssignFiscalNumberAsync(
+        Sale sale, string? customerTaxId, CancellationToken ct)
+    {
+        var range = await db.FiscalRanges
+            .FirstOrDefaultAsync(r => r.BranchId == sale.BranchId && r.IsActive, ct)
+            ?? throw new AppException(
+                "Esta sucursal no tiene CAI registrado. Regístrelo en Taller → Facturación, " +
+                "o emita la venta sin CAI.");
+
+        if (range.IssueDeadline <= clock.UtcNow)
+            throw new AppException(
+                $"El CAI venció el {range.IssueDeadline.ToLocalTime():dd/MM/yyyy}. " +
+                "Pida uno nuevo al SAR y regístrelo antes de facturar.");
+
+        if (range.NextNumber > range.RangeEnd)
+            throw new AppException(
+                "Se agotó el rango autorizado. Pida uno nuevo al SAR y regístrelo antes de facturar.");
+
+        sale.FiscalRangeId = range.Id;
+        sale.FiscalNumber = range.Format(range.NextNumber);
+        sale.FiscalCai = range.Cai;
+        sale.FiscalRangeText = range.RangeText;
+        sale.FiscalIssueDeadline = range.IssueDeadline;
+
+        range.NextNumber++;
+
+        // El RTN de la factura: el que venga escrito, y si no el de la ficha del cliente.
+        // Sin ninguno, la factura sale a consumidor final, que es lo correcto.
+        var explicito = string.IsNullOrWhiteSpace(customerTaxId) ? null : customerTaxId.Trim();
+
+        sale.CustomerTaxId = explicito ?? (sale.CustomerId is { } customerId
+            ? await db.Customers.AsNoTracking()
+                .Where(c => c.Id == customerId)
+                .Select(c => c.TaxId)
+                .FirstOrDefaultAsync(ct)
+            : null);
+    }
+
     /// <summary>Correlativo por sucursal, ej. "VTA-MTZ-000312".</summary>
     private async Task<string> NextNumberAsync(Guid branchId, CancellationToken ct)
     {
@@ -576,6 +628,10 @@ public class SaleService(
             sale.Number,
             sale.BranchId,
             sale.Branch.Name,
+            string.Join(", ", new[] { sale.Branch.Address, sale.Branch.City }
+                .Where(x => !string.IsNullOrWhiteSpace(x))) is { Length: > 0 } direccion
+                ? direccion
+                : null,
             sale.CustomerId,
             customer?.FullName,
             customer?.Phone,
@@ -599,6 +655,11 @@ public class SaleService(
             sale.Total - paid,
             sale.DueDate,
             sale.DueDate is { } due && due < clock.UtcNow && sale.Total > paid,
+            sale.FiscalNumber,
+            sale.FiscalCai,
+            sale.FiscalRangeText,
+            sale.FiscalIssueDeadline,
+            sale.CustomerTaxId,
             sale.Lines
                 .OrderBy(l => l.Sequence)
                 .Select(l => new SaleLineDto(

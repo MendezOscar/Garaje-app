@@ -34,6 +34,41 @@ public record UpdateTenantRequest(
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);
 
+// ---------- Régimen de facturación (CAI) ----------
+
+/// <summary>
+/// Un rango autorizado por el SAR, como se ve desde el panel: con lo que queda por emitir y si
+/// está por vencerse, que es lo que hay que saber antes de quedarse sin poder facturar.
+/// </summary>
+public record FiscalRangeDto(
+    Guid Id,
+    Guid BranchId,
+    string BranchName,
+    string Cai,
+    string EstablishmentCode,
+    string PointOfSaleCode,
+    string DocumentType,
+    int RangeStart,
+    int RangeEnd,
+    int NextNumber,
+    int Remaining,
+    string RangeText,
+    string NextFiscalNumber,
+    DateTimeOffset IssueDeadline,
+    bool IsActive,
+    bool IsExpired,
+    bool IsExhausted);
+
+public record SaveFiscalRangeRequest(
+    Guid BranchId,
+    string Cai,
+    string EstablishmentCode,
+    string PointOfSaleCode,
+    string DocumentType,
+    int RangeStart,
+    int RangeEnd,
+    DateTimeOffset IssueDeadline);
+
 public interface ITenantService
 {
     Task<TenantSettingsDto> GetAsync(CancellationToken ct = default);
@@ -63,4 +98,23 @@ public interface ITenantService
 
     /// <summary>La ruta relativa del logo, o null. La comparten los DTO que ya llevan el nombre del taller.</summary>
     static string LogoPath(Guid tenantId) => $"/api/tenants/{tenantId}/logo";
+
+    /// <summary>
+    /// Los rangos de facturación del taller, el vigente de cada sucursal primero. Vacío en un
+    /// taller que no factura con CAI, que es lo normal hasta que el SAR le autoriza uno.
+    /// </summary>
+    Task<IReadOnlyList<FiscalRangeDto>> ListFiscalRangesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Registra un rango nuevo y desactiva el que la sucursal tuviera: el SAR autoriza uno a
+    /// la vez, y dos activos dejarían el correlativo a suerte de cuál se lea primero.
+    /// </summary>
+    Task<FiscalRangeDto> SaveFiscalRangeAsync(
+        SaveFiscalRangeRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deja de emitir con este rango. No se borra: las facturas emitidas guardan su copia de
+    /// estos datos y el rango es lo que explica de dónde salió cada número.
+    /// </summary>
+    Task DeactivateFiscalRangeAsync(Guid id, CancellationToken ct = default);
 }

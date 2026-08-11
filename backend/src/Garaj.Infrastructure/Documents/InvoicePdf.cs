@@ -35,7 +35,7 @@ public static class InvoicePdf
 
                 page.Header().Element(header => Header(header, sale, tenantName, legalName, phone, taxId, logo));
                 page.Content().PaddingVertical(1, Unit.Centimetre).Element(content => Content(content, sale));
-                page.Footer().Element(Footer);
+                page.Footer().Element(footer => Footer(footer, sale));
             });
         });
 
@@ -58,12 +58,43 @@ public static class InvoicePdf
                 if (!string.IsNullOrWhiteSpace(taxId)) column.Item().Text($"RTN {taxId}").FontSize(9);
                 if (!string.IsNullOrWhiteSpace(phone)) column.Item().Text($"Tel. {phone}").FontSize(9);
                 column.Item().Text(sale.BranchName).FontSize(9).FontColor(Colors.Grey.Darken1);
+
+                if (sale.BranchAddress is { } direccion)
+                    column.Item().Text(direccion).FontSize(8).FontColor(Colors.Grey.Darken1);
+
+                // El CAI y su rango van en el encabezado, junto a los datos del emisor, que es
+                // donde los busca quien revisa una factura.
+                if (sale.FiscalCai is { } cai)
+                {
+                    column.Item().PaddingTop(6).Text($"CAI: {cai}").FontSize(8);
+                    column.Item().Text($"Rango autorizado: {sale.FiscalRangeText}").FontSize(8);
+
+                    if (sale.FiscalIssueDeadline is { } deadline)
+                    {
+                        column.Item()
+                            .Text($"Fecha límite de emisión: {deadline.ToLocalTime():dd/MM/yyyy}")
+                            .FontSize(8);
+                    }
+                }
             });
 
             row.ConstantItem(200).Column(column =>
             {
                 column.Item().AlignRight().Text("FACTURA").FontSize(14).Bold();
-                column.Item().AlignRight().Text(sale.Number).FontSize(12);
+
+                // Con CAI manda el correlativo fiscal: es el número con el que existe la
+                // factura para el SAR. El interno queda debajo, para el taller.
+                if (sale.FiscalNumber is { } fiscalNumber)
+                {
+                    column.Item().AlignRight().Text(fiscalNumber).FontSize(12).Bold();
+                    column.Item().AlignRight().Text(sale.Number).FontSize(8)
+                        .FontColor(Colors.Grey.Darken1);
+                }
+                else
+                {
+                    column.Item().AlignRight().Text(sale.Number).FontSize(12);
+                }
+
                 column.Item().AlignRight()
                     .Text($"Fecha: {sale.SaleDate.ToLocalTime():dd/MM/yyyy HH:mm}").FontSize(9);
                 column.Item().AlignRight()
@@ -102,6 +133,16 @@ public static class InvoicePdf
                     c.Item().Text("Cliente").FontSize(8).FontColor(Colors.Grey.Darken1);
                     c.Item().Text(sale.CustomerName ?? "Cliente de mostrador").SemiBold();
                     if (sale.CustomerPhone is not null) c.Item().Text(sale.CustomerPhone).FontSize(9);
+
+                    // En la factura fiscal el RTN es obligatorio cuando el cliente lo pide;
+                    // sin RTN se emite a consumidor final, y hay que decirlo.
+                    if (sale.FiscalNumber is not null)
+                    {
+                        c.Item().Text(sale.CustomerTaxId is { } rtn
+                                ? $"RTN {rtn}"
+                                : "Consumidor final")
+                            .FontSize(9);
+                    }
                 });
 
                 if (sale.VehicleLabel is not null)
@@ -173,6 +214,14 @@ public static class InvoicePdf
                 if (sale.DiscountTotal > 0)
                     Total(totals, "Descuento", $"−{Money(sale.DiscountTotal, sale.Currency)}");
 
+                // El desglose que pide el régimen: en un taller todo va gravado, pero el
+                // importe exento se imprime igual —en cero— porque el formato lo exige.
+                if (sale.FiscalNumber is not null)
+                {
+                    Total(totals, "Importe exento", Money(0, sale.Currency));
+                    Total(totals, "Importe gravado", Money(sale.Subtotal - sale.DiscountTotal, sale.Currency));
+                }
+
                 if (sale.TaxRate > 0)
                     Total(totals, $"ISV {sale.TaxRate:0.##}%", Money(sale.TaxTotal, sale.Currency));
 
@@ -200,6 +249,15 @@ public static class InvoicePdf
                 }
             });
 
+            // El valor en letras es obligatorio en la factura fiscal, y de paso estorba la
+            // corrección a mano de la cifra.
+            if (sale.FiscalNumber is not null)
+            {
+                column.Item().PaddingTop(4)
+                    .Text($"Son: {NumeroEnLetras.Moneda(sale.Total, sale.Currency)}")
+                    .FontSize(9).SemiBold();
+            }
+
             // Los abonos van impresos: es el comprobante que el cliente lleva encima de lo
             // que ya pagó, y evita la discusión de "yo le aboné hace quince días".
             if (sale.Payments.Count > 1 || sale.Balance > 0)
@@ -225,10 +283,25 @@ public static class InvoicePdf
         });
     }
 
-    private static void Footer(IContainer container)
+    private static void Footer(IContainer container, SaleDetailDto sale)
     {
         container.Column(column =>
         {
+            if (sale.FiscalNumber is not null)
+            {
+                column.Item().AlignCenter()
+                    .Text("Original: Cliente · Copia: Obligado tributario")
+                    .FontSize(8).SemiBold();
+            }
+            else
+            {
+                // Sin CAI esto no es un documento fiscal, y decirlo aquí evita que alguien lo
+                // presente como tal: en la pantalla ya se advierte, en el papel no se veía.
+                column.Item().AlignCenter()
+                    .Text("Comprobante de entrega. No es documento fiscal.")
+                    .FontSize(8).FontColor(Colors.Grey.Darken1);
+            }
+
             column.Item().AlignCenter()
                 .Text("Gracias por su preferencia.")
                 .FontSize(8).FontColor(Colors.Grey.Darken1);

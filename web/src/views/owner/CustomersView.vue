@@ -23,6 +23,39 @@ const notice = ref('')
 /** Alta de acceso a la app, por cliente. Se abre con el botón de su fila. */
 const access = ref<{ customer: Customer; email: string; password: string } | null>(null)
 
+/**
+ * RTN del cliente expandido. Se edita aquí porque es donde se pregunta —«¿va a querer factura
+ * con CAI?»— y así la factura sale con él sin que nadie lo dicte de nuevo en la entrega.
+ */
+const rtn = ref('')
+
+async function saveRtn(customer: Customer) {
+  busy.value = true
+  error.value = ''
+  notice.value = ''
+  try {
+    const value = rtn.value.trim()
+    const updated = await customersApi.update(customer.id, {
+      fullName: customer.fullName,
+      phone: customer.phone,
+      email: customer.email,
+      documentId: customer.documentId,
+      taxId: value || null,
+      address: customer.address,
+      notes: customer.notes,
+      isActive: customer.isActive,
+    })
+    Object.assign(customer, updated)
+    notice.value = value
+      ? `RTN guardado: sus facturas con CAI saldrán a nombre de ${customer.fullName}.`
+      : 'RTN quitado.'
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo guardar el RTN.')
+  } finally {
+    busy.value = false
+  }
+}
+
 let searchToken = 0
 
 async function load() {
@@ -47,6 +80,7 @@ async function toggle(customer: Customer) {
   }
 
   expandedId.value = customer.id
+  rtn.value = customer.taxId ?? ''
   vehicles.value = []
   vehicles.value = (await vehiclesApi.list({ customerId: customer.id })).items
 }
@@ -162,6 +196,21 @@ watch(search, () => {
             </td>
           </tr>
           <tr v-if="expandedId === customer.id">
+            <td colspan="5" class="ficha">
+              <form class="rtn" @submit.prevent="saveRtn(customer)">
+                <label>
+                  RTN
+                  <input v-model="rtn" placeholder="08019995123456" />
+                </label>
+                <button type="submit" :disabled="busy">Guardar</button>
+                <span class="muted small">
+                  Para la factura con CAI. Se puede corregir al facturar.
+                </span>
+              </form>
+            </td>
+          </tr>
+
+          <tr v-if="expandedId === customer.id">
             <td colspan="5" class="vehicles">
               <ul v-if="vehicles.length">
                 <li v-for="v in vehicles" :key="v.id">
@@ -188,6 +237,26 @@ watch(search, () => {
 <style scoped>
 .access {
   font-size: 0.875rem;
+}
+
+.ficha {
+  background: var(--surface-alt);
+}
+
+.rtn {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+}
+
+.rtn label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .access-form {

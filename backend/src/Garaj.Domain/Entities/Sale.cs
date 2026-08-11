@@ -44,6 +44,29 @@ public class Sale : TenantEntity, IBranchEntity
     public bool IsVoided { get; set; }
     public string? VoidReason { get; set; }
 
+    // ---------- Régimen de facturación (opcional) ----------
+    //
+    // Una venta sin CAI los deja todos en null y sigue siendo el comprobante de entrega de
+    // siempre. Cuando se emite con CAI, estos campos son una *fotografía* del rango y no una
+    // referencia: el rango se agota y se reemplaza, y la factura ya impresa no puede cambiar.
+
+    public Guid? FiscalRangeId { get; set; }
+
+    /// <summary>Correlativo fiscal completo, ej. "000-001-01-00000001".</summary>
+    public string? FiscalNumber { get; set; }
+
+    public string? FiscalCai { get; set; }
+
+    /// <summary>El rango autorizado tal como se imprime, ej. "000-…-00000001 a 000-…-00005000".</summary>
+    public string? FiscalRangeText { get; set; }
+
+    public DateTimeOffset? FiscalIssueDeadline { get; set; }
+
+    /// <summary>RTN del cliente en el momento de facturar. Sin él la factura va a consumidor final.</summary>
+    public string? CustomerTaxId { get; set; }
+
+    public bool IsFiscal => FiscalNumber is not null;
+
     public Branch Branch { get; set; } = null!;
     public ICollection<SaleLine> Lines { get; set; } = new List<SaleLine>();
     public ICollection<SalePayment> Payments { get; set; } = new List<SalePayment>();

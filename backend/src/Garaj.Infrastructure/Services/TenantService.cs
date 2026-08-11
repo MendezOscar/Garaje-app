@@ -18,6 +18,7 @@ public class TenantService(
     GarajDbContext db,
     IStorageService storage,
     ITenantContext tenantContext,
+    IDateTimeProvider clock,
     ILogger<TenantService> logger) : ITenantService
 {
     /// <summary>Tope de entrada. Un logo real no pasa de unos cientos de kilobytes.</summary>
@@ -163,6 +164,112 @@ public class TenantService(
             return null;
         }
     }
+
+    // ---------- Régimen de facturación (CAI) ----------
+
+    public async Task<IReadOnlyList<FiscalRangeDto>> ListFiscalRangesAsync(
+        CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var ranges = await db.FiscalRanges.AsNoTracking()
+            .Include(r => r.Branch)
+            .OrderBy(r => r.Branch.Name)
+            .ThenByDescending(r => r.IsActive)
+            .ThenByDescending(r => r.CreatedAt)
+            .ToListAsync(ct);
+
+        return ranges.Select(Map).ToList();
+    }
+
+    public async Task<FiscalRangeDto> SaveFiscalRangeAsync(
+        SaveFiscalRangeRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+        scope.EnsureBranchAllowed(request.BranchId);
+
+        var branch = await db.Branches.FirstOrDefaultAsync(b => b.Id == request.BranchId, ct)
+            ?? throw new NotFoundException("La sucursal no existe.");
+
+        var cai = (request.Cai ?? "").Trim().ToUpperInvariant();
+        if (cai.Length is < 20 or > 50)
+            throw new AppException("El CAI no tiene la forma que entrega el SAR.");
+
+        if (request.RangeStart <= 0 || request.RangeEnd < request.RangeStart)
+            throw new AppException("El rango va del número menor al mayor, y empieza en 1 o más.");
+
+        if (request.IssueDeadline <= clock.UtcNow)
+            throw new AppException("La fecha límite de emisión ya pasó.");
+
+        // Un rango nuevo reemplaza al anterior de esa sucursal.
+        var previos = await db.FiscalRanges
+            .Where(r => r.BranchId == request.BranchId && r.IsActive)
+            .ToListAsync(ct);
+
+        foreach (var previo in previos) previo.IsActive = false;
+
+        var range = new FiscalRange
+        {
+            BranchId = request.BranchId,
+            Cai = cai,
+            EstablishmentCode = Code(request.EstablishmentCode, 3, "000"),
+            PointOfSaleCode = Code(request.PointOfSaleCode, 3, "001"),
+            DocumentType = Code(request.DocumentType, 2, "01"),
+            RangeStart = request.RangeStart,
+            RangeEnd = request.RangeEnd,
+            NextNumber = request.RangeStart,
+            IssueDeadline = request.IssueDeadline,
+            IsActive = true
+        };
+
+        db.FiscalRanges.Add(range);
+        await db.SaveChangesAsync(ct);
+
+        range.Branch = branch;
+        return Map(range);
+    }
+
+    public async Task DeactivateFiscalRangeAsync(Guid id, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var range = await db.FiscalRanges.FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw new NotFoundException("El rango no existe.");
+
+        range.IsActive = false;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Rellena con ceros a la izquierda: el SAR numera "000", "001", "01".</summary>
+    private static string Code(string? value, int length, string fallback)
+    {
+        var digits = new string((value ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length == 0) return fallback;
+
+        return digits.Length > length
+            ? digits[^length..]
+            : digits.PadLeft(length, '0');
+    }
+
+    private FiscalRangeDto Map(FiscalRange r) => new(
+        r.Id,
+        r.BranchId,
+        r.Branch?.Name ?? "",
+        r.Cai,
+        r.EstablishmentCode,
+        r.PointOfSaleCode,
+        r.DocumentType,
+        r.RangeStart,
+        r.RangeEnd,
+        r.NextNumber,
+        r.Remaining,
+        r.RangeText,
+        r.Format(Math.Min(r.NextNumber, r.RangeEnd)),
+        r.IssueDeadline,
+        r.IsActive,
+        r.IssueDeadline <= clock.UtcNow,
+        r.NextNumber > r.RangeEnd);
 
     private async Task<Tenant> CurrentAsync(CancellationToken ct)
     {

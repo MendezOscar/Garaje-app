@@ -2,7 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
-import { laborServicesApi, quotesApi, salesApi, usersApi, workOrdersApi } from '@/api/garaj'
+import {
+  customersApi,
+  laborServicesApi,
+  quotesApi,
+  salesApi,
+  tenantApi,
+  usersApi,
+  workOrdersApi,
+} from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
@@ -22,6 +30,7 @@ import {
   type SaleDetail,
   type User,
   type WorkOrderDetail,
+  type FiscalRange,
   type WorkOrderListItem,
 } from '@/types/domain'
 import { formatDate, formatDateTime, formatMoney, relativeTime, whatsappLink } from '@/utils/format'
@@ -76,6 +85,22 @@ const diagnosis = ref('')
  */
 const historial = ref<WorkOrderListItem[]>([])
 
+/**
+ * Factura con CAI. Sin marcar por defecto a propósito: cada factura fiscal quema un número
+ * del rango autorizado, y la mayoría de los clientes de taller no la piden.
+ */
+const conCai = ref(false)
+const rtnFactura = ref('')
+const rangoFiscal = ref<FiscalRange | null>(null)
+
+/** Por qué no se puede emitir con CAI, o null si sí se puede. */
+const impedimentoCai = computed(() => {
+  if (!rangoFiscal.value) return 'Esta sucursal no tiene CAI registrado (Taller → Facturación).'
+  if (rangoFiscal.value.isExpired) return 'El CAI de esta sucursal venció.'
+  if (rangoFiscal.value.isExhausted) return 'Se agotó el rango autorizado de esta sucursal.'
+  return null
+})
+
 const id = computed(() => route.params.id as string)
 const canEdit = computed(() => !auth.isCustomer)
 
@@ -91,6 +116,17 @@ async function load() {
         pageSize: 20,
       })
       historial.value = page.items.filter((o) => o.id !== id.value)
+    }
+
+    if (auth.isOwner) {
+      const ranges = await tenantApi.fiscalRanges().catch(() => [])
+      rangoFiscal.value =
+        ranges.find((r) => r.isActive && r.branchId === order.value!.branchId) ?? null
+
+      if (order.value.customerId) {
+        const ficha = await customersApi.get(order.value.customerId).catch(() => null)
+        rtnFactura.value = ficha?.taxId ?? ''
+      }
     }
     manualLabor.value = order.value.manualLaborTotal ?? ''
     if (auth.isOwner) {
@@ -145,6 +181,8 @@ function closeAndInvoice() {
       // Sin crédito no se manda nada y el backend cobra el total, que es el caso normal.
       initialPayment: onCredit.value ? Number(initialPayment.value) || 0 : undefined,
       dueDate: onCredit.value && dueDate.value ? new Date(dueDate.value).toISOString() : undefined,
+      fiscal: conCai.value,
+      customerTaxId: conCai.value ? rtnFactura.value.trim() || undefined : undefined,
     }),
   )
 }
@@ -613,6 +651,20 @@ onMounted(async () => {
             </option>
           </select>
 
+          <label class="checkbox" :class="{ apagado: impedimentoCai }">
+            <input v-model="conCai" type="checkbox" :disabled="!!impedimentoCai" />
+            Factura con CAI
+            <span v-if="rangoFiscal && !impedimentoCai" class="muted small">
+              · siguiente {{ rangoFiscal.nextFiscalNumber }}
+            </span>
+          </label>
+          <p v-if="impedimentoCai" class="muted small">{{ impedimentoCai }}</p>
+
+          <label v-if="conCai" class="rtn">
+            RTN del cliente
+            <input v-model="rtnFactura" placeholder="Sin RTN: consumidor final" />
+          </label>
+
           <label class="checkbox">
             <input v-model="onCredit" type="checkbox" />
             Queda debiendo: dejar saldo a crédito
@@ -639,6 +691,10 @@ onMounted(async () => {
         <article v-if="auth.isOwner && sales.length" class="card">
           <h2>Venta</h2>
           <div v-for="sale in sales" :key="sale.id" class="sale">
+            <p v-if="sale.fiscalNumber" class="fiscal">
+              Factura fiscal <strong>{{ sale.fiscalNumber }}</strong>
+              <span class="muted small">· CAI {{ sale.fiscalCai }}</span>
+            </p>
             <p>
               <strong>{{ sale.number }}</strong> · {{ formatMoney(sale.total) }}
               <span class="muted small">
@@ -1123,6 +1179,23 @@ dd {
 
 .sale p {
   margin-bottom: 0.5rem;
+}
+
+.apagado {
+  opacity: 0.6;
+}
+
+.rtn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.fiscal {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
 }
 
 .historial {
