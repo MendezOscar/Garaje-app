@@ -14,6 +14,7 @@ services:
     dockerContext: ./backend
     healthCheckPath: /health
     autoDeploy: true
+    branch: main
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
@@ -47,3 +48,65 @@ services:
         sync: false
       - key: Storage__Bucket
         value: garaj-media
+
+  # ------------------------------------------------------------------ pruebas
+  # Copia de la API para probar migraciones y cambios antes de que los vea el taller. Sigue la
+  # rama `pruebas`: se empuja ahí, se comprueba, y hasta entonces se mezcla a `main`, que es la
+  # que despliega producción.
+  #
+  # Va en `Development` a propósito, y eso tiene tres consecuencias que en producción no
+  # existen: se expone Swagger en `/swagger`, la base vacía se siembra sola con los datos de
+  # desarrollo (`owner@garaj.test`) —lo que permite entrar y llamar a la siembra de
+  # demostración, que necesita un Dueño autenticado— y los errores salen con detalle. Es
+  # aceptable porque aquí no hay datos de nadie; no ponga nunca datos reales en este entorno.
+  - type: web
+    name: garaj-api-pruebas
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeploy: true
+    branch: pruebas
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Development
+
+      - key: Database__MigrateOnStartup
+        value: "true"
+
+      # Su propio proyecto de Supabase. **No** la cadena de producción: las migraciones se
+      # aplican al arrancar y una prueba no puede tocar la base del taller.
+      - key: ConnectionStrings__Default
+        sync: false
+
+      # Distinta de la de producción a propósito: así un token emitido aquí no vale allá.
+      - key: Jwt__SigningKey
+        generateValue: true
+
+      # Aquí sí, y solo aquí: `POST /api/demo/seed` borra la base entera y vuelve a sembrar el
+      # Taller Demo. Es lo que permite refrescar la demostración cuantas veces haga falta sin
+      # acercarse a producción.
+      - key: Demo__AllowSeeding
+        value: "true"
+
+      # URL del panel de pruebas en Pages (el preview de la rama). Ojo: en Development ya hay
+      # una lista en appsettings.Development.json, y esta variable **reemplaza el índice 0**,
+      # así que aquí va la URL del preview y `localhost:4173` sigue permitido.
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      - key: PublicBaseUrl
+        sync: false
+
+      - key: Storage__ServiceUrl
+        sync: false
+      - key: Storage__AccessKey
+        sync: false
+      - key: Storage__SecretKey
+        sync: false
+
+      # Bucket aparte: una siembra de pruebas borra filas y dejaría fotos huérfanas mezcladas
+      # con las de producción.
+      - key: Storage__Bucket
+        value: garaj-media-pruebas

@@ -94,6 +94,78 @@ plan Starter (US$7/mes), que no duerme.
 
 ---
 
+## 2.b Entorno de pruebas
+
+Hay un segundo servicio en el blueprint, `garaj-api-pruebas`, que sigue la rama **`pruebas`**.
+El flujo queda así: se empuja a `pruebas`, se comprueba contra ese entorno, y hasta entonces se
+mezcla a `main`, que es lo que despliega producción.
+
+**Por qué existe**, más allá de probar migraciones: `POST /api/demo/seed` borra la base entera,
+así que en producción solo puede correrse antes de dar de alta al primer taller. En pruebas la
+bandera queda encendida para siempre y la demostración se refresca cuando haga falta.
+
+Lo que cambia respecto a producción:
+
+| Variable | Producción | Pruebas |
+| --- | --- | --- |
+| `ASPNETCORE_ENVIRONMENT` | `Production` | `Development` — expone `/swagger`, siembra los datos de desarrollo en una base vacía y devuelve errores con detalle |
+| `ConnectionStrings__Default` | Supabase del taller | **otro proyecto de Supabase** |
+| `Demo__AllowSeeding` | ausente | `true` |
+| `Storage__Bucket` | `garaj-media` | `garaj-media-pruebas` |
+| `Jwt__SigningKey` | la generada | otra generada: un token de pruebas no vale en producción |
+| `Cors__AllowedOrigins__0` · `PublicBaseUrl` | dominio real | URL del preview de Pages |
+
+> En `Development` la lista de orígenes ya viene de `appsettings.Development.json`
+> (`localhost:5173`, `localhost:4173`) y la variable de entorno **reemplaza el índice 0**, no se
+> suma al final. Por eso en `__0` va la URL del preview y `localhost:4173` sigue permitido.
+
+### Lo que hay que crear a mano, una vez
+
+1. **Rama**: `git switch -c pruebas && git push -u origin pruebas`.
+2. **Base**: otro proyecto en Supabase, misma región `us-east-1`. El plan free permite dos
+   proyectos activos, y **pausa el proyecto tras 7 días sin uso**: si el entorno de pruebas
+   responde 500 al arrancar, es que hay que despausarlo en el dashboard.
+3. **Bucket**: `garaj-media-pruebas` en R2, con el mismo CORS de
+   [r2-cors.json](../r2-cors.json) más la URL del preview de Pages.
+4. **Render**: aplicar el blueprint otra vez (**New → Blueprint**, o *Sync* en el existente).
+   Render muestra el diff antes de tocar nada: debe crear `garaj-api-pruebas` y no cambiar
+   producción. Luego cargar las variables `sync: false` de ese servicio.
+5. **Panel**: en el proyecto de Pages, **Settings → Environment variables → Preview**, poner
+   `VITE_API_URL` con la URL del servicio de pruebas. Los despliegues de una rama que no es la
+   de producción usan esas variables, así que la rama `pruebas` sale sola en
+   `pruebas.garaje-app.pages.dev` apuntando a la API de pruebas.
+
+### Cómo se usa
+
+```bash
+git switch pruebas && git merge main     # o trabajar directamente en la rama
+git push                                 # Render y Pages despliegan solos
+
+# Sembrar la demostración en pruebas, cuando haga falta
+TOKEN=$(curl -s https://garaj-api-pruebas.onrender.com/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"owner@garaj.test","password":"Garaj123!"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
+
+curl -s https://garaj-api-pruebas.onrender.com/api/demo/seed \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"confirm":"BORRAR Y SEMBRAR","weeks":6}'
+```
+
+`owner@garaj.test` existe porque el entorno corre en Development y siembra los datos de
+desarrollo al encontrar la base vacía.
+
+**Sobre el costo:** los dos servicios van en plan free, así que son US$0, pero los servicios
+gratuitos de la cuenta comparten **750 horas de instancia al mes** y uno encendido todo el mes ya
+consume unas 730. El de pruebas duerme solo a los 15 minutos sin tráfico, y así solo gasta
+mientras se usa. Si algún día producción pasa a Starter, deja de compartir esa bolsa.
+
+**La demostración que ve el cliente sigue en producción.** La app que instalan sus técnicos —y la
+que revisa Apple— apunta a producción, así que el Taller Demo de allá no se toca: este entorno es
+para probar cambios, no para reemplazarlo.
+
+---
+
 ## 3. Cloudflare Pages (web)
 
 **Workers & Pages → Create → Pages → conectar el repo**, y configure:
