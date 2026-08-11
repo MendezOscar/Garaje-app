@@ -331,7 +331,7 @@ Datos del proyecto, ya fijados en el repositorio:
 | Versión | `pubspec.yaml`, campo `version: 1.0.0+1` — el número tras el `+` sube en cada subida |
 | Dispositivos | **solo iPhone** (`TARGETED_DEVICE_FAMILY = 1`) |
 | Exportación | `ITSAppUsesNonExemptEncryption = false`: la app solo usa HTTPS, así que no hay que responder el cuestionario de criptografía en cada subida |
-| Política de privacidad | <https://www.garajeapp.com/privacidad.html> — obligatoria para publicar y para las pruebas externas de TestFlight |
+| Política de privacidad | <https://garajeapp.com/privacidad> — obligatoria para publicar y para las pruebas externas de TestFlight |
 
 Pasos, una vez activa la cuenta:
 

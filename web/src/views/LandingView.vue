@@ -334,8 +334,8 @@ const incluye = [
       <span>Hecho en Honduras · Lempiras e ISV 15%</span>
       <!-- Archivo estático en `public`, así que va con <a> y no con RouterLink: el router de
            Vue no lo conoce y lo mandaría al 404. -->
-      <a href="/manual.html">Manual de usuario</a>
-      <a href="/privacidad.html">Privacidad</a>
+      <a href="/manual">Manual de usuario</a>
+      <a href="/privacidad">Privacidad</a>
       <RouterLink :to="{ name: 'login' }">Entrar al panel</RouterLink>
     </footer>
   </div>
