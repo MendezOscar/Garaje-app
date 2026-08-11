@@ -10,6 +10,7 @@ import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
+import '../reports/reports_screen.dart' show money;
 import '../notifications/notifications_screen.dart';
 import '../shared/status_chip.dart';
 import '../shared/tenant_logo.dart';
@@ -441,8 +442,8 @@ class _RevenueSummary extends ConsumerWidget {
     );
   }
 
-  static String _money(double value, String currency) =>
-      '$currency ${value.toStringAsFixed(0)}';
+  // El símbolo y con separador de miles, igual que los reportes: «L 4,890» y no «HNL 4890».
+  static String _money(double value, String currency) => money(value, currency);
 }
 
 class _Figure extends StatelessWidget {

@@ -22,9 +22,14 @@ const confirming = ref<'approve' | 'reject' | null>(null)
 /** El logo llega bajo el token de la cotización, no bajo el id del taller. */
 const logoTaller = computed(() => apiUrl(quote.value?.tenantLogoUrl))
 
-/** El taller decide la moneda; aquí solo se formatea con el código que llega. */
+/**
+ * El taller decide la moneda; aquí solo se formatea. Se imprime el símbolo y no el código
+ * ISO: esta página la lee el cliente del taller, y en Honduras un precio se escribe «L 320.00».
+ */
+const SIMBOLO: Record<string, string> = { HNL: 'L', USD: '$' }
+
 const money = (value: number) =>
-  `${quote.value?.currency ?? 'HNL'} ${value.toLocaleString('es-HN', {
+  `${SIMBOLO[quote.value?.currency ?? 'HNL'] ?? quote.value?.currency} ${value.toLocaleString('es-HN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`

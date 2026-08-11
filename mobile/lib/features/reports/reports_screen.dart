@@ -738,8 +738,16 @@ String money(double value, String currency) {
     buffer.write(rounded[i]);
   }
 
-  return '$currency ${value < 0 ? '−' : ''}$buffer';
+  return '${_simbolo(currency)} ${value < 0 ? '−' : ''}$buffer';
 }
+
+/// El símbolo, no el código ISO: «L 1,000» es como se escribe un precio en el taller, y es lo
+/// que ya imprimen la factura y la cotización.
+String _simbolo(String currency) => switch (currency) {
+      'HNL' => 'L',
+      'USD' => '\$',
+      _ => currency,
+    };
 
 String quantity(double value) =>
     value == value.roundToDouble() ? value.round().toString() : value.toStringAsFixed(2);

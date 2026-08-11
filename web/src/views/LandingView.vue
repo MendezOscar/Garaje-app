@@ -332,6 +332,9 @@ const incluye = [
     <footer class="pie">
       <BrandLogo variant="isotipo" :height="18" />
       <span>Hecho en Honduras · Lempiras e ISV 15%</span>
+      <!-- Archivo estático en `public`, así que va con <a> y no con RouterLink: el router de
+           Vue no lo conoce y lo mandaría al 404. -->
+      <a href="/manual.html">Manual de usuario</a>
       <RouterLink :to="{ name: 'login' }">Entrar al panel</RouterLink>
     </footer>
   </div>

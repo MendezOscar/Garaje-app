@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<!--
+  Manual de usuario de GarajApp. Archivo estático dentro de `web/public`, así que Cloudflare
+  Pages lo sirve tal cual en /manual.html: la regla `/*  /index.html` de `_redirects` solo entra
+  cuando no existe el archivo. No pasa por Vue a propósito — se abre sin sesión, se manda por
+  WhatsApp y se imprime a PDF (Cmd+P) sin depender del panel.
+
+  Las capturas son las mismas de la página de venta (`web/public/capturas`): una sola copia que
+  se actualiza en un solo lugar.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual de usuario — GarajApp</title>
+  <meta name="description" content="Guía de uso de GarajApp: órdenes de trabajo, cotizaciones por WhatsApp, inventario por sucursal, facturación con CAI, reportes, roles (dueño, técnico, cliente), panel web y app móvil." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --brand: #1f6feb; --brand-deep: #124293; --brand-light: #e8f0fe;
+      --ink: #14171c; --muted: #6b7480; --bg: #f7f8fa; --card: #ffffff;
+      --border: #d9dde4; --warning: #b8790a; --success: #157a53; --danger: #c0392b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); background: var(--bg); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header { position: sticky; top: 0; z-index: 50; background: rgba(247,248,250,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; color: var(--ink); }
+    .brand img { height: 26px; width: auto; display: block; }
+    .nav a.home { color: var(--muted); font-weight: 600; font-size: 15px; }
+
+    .layout { max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; display: grid; grid-template-columns: 268px 1fr; gap: 40px; align-items: start; }
+    nav.toc { position: sticky; top: 82px; font-size: 14.5px; }
+    nav.toc h4 { text-transform: uppercase; letter-spacing: .04em; font-size: 12px; color: var(--muted); margin: 16px 0 6px; }
+    nav.toc a { display: block; color: var(--muted); padding: 4px 0; font-weight: 500; }
+    nav.toc a:hover { color: var(--brand); text-decoration: none; }
+
+    main { min-width: 0; }
+    h1 { font-size: clamp(30px, 5vw, 42px); font-weight: 800; letter-spacing: -.02em; margin-bottom: 8px; }
+    .sub { color: var(--muted); font-size: 18px; margin-bottom: 28px; }
+    h2 { font-size: 26px; font-weight: 800; letter-spacing: -.01em; margin: 44px 0 14px; padding-top: 8px; border-top: 1px solid var(--border); }
+    h2:first-of-type { border-top: none; }
+    h3 { font-size: 18px; font-weight: 700; margin: 22px 0 8px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 8px 22px; }
+    li { margin: 5px 0; }
+    strong { font-weight: 700; }
+    code { background: var(--brand-light); color: var(--brand-deep); padding: 1px 6px; border-radius: 5px; font-size: 13.5px; font-family: ui-monospace, Menlo, monospace; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+    .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 14px; margin: 16px 0; }
+    .role { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+    .role .ic { font-size: 24px; }
+    .role h3 { margin: 6px 0 4px; }
+    .role p { font-size: 14px; color: var(--muted); margin: 0; }
+
+    .steps { counter-reset: step; list-style: none; margin-left: 0; }
+    .steps li { counter-increment: step; position: relative; padding-left: 40px; margin: 12px 0; }
+    .steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 27px; height: 27px; background: var(--brand); color: #fff; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+
+    .note { border-left: 4px solid var(--brand); background: var(--brand-light); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14.5px; }
+    .warn { border-left-color: #e0a72b; background: #fdf6e7; }
+    .stop { border-left-color: var(--danger); background: #fdecea; }
+
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .b-blue { background: #dce8fd; color: var(--brand-deep); }
+    .b-amber { background: #fdf1d6; color: var(--warning); }
+    .b-green { background: #d8f0e6; color: var(--success); }
+    .b-red { background: #fbe0dd; color: var(--danger); }
+    .b-grey { background: #e9ecf1; color: var(--muted); }
+
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14.5px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
+    .tbl-wrap { overflow-x: auto; }
+
+    figure.shot { margin: 16px 0; }
+    figure.shot img { width: 100%; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(18,66,147,.08); display: block; }
+    figure.shot.phone img { max-width: 320px; margin: 0 auto; }
+    figure.shot figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; text-align: center; }
+
+    footer { border-top: 1px solid var(--border); padding: 28px 0; color: var(--muted); font-size: 14px; }
+    .foot { max-width: 1180px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      nav.toc { position: static; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 4px; }
+    }
+
+    @media print {
+      header, nav.toc { display: none; }
+      body { background: #fff; }
+      .layout { display: block; max-width: none; padding: 0; }
+      figure.shot img { box-shadow: none; }
+      h2 { break-after: avoid; }
+      .card, figure.shot, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <a href="/" class="brand"><img src="/brand/garajapp-horizontal.svg" alt="GarajApp" /></a>
+      <a href="/" class="home">← Volver al inicio</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc">
+      <h4>Contenido</h4>
+      <a href="#intro">1. Qué es GarajApp</a>
+      <a href="#conceptos">2. Conceptos clave</a>
+      <a href="#estados">3. Los estados de la orden</a>
+      <a href="#roles">4. Roles y accesos</a>
+      <a href="#demo">5. Probarlo con el taller de demostración</a>
+      <a href="#primeros-pasos">6. Primeros pasos</a>
+      <a href="#panel-web">7. Panel web</a>
+      <a href="#app-movil">8. App móvil</a>
+      <a href="#tecnico">9. Guía del técnico</a>
+      <a href="#cotizar">10. Cotizar por WhatsApp</a>
+      <a href="#inventario">11. Inventario y kardex</a>
+      <a href="#facturar">12. Facturar y cobrar</a>
+      <a href="#cai">13. Facturación con CAI (SAR)</a>
+      <a href="#reportes">14. Reportes</a>
+      <a href="#faq">15. Preguntas frecuentes</a>
+      <a href="#soporte">16. Soporte</a>
+    </nav>
+
+    <main>
+      <h1>Manual de usuario</h1>
+      <p class="sub">Cómo llevar el taller con GarajApp: recibir el vehículo, cotizar, cobrar y saber cómo va el negocio.</p>
+
+      <section id="intro">
+        <h2>1. Qué es GarajApp</h2>
+        <p>GarajApp es el sistema para administrar un taller de autos y motos. Son dos piezas de la misma cosa:</p>
+        <ul>
+          <li><strong>App móvil</strong> — para trabajar con el teléfono en la mano, que es como trabaja el taller: recibir el vehículo, subir fotos de lo que se encontró, cotizar y facturar desde el mostrador.</li>
+          <li><strong>Panel web</strong> — para la administración: el tablero de órdenes, el inventario, los reportes y las exportaciones.</li>
+        </ul>
+        <p>No hay dos verdades: lo que se registra en el teléfono se ve en el panel en el momento, y al revés.</p>
+        <div class="note">Cada taller trabaja con <strong>sus datos aislados</strong> de los de cualquier otro taller. Nadie más ve sus clientes, sus precios ni sus números.</div>
+      </section>
+
+      <section id="conceptos">
+        <h2>2. Conceptos clave</h2>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Concepto</th><th>Qué es</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Sucursal</strong></td><td>Cada local del taller. Tiene su propia bodega, sus técnicos, su correlativo de órdenes y su reporte.</td></tr>
+            <tr><td><strong>Cliente y vehículo</strong></td><td>El cliente vive en el padrón con su teléfono, su identidad y su RTN; cada vehículo cuelga de un cliente con su placa, marca, modelo y kilometraje.</td></tr>
+            <tr><td><strong>Orden de trabajo</strong></td><td>El trabajo de un vehículo, de principio a fin: motivo de ingreso, diagnóstico, pasos de la reparación, repuestos, fotos y línea de tiempo. Es el centro del sistema.</td></tr>
+            <tr><td><strong>Paso</strong></td><td>Cada tarea dentro de la orden («cambiar bujías», «revisar frenos»), con su técnico y su precio de mano de obra.</td></tr>
+            <tr><td><strong>Cotización</strong></td><td>Lo que se le manda al cliente antes de trabajar: repuestos y mano de obra con su total. Se envía por WhatsApp y el cliente aprueba con un toque.</td></tr>
+            <tr><td><strong>Venta / factura</strong></td><td>El cobro. Sale del cierre de la orden con lo que de verdad se consumió, o directo de mostrador. Genera el PDF que se lleva el cliente.</td></tr>
+            <tr><td><strong>Kardex</strong></td><td>El historial de cada repuesto: qué entró, qué salió, quién lo movió y a qué hora.</td></tr>
+            <tr><td><strong>Requerimiento</strong></td><td>La entrada de un vehículo antes de ser orden: lo levanta el mostrador o lo pide el propio cliente desde su app. El Dueño lo aprueba y ahí nace la orden de trabajo.</td></tr>
+            <tr><td><strong>Aviso</strong></td><td>La campana. Le dice a cada quien lo que le toca: cotización aprobada, orden lista, repuesto bajo mínimo.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="estados">
+        <h2>3. Los estados de la orden</h2>
+        <p>La orden avanza por estados, y el tablero del panel es una columna por estado. Mover la orden de columna es todo lo que hay que hacer para que el taller entero sepa cómo va el trabajo.</p>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge b-blue">Recibida</span></td><td>El vehículo entró y está registrado con su motivo de ingreso. Todavía nadie lo ha revisado.</td></tr>
+            <tr><td><span class="badge b-blue">En diagnóstico</span></td><td>El técnico lo está revisando para saber qué tiene.</td></tr>
+            <tr><td><span class="badge b-amber">Esperando aprobación</span></td><td>Ya hay cotización y la pelota está del lado del cliente.</td></tr>
+            <tr><td><span class="badge b-amber">Esperando repuestos</span></td><td>Aprobado, pero falta la pieza. Es el estado que explica por qué un carro lleva tres días parado.</td></tr>
+            <tr><td><span class="badge b-blue">En proceso</span></td><td>Se está trabajando.</td></tr>
+            <tr><td><span class="badge b-blue">En pruebas</span></td><td>Armado, probando que de verdad quedó.</td></tr>
+            <tr><td><span class="badge b-green">Lista para entrega</span></td><td>Terminada. Se le puede avisar al cliente que la venga a traer.</td></tr>
+            <tr><td><span class="badge b-green">Entregada</span></td><td>Cobrada y entregada. Sale del tablero del día y queda en el historial del vehículo.</td></tr>
+            <tr><td><span class="badge b-red">Cancelada</span></td><td>No se hizo. Queda registrada con su motivo: es información, no basura.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note">Las órdenes <strong>Entregada</strong> y <strong>Cancelada</strong> no desaparecen: se ven marcando <strong>«Ver cerradas»</strong> en el tablero, buscando por placa, o en el <strong>historial del vehículo</strong> dentro de cualquier orden suya.</div>
+      </section>
+
+      <section id="roles">
+        <h2>4. Roles y accesos</h2>
+        <p>Cada quien entra con su correo y ve solamente lo que le toca:</p>
+        <div class="roles">
+          <div class="role"><div class="ic">🧑‍💼</div><h3>Dueño</h3><p>Ve el taller completo: todas las sucursales, precios, costos, margen, inventario, reportes y usuarios. Cotiza, factura y cobra.</p></div>
+          <div class="role"><div class="ic">🔧</div><h3>Técnico</h3><p>Ve solo las órdenes de <strong>su</strong> sucursal y su trabajo. Diagnostica, marca pasos, sube fotos y carga repuestos. No ve costos, ni margen, ni reportes.</p></div>
+          <div class="role"><div class="ic">🚗</div><h3>Cliente</h3><p>Ve sus vehículos y cómo va su reparación, aprueba cotizaciones y pide citas. Solo lo suyo.</p></div>
+        </div>
+        <p>El Dueño crea las cuentas en <strong>Usuarios</strong>, les asigna el rol y —al técnico— las sucursales donde trabaja. Un técnico puede cubrir varias.</p>
+        <div class="note warn">Lo que un rol no puede ver, <strong>no existe para él</strong>: no aparece con un candado ni da un aviso de «no autorizado». Si un técnico abre el enlace de una orden de otra sucursal, para él esa orden simplemente no está.</div>
+      </section>
+
+      <section id="demo">
+        <h2>5. Probarlo con el taller de demostración</h2>
+        <p>Hay un taller de mentiras con seis semanas de historia —tres sucursales, doce clientes, más de doscientos trabajos, cotizaciones aprobadas y rechazadas, kardex con movimiento— para recorrer el sistema sin tocar datos de nadie. Se llama <strong>Taller Demo</strong>.</p>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Perfil</th><th>Correo</th><th>Qué se ve con él</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Dueño</strong></td><td><code>dueno@tallerdemo.hn</code></td><td>Todo: tablero, reportes, inventario, cotizaciones, facturación y usuarios.</td></tr>
+            <tr><td><strong>Técnico</strong> (Centro y Sur)</td><td><code>tecnico1@tallerdemo.hn</code></td><td>Las órdenes de dos sucursales, sin costos ni reportes.</td></tr>
+            <tr><td><strong>Técnico</strong> (Sur)</td><td><code>tecnico2@tallerdemo.hn</code></td><td>Una sola sucursal: se nota la diferencia con el anterior.</td></tr>
+            <tr><td><strong>Técnico</strong> (Puerto)</td><td><code>tecnico3@tallerdemo.hn</code></td><td>La sucursal del puerto.</td></tr>
+            <tr><td><strong>Cliente</strong></td><td><code>cliente1@tallerdemo.hn</code></td><td>Sus vehículos, sus cotizaciones por aprobar y sus citas.</td></tr>
+            <tr><td><strong>Cliente</strong></td><td><code>cliente2@tallerdemo.hn</code></td><td>Otro cliente, con otros vehículos.</td></tr>
+          </tbody>
+        </table></div>
+        <p>La contraseña de todos es <code>Garaj123!</code>. Sirven igual en el panel web y en la app.</p>
+        <div class="note">Sugerencia para recorrerlo: entre primero como <strong>Dueño</strong> y mire el tablero y los reportes; después como <strong>Técnico</strong>, para ver cómo se encoge la pantalla a lo que a él le toca; y por último como <strong>Cliente</strong>, que es lo que ve la persona que dejó su carro.</div>
+        <div class="note warn">Todo lo del Taller Demo es inventado, incluidos los teléfonos: van a un bloque que no existe en Honduras, para que ningún enlace de WhatsApp de la demostración le caiga a una persona de verdad. <strong>No cargue datos reales ahí.</strong> Cuando su taller esté dado de alta, entra con sus propios correos y su propia información.</div>
+      </section>
+
+      <section id="primeros-pasos">
+        <h2>6. Primeros pasos</h2>
+        <h3>Entrar al panel web</h3>
+        <ol class="steps">
+          <li>Abra la dirección del panel en el navegador y toque <strong>Entrar al panel</strong>.</li>
+          <li>Ingrese con su <strong>correo y contraseña</strong>.</li>
+          <li>El Dueño cae en el <strong>tablero de órdenes</strong>; el técnico, en <strong>Mis asignaciones</strong>; el cliente, en <strong>Mis vehículos</strong>.</li>
+        </ol>
+        <h3>Instalar la app</h3>
+        <ol class="steps">
+          <li>Instale GarajApp en el teléfono con el enlace que le mandamos.</li>
+          <li>La primera vez verá una <strong>bienvenida</strong> corta; deslícela hasta el final.</li>
+          <li>Entre con el mismo correo y contraseña del panel.</li>
+          <li>Acepte el permiso de <strong>cámara</strong> —es lo que permite subir la evidencia— y el de <strong>avisos</strong>.</li>
+        </ol>
+        <h3>Lo primero que conviene hacer (Dueño)</h3>
+        <ol class="steps">
+          <li><strong>Complete la ficha del taller</strong> en <strong>Taller</strong>: nombre, razón social, RTN, teléfono, correo, dirección de la casa matriz y su <strong>logo</strong>. Eso es lo que sale impreso en cada cotización y factura, y lo que ve el cliente.</li>
+          <li><strong>Cambie su contraseña.</strong> La que le entregamos al instalar es de un solo uso.</li>
+          <li>Revise sus <strong>sucursales</strong> y déles su código: es el que prefija los números de orden, de cotización y de venta (<code>MTZ-000123</code>, <code>COT-MTZ-000045</code>, <code>VTA-MTZ-000312</code>).</li>
+          <li>Cargue la <strong>mano de obra</strong>: los trabajos que hace con su precio. Es lo que después se escoge con un toque al armar una orden.</li>
+          <li>Cargue el <strong>inventario</strong> de repuestos con sus existencias iniciales y su mínimo.</li>
+          <li>Cree las <strong>cuentas de sus técnicos</strong> y asígneles sucursal.</li>
+          <li>Si factura con talonario del SAR, registre su <strong>CAI</strong> (ver <a href="#cai">Facturación con CAI</a>).</li>
+        </ol>
+        <div class="note">No hace falta terminar todo para empezar a trabajar. Con la ficha del taller y una sucursal ya se puede recibir el primer vehículo; el catálogo se llena solo, sobre la marcha.</div>
+      </section>
+
+      <section id="panel-web">
+        <h2>7. Panel web</h2>
+
+        <h3>Tablero de órdenes</h3>
+        <p>Una columna por estado y una tarjeta por vehículo. Se ve de un golpe cuántas órdenes hay abiertas, qué está esperando aprobación y qué se atrasó.</p>
+        <figure class="shot">
+          <img src="/capturas/panel-ordenes.png" alt="Tablero de órdenes de trabajo por estado" loading="lazy" />
+          <figcaption>El tablero: una columna por estado, con el vehículo, el cliente y el técnico de cada orden.</figcaption>
+        </figure>
+        <ul>
+          <li><strong>Buscar</strong> por placa, número de orden o nombre del cliente. Al buscar se incluyen también las cerradas.</li>
+          <li><strong>Ver cerradas</strong> agrega las columnas de Entregada y Cancelada.</li>
+          <li>Las órdenes que pasaron de su fecha prometida se marcan como <strong>atrasadas</strong>.</li>
+        </ul>
+        <p>Las órdenes no se crean desde el tablero: nacen de un <strong>requerimiento</strong> aprobado, que es la recepción del vehículo. Está explicado abajo.</p>
+
+        <h3>Recibir un vehículo</h3>
+        <ol class="steps">
+          <li>Entre a <strong>Requerimientos</strong> y toque <strong>Nuevo</strong>.</li>
+          <li>Busque al cliente por nombre o teléfono y escoja su vehículo. Si es la primera vez que viene, <strong>regístrelo ahí mismo</strong> —cliente y vehículo— sin salirse de la pantalla.</li>
+          <li>Anote la <strong>sucursal</strong>, el <strong>motivo de ingreso</strong>, los síntomas que reporta el dueño del carro, el kilometraje y la fecha en que le gustaría dejarlo.</li>
+          <li>El Dueño toca <strong>«Aprobar y abrir orden»</strong>, asigna al técnico si ya sabe quién lo va a atender, y la orden aparece en el tablero como <strong>Recibida</strong>.</li>
+        </ol>
+        <div class="note">Los requerimientos que llegan de la app del cliente caen en la misma lista, con los pendientes primero. Rechazar uno pide el motivo, y el cliente lo ve.</div>
+
+        <h3>Detalle de la orden</h3>
+        <p>Es la pantalla donde pasa todo:</p>
+        <ul>
+          <li><strong>Diagnóstico</strong> y <strong>pasos</strong> de la reparación, cada uno con su técnico y su precio.</li>
+          <li><strong>Repuestos</strong>: se cargan de la bodega de la sucursal y se descuentan del inventario al consumirlos.</li>
+          <li><strong>Fotos</strong> de lo que se encontró y lo que se cambió.</li>
+          <li><strong>Cotizaciones</strong> de esa orden, con su estado.</li>
+          <li><strong>Cerrar y facturar</strong>, cuando el trabajo terminó.</li>
+          <li><strong>Línea de tiempo</strong>: quién movió qué y a qué hora. No se edita.</li>
+          <li><strong>Historial del vehículo</strong>: los trabajos anteriores del mismo carro, para no volver a diagnosticar lo ya diagnosticado.</li>
+        </ul>
+
+        <h3>Indicadores</h3>
+        <p>Lo facturado hoy, esta semana y este mes; las órdenes abiertas; las cuentas por cobrar, con lo vencido aparte.</p>
+        <figure class="shot">
+          <img src="/capturas/panel-indicadores.png" alt="Indicadores del día: facturado, órdenes abiertas y cuentas por cobrar" loading="lazy" />
+          <figcaption>Los indicadores: facturado de hoy, de la semana y del mes, órdenes abiertas y cuentas por cobrar.</figcaption>
+        </figure>
+
+        <h3>Las demás secciones</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Sección</th><th>Para qué</th><th>Quién entra</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Cotizaciones</strong></td><td>Todas las cotizaciones del taller con su estado, para no perder de vista las que están esperando respuesta.</td><td>Dueño</td></tr>
+            <tr><td><strong>Inventario</strong></td><td>Existencias por sucursal, entradas de compra, ajustes por conteo, traslados y kardex.</td><td>Dueño y Técnico</td></tr>
+            <tr><td><strong>Clientes</strong></td><td>El padrón: teléfono, identidad, RTN, dirección y los vehículos de cada uno.</td><td>Dueño</td></tr>
+            <tr><td><strong>Mano de obra</strong></td><td>El catálogo de trabajos con su precio.</td><td>Dueño</td></tr>
+            <tr><td><strong>Requerimientos</strong></td><td>Las citas que piden los clientes desde su app.</td><td>Dueño y Técnico</td></tr>
+            <tr><td><strong>Reportes</strong></td><td>Ingresos por período, reparto por sucursal y por técnico, y la exportación.</td><td>Dueño</td></tr>
+            <tr><td><strong>Usuarios</strong></td><td>Altas, roles, sucursales asignadas y cambio de contraseña del equipo.</td><td>Dueño</td></tr>
+            <tr><td><strong>Taller</strong></td><td>La ficha del taller, el logo, el ISV por defecto y el CAI de cada sucursal.</td><td>Dueño</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="app-movil">
+        <h2>8. App móvil</h2>
+        <p>La app es para el mostrador y el piso del taller, no una versión recortada del panel: tiene lo que se hace de pie, con el cliente enfrente.</p>
+        <figure class="shot phone">
+          <img src="/capturas/telefono-orden.png" alt="Detalle de una orden de trabajo en el teléfono" loading="lazy" />
+          <figcaption>La orden en el teléfono: estado, pasos, repuestos y fotos.</figcaption>
+        </figure>
+        <h3>Bandeja de órdenes</h3>
+        <figure class="shot phone">
+          <img src="/capturas/telefono-taller.png" alt="Bandeja de órdenes en el teléfono" loading="lazy" />
+          <figcaption>La bandeja: buscador, el filtro «En el taller / Todas» y lo facturado hoy, esta semana y este mes.</figcaption>
+        </figure>
+        <ul>
+          <li><strong>Buscar</strong> por placa, número de orden o cliente.</li>
+          <li>El interruptor <strong>«En el taller» / «Todas»</strong> decide si se ven solo las abiertas o también las entregadas y canceladas.</li>
+          <li>Arriba, el nombre del taller con su logo: <em>GarajApp para [su taller]</em>.</li>
+        </ul>
+        <h3>Dentro de la orden</h3>
+        <ul>
+          <li>Cambiar el <strong>estado</strong>, escribir el <strong>diagnóstico</strong> y marcar los <strong>pasos</strong>.</li>
+          <li><strong>Tomar fotos</strong> con la cámara y dejarlas pegadas a la orden.</li>
+          <li><strong>Cargar repuestos</strong> de la bodega de la sucursal.</li>
+          <li><strong>Armar y mandar la cotización</strong> por WhatsApp <span class="badge b-grey">Dueño</span>.</li>
+          <li><strong>Cerrar y facturar</strong>, con o sin CAI, y compartir el PDF <span class="badge b-grey">Dueño</span>.</li>
+          <li><strong>Historial del vehículo</strong>, igual que en el panel.</li>
+        </ul>
+        <figure class="shot phone">
+          <img src="/capturas/telefono-facturar.png" alt="Cerrar y facturar desde el teléfono" loading="lazy" />
+          <figcaption>Cerrar y facturar desde el teléfono: total, forma de pago, crédito y la casilla de CAI —apagada, porque esa sucursal todavía no lo tiene registrado—.</figcaption>
+        </figure>
+        <h3>Fotos sin señal</h3>
+        <p>Las fotos que se toman sin internet <strong>se guardan en el teléfono y se suben solas</strong> cuando vuelve la red. El resto de la app sí necesita conexión: es un sistema donde el inventario y los números tienen que estar al día para todos al mismo tiempo.</p>
+        <h3>Avisos</h3>
+        <p>La campana trae lo de cada quien: al Dueño, la cotización que el cliente aprobó y el repuesto que cayó bajo mínimo; al técnico, la orden que le asignaron; al cliente, que su vehículo está listo.</p>
+      </section>
+
+      <section id="tecnico">
+        <h2>9. Guía del técnico</h2>
+        <ol class="steps">
+          <li>Entre a la app con su correo. Verá <strong>Mis asignaciones</strong>: las órdenes de su sucursal.</li>
+          <li>Abra la orden que va a trabajar y páse la a <strong>En diagnóstico</strong>.</li>
+          <li>Escriba lo que encontró en el <strong>diagnóstico</strong> y <strong>tome fotos</strong> — de lo dañado antes de tocarlo, y de la pieza vieja al cambiarla. Es lo que evita discusiones después.</li>
+          <li>Agregue los <strong>pasos</strong> del trabajo y márquelos conforme avanza.</li>
+          <li><strong>Cargue los repuestos</strong> que usó. Salen de la bodega de su sucursal y quedan a su nombre en el kardex.</li>
+          <li>Cuando termine, deje la orden en <strong>Lista para entrega</strong>. El cobro lo hace el Dueño.</li>
+        </ol>
+        <div class="note">Usted no ve costos, ni margen, ni reportes, ni las órdenes de otras sucursales. No es un permiso pendiente: es a propósito.</div>
+      </section>
+
+      <section id="cotizar">
+        <h2>10. Cotizar por WhatsApp</h2>
+        <p>La cotización es lo que convierte una llamada de «le va a salir en como…» en un documento que el cliente aprueba y queda registrado.</p>
+        <ol class="steps">
+          <li>Desde la orden, el Dueño crea la <strong>cotización</strong>. En el teléfono es la misma pantalla.</li>
+          <li>Agregue las líneas: <strong>repuestos</strong> del inventario y <strong>mano de obra</strong> del catálogo. También se pueden escribir líneas a mano.</li>
+          <li>Revise el total —lleva el ISV— y póngale <strong>vigencia</strong>.</li>
+          <li><strong>Enviar</strong>: el sistema genera el PDF y un enlace, y abre WhatsApp con el mensaje listo para el teléfono del cliente.</li>
+          <li>El cliente abre el enlace <strong>sin instalar nada y sin cuenta</strong>, ve la cotización con el logo del taller y <strong>aprueba o rechaza</strong> con un toque.</li>
+          <li>En cuanto responde, le llega el aviso al taller y la orden puede seguir.</li>
+        </ol>
+        <figure class="shot">
+          <img src="/capturas/cotizacion-cliente.png" alt="La cotización como la ve el cliente en su teléfono" loading="lazy" />
+          <figcaption>La cotización como la ve el cliente: se abre desde WhatsApp, sin instalar nada.</figcaption>
+        </figure>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge b-grey">Borrador</span></td><td>Se está armando. El cliente todavía no la ha visto.</td></tr>
+            <tr><td><span class="badge b-blue">Enviada</span></td><td>Ya tiene enlace y está esperando respuesta.</td></tr>
+            <tr><td><span class="badge b-green">Aprobada</span></td><td>El cliente dijo que sí, con fecha y hora.</td></tr>
+            <tr><td><span class="badge b-red">Rechazada</span></td><td>El cliente dijo que no.</td></tr>
+            <tr><td><span class="badge b-amber">Vencida</span></td><td>Se pasó la vigencia sin respuesta. Se hace una nueva.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note warn">El enlace de la cotización es público para quien lo tenga: es lo que permite que el cliente la abra sin cuenta. No lleva nada más que esa cotización —ni otras órdenes, ni el resto del taller— y cada uno tiene su código al azar.</div>
+      </section>
+
+      <section id="inventario">
+        <h2>11. Inventario y kardex</h2>
+        <figure class="shot">
+          <img src="/capturas/panel-inventario.png" alt="Inventario por sucursal con existencias y mínimos" loading="lazy" />
+          <figcaption>Inventario: existencias por sucursal, con lo que está bajo mínimo marcado.</figcaption>
+        </figure>
+        <p>Cada repuesto tiene existencia <strong>por sucursal</strong>, no una sola bolsa común: es la única manera de que el número sirva para trabajar.</p>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Movimiento</th><th>Cuándo se usa</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Entrada de compra</strong></td><td>Llegó mercadería del proveedor. Se registra la cantidad y el costo.</td></tr>
+            <tr><td><strong>Salida</strong></td><td>La genera el sistema al consumir un repuesto en una orden o venderlo de mostrador.</td></tr>
+            <tr><td><strong>Ajuste por conteo</strong></td><td>El conteo físico no coincide con el sistema. Se ajusta dejando el motivo.</td></tr>
+            <tr><td><strong>Traslado</strong></td><td>La pieza se va de una sucursal a otra. Deja salida en una y entrada en la otra.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note"><strong>La existencia no se escribe a mano.</strong> Siempre es el resultado de los movimientos, y cada movimiento queda con su responsable y su hora en el kardex. Por eso, cuando el número no cuadra, se puede averiguar qué pasó.</div>
+        <p>Cada repuesto lleva su <strong>mínimo</strong>. Al caer por debajo, el Dueño recibe el aviso — antes de que un trabajo se detenga por falta de la pieza.</p>
+      </section>
+
+      <section id="facturar">
+        <h2>12. Facturar y cobrar</h2>
+        <h3>Cerrar la orden</h3>
+        <ol class="steps">
+          <li>En la orden terminada, entre a <strong>Cerrar y facturar</strong>. Trae ya cargados los repuestos consumidos y la mano de obra de los pasos.</li>
+          <li>Escoja la <strong>forma de pago</strong>: efectivo, tarjeta, transferencia u otro.</li>
+          <li>Si el cliente <strong>queda debiendo</strong>, marque el crédito, anote lo que abona hoy y la fecha de pago. El saldo se va a cuentas por cobrar.</li>
+          <li>Si el cliente pide <strong>factura fiscal</strong>, marque «Factura con CAI» (ver la sección siguiente).</li>
+          <li>Guarde. Se genera el <strong>PDF</strong>, que se puede compartir por WhatsApp o imprimir.</li>
+        </ol>
+        <h3>Venta de mostrador</h3>
+        <p>Para el que solo viene a comprar un repuesto, sin dejar el vehículo: se factura directo, sin orden de trabajo.</p>
+        <h3>Cuentas por cobrar y abonos</h3>
+        <p>Lo que quedó a crédito aparece con su saldo y su fecha, y <strong>lo vencido va aparte</strong>. Cada abono se registra sobre la venta y sale impreso en el comprobante: es lo que corta la discusión de «yo le aboné hace quince días».</p>
+        <h3>Anular</h3>
+        <p>Una venta <strong>no se corrige: se anula</strong>, dejando el motivo, y se vuelve a facturar. La anulada queda visible y se imprime marcada como tal. Los repuestos que había descontado regresan al inventario.</p>
+        <div class="note">El número de venta es propio de cada sucursal (<code>VTA-MTZ-000312</code>) y no se repite nunca. Es el número con el que el taller habla de un cobro.</div>
+      </section>
+
+      <section id="cai">
+        <h2>13. Facturación con CAI (SAR)</h2>
+        <p>Es <strong>opcional</strong> y del taller: si tiene su CAI autorizado por el SAR, lo registra y las facturas salen como documento fiscal. Si no lo tiene, el sistema trabaja igual y el PDF sirve como comprobante de entrega — y lo dice en el pie, para que nadie lo presente como lo que no es.</p>
+        <h3>Registrar el CAI</h3>
+        <ol class="steps">
+          <li>Vaya a <strong>Taller → Facturación (SAR)</strong>.</li>
+          <li>Registre, <strong>para cada sucursal</strong>, lo que le autorizó el SAR: el CAI, el código de establecimiento, el punto de emisión, el tipo de documento, el rango (desde–hasta) y la fecha límite de emisión.</li>
+          <li>La tabla le muestra el número que sigue, cuántos quedan y cuándo vence.</li>
+        </ol>
+        <h3>Facturar con CAI</h3>
+        <p>Al cerrar la orden, la casilla <strong>«Factura con CAI» viene apagada</strong> y se marca cuando el cliente la pide: cada factura fiscal quema un número del rango autorizado, y en un taller la mayoría de los clientes no la pide. Al marcarla se ve el número que va a consumir y se puede escribir el <strong>RTN del cliente</strong> (viene precargado de su ficha).</p>
+        <p>La factura fiscal sale con CAI, rango autorizado, fecha límite, número correlativo del SAR, RTN o identidad del cliente, importe exento y gravado, ISV, el valor en letras y «Original: Cliente · Copia: Obligado tributario emisor».</p>
+        <div class="note warn">
+          <strong>Tres cosas que conviene saber:</strong>
+          <ul>
+            <li>Un número consumido <strong>no vuelve</strong>, ni cuando la factura se anula. Así lo exige el régimen: la anulada conserva su número y se imprime marcada.</li>
+            <li><strong>Arriba de L 10,000 no hay «consumidor final»</strong>: hay que anotar el RTN o el número de identidad del cliente en su ficha. Sin uno de los dos, la factura fiscal no se emite.</li>
+            <li>Si el rango se agota o el CAI vence, el sistema <strong>no factura con CAI</strong> y lo dice. Se puede seguir facturando sin CAI mientras el SAR autoriza el nuevo. El sistema avisa en amarillo cuando quedan pocos números o faltan menos de 30 días.</li>
+          </ul>
+        </div>
+        <div class="note stop">Para emitir con CAI por computadora hay que estar inscrito ante el SAR como <strong>autoimpresor por sistema computarizado</strong>. El CAI de un talonario impreso no sirve para el sistema: pida el suyo de autoimpresor.</div>
+      </section>
+
+      <section id="reportes">
+        <h2>14. Reportes</h2>
+        <ul>
+          <li><strong>Ingresos</strong> por día, semana o mes, separados en <strong>repuestos</strong> y <strong>mano de obra</strong>: es lo que dice de dónde sale de verdad el dinero del taller.</li>
+          <li><strong>Por sucursal</strong>, para comparar locales.</li>
+          <li><strong>Por técnico</strong>, con lo que produjo cada uno.</li>
+          <li><strong>Cuentas por cobrar</strong>, con lo vencido aparte.</li>
+          <li><strong>Exportar a CSV</strong>, que se abre en Excel, para el contador o para trabajarlo aparte.</li>
+        </ul>
+        <div class="note">Los reportes salen de las ventas registradas, no de un número que alguien escribe. Si un cobro no está en el sistema, no está en el reporte.</div>
+      </section>
+
+      <section id="faq">
+        <h2>15. Preguntas frecuentes</h2>
+
+        <h3>¿Necesito internet en el taller?</h3>
+        <p>Sí, para trabajar en el sistema. La excepción son las <strong>fotos</strong>: se toman sin señal y se suben solas al recuperar la red.</p>
+
+        <h3>Facturé y me equivoqué. ¿Cómo lo corrijo?</h3>
+        <p>Anule la venta dejando el motivo y vuelva a facturar. No se edita: una factura que se puede cambiar no sirve de comprobante.</p>
+
+        <h3>El cliente no aprueba la cotización. ¿Se le puede volver a mandar?</h3>
+        <p>Sí, el mismo enlace se puede reenviar cuantas veces haga falta. Si se venció, se hace una nueva.</p>
+
+        <h3>¿Puedo trabajar sin cargar el inventario?</h3>
+        <p>Sí. Se pueden escribir líneas a mano en la cotización y en la factura. Pero mientras el repuesto no esté en el inventario, no hay existencias ni kardex de esa pieza.</p>
+
+        <h3>Un técnico no ve una orden.</h3>
+        <p>Revise a qué sucursales está asignado en <strong>Usuarios</strong>. Un técnico ve solo las órdenes de sus sucursales.</p>
+
+        <h3>Olvidé mi contraseña.</h3>
+        <p>El Dueño la restablece desde <strong>Usuarios</strong>. Si la olvidó el Dueño, escríbanos.</p>
+
+        <h3>¿Dónde quedaron las órdenes entregadas?</h3>
+        <p>En el tablero, marcando <strong>«Ver cerradas»</strong>, o buscando por placa. También aparecen en el <strong>historial del vehículo</strong>.</p>
+
+        <h3>¿Se puede tener más de una sucursal?</h3>
+        <p>Sí, sin límite, cada una con su bodega, sus técnicos, su correlativo y su reporte. Y con su propio CAI, si factura con el SAR.</p>
+
+        <h3>¿Los datos son míos?</h3>
+        <p>Sí. Si algún día deja el servicio, se le entrega una exportación completa.</p>
+      </section>
+
+      <section id="soporte">
+        <h2>16. Soporte</h2>
+        <p>Cualquier duda, o algo que no funcione como debería:</p>
+        <div class="card">
+          <p>📧 Correo: <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a></p>
+          <p>💬 WhatsApp: <a href="https://wa.me/50498242108">+504 9824 2108</a></p>
+        </div>
+        <p class="sub" style="margin-top:16px;font-size:15px">Si es algo de una orden en concreto, mándenos el <strong>número de la orden</strong> (por ejemplo <code>MTZ-000123</code>): con eso se revisa directo.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="foot">
+      <span>© GarajApp — El taller ordenado, desde el teléfono</span>
+      <a href="/">garaje-app.pages.dev</a>
+    </div>
+  </footer>
+</body>
+</html>
