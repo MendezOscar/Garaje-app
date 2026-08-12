@@ -136,6 +136,14 @@ check("el próximo número es el primero del rango",
       str(creado.get("nextFiscalNumber") if creado else None))
 check("y dice cuántos quedan", creado and creado["remaining"] == 2, str(creado.get("remaining")))
 
+# La fecha límite en hora de Honduras, no en UTC: es lo que manda cualquier cliente que no
+# convierta antes, y Npgsql se niega a escribir un offset distinto de cero en un timestamptz.
+hondureno = dict(rango(matriz["id"], 101, 102))
+hondureno["issueDeadline"] = (datetime.now(timezone(timedelta(hours=-6)))
+                              + timedelta(days=365)).isoformat()
+status, _ = api("POST", "/api/tenant/fiscal-ranges", hondureno, token=owner)
+check("una fecha límite con offset -06:00 se acepta", status == 200, str(status))
+
 status, listado = api("GET", "/api/tenant/fiscal-ranges", token=owner)
 check("el listado lo trae activo", status == 200 and any(r["isActive"] for r in listado),
       str(status))
