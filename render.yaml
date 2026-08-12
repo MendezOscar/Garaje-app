@@ -118,4 +118,4 @@ services:
       # Bucket aparte: una siembra de pruebas borra filas y dejaría fotos huérfanas mezcladas
       # con las de producción.
       - key: Storage__Bucket
-        value: garaj-media-pruebas
+        value: garaj-media-test
