@@ -113,7 +113,7 @@ Lo que cambia respecto a producción:
 | `ASPNETCORE_ENVIRONMENT` | `Production` | `Development` — expone `/swagger`, siembra los datos de desarrollo en una base vacía y devuelve errores con detalle |
 | `ConnectionStrings__Default` | Supabase del taller | **otro proyecto de Supabase** |
 | `Demo__AllowSeeding` | ausente | `true` |
-| `Storage__Bucket` | `garaj-media` | `garaj-media-pruebas` |
+| `Storage__Bucket` | `garaj-media` | `garaj-media-test` |
 | `Jwt__SigningKey` | la generada | otra generada: un token de pruebas no vale en producción |
 | `Cors__AllowedOrigins__0` · `PublicBaseUrl` | dominio real | URL del preview de Pages |
 
@@ -127,8 +127,12 @@ Lo que cambia respecto a producción:
 2. **Base**: otro proyecto en Supabase, misma región `us-east-1`. El plan free permite dos
    proyectos activos, y **pausa el proyecto tras 7 días sin uso**: si el entorno de pruebas
    responde 500 al arrancar, es que hay que despausarlo en el dashboard.
-3. **Bucket**: `garaj-media-pruebas` en R2, con el mismo CORS de
-   [r2-cors.json](../r2-cors.json) más la URL del preview de Pages.
+3. **Bucket**: `garaj-media-test` en R2, con su propio CORS —los orígenes son los del preview
+   de Pages, no los del dominio real—:
+
+   ```bash
+   npx wrangler@4.120.1 r2 bucket cors set garaj-media-test --file r2-cors-test.json
+   ```
 4. **Render**: crear el servicio **a mano**, no sincronizando el blueprint. Los servicios de
    este workspace se crearon desde el dashboard y Render no adopta servicios existentes al
    aplicar un blueprint: los crea de nuevo, así que un Sync duplicaría producción.
@@ -163,16 +167,26 @@ git push                                 # Render y Pages despliegan solos
 # Sembrar la demostración en pruebas, cuando haga falta
 TOKEN=$(curl -s https://garaje-app-pruebas.onrender.com/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"owner@garaj.test","password":"Garaj123!"}' \
+  -d '{"email":"dueno@tallerdemo.hn","password":"Garaj123!"}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
 
-curl -s https://garaje-app-pruebas.onrender.com/api/demo/seed \
+curl -s -X POST https://garaje-app-pruebas.onrender.com/api/demo/seed \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"confirm":"BORRAR Y SEMBRAR","weeks":6}'
 ```
 
-`owner@garaj.test` existe porque el entorno corre en Development y siembra los datos de
-desarrollo al encontrar la base vacía.
+El Dueño con el que se pide el token depende de qué haya en la base:
+
+- **Base vacía** (entorno recién creado): el entorno corre en Development y siembra sola los
+  datos de desarrollo, así que ahí el Dueño es `owner@garaj.test`.
+- **Ya sembrada**: la siembra de demostración **borra la base entera**, `owner@garaj.test`
+  incluido, y deja el Taller Demo. A partir de la primera vez el Dueño es
+  `dueno@tallerdemo.hn`, que es el del comando de arriba.
+
+Si la llamada devuelve un 502 de Render en vez de la respuesta de la API —pasa cuando el
+servicio está reiniciando por un despliegue—, **no la repita a ciegas**: la siembra
+probablemente sí corrió y solo se perdió la respuesta. Compruebe con un login a
+`dueno@tallerdemo.hn` antes de volver a lanzarla.
 
 **Sobre el costo:** este entorno va en plan free, así que son US$0. Los servicios gratuitos de la
 cuenta comparten **750 horas de instancia al mes**, pero producción ya está en Starter y no toca

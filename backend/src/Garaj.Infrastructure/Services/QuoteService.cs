@@ -105,7 +105,7 @@ public class QuoteService(
             WorkOrderId = request.WorkOrderId,
             Number = await NextNumberAsync(branchId, ct),
             Status = QuoteStatus.Draft,
-            ValidUntil = request.ValidUntil ?? clock.UtcNow.AddDays(15),
+            ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim(),
             TaxRate = request.TaxRate ?? tenant.DefaultTaxRate
         };
@@ -139,7 +139,7 @@ public class QuoteService(
             ServiceRequestId = order.ServiceRequestId,
             Number = await NextNumberAsync(order.BranchId, ct),
             Status = QuoteStatus.Draft,
-            ValidUntil = request.ValidUntil ?? clock.UtcNow.AddDays(15),
+            ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim() ?? order.Description,
             TaxRate = tenant.DefaultTaxRate
         };
@@ -235,7 +235,7 @@ public class QuoteService(
     {
         var quote = await FindEditableAsync(id, ct);
 
-        quote.ValidUntil = request.ValidUntil ?? quote.ValidUntil;
+        quote.ValidUntil = request.ValidUntil?.ToUniversalTime() ?? quote.ValidUntil;
         quote.Notes = request.Notes?.Trim();
         if (request.TaxRate is { } rate) quote.TaxRate = rate;
 

@@ -200,7 +200,12 @@ public class TenantService(
         if (request.RangeStart <= 0 || request.RangeEnd < request.RangeStart)
             throw new AppException("El rango va del número menor al mayor, y empieza en 1 o más.");
 
-        if (request.IssueDeadline <= clock.UtcNow)
+        // A UTC antes de guardar: Npgsql rechaza escribir un DateTimeOffset con offset distinto
+        // de cero en un `timestamptz`, y un cliente hondureño manda `-06:00` con toda la razón.
+        // Es el mismo instante, solo cambia cómo se escribe.
+        var vence = request.IssueDeadline.ToUniversalTime();
+
+        if (vence <= clock.UtcNow)
             throw new AppException("La fecha límite de emisión ya pasó.");
 
         // Un rango nuevo reemplaza al anterior de esa sucursal.
@@ -220,7 +225,7 @@ public class TenantService(
             RangeStart = request.RangeStart,
             RangeEnd = request.RangeEnd,
             NextNumber = request.RangeStart,
-            IssueDeadline = request.IssueDeadline,
+            IssueDeadline = vence,
             IsActive = true
         };
 
