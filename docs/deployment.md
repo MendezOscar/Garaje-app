@@ -127,8 +127,12 @@ Lo que cambia respecto a producción:
 2. **Base**: otro proyecto en Supabase, misma región `us-east-1`. El plan free permite dos
    proyectos activos, y **pausa el proyecto tras 7 días sin uso**: si el entorno de pruebas
    responde 500 al arrancar, es que hay que despausarlo en el dashboard.
-3. **Bucket**: `garaj-media-test` en R2, con el mismo CORS de
-   [r2-cors.json](../r2-cors.json) más la URL del preview de Pages.
+3. **Bucket**: `garaj-media-test` en R2, con su propio CORS —los orígenes son los del preview
+   de Pages, no los del dominio real—:
+
+   ```bash
+   npx wrangler@4.120.1 r2 bucket cors set garaj-media-test --file r2-cors-test.json
+   ```
 4. **Render**: crear el servicio **a mano**, no sincronizando el blueprint. Los servicios de
    este workspace se crearon desde el dashboard y Render no adopta servicios existentes al
    aplicar un blueprint: los crea de nuevo, así que un Sync duplicaría producción.

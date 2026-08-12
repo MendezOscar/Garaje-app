@@ -1,0 +1,16 @@
+{
+  "//": "CORS del bucket de PRUEBAS (garaj-media-test). Igual que r2-cors.json pero con los orígenes del preview de Pages en vez de los del dominio real. Se aplica con: npx wrangler@4.120.1 r2 bucket cors set garaj-media-test --file r2-cors-test.json (ver docs/deployment.md §2.b). Ojo: Pages da una URL distinta por cada despliegue (<hash>.garaje-app.pages.dev) y R2 no acepta comodines, así que aquí va el alias fijo de la rama, que es el que hay que usar para probar.",
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://pruebas.garaje-app.pages.dev",
+          "http://localhost:5173"
+        ],
+        "methods": ["GET", "PUT"],
+        "headers": ["content-type"]
+      },
+      "maxAgeSeconds": 3600
+    }
+  ]
+}
