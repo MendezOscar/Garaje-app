@@ -114,14 +114,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             )
                           : const Text('Ingresar'),
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Demostración: dueno@tallerdemo.hn · tecnico1@tallerdemo.hn\n'
-                      'cliente1@tallerdemo.hn · contraseña Garaj123!',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
                   ],
                 ),
               ),
