@@ -36,6 +36,7 @@ import type {
   WorkOrderPart,
   WorkOrderStatus,
   WorkOrderTask,
+  CustomerStatement,
   WhatsAppLink,
 } from '@/types/domain'
 
@@ -523,6 +524,42 @@ export const quotesApi = {
  * anónima y el interceptor de `api` mandaría el token de quien tuviera sesión abierta en ese
  * navegador, que no tiene nada que ver con quien abre el enlace.
  */
+export const statementsApi = {
+  /** Lo que un cliente debe hoy, factura por factura y con sus abonos. */
+  async get(customerId: string) {
+    const { data } = await api.get<CustomerStatement>(
+      `/api/customers/${customerId}/statement`,
+    )
+    return data
+  },
+  async downloadPdf(customerId: string, customerName: string) {
+    await download(
+      `/api/customers/${customerId}/statement/pdf`,
+      `Estado de cuenta - ${customerName}.pdf`,
+    )
+  },
+  /** El enlace de WhatsApp con el mensaje ya escrito. 400 si el cliente no debe nada. */
+  async whatsappLink(customerId: string) {
+    const { data } = await api.get<WhatsAppLink>(
+      `/api/customers/${customerId}/statement/whatsapp`,
+    )
+    return data
+  },
+}
+
+/** El estado de cuenta que abre el cliente desde WhatsApp. Sin sesión: el token es la llave. */
+export const publicStatementsApi = {
+  async get(token: string) {
+    const { data } = await axios.get<CustomerStatement>(
+      `${api.defaults.baseURL}/public/statements/${token}`,
+    )
+    return data
+  },
+  pdfUrl(token: string) {
+    return `${api.defaults.baseURL}/public/statements/${token}/pdf`
+  },
+}
+
 export const publicQuotesApi = {
   async get(token: string): Promise<PublicQuote> {
     const { data } = await axios.get<PublicQuote>(

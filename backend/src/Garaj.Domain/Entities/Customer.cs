@@ -34,5 +34,15 @@ public class Customer : TenantEntity
     /// <summary>Usuario de login asociado, si el cliente usa la app.</summary>
     public Guid? AppUserId { get; set; }
 
+    /// <summary>
+    /// Token del enlace de su estado de cuenta. Igual que en la cotización, el token **es** la
+    /// credencial: quien tenga el enlace ve lo que debe, sin cuenta ni contraseña. Es lo que
+    /// permite mandárselo por WhatsApp a alguien que nunca va a instalar la app.
+    ///
+    /// Solo expone su nombre y sus facturas con saldo. Aun así, si un enlace se filtra, se
+    /// corta cambiando este token.
+    /// </summary>
+    public Guid PublicToken { get; set; } = Guid.NewGuid();
+
     public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
 }

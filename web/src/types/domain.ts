@@ -178,6 +178,45 @@ export interface User {
   lastLoginAt: string | null
 }
 
+/** Un abono, como lo ve el cliente en su estado de cuenta: sin quién lo recibió. */
+export interface StatementPayment {
+  paidAt: string
+  method: PaymentMethod
+  reference: string | null
+  amount: number
+}
+
+export interface StatementSale {
+  number: string
+  workOrderNumber: string | null
+  branchName: string
+  saleDate: string
+  dueDate: string | null
+  isOverdue: boolean
+  total: number
+  amountPaid: number
+  balance: number
+  payments: StatementPayment[]
+}
+
+/** Lo que un cliente debe hoy, factura por factura. Solo las que tienen saldo. */
+export interface CustomerStatement {
+  customerId: string
+  customerName: string
+  tenantName: string
+  tenantLogoUrl: string | null
+  tenantPhone: string | null
+  billingName: string | null
+  taxId: string | null
+  phone: string
+  currency: string
+  /** El corte: un estado de cuenta es de un momento, no de siempre. */
+  asOf: string
+  total: number
+  overdue: number
+  sales: StatementSale[]
+}
+
 export interface Customer {
   id: string
   fullName: string

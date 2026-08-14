@@ -1,4 +1,6 @@
 using Garaj.Application.Common;
+using Garaj.Application.Quotes;
+using Garaj.Application.Tenants;
 using Garaj.Domain.Enums;
 
 namespace Garaj.Application.Sales;
@@ -291,6 +293,59 @@ public record DashboardDto(
 
 public record StatusCountDto(WorkOrderStatus Status, int Count);
 
+// ---------- Estado de cuenta ----------
+
+/// <summary>
+/// Lo que un cliente debe hoy, factura por factura y con los abonos de cada una.
+///
+/// Es la respuesta a «¿cuánto le debo?», que hasta ahora había que armar a mano abriendo cada
+/// venta. Solo trae las que tienen saldo: una factura pagada ya no es una cuenta pendiente, y
+/// meterlas todas convertiría una hoja en un historial que nadie lee.
+/// </summary>
+public record CustomerStatementDto(
+    Guid CustomerId,
+    string CustomerName,
+    /// <summary>
+    /// El taller, para el encabezado de la página que abre el cliente: lo primero que ve tiene
+    /// que ser la marca de su taller. <c>TenantLogoUrl</c> es relativa a la base de la API.
+    /// </summary>
+    string TenantName,
+    string? TenantLogoUrl,
+    string? TenantPhone,
+    /// <summary>A nombre de quién salen sus facturas, si no es a su propio nombre.</summary>
+    string? BillingName,
+    string? TaxId,
+    string Phone,
+    string Currency,
+    /// <summary>El corte: un estado de cuenta es de un momento, no de siempre.</summary>
+    DateTimeOffset AsOf,
+    decimal Total,
+    /// <summary>De lo anterior, cuánto ya venció.</summary>
+    decimal Overdue,
+    IReadOnlyList<StatementSaleDto> Sales);
+
+public record StatementSaleDto(
+    string Number,
+    string? WorkOrderNumber,
+    string BranchName,
+    DateTimeOffset SaleDate,
+    DateTimeOffset? DueDate,
+    bool IsOverdue,
+    decimal Total,
+    decimal AmountPaid,
+    decimal Balance,
+    IReadOnlyList<StatementPaymentDto> Payments);
+
+/// <summary>
+/// Un abono como lo ve el cliente: cuándo, cómo y cuánto. Sin quién lo recibió, que es un dato
+/// interno de quién estaba en caja.
+/// </summary>
+public record StatementPaymentDto(
+    DateTimeOffset PaidAt,
+    PaymentMethod Method,
+    string? Reference,
+    decimal Amount);
+
 public interface ISaleService
 {
     Task<PagedResult<SaleListItemDto>> ListAsync(SaleQuery query, CancellationToken ct = default);
@@ -315,6 +370,23 @@ public interface ISaleService
 
     /// <summary>Borra un abono mal capturado. Es una corrección, no una devolución.</summary>
     Task<SaleDetailDto> RemovePaymentAsync(Guid id, Guid paymentId, CancellationToken ct = default);
+
+    /// <summary>Lo que un cliente debe hoy, factura por factura y con sus abonos.</summary>
+    Task<CustomerStatementDto> StatementAsync(Guid customerId, CancellationToken ct = default);
+
+    /// <summary>El estado de cuenta en PDF, para imprimirlo o mandarlo.</summary>
+    Task<byte[]> StatementPdfAsync(Guid customerId, CancellationToken ct = default);
+
+    /// <summary>El enlace de WhatsApp con el mensaje ya escrito y el enlace público dentro.</summary>
+    Task<WhatsAppLinkDto> StatementLinkAsync(Guid customerId, CancellationToken ct = default);
+
+    /// <summary>El estado de cuenta desde el enlace público, sin sesión.</summary>
+    Task<CustomerStatementDto> StatementPublicAsync(Guid token, CancellationToken ct = default);
+
+    Task<byte[]> StatementPdfPublicAsync(Guid token, CancellationToken ct = default);
+
+    /// <summary>El logo del taller detrás de un token de estado de cuenta, para la página pública.</summary>
+    Task<TenantLogo?> StatementLogoPublicAsync(Guid token, CancellationToken ct = default);
 }
 
 public interface IReportService

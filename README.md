@@ -194,7 +194,7 @@ python3 backend/tests/smoke/fase6_smoke.py
 # Humo de recepción: 31 comprobaciones del alta en mostrador, diagnóstico y PDF
 python3 backend/tests/smoke/fase7_smoke.py
 
-# Humo de crédito: 46 comprobaciones de abonos, saldos y cuentas por cobrar
+# Humo de crédito: 66 comprobaciones de abonos, saldos, cuentas por cobrar y estado de cuenta
 python3 backend/tests/smoke/fase8_smoke.py
 
 # Humo de mano de obra: 55 comprobaciones de los dos modos de cobro y de los filtros

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/sale_repository.dart';
@@ -53,6 +54,17 @@ class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
 
     if (registered != true) return;
     ref.invalidate(filteredReceivablesProvider(_filter));
+    ref.invalidate(saleDetailProvider(sale.id));
+  }
+
+  /// Los abonos que ya se le hicieron a esta factura, y desde ahí el estado de cuenta del
+  /// cliente: es lo que se le manda cuando pregunta cuánto debe.
+  Future<void> _history(Receivable sale) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _HistorySheet(sale: sale),
+    );
   }
 
   @override
@@ -220,7 +232,11 @@ class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
                   );
                 }
 
-                return _ReceivableCard(sale: items[i - 1], onCollect: _collect);
+                return _ReceivableCard(
+                  sale: items[i - 1],
+                  onCollect: _collect,
+                  onHistory: _history,
+                );
               },
             ),
           );
@@ -249,10 +265,15 @@ class _Chip extends StatelessWidget {
 }
 
 class _ReceivableCard extends StatelessWidget {
-  const _ReceivableCard({required this.sale, required this.onCollect});
+  const _ReceivableCard({
+    required this.sale,
+    required this.onCollect,
+    required this.onHistory,
+  });
 
   final Receivable sale;
   final Future<void> Function(Receivable sale) onCollect;
+  final Future<void> Function(Receivable sale) onHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -275,6 +296,9 @@ class _ReceivableCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         contentPadding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+        // Tocar la tarjeta abre los abonos: es lo que se busca cuando el cliente discute
+        // cuánto ha pagado.
+        onTap: () => onHistory(sale),
         title: Text(sale.customerName ?? 'Mostrador'),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,6 +339,120 @@ class _ReceivableCard extends StatelessWidget {
   static String _date(DateTime value) {
     final local = value.toLocal();
     return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Los abonos de una factura, y el estado de cuenta del cliente.
+///
+/// El listado de arriba no trae los abonos —serían todos los de todas las filas en cada
+/// carga— así que se piden al abrir esta hoja.
+class _HistorySheet extends ConsumerWidget {
+  const _HistorySheet({required this.sale});
+
+  final Receivable sale;
+
+  Future<void> _sendStatement(BuildContext context, WidgetRef ref) async {
+    try {
+      final url = await ref.read(saleRepositoryProvider).statementLink(sale.customerId!);
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo armar el enlace.'))),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final detail = ref.watch(saleDetailProvider(sale.id));
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Abonos', style: theme.textTheme.titleMedium),
+          Text(
+            '${sale.customerName ?? 'Mostrador'} · ${sale.number} · '
+            'saldo ${money(sale.balance, 'HNL')}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+
+          detail.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Text(apiErrorMessage(e, 'No se pudieron cargar los abonos.')),
+            data: (venta) => venta.payments.isEmpty
+                ? Text(
+                    'Todavía no ha abonado nada a esta factura.',
+                    style: theme.textTheme.bodyMedium,
+                  )
+                : Column(
+                    children: [
+                      for (final pago in venta.payments)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(_fecha(pago.paidAt)),
+                          subtitle: Text(
+                            [
+                              pago.method.label,
+                              if (pago.reference != null) pago.reference!,
+                            ].join(' · '),
+                          ),
+                          trailing: Text(
+                            money(pago.amount, 'HNL'),
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontFamily: GarajFonts.mono),
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+
+          const SizedBox(height: 8),
+
+          if (sale.customerId != null) ...[
+            FilledButton.icon(
+              onPressed: () => _sendStatement(context, ref),
+              icon: const Icon(Icons.send_outlined, size: 18),
+              label: const Text('Mandar estado de cuenta'),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Se abre WhatsApp con el enlace. Lleva todas las facturas con saldo de este '
+                'cliente, no solo esta.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          ] else
+            Text(
+              'Venta de mostrador sin cliente en el padrón: no hay a quién mandarle un estado '
+              'de cuenta.',
+              style: theme.textTheme.bodySmall,
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _fecha(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')}/${local.year}';
   }
 }
 

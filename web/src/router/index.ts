@@ -27,6 +27,14 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    // El estado de cuenta que el cliente abre desde WhatsApp. Igual que la cotización: sin
+    // sesión, con el token de la URL como única credencial.
+    path: '/c/:token',
+    name: 'public-statement',
+    component: () => import('@/views/PublicStatementView.vue'),
+    meta: { public: true },
+  },
+  {
     // La raíz es la página de venta, no el panel: quien recibe el enlace por WhatsApp no
     // tiene cuenta, y antes caía en el formulario de acceso. El panel entra por "/login".
     path: '/',

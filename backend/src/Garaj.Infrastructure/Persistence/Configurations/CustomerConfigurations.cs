@@ -17,6 +17,10 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         b.Property(x => x.Address).HasMaxLength(300);
         b.Property(x => x.Notes).HasMaxLength(1000);
 
+        // El enlace del estado de cuenta se resuelve por este token y sin filtro de tenant:
+        // sin índice sería un recorrido de toda la tabla en cada apertura.
+        b.HasIndex(x => x.PublicToken).IsUnique();
+
         // La búsqueda por teléfono es la vía rápida en mostrador y la clave del link de WhatsApp.
         b.HasIndex(x => new { x.TenantId, x.Phone });
         b.HasIndex(x => new { x.TenantId, x.FullName });

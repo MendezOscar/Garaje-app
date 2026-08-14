@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
+using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
@@ -8,6 +9,7 @@ using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Garaj.Infrastructure.Services;
 
@@ -23,6 +25,7 @@ public class SaleService(
     GarajDbContext db,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
+    IConfiguration configuration,
     ITenantService tenants,
     StockService stock) : ISaleService
 {
@@ -477,6 +480,175 @@ public class SaleService(
         return InvoicePdf.Render(
             sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
             tenant.Email, tenant.Address, logo);
+    }
+
+    // ---------- Estado de cuenta ----------
+
+    public async Task<CustomerStatementDto> StatementAsync(
+        Guid customerId, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var customer = await db.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == customerId, ct)
+            ?? throw new NotFoundException("El cliente no existe.");
+
+        var tenant = await CurrentTenantAsync(ct);
+
+        return await BuildStatementAsync(customer, tenant, ct);
+    }
+
+    public async Task<byte[]> StatementPdfAsync(Guid customerId, CancellationToken ct = default)
+    {
+        var statement = await StatementAsync(customerId, ct);
+        var tenant = await CurrentTenantAsync(ct);
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+
+        return StatementPdf.Render(
+            statement, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+            tenant.Email, tenant.Address, logo);
+    }
+
+    public async Task<WhatsAppLinkDto> StatementLinkAsync(
+        Guid customerId, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var customer = await db.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == customerId, ct)
+            ?? throw new NotFoundException("El cliente no existe.");
+
+        var tenant = await CurrentTenantAsync(ct);
+        var statement = await BuildStatementAsync(customer, tenant, ct);
+
+        if (statement.Sales.Count == 0)
+            throw new AppException($"{customer.FullName} no tiene saldo pendiente.");
+
+        var url = StatementUrlFor(customer.PublicToken);
+
+        // Armado para que el Dueño no teclee nada: solo toca enviar.
+        var message =
+            $"Hola {customer.FullName}, le saluda {tenant.Name}. "
+            + $"Su saldo pendiente con nosotros es de {tenant.Currency} {statement.Total:N2}"
+            + (statement.Sales.Count == 1
+                ? $" de la factura {statement.Sales[0].Number}"
+                : $" en {statement.Sales.Count} facturas")
+            + $".\n\nAquí puede ver el detalle y sus abonos:\n{url}";
+
+        return new WhatsAppLinkDto(
+            $"https://wa.me/{customer.Phone}?text={Uri.EscapeDataString(message)}",
+            customer.Phone,
+            message);
+    }
+
+    public async Task<CustomerStatementDto> StatementPublicAsync(
+        Guid token, CancellationToken ct = default)
+    {
+        var customer = await FindByStatementTokenAsync(token, ct);
+        tenantContext.SetTenant(customer.TenantId);
+
+        var tenant = await db.Tenants.IgnoreQueryFilters()
+            .FirstAsync(t => t.Id == customer.TenantId, ct);
+
+        return await BuildStatementAsync(customer, tenant, ct);
+    }
+
+    public async Task<byte[]> StatementPdfPublicAsync(Guid token, CancellationToken ct = default)
+    {
+        var customer = await FindByStatementTokenAsync(token, ct);
+        tenantContext.SetTenant(customer.TenantId);
+
+        var tenant = await db.Tenants.IgnoreQueryFilters()
+            .FirstAsync(t => t.Id == customer.TenantId, ct);
+
+        var statement = await BuildStatementAsync(customer, tenant, ct);
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+
+        return StatementPdf.Render(
+            statement, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+            tenant.Email, tenant.Address, logo);
+    }
+
+    public async Task<TenantLogo?> StatementLogoPublicAsync(
+        Guid token, CancellationToken ct = default)
+    {
+        var customer = await FindByStatementTokenAsync(token, ct);
+        return await tenants.GetLogoAsync(customer.TenantId, ct);
+    }
+
+    private async Task<Customer> FindByStatementTokenAsync(Guid token, CancellationToken ct) =>
+        await db.Customers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.PublicToken == token, ct)
+        ?? throw new NotFoundException("El enlace no es válido.");
+
+    /// <summary>
+    /// Solo las facturas con saldo, con sus abonos. Se salta el filtro de tenant porque el
+    /// enlace público entra sin sesión: el tenant ya salió del token y se acota a mano.
+    /// </summary>
+    private async Task<CustomerStatementDto> BuildStatementAsync(
+        Customer customer, Tenant tenant, CancellationToken ct)
+    {
+        var ahora = clock.UtcNow;
+
+        var sales = await db.Sales.AsNoTracking().IgnoreQueryFilters()
+            .Where(s => s.TenantId == customer.TenantId
+                        && s.CustomerId == customer.Id
+                        && !s.IsVoided
+                        && s.Total > (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0))
+            // El mismo orden que en Por cobrar: primero lo que vence antes, y lo que se
+            // entregó sin fecha acordada al final.
+            .OrderBy(s => s.DueDate == null).ThenBy(s => s.DueDate).ThenBy(s => s.SaleDate)
+            .Select(s => new StatementSaleDto(
+                s.Number,
+                db.WorkOrders.IgnoreQueryFilters()
+                    .Where(w => w.Id == s.WorkOrderId).Select(w => w.Number).FirstOrDefault(),
+                s.Branch.Name,
+                s.SaleDate,
+                s.DueDate,
+                s.DueDate != null && s.DueDate < ahora,
+                s.Total,
+                s.Payments.Sum(p => (decimal?)p.Amount) ?? 0,
+                s.Total - (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
+                s.Payments
+                    .OrderBy(p => p.PaidAt)
+                    .Select(p => new StatementPaymentDto(p.PaidAt, p.Method, p.Reference, p.Amount))
+                    .ToList()))
+            .ToListAsync(ct);
+
+        return new CustomerStatementDto(
+            customer.Id,
+            customer.FullName,
+            tenant.Name,
+            // Bajo el token del cliente, no bajo el id del taller: la página es anónima y no
+            // debe filtrar ningún id con el que llegar a otra parte de la API.
+            tenant.LogoStorageKey is null
+                ? null
+                : $"/public/statements/{customer.PublicToken}/logo",
+            tenant.Phone,
+            customer.BillingName,
+            customer.TaxId,
+            customer.Phone,
+            tenant.Currency,
+            ahora,
+            sales.Sum(s => s.Balance),
+            sales.Where(s => s.IsOverdue).Sum(s => s.Balance),
+            sales);
+    }
+
+    /// <summary>
+    /// Apunta al web, no a la API: el cliente abre una página, no un JSON. Igual que el enlace
+    /// de la cotización, sale de <c>PublicBaseUrl</c>.
+    /// </summary>
+    private string StatementUrlFor(Guid token)
+    {
+        var baseUrl = configuration["PublicBaseUrl"]?.TrimEnd('/');
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            throw new AppException(
+                "Falta configurar PublicBaseUrl: sin ella el enlace del estado de cuenta no "
+                + "lleva a ningún lado.");
+
+        return $"{baseUrl}/c/{token}";
     }
 
     // ---------- Interno ----------
