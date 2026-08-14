@@ -26,6 +26,7 @@ import {
   WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
   type LaborService,
+  type OrderMessageKind,
   type QuoteDetail,
   type SaleDetail,
   type User,
@@ -377,6 +378,24 @@ function quoteThisOrder() {
   })
 }
 
+/**
+ * Manda el enlace de seguimiento por WhatsApp. La pestaña se abre **antes** del await: Safari
+ * bloquea `window.open` si no sale del gesto del usuario.
+ */
+async function mandarPorWhatsApp(kind: OrderMessageKind) {
+  const tab = window.open('', '_blank')
+  error.value = ''
+
+  try {
+    const link = await workOrdersApi.whatsappLink(id.value, kind)
+    if (tab) tab.location.href = link.url
+    else window.location.href = link.url
+  } catch (e) {
+    tab?.close()
+    error.value = errorMessage(e, 'No se pudo armar el enlace.')
+  }
+}
+
 /** Mensaje pre-armado para que el Dueño avise al cliente sin teclear el estado a mano. */
 const whatsapp = computed(() => {
   if (!order.value) return '#'
@@ -429,6 +448,33 @@ onMounted(async () => {
             <dt>Kilometraje al ingreso</dt>
             <dd>{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
           </dl>
+        </article>
+
+        <article class="card">
+          <h2>Avisar al cliente</h2>
+          <!-- El mismo enlace sirve toda la reparación: el cliente lo abre sin cuenta y ve en
+               qué va su vehículo. Se manda al recibir, otra vez cuando está listo, y al final
+               con la factura. -->
+          <p class="muted small">
+            Le llega un enlace donde ve el avance, las fotos y —al cerrar— su factura. No
+            necesita instalar nada.
+          </p>
+          <div class="avisos">
+            <button type="button" @click="mandarPorWhatsApp('received')">
+              Mandar el enlace
+            </button>
+            <button type="button" class="suave" @click="mandarPorWhatsApp('ready')">
+              Avisar que está listo
+            </button>
+            <button
+              v-if="sales.some((s) => !s.isVoided)"
+              type="button"
+              class="suave"
+              @click="mandarPorWhatsApp('invoice')"
+            >
+              Mandar la factura
+            </button>
+          </div>
         </article>
 
         <article class="card">
@@ -1186,6 +1232,21 @@ dd {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.avisos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* Secundario: mandar el enlace es la acción normal, avisar que está listo y mandar la factura
+   son dos momentos concretos y no compiten con ella. */
+.suave {
+  border-color: var(--border);
+  background: none;
+  color: var(--accent);
 }
 
 .link {

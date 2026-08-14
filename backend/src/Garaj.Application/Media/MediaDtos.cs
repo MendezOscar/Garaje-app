@@ -61,5 +61,16 @@ public interface IMediaService
     /// <summary>Galería completa de la orden: sus fotos y las de todos sus pasos, en una llamada.</summary>
     Task<IReadOnlyList<MediaAttachmentDto>> ListForWorkOrderAsync(Guid workOrderId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Las fotos de la orden que puede ver su dueño desde el enlace de seguimiento, sin sesión.
+    /// </summary>
+    /// <remarks>
+    /// El taller llega por parámetro y no del contexto porque aquí no hay usuario: quien llama
+    /// ya lo resolvió a partir del token del enlace. Devuelve solo las confirmadas y marcadas
+    /// como visibles al cliente, que es el mismo criterio que aplica el perfil Cliente.
+    /// </remarks>
+    Task<IReadOnlyList<MediaAttachmentDto>> ListForOrderPublicAsync(
+        Guid tenantId, Guid workOrderId, CancellationToken ct = default);
+
     Task DeleteAsync(Guid attachmentId, CancellationToken ct = default);
 }

@@ -508,6 +508,54 @@ export interface PublicQuote {
   }[]
 }
 
+/** Cuál de los tres mensajes se le arma al cliente. Espejo de `OrderMessageKind`. */
+export type OrderMessageKind = 'received' | 'ready' | 'invoice'
+
+/**
+ * Lo que ve el cliente en `/o/:token`: en qué va su vehículo. Sin ids, sin costo del taller y
+ * solo con las fotos que el taller marcó como visibles para él.
+ */
+export interface OrderTracking {
+  number: string
+  tenantName: string
+  /** Ruta del logo bajo el token de la orden, relativa a la base de la API. */
+  tenantLogoUrl: string | null
+  tenantPhone: string | null
+  branchName: string
+  customerName: string
+  vehicleLabel: string
+  plate: string | null
+  status: WorkOrderStatus
+  statusLabel: string
+  description: string
+  openedAt: string
+  promisedAt: string | null
+  closedAt: string | null
+  currency: string
+  steps: { title: string; isDone: boolean; completedAt: string | null }[]
+  timeline: {
+    status: WorkOrderStatus
+    statusLabel: string
+    changedAt: string
+    note: string | null
+  }[]
+  photos: {
+    url: string
+    thumbnailUrl: string
+    caption: string | null
+    takenAt: string
+    stepTitle: string | null
+  }[]
+  /** La factura, cuando ya se cerró. Null mientras el vehículo está en el taller. */
+  invoice: {
+    number: string
+    total: number
+    paid: number
+    balance: number
+    dueDate: string | null
+  } | null
+}
+
 export interface SaleLine {
   id: string
   lineType: LineType

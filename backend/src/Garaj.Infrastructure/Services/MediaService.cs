@@ -131,6 +131,28 @@ public class MediaService(
         return await MapAsync(items, ct);
     }
 
+    public async Task<IReadOnlyList<MediaAttachmentDto>> ListForOrderPublicAsync(
+        Guid tenantId, Guid workOrderId, CancellationToken ct = default)
+    {
+        var taskIds = await db.WorkOrderTasks.IgnoreQueryFilters()
+            .Where(t => t.TenantId == tenantId && t.WorkOrderId == workOrderId)
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+        // Sin filtro de tenant y acotado a mano: la petición viene del enlace público, así que
+        // no hay sesión de la que sacar el taller.
+        var items = await db.MediaAttachments.AsNoTracking().IgnoreQueryFilters()
+            .Where(m => m.TenantId == tenantId
+                        && m.IsConfirmed
+                        && m.IsVisibleToCustomer
+                        && ((m.OwnerType == MediaOwnerType.WorkOrder && m.OwnerId == workOrderId)
+                            || (m.OwnerType == MediaOwnerType.WorkOrderTask && taskIds.Contains(m.OwnerId))))
+            .OrderBy(m => m.TakenAt)
+            .ToListAsync(ct);
+
+        return await MapAsync(items, ct);
+    }
+
     public async Task DeleteAsync(Guid attachmentId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);

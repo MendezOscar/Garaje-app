@@ -453,6 +453,36 @@ Decisiones que conviene conocer:
 - **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
   enlace, no por la ruta del taller.
 
+### Seguimiento de la orden
+
+El enlace que el taller manda por WhatsApp al recibir el vehículo y que sirve toda la
+reparación: el cliente ve en qué va sin cuenta ni app. Responde a «¿ya está listo mi carro?»,
+que es la llamada que más interrumpe al taller.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/work-orders/{id}/whatsapp?kind=…` | Owner o Técnico | Enlace con el mensaje escrito |
+| GET | `/public/work-orders/{token}` | — | Lo que abre el cliente, sin sesión |
+| GET | `/public/work-orders/{token}/invoice.pdf` | — | Su factura, cuando ya se cerró |
+| GET | `/public/work-orders/{token}/logo` | — | El logo del taller para esa página |
+
+`kind` es `received` al recibir el vehículo, `ready` cuando está listo —lleva el total si ya se
+facturó— e `invoice` para mandar la factura, que responde 400 si la orden no se ha cerrado.
+
+Decisiones que conviene conocer:
+
+- **`WorkOrder.PublicToken` es la credencial**, igual que en la cotización y el estado de cuenta.
+  La página expone estado, pasos, fotos y —al cerrar— total y saldo. Nada más: ni el costo del
+  taller, ni el precio de cada paso, ni el nombre del técnico, ni un id con el que llegar a otra
+  parte de la API. Si un enlace se filtra, se corta cambiando el token de la fila.
+- **Solo las fotos marcadas como visibles al cliente**, el mismo criterio que aplica el perfil
+  Cliente, y siempre por URL prefirmada de 15 minutos: el bucket sigue siendo privado.
+- **La línea de tiempo va curada**: las notas internas del taller no salen de ahí.
+- **El Técnico también manda el enlace**: muchas veces es él quien entrega el carro. El Cliente
+  no: el enlace es el que el taller le manda a él.
+- **La página pública es del web** (`/o/{token}`), como `/q/{token}` y `/c/{token}`. Sale de
+  `PublicBaseUrl`.
+
 ### Datos de demostración
 
 | Método | Ruta | Auth | Qué hace |

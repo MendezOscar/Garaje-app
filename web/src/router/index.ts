@@ -35,6 +35,14 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    // El seguimiento de la orden. Es el enlace que el taller manda al recibir el vehículo y
+    // el que más se va a abrir de los tres: casi ningún cliente instala la app.
+    path: '/o/:token',
+    name: 'public-order',
+    component: () => import('@/views/PublicOrderView.vue'),
+    meta: { public: true },
+  },
+  {
     // La raíz es la página de venta, no el panel: quien recibe el enlace por WhatsApp no
     // tiene cuenta, y antes caía en el formulario de acceso. El panel entra por "/login".
     path: '/',

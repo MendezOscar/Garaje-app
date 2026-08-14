@@ -10,6 +10,8 @@ import type {
   Notification,
   Dashboard,
   LaborMode,
+  OrderMessageKind,
+  OrderTracking,
   Paged,
   Part,
   PaymentMethod,
@@ -289,6 +291,29 @@ export const workOrdersApi = {
   },
   async removePart(id: string, partLineId: string) {
     await api.delete(`/api/work-orders/${id}/parts/${partLineId}`)
+  },
+  /**
+   * El enlace de seguimiento con el mensaje de WhatsApp ya escrito. `invoice` responde 400 si
+   * la orden todavía no se ha facturado.
+   */
+  async whatsappLink(id: string, kind: OrderMessageKind) {
+    const { data } = await api.get<WhatsAppLink>(`/api/work-orders/${id}/whatsapp`, {
+      params: { kind },
+    })
+    return data
+  },
+}
+
+/** La página que abre el cliente desde el enlace. Sin token de sesión, como la cotización. */
+export const publicOrdersApi = {
+  async get(token: string) {
+    const { data } = await axios.get<OrderTracking>(
+      `${api.defaults.baseURL}/public/work-orders/${token}`,
+    )
+    return data
+  },
+  invoicePdfUrl(token: string) {
+    return `${api.defaults.baseURL}/public/work-orders/${token}/invoice.pdf`
   },
 }
 
