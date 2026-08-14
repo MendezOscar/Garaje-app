@@ -92,6 +92,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // Lo cobrado en el día, que no es lo facturado: se abre al cerrar, con el efectivo
+        // en la mano.
+        path: 'caja',
+        name: 'cash-close',
+        component: () => import('@/views/owner/CashCloseView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         // La ficha del taller: lo que sale impreso en la cotización y en la factura.
         path: 'taller',
         name: 'workshop',

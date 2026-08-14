@@ -453,6 +453,29 @@ Decisiones que conviene conocer:
 - **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
   enlace, no por la ruta del taller.
 
+### Cierre de caja
+
+Lo **cobrado** en un día, para cuadrarlo contra el efectivo del cajón al cerrar.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/reports/cash-close?date=&branchId=` | Owner | El cierre del día. Sin `date`, hoy |
+| GET | `/api/reports/cash-close.pdf` | Owner | El mismo en PDF, para archivarlo o firmarlo |
+
+Decisiones que conviene conocer:
+
+- **Cobrado no es facturado.** Una venta a crédito suma en `revenue` el día que se emite y aquí
+  el día que el cliente paga; el abono de una factura de hace tres meses solo aparece aquí. Son
+  dos preguntas distintas y por eso son dos reportes distintos.
+- **La fuente son los abonos** (`SalePayment`), que ya son la única verdad del dinero: no hay
+  ningún total que mantener al día.
+- **El día es el del taller** (−06:00), no UTC: un abono de las 7 de la noche pertenece a la caja
+  de ese día. Mande `date` a mediodía para no depender del desplazamiento del cliente.
+- **Las ventas anuladas no suman, pero se informan** (`voidedCount`, `voidedAmount`): una caja
+  que no dice lo que dejó fuera no sirve para cuadrar.
+- **Trae quién recibió cada abono**, que es la pregunta de a quién se le pide la caja. Es un dato
+  interno: no sale en el estado de cuenta del cliente.
+
 ### Seguimiento de la orden
 
 El enlace que el taller manda por WhatsApp al recibir el vehículo y que sirve toda la

@@ -100,4 +100,25 @@ public class ReportsController(IReportService service) : ControllerBase
     [HttpGet("revenue.csv")]
     public async Task<IActionResult> RevenueCsv([FromQuery] RevenueQuery query, CancellationToken ct)
         => File(await service.RevenueCsvAsync(query, ct), "text/csv", "ingresos.csv");
+
+    /// <summary>
+    /// Lo cobrado en un día, para cuadrar la caja al cerrar. Sin <c>date</c>, hoy.
+    ///
+    /// Es distinto de los ingresos: aquí entra lo que el cliente pagó —incluido el abono de una
+    /// factura vieja— y no lo que se facturó.
+    /// </summary>
+    [HttpGet("cash-close")]
+    public async Task<ActionResult<CashCloseDto>> CashClose(
+        [FromQuery] DateTimeOffset? date, [FromQuery] Guid? branchId, CancellationToken ct)
+        => Ok(await service.CashCloseAsync(date, branchId, ct));
+
+    [HttpGet("cash-close.pdf")]
+    public async Task<IActionResult> CashClosePdf(
+        [FromQuery] DateTimeOffset? date, [FromQuery] Guid? branchId, CancellationToken ct)
+    {
+        var cierre = await service.CashCloseAsync(date, branchId, ct);
+        var bytes = await service.CashClosePdfAsync(date, branchId, ct);
+
+        return File(bytes, "application/pdf", $"Cierre de caja {cierre.Day:yyyy-MM-dd}.pdf");
+    }
 }

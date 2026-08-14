@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import 'sale_repository.dart' show PaymentMethod;
 
 /// Reporte de ingresos del taller, el mismo que se ve en el panel web.
 ///
@@ -192,6 +193,120 @@ class ReportFilter {
   int get hashCode => Object.hash(groupBy, days, branchId, technicianId);
 }
 
+/// Lo **cobrado** en un día, que no es lo facturado: una venta a crédito suma en los ingresos
+/// el día que se emite y aquí el día que el cliente paga.
+class CashClose {
+  const CashClose({
+    required this.day,
+    required this.dayLabel,
+    required this.branchName,
+    required this.currency,
+    required this.total,
+    required this.paymentCount,
+    required this.byMethod,
+    required this.byReceiver,
+    required this.payments,
+    required this.voidedCount,
+    required this.voidedAmount,
+  });
+
+  factory CashClose.fromJson(Map<String, dynamic> json) => CashClose(
+        day: DateTime.parse(json['day'] as String),
+        dayLabel: json['dayLabel'] as String,
+        branchName: json['branchName'] as String?,
+        currency: json['currency'] as String? ?? 'HNL',
+        total: (json['total'] as num).toDouble(),
+        paymentCount: json['paymentCount'] as int,
+        byMethod: ((json['byMethod'] as List<dynamic>?) ?? [])
+            .map((e) => CashCloseSlice.method(e as Map<String, dynamic>))
+            .toList(),
+        byReceiver: ((json['byReceiver'] as List<dynamic>?) ?? [])
+            .map((e) => CashCloseSlice.receiver(e as Map<String, dynamic>))
+            .toList(),
+        payments: ((json['payments'] as List<dynamic>?) ?? [])
+            .map((e) => CashClosePayment.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        voidedCount: json['voidedCount'] as int? ?? 0,
+        voidedAmount: (json['voidedAmount'] as num?)?.toDouble() ?? 0,
+      );
+
+  final DateTime day;
+  final String dayLabel;
+  final String? branchName;
+  final String currency;
+  final double total;
+  final int paymentCount;
+  final List<CashCloseSlice> byMethod;
+  final List<CashCloseSlice> byReceiver;
+  final List<CashClosePayment> payments;
+
+  /// Abonos que quedaron fuera porque su venta está anulada. Se informan, no se esconden.
+  final int voidedCount;
+  final double voidedAmount;
+}
+
+/// Una fila del resumen: por forma de pago o por quién lo recibió, que se pintan igual.
+class CashCloseSlice {
+  const CashCloseSlice({required this.label, required this.total, required this.count});
+
+  factory CashCloseSlice.method(Map<String, dynamic> json) => CashCloseSlice(
+        label: PaymentMethod.values
+            .firstWhere(
+              (m) => m.value == json['method'] as int,
+              orElse: () => PaymentMethod.other,
+            )
+            .label,
+        total: (json['total'] as num).toDouble(),
+        count: json['count'] as int,
+      );
+
+  factory CashCloseSlice.receiver(Map<String, dynamic> json) => CashCloseSlice(
+        label: json['receiverName'] as String,
+        total: (json['total'] as num).toDouble(),
+        count: json['count'] as int,
+      );
+
+  final String label;
+  final double total;
+  final int count;
+}
+
+class CashClosePayment {
+  const CashClosePayment({
+    required this.paidAt,
+    required this.saleNumber,
+    required this.customerName,
+    required this.branchName,
+    required this.method,
+    required this.reference,
+    required this.receiverName,
+    required this.amount,
+  });
+
+  factory CashClosePayment.fromJson(Map<String, dynamic> json) => CashClosePayment(
+        paidAt: DateTime.parse(json['paidAt'] as String),
+        saleNumber: json['saleNumber'] as String,
+        customerName: json['customerName'] as String?,
+        branchName: json['branchName'] as String,
+        method: PaymentMethod.values.firstWhere(
+          (m) => m.value == json['method'] as int,
+          orElse: () => PaymentMethod.other,
+        ),
+        reference: json['reference'] as String?,
+        receiverName: json['receiverName'] as String,
+        amount: (json['amount'] as num).toDouble(),
+      );
+
+  final DateTime paidAt;
+  final String saleNumber;
+  final String? customerName;
+  final String branchName;
+  final PaymentMethod method;
+  final String? reference;
+  final String receiverName;
+  final double amount;
+}
+
 final reportRepositoryProvider = Provider<ReportRepository>(
   (ref) => ReportRepository(ref.watch(apiClientProvider).dio),
 );
@@ -218,10 +333,31 @@ class ReportRepository {
 
     return RevenueReport.fromJson(response.data!);
   }
+
+  /// Lo cobrado en un día. `day` es la fecha del taller; sin ella, hoy.
+  Future<CashClose> cashClose({DateTime? day, String? branchId}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/reports/cash-close',
+      queryParameters: {
+        // A mediodía y no a medianoche: la API resuelve el día del taller a partir de este
+        // instante, y las 00:00 de otro desplazamiento podrían caer en el día anterior.
+        if (day != null)
+          'date': DateTime(day.year, day.month, day.day, 12).toUtc().toIso8601String(),
+        if (branchId != null) 'branchId': branchId,
+      },
+    );
+
+    return CashClose.fromJson(response.data!);
+  }
 }
 
 /// Solo lo puede pedir el Dueño: a los demás la API responde 403.
 final revenueReportProvider =
     FutureProvider.autoDispose.family<RevenueReport, ReportFilter>(
   (ref, filter) => ref.watch(reportRepositoryProvider).revenue(filter),
+);
+
+/// Lo cobrado en el día que se esté mirando. `null` es hoy.
+final cashCloseProvider = FutureProvider.autoDispose.family<CashClose, DateTime?>(
+  (ref, day) => ref.watch(reportRepositoryProvider).cashClose(day: day),
 );

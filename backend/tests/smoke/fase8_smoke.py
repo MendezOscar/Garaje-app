@@ -336,6 +336,63 @@ _, mine = api("GET", "/api/sales?pageSize=50", token=customer)
 check("el cliente ve sus facturas con su saldo",
       all("balance" in s for s in mine["items"]), str(len(mine["items"])))
 
+print("\n[cierre de caja]")
+
+# Un abono de hoy, para buscarlo después en la caja del día.
+api("POST", f"/api/sales/{open_sale['id']}/payments", {
+    "amount": 120, "method": TRANSFER, "reference": "CAJA-001",
+}, token=owner)
+
+status, caja = api("GET", "/api/reports/cash-close", token=owner)
+check("el Dueño consulta lo cobrado hoy", status == 200, f"{status} {caja}")
+check("el total cuadra con la suma de los abonos",
+      abs(caja["total"] - sum(p["amount"] for p in caja["payments"])) < 0.01,
+      f"{caja['total']} vs {sum(p['amount'] for p in caja['payments'])}")
+check("y el conteo también", caja["paymentCount"] == len(caja["payments"]),
+      f"{caja['paymentCount']} vs {len(caja['payments'])}")
+check("aparece el abono que se acaba de registrar",
+      any(p["reference"] == "CAJA-001" for p in caja["payments"]),
+      str([p.get("reference") for p in caja["payments"]]))
+check("con su forma de pago y su factura",
+      any(p["reference"] == "CAJA-001" and p["method"] == TRANSFER
+          and p["saleNumber"] == open_sale["number"] for p in caja["payments"]),
+      str([p for p in caja["payments"] if p.get("reference") == "CAJA-001"]))
+check("dice quién recibió cada uno",
+      all(p["receiverName"] for p in caja["payments"]), str(caja["payments"][:1]))
+check("el reparto por forma de pago suma el total",
+      abs(sum(m["total"] for m in caja["byMethod"]) - caja["total"]) < 0.01,
+      str(caja["byMethod"]))
+check("y el reparto por quién lo recibió también",
+      abs(sum(r["total"] for r in caja["byReceiver"]) - caja["total"]) < 0.01,
+      str(caja["byReceiver"]))
+
+# La caja es de lo cobrado: los abonos de una venta anulada no entran, pero se informan.
+_, anulada = api("POST", "/api/sales", {
+    "branchId": matriz["id"], "paymentMethod": CASH,
+    "lines": [{"lineType": 2, "description": "Anular para la caja", "quantity": 1,
+               "unitPrice": 250}],
+}, token=owner)
+api("POST", f"/api/sales/{anulada['id']}/void", {"reason": "Prueba del cierre de caja"}, owner)
+
+status, con_anulada = api("GET", "/api/reports/cash-close", token=owner)
+check("una venta anulada no suma en la caja",
+      abs(con_anulada["total"] - caja["total"]) < 0.01,
+      f"{con_anulada['total']} vs {caja['total']}")
+check("pero se informa lo que quedó fuera", con_anulada["voidedCount"] >= 1,
+      str(con_anulada.get("voidedCount")))
+check("con su monto", con_anulada["voidedAmount"] >= 250, str(con_anulada.get("voidedAmount")))
+
+_, ayer = api("GET", "/api/reports/cash-close?date=2020-01-15T12:00:00Z", token=owner)
+check("un día sin cobros da cero", ayer["total"] == 0 and ayer["paymentCount"] == 0,
+      f"{ayer.get('total')} {ayer.get('paymentCount')}")
+
+status, denied = api("GET", "/api/reports/cash-close", token=technician)
+check("el técnico no ve la caja", status == 403, str(status))
+
+status, pdf_caja = api("GET", "/api/reports/cash-close.pdf", token=owner, raw=True)
+check("el cierre se baja en PDF",
+      status == 200 and pdf_caja[:4] == b"%PDF", str(status))
+
 print(f"\n{ok} comprobaciones bien, {len(failed)} mal")
 if failed:
     for name in failed:

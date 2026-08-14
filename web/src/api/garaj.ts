@@ -2,6 +2,7 @@ import axios from 'axios'
 import { api, download } from './client'
 import type {
   Branch,
+  CashClose,
   Customer,
   FiscalRange,
   LaborService,
@@ -720,6 +721,16 @@ export const reportsApi = {
     technicianId?: string
   }) {
     await download('/api/reports/revenue.csv', 'ingresos.csv', params(query))
+  },
+  /** Lo cobrado en un día. Sin fecha, hoy. */
+  async cashClose(query: { date?: string; branchId?: string } = {}) {
+    const { data } = await api.get<CashClose>('/api/reports/cash-close', {
+      params: params(query),
+    })
+    return data
+  },
+  async downloadCashClosePdf(query: { date?: string; branchId?: string }, day: string) {
+    await download('/api/reports/cash-close.pdf', `Cierre de caja ${day}.pdf`, params(query))
   },
 }
 
