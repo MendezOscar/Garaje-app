@@ -1,5 +1,7 @@
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
+using Garaj.Application.Quotes;
+using Garaj.Application.Tenants;
 using Garaj.Domain.Enums;
 
 namespace Garaj.Application.WorkOrders;
@@ -143,6 +145,75 @@ public record WorkOrderQuery : PageQuery
     public bool OnlyOpen { get; init; }
 }
 
+// ---------- Seguimiento por enlace ----------
+
+/// <summary>Cuál de los tres mensajes se le arma al cliente para mandarle por WhatsApp.</summary>
+public enum OrderMessageKind
+{
+    /// <summary>Al recibir el vehículo: aquí puede seguir la reparación.</summary>
+    Received,
+
+    /// <summary>Ya está listo para entrega, con el total si ya se facturó.</summary>
+    Ready,
+
+    /// <summary>Su factura, que se descarga desde la misma página.</summary>
+    Invoice
+}
+
+/// <summary>
+/// La orden como la ve el cliente desde el enlace: en qué va su vehículo y qué se le ha hecho.
+/// </summary>
+/// <remarks>
+/// Es deliberadamente pobre en datos. No lleva ids —ni de la orden, ni del cliente, ni del
+/// taller—, ni costo, ni margen, ni el nombre del técnico: solo lo que el dueño del vehículo
+/// necesita para no tener que llamar a preguntar.
+/// </remarks>
+public record OrderTrackingDto(
+    string Number,
+    string TenantName,
+    string? TenantLogoUrl,
+    string? TenantPhone,
+    string BranchName,
+    string CustomerName,
+    string VehicleLabel,
+    string? Plate,
+    WorkOrderStatus Status,
+    string StatusLabel,
+    string Description,
+    DateTimeOffset OpenedAt,
+    DateTimeOffset? PromisedAt,
+    DateTimeOffset? ClosedAt,
+    string Currency,
+    IReadOnlyList<OrderTrackingStepDto> Steps,
+    IReadOnlyList<OrderTrackingEntryDto> Timeline,
+    IReadOnlyList<OrderTrackingPhotoDto> Photos,
+    // La factura, cuando la orden ya se cerró. Null mientras el vehículo está en el taller.
+    OrderTrackingInvoiceDto? Invoice);
+
+/// <summary>Un paso del trabajo, sin precio: lo que se le hizo al carro, no lo que cuesta.</summary>
+public record OrderTrackingStepDto(string Title, bool IsDone, DateTimeOffset? CompletedAt);
+
+public record OrderTrackingEntryDto(
+    WorkOrderStatus Status,
+    string StatusLabel,
+    DateTimeOffset ChangedAt,
+    string? Note);
+
+/// <param name="Url">Prefirmada y con caducidad corta: el bucket sigue siendo privado.</param>
+public record OrderTrackingPhotoDto(
+    string Url,
+    string ThumbnailUrl,
+    string? Caption,
+    DateTimeOffset TakenAt,
+    string? StepTitle);
+
+public record OrderTrackingInvoiceDto(
+    string Number,
+    decimal Total,
+    decimal Paid,
+    decimal Balance,
+    DateTimeOffset? DueDate);
+
 public interface IWorkOrderService
 {
     Task<PagedResult<WorkOrderListItemDto>> ListAsync(WorkOrderQuery query, CancellationToken ct = default);
@@ -168,4 +239,17 @@ public interface IWorkOrderService
 
     /// <summary>Lo quita de la orden y lo devuelve a la bodega con un movimiento de entrada.</summary>
     Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default);
+
+    /// <summary>
+    /// El enlace de seguimiento con el mensaje de WhatsApp ya escrito, para que en mostrador
+    /// solo haya que enviarlo.
+    /// </summary>
+    Task<WhatsAppLinkDto> TrackingLinkAsync(
+        Guid id, OrderMessageKind kind, CancellationToken ct = default);
+
+    /// <summary>La orden vista desde el enlace, sin sesión. El token es la credencial.</summary>
+    Task<OrderTrackingDto> TrackingPublicAsync(Guid token, CancellationToken ct = default);
+
+    /// <summary>El logo del taller para el encabezado de esa página. Null si no tiene.</summary>
+    Task<TenantLogo?> TrackingLogoPublicAsync(Guid token, CancellationToken ct = default);
 }

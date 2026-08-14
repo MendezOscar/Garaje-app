@@ -144,6 +144,27 @@ status, again = api("POST", "/api/sales/close-work-order", {
 check("no se puede facturar dos veces la misma orden", status == 409, f"{status} {again}")
 check("y el mensaje dice qué hacer", "anúlela" in str(again.get("detail", "")).lower(), str(again))
 
+print("\n[la factura en el enlace de seguimiento]")
+
+_, link = api("GET", f"/api/work-orders/{order_id}/whatsapp?kind=invoice", token=owner)
+tracking_token = link["message"].split("/o/")[-1].strip()
+check("el mensaje de la factura lleva su número", sale["number"] in link["message"],
+      str(link.get("message")))
+
+status, tracking = api("GET", f"/public/work-orders/{tracking_token}")
+check("ya cerrada, el cliente ve su factura en el enlace",
+      status == 200 and tracking["invoice"] is not None, f"{status} {tracking.get('invoice')}")
+check("con el total que se le cobró",
+      abs(tracking["invoice"]["total"] - sale["total"]) < 0.01,
+      f"{tracking['invoice']} vs {sale['total']}")
+check("y el mismo saldo que la venta",
+      abs(tracking["invoice"]["balance"] - sale["balance"]) < 0.01,
+      f"{tracking['invoice']['balance']} vs {sale['balance']}")
+
+status, pdf = api("GET", f"/public/work-orders/{tracking_token}/invoice.pdf")
+check("y la baja en PDF sin login",
+      status == 200 and isinstance(pdf, bytes) and pdf[:4] == b"%PDF", str(status))
+
 print("\n[venta de mostrador]")
 
 before = stock_of(owner, matriz["id"], part["id"])

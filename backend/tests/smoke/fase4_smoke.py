@@ -289,6 +289,47 @@ status, error = api("POST", f"/public/quotes/{old_token}/respond", {"approve": T
 check("intentarlo devuelve 409", status == 409, f"{status} {error}")
 check("diciendo que pida una actualizada", "venció" in str(error.get("detail", "")), str(error))
 
+print("\n[enlace de seguimiento de la orden]")
+
+status, link = api("GET", f"/api/work-orders/{order_id}/whatsapp?kind=received", token=owner)
+check("el Dueño obtiene el enlace de seguimiento", status == 200, f"{status} {link}")
+check("con el mensaje ya escrito", "wa.me" in link["url"] and "/o/" in link["message"],
+      str(link.get("message")))
+check("y nombra la orden", order["number"] in link["message"], str(link.get("message")))
+
+tracking_token = link["message"].split("/o/")[-1].strip()
+
+status, denied = api("GET", f"/api/work-orders/{order_id}/whatsapp?kind=received", token=customer)
+check("el cliente no arma el enlace: lo manda el taller", status == 403, str(status))
+
+status, tracking = api("GET", f"/public/work-orders/{tracking_token}")
+check("el cliente abre el seguimiento sin login", status == 200, f"{status} {tracking}")
+check("ve su vehículo y el estado",
+      tracking["vehicleLabel"] and tracking["statusLabel"], str(tracking)[:200])
+check("ve el nombre del taller", tracking["tenantName"] == "Taller Garaj",
+      str(tracking.get("tenantName")))
+check("no se filtra ningún id interno",
+      not any(k for k in tracking if k.lower().endswith("id")), str(list(tracking.keys())))
+check("ni el costo del taller",
+      not any("cost" in k.lower() or "margin" in k.lower() for k in tracking),
+      str(list(tracking.keys())))
+check("los pasos van sin precio",
+      all(not any("price" in k.lower() for k in step) for step in tracking["steps"]),
+      str(tracking["steps"][:1]))
+check("mientras está en el taller no hay factura", tracking["invoice"] is None,
+      str(tracking.get("invoice")))
+
+status, missing = api("GET", "/public/work-orders/00000000-0000-0000-0000-000000000000")
+check("un token inventado devuelve 404", status == 404, str(status))
+
+status, sin_factura = api("GET", f"/public/work-orders/{tracking_token}/invoice.pdf")
+check("y la factura todavía no existe", status == 404, str(status))
+
+status, error = api("GET", f"/api/work-orders/{order_id}/whatsapp?kind=invoice", token=owner)
+check("mandar la factura sin haber facturado se rechaza", status == 400, f"{status} {error}")
+check("diciendo que la orden no se ha facturado",
+      "facturado" in str(error.get("detail", "")).lower(), str(error))
+
 print(f"\n{ok} comprobaciones correctas, {len(failed)} fallidas")
 if failed:
     for name in failed:

@@ -47,6 +47,17 @@ public class WorkOrder : TenantEntity, IBranchEntity
     /// <summary>Venta generada al cerrar la orden. Null mientras no se factura.</summary>
     public Guid? SaleId { get; set; }
 
+    /// <summary>
+    /// Token del enlace de seguimiento. Igual que en la cotización y el estado de cuenta, el
+    /// token **es** la credencial: el cliente abre el enlace que le llega por WhatsApp y ve en
+    /// qué va su vehículo sin cuenta ni contraseña. Es lo que permite atender al cliente que
+    /// nunca va a instalar la app, que son casi todos.
+    ///
+    /// Expone estado, pasos, fotos marcadas como visibles y —si ya se facturó— el total y el
+    /// saldo. Nunca el costo del taller. Si un enlace se filtra, se corta cambiando el token.
+    /// </summary>
+    public Guid PublicToken { get; set; } = Guid.NewGuid();
+
     public Branch Branch { get; set; } = null!;
     public Vehicle Vehicle { get; set; } = null!;
     public ICollection<WorkOrderTask> Tasks { get; set; } = new List<WorkOrderTask>();

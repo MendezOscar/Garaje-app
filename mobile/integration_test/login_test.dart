@@ -148,6 +148,12 @@ void main() {
     expect(find.text('DIAGNÓSTICO'), findsOneWidget);
     expect(find.text('PASOS DE LA REPARACIÓN'), findsOneWidget);
 
+    // El Técnico también manda el enlace de seguimiento: muchas veces es él quien entrega el
+    // carro. La factura no: las ventas son del Dueño.
+    expect(find.text('AVISAR AL CLIENTE'), findsOneWidget);
+    expect(find.text('Mandar el enlace'), findsOneWidget);
+    expect(find.text('Mandar la factura'), findsNothing);
+
     // Lo de más abajo hay que traerlo a la vista: el ListView no construye lo que no se ve.
     // Y hay que decirle por cuál desplazarse: el cuadro del diagnóstico también es
     // desplazable, así que el buscador encontraría dos y no sabría por cuál decidirse.
@@ -179,6 +185,8 @@ void main() {
     expect(find.text('REPUESTOS'), findsOneWidget);
     expect(find.text('Cargar repuesto'), findsNothing);
     expect(find.text('Agregar paso'), findsNothing);
+    // El enlace de seguimiento lo manda el taller: a él ya le llegó por WhatsApp.
+    expect(find.text('AVISAR AL CLIENTE'), findsNothing);
     // Ve quién tiene su vehículo, que es lo que preguntaría por teléfono.
     expect(find.text('TÉCNICO RESPONSABLE'), findsOneWidget);
 

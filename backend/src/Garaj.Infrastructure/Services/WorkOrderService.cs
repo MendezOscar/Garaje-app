@@ -1,7 +1,10 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
+using Garaj.Application.Media;
 using Garaj.Application.Notifications;
+using Garaj.Application.Quotes;
+using Garaj.Application.Tenants;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
@@ -9,6 +12,7 @@ using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Garaj.Infrastructure.Services;
 
@@ -16,6 +20,9 @@ public class WorkOrderService(
     GarajDbContext db,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
+    IConfiguration configuration,
+    ITenantService tenants,
+    IMediaService media,
     StockService stock,
     INotificationPublisher notifications) : IWorkOrderService
 {
@@ -494,6 +501,188 @@ public class WorkOrderService(
 
         db.WorkOrderParts.Remove(line);
         await db.SaveChangesAsync(ct);
+    }
+
+    // ---------- Seguimiento por enlace ----------
+
+    public async Task<WhatsAppLinkDto> TrackingLinkAsync(
+        Guid id, OrderMessageKind kind, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        // El Técnico también manda el enlace: muchas veces es él quien entrega el carro. El
+        // Cliente no: el enlace es el que el taller le manda a él.
+        if (scope.IsCustomer)
+            throw new ForbiddenException("El enlace de seguimiento lo manda el taller.");
+
+        var order = await Scoped(scope)
+            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .FirstOrDefaultAsync(w => w.Id == id, ct)
+            ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == order.TenantId, ct)
+            ?? throw new NotFoundException("El taller no existe.");
+
+        var customer = order.Vehicle.Customer;
+        var vehicle = VehicleWithPlate(order.Vehicle);
+        var url = TrackingUrlFor(order.PublicToken);
+        var invoice = await InvoiceOfAsync(order.Id, order.TenantId, ct);
+
+        // Armados para que en mostrador solo haya que tocar enviar.
+        var message = kind switch
+        {
+            OrderMessageKind.Received =>
+                $"Hola {customer.FullName}, le saluda {tenant.Name}. Recibimos su {vehicle} "
+                + $"con la orden {order.Number}.\n\nAquí puede ver en qué va, sin instalar nada:"
+                + $"\n{url}",
+
+            OrderMessageKind.Ready =>
+                $"Hola {customer.FullName}, su {vehicle} ya está listo para entrega en "
+                + $"{tenant.Name}."
+                + (invoice is null
+                    ? string.Empty
+                    : $" El total es {tenant.Currency} {invoice.Total:N2}"
+                      + (invoice.Balance > 0
+                          ? $", con {tenant.Currency} {invoice.Balance:N2} pendiente."
+                          : ", ya pagado."))
+                + $"\n\nEl detalle del trabajo aquí:\n{url}",
+
+            OrderMessageKind.Invoice when invoice is not null =>
+                $"Hola {customer.FullName}, le compartimos la factura {invoice.Number} de su "
+                + $"{vehicle}, por {tenant.Currency} {invoice.Total:N2}"
+                + (invoice.Balance > 0
+                    ? $" ({tenant.Currency} {invoice.Balance:N2} pendiente)."
+                    : ".")
+                + $"\n\nPuede verla y descargarla aquí:\n{url}",
+
+            OrderMessageKind.Invoice =>
+                throw new AppException(
+                    $"La orden {order.Number} todavía no se ha facturado, así que no hay "
+                    + "factura que mandar."),
+
+            _ => throw new AppException("No sé qué mensaje armar.")
+        };
+
+        return new WhatsAppLinkDto(
+            $"https://wa.me/{customer.Phone}?text={Uri.EscapeDataString(message)}",
+            customer.Phone,
+            message);
+    }
+
+    public async Task<OrderTrackingDto> TrackingPublicAsync(
+        Guid token, CancellationToken ct = default)
+    {
+        var order = await FindByTrackingTokenAsync(token, ct);
+
+        // El taller sale del token, no de una sesión que aquí no existe. Se fija para que las
+        // consultas de abajo —y las fotos— queden acotadas al taller correcto.
+        tenantContext.SetTenant(order.TenantId);
+
+        var tenant = await db.Tenants.AsNoTracking().IgnoreQueryFilters()
+            .FirstAsync(t => t.Id == order.TenantId, ct);
+
+        var photos = (await media.ListForOrderPublicAsync(order.TenantId, order.Id, ct))
+            .Select(p => new OrderTrackingPhotoDto(
+                p.Url, p.ThumbnailUrl, p.Caption, p.TakenAt, p.TaskTitle))
+            .ToList();
+
+        // Los pasos van sin precio: al cliente le importa qué se le hizo al carro, y lo que
+        // cuesta ya se lo dice la cotización o la factura.
+        var steps = order.Tasks
+            .OrderBy(t => t.Sequence)
+            .Select(t => new OrderTrackingStepDto(t.Title, t.IsDone, t.CompletedAt))
+            .ToList();
+
+        // La misma versión curada de la línea de tiempo que ve el perfil Cliente: las notas
+        // internas del taller no salen de aquí.
+        var timeline = order.StatusHistory
+            .Where(h => h.IsVisibleToCustomer)
+            .OrderBy(h => h.ChangedAt)
+            .Select(h => new OrderTrackingEntryDto(
+                h.ToStatus, Describe(h.ToStatus), h.ChangedAt, h.Note))
+            .ToList();
+
+        return new OrderTrackingDto(
+            order.Number,
+            tenant.Name,
+            // Bajo el token de la orden y no bajo el id del taller: en esta página el token es
+            // la única credencial y no se filtra ningún id interno.
+            tenant.LogoStorageKey is null ? null : $"/public/work-orders/{token}/logo",
+            tenant.Phone,
+            order.Branch.Name,
+            order.Vehicle.Customer.FullName,
+            $"{order.Vehicle.Brand} {order.Vehicle.Model}",
+            order.Vehicle.Plate,
+            order.Status,
+            Describe(order.Status),
+            order.Description,
+            order.OpenedAt,
+            order.PromisedAt,
+            order.ClosedAt,
+            tenant.Currency,
+            steps,
+            timeline,
+            photos,
+            await InvoiceOfAsync(order.Id, order.TenantId, ct));
+    }
+
+    public async Task<TenantLogo?> TrackingLogoPublicAsync(
+        Guid token, CancellationToken ct = default)
+    {
+        var tenantId = await db.WorkOrders.IgnoreQueryFilters()
+            .Where(w => w.PublicToken == token)
+            .Select(w => (Guid?)w.TenantId)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("El enlace no es válido.");
+
+        return await tenants.GetLogoAsync(tenantId, ct);
+    }
+
+    private async Task<WorkOrder> FindByTrackingTokenAsync(Guid token, CancellationToken ct) =>
+        await db.WorkOrders.AsNoTracking().IgnoreQueryFilters()
+            .Include(w => w.Branch)
+            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .Include(w => w.Tasks)
+            .Include(w => w.StatusHistory)
+            .FirstOrDefaultAsync(w => w.PublicToken == token, ct)
+        ?? throw new NotFoundException("El enlace no es válido.");
+
+    /// <summary>
+    /// La factura de la orden, si ya se cerró. Anulada no cuenta: lo que se anuló no se le
+    /// cobra a nadie.
+    /// </summary>
+    private async Task<OrderTrackingInvoiceDto?> InvoiceOfAsync(
+        Guid orderId, Guid tenantId, CancellationToken ct) =>
+        await db.Sales.AsNoTracking().IgnoreQueryFilters()
+            .Where(s => s.TenantId == tenantId && s.WorkOrderId == orderId && !s.IsVoided)
+            .OrderByDescending(s => s.SaleDate)
+            .Select(s => new OrderTrackingInvoiceDto(
+                s.FiscalNumber ?? s.Number,
+                s.Total,
+                s.Payments.Sum(p => (decimal?)p.Amount) ?? 0,
+                s.Total - (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
+                s.DueDate))
+            .FirstOrDefaultAsync(ct);
+
+    private static string VehicleWithPlate(Vehicle vehicle) =>
+        $"{vehicle.Brand} {vehicle.Model}"
+        + (string.IsNullOrWhiteSpace(vehicle.Plate) ? string.Empty : $" ({vehicle.Plate})");
+
+    /// <summary>
+    /// Apunta al web y no a la API: el cliente abre una página, no un JSON. Igual que los
+    /// enlaces de la cotización y del estado de cuenta, sale de <c>PublicBaseUrl</c>.
+    /// </summary>
+    private string TrackingUrlFor(Guid token)
+    {
+        var baseUrl = configuration["PublicBaseUrl"]?.TrimEnd('/');
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            throw new AppException(
+                "Falta configurar PublicBaseUrl: sin ella el enlace de seguimiento no lleva a "
+                + "ningún lado.");
+
+        return $"{baseUrl}/o/{token}";
     }
 
     private async Task<IReadOnlyList<WorkOrderPartDto>> PartsOfAsync(

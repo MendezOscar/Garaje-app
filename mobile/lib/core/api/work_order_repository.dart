@@ -153,6 +153,18 @@ class WorkOrderRepository {
     return WorkOrderDetail.fromJson(response.data!);
   }
 
+  /// El link `wa.me` con el mensaje ya escrito y el enlace de seguimiento dentro.
+  ///
+  /// `kind` es `received` al recibir el vehículo, `ready` cuando está listo o `invoice` para
+  /// mandar la factura, que falla con 400 si la orden todavía no se ha cerrado.
+  Future<String> trackingLink(String id, String kind) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/work-orders/$id/whatsapp',
+      queryParameters: {'kind': kind},
+    );
+    return response.data!['url'] as String;
+  }
+
   /// El catálogo de mano de obra del taller. El backend se lo niega al Cliente.
   Future<List<LaborServiceOption>> laborServices() async {
     final response = await _dio.get<List<dynamic>>('/api/labor-services');

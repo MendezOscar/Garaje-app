@@ -128,7 +128,7 @@ public class SaleService(
             .FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("La venta no existe.");
 
-        return await MapAsync(sale, scope, ct);
+        return await MapAsync(sale, showCost: !scope.IsCustomer, ct);
     }
 
     public async Task<SaleDetailDto> CreateAsync(
@@ -479,6 +479,41 @@ public class SaleService(
 
         return InvoicePdf.Render(
             sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+            tenant.Email, tenant.Address, logo);
+    }
+
+    public async Task<byte[]> InvoicePdfByOrderTokenAsync(
+        Guid token, CancellationToken ct = default)
+    {
+        // Dos pasos a propósito: primero la orden del token —que es la credencial—, y solo
+        // después su factura. Así el 404 distingue «este enlace no existe» de «esta orden
+        // todavía no se ha facturado», que son dos cosas distintas para quien lo abre.
+        var order = await db.WorkOrders.AsNoTracking().IgnoreQueryFilters()
+            .Where(w => w.PublicToken == token)
+            .Select(w => new { w.Id, w.TenantId, w.Number })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("El enlace no es válido.");
+
+        tenantContext.SetTenant(order.TenantId);
+
+        var sale = await db.Sales.AsNoTracking().IgnoreQueryFilters()
+            .Include(s => s.Branch)
+            .Include(s => s.Lines)
+            .Include(s => s.Payments)
+            .Where(s => s.TenantId == order.TenantId && s.WorkOrderId == order.Id && !s.IsVoided)
+            .OrderByDescending(s => s.SaleDate)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException($"La orden {order.Number} todavía no tiene factura.");
+
+        var detail = await MapAsync(sale, showCost: false, ct);
+
+        var tenant = await db.Tenants.AsNoTracking().IgnoreQueryFilters()
+            .FirstAsync(t => t.Id == order.TenantId, ct);
+
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+
+        return InvoicePdf.Render(
+            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
             tenant.Email, tenant.Address, logo);
     }
 
@@ -834,7 +869,12 @@ public class SaleService(
         await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct)
         ?? throw new NotFoundException("El taller no existe.");
 
-    private async Task<SaleDetailDto> MapAsync(Sale sale, AccessScope scope, CancellationToken ct)
+    /// <param name="showCost">
+    /// Falso para el cliente y para el enlace público: el costo y quién recibió cada abono son
+    /// datos del negocio. Se pasa suelto y no como <see cref="AccessScope"/> porque el enlace
+    /// público entra sin sesión y no hay alcance que construir.
+    /// </param>
+    private async Task<SaleDetailDto> MapAsync(Sale sale, bool showCost, CancellationToken ct)
     {
         var tenant = await CurrentTenantAsync(ct);
 
@@ -851,10 +891,6 @@ public class SaleService(
                 .Select(w => new { w.Number, Vehicle = w.Vehicle.Brand + " " + w.Vehicle.Model })
                 .FirstOrDefaultAsync(ct)
             : null;
-
-        // El costo y el margen son datos del negocio: al cliente se le muestra su factura,
-        // no cuánto ganó el taller con ella.
-        var showCost = !scope.IsCustomer;
 
         var paid = sale.Payments.Sum(p => p.Amount);
 

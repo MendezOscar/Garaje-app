@@ -33,6 +33,11 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
         b.HasOne(x => x.Vehicle).WithMany(v => v.WorkOrders).HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
+
+        // El enlace de seguimiento se resuelve por este token y sin filtro de tenant: sin
+        // índice sería un recorrido de toda la tabla en cada apertura.
+        b.HasIndex(x => x.PublicToken).IsUnique();
+
         // Kanban del Dueño y bandeja del Técnico.
         b.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
         b.HasIndex(x => new { x.TenantId, x.AssignedTechnicianId, x.Status });

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/sale_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
@@ -268,6 +270,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 title: 'Motivo de ingreso',
                 child: Text(order.description),
               ),
+              // Va arriba porque el primer mensaje se manda al recibir el vehículo, con el
+              // cliente todavía en el mostrador.
+              if (_canEdit) _NotifySection(order: order, isOwner: _isOwner),
               _DiagnosisSection(
                 order: order,
                 canEdit: _canEdit,
@@ -357,6 +362,91 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Los tres mensajes de WhatsApp que llevan al cliente al enlace de seguimiento.
+///
+/// El enlace es el mismo toda la reparación: se manda al recibir el vehículo, otra vez cuando
+/// está listo y al final con la factura. Sirve al cliente que no va a instalar la app, que en
+/// un taller son casi todos.
+class _NotifySection extends ConsumerStatefulWidget {
+  const _NotifySection({required this.order, required this.isOwner});
+
+  final WorkOrderDetail order;
+  final bool isOwner;
+
+  @override
+  ConsumerState<_NotifySection> createState() => _NotifySectionState();
+}
+
+class _NotifySectionState extends ConsumerState<_NotifySection> {
+  bool _busy = false;
+
+  Future<void> _send(String kind) async {
+    setState(() => _busy = true);
+    try {
+      final url = await ref
+          .read(workOrderRepositoryProvider)
+          .trackingLink(widget.order.id, kind);
+
+      // externalApplication: abre WhatsApp de verdad, no una vista web dentro de la app.
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched) _snack('No se pudo abrir WhatsApp.');
+    } catch (e) {
+      _snack(apiErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Las ventas solo las ve el Dueño: al Técnico la API le responde 403, así que ni se
+    // preguntan y él no ve el botón de la factura.
+    final conFactura = widget.isOwner &&
+        (ref.watch(workOrderSalesProvider(widget.order.id)).value ?? const [])
+            .any((s) => !s.isVoided);
+
+    return _Section(
+      title: 'Avisar al cliente',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Le llega un enlace donde ve el avance, las fotos y —al cerrar— su factura. '
+            'No necesita instalar nada.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: _busy ? null : () => _send('received'),
+                icon: const Icon(Icons.share_outlined, size: 18),
+                label: const Text('Mandar el enlace'),
+              ),
+              FilledButton.tonal(
+                onPressed: _busy ? null : () => _send('ready'),
+                child: const Text('Ya está listo'),
+              ),
+              if (conFactura)
+                FilledButton.tonal(
+                  onPressed: _busy ? null : () => _send('invoice'),
+                  child: const Text('Mandar la factura'),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

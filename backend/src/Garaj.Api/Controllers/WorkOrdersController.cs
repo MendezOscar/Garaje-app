@@ -1,5 +1,7 @@
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
+using Garaj.Application.Quotes;
+using Garaj.Application.Sales;
 using Garaj.Application.WorkOrders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -119,5 +121,59 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
     {
         await service.DeleteTaskAsync(id, taskId, ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// El enlace de seguimiento con el mensaje de WhatsApp ya escrito.
+    ///
+    /// <c>kind=received</c> al recibir el vehículo, <c>ready</c> cuando está listo —lleva el
+    /// total si ya se facturó— e <c>invoice</c> para mandar la factura, que responde 400 si la
+    /// orden todavía no se ha cerrado.
+    /// </summary>
+    [HttpGet("{id:guid}/whatsapp")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<WhatsAppLinkDto>> WhatsApp(
+        Guid id, [FromQuery] OrderMessageKind kind, CancellationToken ct)
+        => Ok(await service.TrackingLinkAsync(id, kind, ct));
+}
+
+/// <summary>
+/// La orden vista por su dueño desde el enlace de WhatsApp. Sin autenticación: el token
+/// aleatorio de la URL es la única credencial, igual que en la cotización.
+/// </summary>
+/// <remarks>
+/// Expone el estado, los pasos, las fotos marcadas como visibles al cliente y, cuando ya se
+/// facturó, el total y el saldo. Nada más: ni el costo del taller, ni el nombre del técnico, ni
+/// un id con el que llegar a otra parte de la API.
+/// </remarks>
+[ApiController]
+[AllowAnonymous]
+[Route("public/work-orders")]
+public class PublicWorkOrdersController(
+    IWorkOrderService orders, ISaleService sales) : ControllerBase
+{
+    [HttpGet("{token:guid}")]
+    public async Task<ActionResult<OrderTrackingDto>> Get(Guid token, CancellationToken ct)
+        => Ok(await orders.TrackingPublicAsync(token, ct));
+
+    /// <summary>La factura de esa orden. 404 mientras el vehículo siga en el taller.</summary>
+    [HttpGet("{token:guid}/invoice.pdf")]
+    public async Task<IActionResult> Invoice(Guid token, CancellationToken ct)
+    {
+        var order = await orders.TrackingPublicAsync(token, ct);
+        var bytes = await sales.InvoicePdfByOrderTokenAsync(token, ct);
+
+        return File(bytes, "application/pdf", $"Factura - {order.Number}.pdf");
+    }
+
+    /// <summary>El logo del taller para el encabezado de la página. 404 si no tiene.</summary>
+    [HttpGet("{token:guid}/logo")]
+    public async Task<IActionResult> Logo(Guid token, CancellationToken ct)
+    {
+        var logo = await orders.TrackingLogoPublicAsync(token, ct);
+        if (logo is null) return NotFound();
+
+        Response.Headers.CacheControl = "public, max-age=3600";
+        return File(logo.Bytes, logo.ContentType);
     }
 }

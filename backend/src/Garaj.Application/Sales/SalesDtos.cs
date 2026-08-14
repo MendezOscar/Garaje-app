@@ -364,6 +364,12 @@ public interface ISaleService
     /// <summary>La factura en PDF, para imprimirla o mandarla por WhatsApp.</summary>
     Task<byte[]> PdfAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// La factura de una orden, resuelta por el token de su enlace de seguimiento. Es el PDF
+    /// que el cliente descarga desde esa página, sin sesión.
+    /// </summary>
+    Task<byte[]> InvoicePdfByOrderTokenAsync(Guid token, CancellationToken ct = default);
+
     /// <summary>Registra un abono. Nunca por encima del saldo.</summary>
     Task<SaleDetailDto> RegisterPaymentAsync(
         Guid id, RegisterPaymentRequest request, CancellationToken ct = default);
