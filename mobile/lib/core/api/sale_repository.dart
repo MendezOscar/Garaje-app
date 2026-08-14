@@ -28,6 +28,7 @@ class Receivable {
     required this.isOverdue,
     required this.saleDate,
     this.customerName,
+    this.workOrderNumber,
     this.dueDate,
   });
 
@@ -41,6 +42,7 @@ class Receivable {
         isOverdue: json['isOverdue'] as bool? ?? false,
         saleDate: DateTime.parse(json['saleDate'] as String),
         customerName: json['customerName'] as String?,
+        workOrderNumber: json['workOrderNumber'] as String?,
         dueDate: json['dueDate'] == null ? null : DateTime.parse(json['dueDate'] as String),
       );
 
@@ -53,7 +55,15 @@ class Receivable {
   final bool isOverdue;
   final DateTime saleDate;
   final String? customerName;
+
+  /// El número de la orden que la originó. Null en las ventas de mostrador.
+  final String? workOrderNumber;
+
   final DateTime? dueDate;
+
+  /// Días de atraso. Cero si no venció o si se entregó sin fecha acordada.
+  int get diasDeAtraso =>
+      isOverdue && dueDate != null ? DateTime.now().difference(dueDate!).inDays : 0;
 }
 
 /// Un abono a una venta. Lo cobrado sale de sumarlos, no de un campo aparte.
@@ -153,13 +163,22 @@ class SaleRepository {
   final Dio _dio;
 
   /// Lo facturado que todavía no entró en caja, con lo que vence antes al principio.
-  Future<List<Receivable>> receivables({String? branchId}) async {
+  ///
+  /// [search] busca por cliente, teléfono, número de venta o de orden. [overdue] filtra por
+  /// vencimiento: `true` solo las vencidas, `false` solo las que aún no vencen, null todas.
+  Future<List<Receivable>> receivables({
+    String? branchId,
+    String? search,
+    bool? overdue,
+  }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/sales',
       queryParameters: {
         'onlyUnpaid': true,
-        'pageSize': 100,
+        'pageSize': 200,
         if (branchId != null) 'branchId': branchId,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        if (overdue != null) 'overdue': overdue,
       },
     );
 
@@ -269,4 +288,48 @@ final workOrderSalesProvider =
 final receivablesProvider =
     FutureProvider.autoDispose.family<List<Receivable>, String?>(
   (ref, branchId) => ref.watch(saleRepositoryProvider).receivables(branchId: branchId),
+);
+
+/// Lo que busca y filtra la pantalla de Por cobrar.
+class ReceivableFilter {
+  const ReceivableFilter({this.branchId, this.search, this.overdue});
+
+  final String? branchId;
+  final String? search;
+
+  /// `true` solo vencidas, `false` solo por vencer, null todas.
+  final bool? overdue;
+
+  ReceivableFilter copyWith({
+    String? branchId,
+    String? search,
+    bool? overdue,
+    bool limpiarSucursal = false,
+    bool limpiarVencimiento = false,
+  }) =>
+      ReceivableFilter(
+        branchId: limpiarSucursal ? null : branchId ?? this.branchId,
+        search: search ?? this.search,
+        overdue: limpiarVencimiento ? null : overdue ?? this.overdue,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is ReceivableFilter &&
+      other.branchId == branchId &&
+      other.search == search &&
+      other.overdue == overdue;
+
+  @override
+  int get hashCode => Object.hash(branchId, search, overdue);
+}
+
+/// El listado filtrado de la pantalla de Por cobrar. Solo el Dueño.
+final filteredReceivablesProvider =
+    FutureProvider.autoDispose.family<List<Receivable>, ReceivableFilter>(
+  (ref, filter) => ref.watch(saleRepositoryProvider).receivables(
+        branchId: filter.branchId,
+        search: filter.search,
+        overdue: filter.overdue,
+      ),
 );

@@ -207,7 +207,7 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
-| GET | `/api/sales?branchId=&from=&to=&includeVoided=&onlyUnpaid=` | Owner o Cliente | Ventas visibles; `onlyUnpaid` son las cuentas por cobrar |
+| GET | `/api/sales?branchId=&from=&to=&includeVoided=&onlyUnpaid=&search=&overdue=` | Owner o Cliente | Ventas visibles; `onlyUnpaid` son las cuentas por cobrar |
 | GET | `/api/sales/{id}` | Owner o Cliente | Detalle con líneas |
 | POST | `/api/sales` | Owner | Venta directa de mostrador; descuenta inventario |
 | POST | `/api/sales/close-work-order` | Owner | Cierra la orden y factura lo trabajado |
@@ -250,6 +250,15 @@ Decisiones que conviene conocer antes de tocar esto:
   entera el día que se emitió; lo que falta por entrar está en `onlyUnpaid` y en los dos
   campos `receivables` del tablero. Son dos preguntas distintas y mezclarlas haría que ningún
   número sirviera para ninguna.
+- **Las cuentas por cobrar se buscan, no se recorren.** `search` cruza el nombre y el teléfono
+  del cliente, a nombre de quién salió la factura, el número de venta y el de la orden: es lo
+  que el cliente dicta cuando llama a preguntar por su saldo, y ninguno de esos datos es un
+  identificador que alguien pueda teclear. El teléfono compara solo dígitos y exige al menos
+  cuatro, porque se dicta con guiones y se guarda en E.164.
+- **`overdue` separa vencidas de por vencer.** `true` las que tenían fecha acordada y ya pasó,
+  `false` el resto —incluidas las entregadas **sin** fecha acordada, que no vencen: el taller
+  las entregó sin plazo, así que no se puede decir que el cliente se atrasó—. Ordenadas por
+  vencimiento, que es el orden en que hay que cobrar, y las sin fecha al final.
 - **El reparto por técnico se atribuye por la orden, no por el paso.** Cuenta el técnico
   responsable de la orden que se facturó: es quien responde por el trabajo completo, y es la
   única atribución que reparte también los repuestos, que no cuelgan de un paso. Lo vendido

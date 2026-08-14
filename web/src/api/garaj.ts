@@ -551,6 +551,10 @@ export const salesApi = {
     to?: string
     includeVoided?: boolean
     onlyUnpaid?: boolean
+    /** Cliente, a nombre de quién salió, número de venta o número de orden. */
+    search?: string
+    /** `true` solo vencidas, `false` solo las que aún no vencen, omitido todas. */
+    overdue?: boolean
     page?: number
     pageSize?: number
   } = {}) {

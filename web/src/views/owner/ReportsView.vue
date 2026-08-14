@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, reportsApi, salesApi, usersApi } from '@/api/garaj'
+import { branchesApi, reportsApi, usersApi } from '@/api/garaj'
 import {
   RevenueGrouping,
   WORK_ORDER_STATUS_LABEL,
   type Branch,
   type Dashboard,
   type RevenueReport,
-  type SaleListItem,
   type User,
 } from '@/types/domain'
-import { formatDate, formatMoney, formatQuantity } from '@/utils/format'
+import { formatMoney, formatQuantity } from '@/utils/format'
 
 const dashboard = ref<Dashboard | null>(null)
-/** Cuentas por cobrar: lo facturado que todavía no entró en caja. */
-const receivables = ref<SaleListItem[]>([])
 const report = ref<RevenueReport | null>(null)
 const branches = ref<Branch[]>([])
 const technicians = ref<User[]>([])
@@ -41,20 +38,14 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [d, r, pending] = await Promise.all([
+    const [d, r] = await Promise.all([
       // El tablero es del taller entero: filtrarlo por técnico dejaría "repuestos bajo
       // mínimo" y "pendientes de atender" contando cosas que no dependen de nadie.
       reportsApi.dashboard(branchId.value || undefined),
       reportsApi.revenue(query.value),
-      salesApi.list({
-        onlyUnpaid: true,
-        branchId: branchId.value || undefined,
-        pageSize: 100,
-      }),
     ])
     dashboard.value = d
     report.value = r
-    receivables.value = pending.items
   } catch (e) {
     error.value = errorMessage(e, 'No se pudieron cargar los reportes.')
   } finally {
@@ -149,6 +140,8 @@ onMounted(async () => {
         <small v-if="dashboard.overdueReceivables > 0" class="danger">
           {{ formatMoney(dashboard.overdueReceivables) }} vencido
         </small>
+        <!-- El detalle vive en su propia sección: aquí es un indicador, allá se trabaja. -->
+        <RouterLink :to="{ name: 'receivables' }" class="small">Ver el detalle</RouterLink>
       </article>
       <article>
         <span>Repuestos bajo mínimo</span>
@@ -163,42 +156,6 @@ onMounted(async () => {
         {{ WORK_ORDER_STATUS_LABEL[s.status] }}: <strong>{{ s.count }}</strong>
       </span>
     </div>
-
-    <!-- Cuentas por cobrar -->
-    <article v-if="receivables.length" class="card receivables">
-      <h2>Por cobrar</h2>
-      <p class="muted small">
-        Facturas con saldo. Los abonos se registran desde la orden de trabajo.
-      </p>
-      <table>
-        <tbody>
-          <tr v-for="sale in receivables" :key="sale.id" :class="{ overdue: sale.isOverdue }">
-            <td>
-              <strong>{{ sale.customerName ?? 'Mostrador' }}</strong>
-              <div class="muted small">
-                {{ sale.number }} · {{ sale.branchName }}
-                <template v-if="sale.dueDate">
-                  · {{ sale.isOverdue ? 'venció' : 'vence' }} {{ formatDate(sale.dueDate) }}
-                </template>
-                <template v-else> · sin fecha acordada</template>
-              </div>
-            </td>
-            <td class="num muted small">
-              abonado {{ formatMoney(sale.amountPaid) }} de {{ formatMoney(sale.total) }}
-            </td>
-            <td class="num"><strong>{{ formatMoney(sale.balance) }}</strong></td>
-            <td class="num">
-              <RouterLink
-                v-if="sale.workOrderId"
-                :to="{ name: 'work-order', params: { id: sale.workOrderId } }"
-              >
-                Abonar
-              </RouterLink>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </article>
 
     <!-- Ingresos -->
     <article class="card">
@@ -366,23 +323,6 @@ onMounted(async () => {
 
 h1 {
   margin: 0;
-}
-
-.receivables {
-  margin-bottom: 1rem;
-}
-
-.receivables h2 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.receivables p {
-  margin: 0.125rem 0 0.5rem;
-}
-
-.receivables tr.overdue td strong {
-  color: var(--danger);
 }
 
 .top p {

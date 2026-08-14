@@ -125,9 +125,10 @@
       <a href="#inventario">11. Inventario y kardex</a>
       <a href="#facturar">12. Facturar y cobrar</a>
       <a href="#cai">13. Facturación con CAI (SAR)</a>
-      <a href="#reportes">14. Reportes</a>
-      <a href="#faq">15. Preguntas frecuentes</a>
-      <a href="#soporte">16. Soporte</a>
+      <a href="#por-cobrar">14. Por cobrar</a>
+      <a href="#reportes">15. Reportes</a>
+      <a href="#faq">16. Preguntas frecuentes</a>
+      <a href="#soporte">17. Soporte</a>
     </nav>
 
     <main>
@@ -295,6 +296,7 @@
             <tr><td><strong>Clientes</strong></td><td>El padrón: teléfono, identidad, RTN, dirección y los vehículos de cada uno.</td><td>Dueño</td></tr>
             <tr><td><strong>Mano de obra</strong></td><td>El catálogo de trabajos con su precio.</td><td>Dueño</td></tr>
             <tr><td><strong>Requerimientos</strong></td><td>Las citas que piden los clientes desde su app.</td><td>Dueño y Técnico</td></tr>
+            <tr><td><strong>Por cobrar</strong></td><td>Las facturas con saldo, con búsqueda por cliente o número, y el abono se anota ahí mismo.</td><td>Dueño</td></tr>
             <tr><td><strong>Reportes</strong></td><td>Ingresos por período, reparto por sucursal y por técnico, y la exportación.</td><td>Dueño</td></tr>
             <tr><td><strong>Usuarios</strong></td><td>Altas, roles, sucursales asignadas y cambio de contraseña del equipo.</td><td>Dueño</td></tr>
             <tr><td><strong>Taller</strong></td><td>La ficha del taller, el logo, el ISV por defecto y el CAI de cada sucursal.</td><td>Dueño</td></tr>
@@ -442,20 +444,33 @@
         <div class="note stop">Para emitir con CAI por computadora hay que estar inscrito ante el SAR como <strong>autoimpresor por sistema computarizado</strong>. El CAI de un talonario impreso no sirve para el sistema: pida el suyo de autoimpresor.</div>
       </section>
 
+      <section id="por-cobrar">
+        <h2>14. Por cobrar</h2>
+        <p>Tiene sección propia porque no es un reporte: es trabajo de todos los días. Está en el panel —<strong>Por cobrar</strong>, en la barra de arriba— y en la app, en el icono del billete de la pantalla de órdenes. Solo el Dueño.</p>
+        <ul>
+          <li><strong>Búsqueda</strong> por nombre o teléfono del cliente, a nombre de quién salió la factura, número de venta o número de orden. Es lo que el cliente dicta cuando llama a preguntar cuánto debe.</li>
+          <li><strong>Filtros</strong> por sucursal y por vencimiento: <em>vencidas</em>, <em>por vencer</em> o todas.</li>
+          <li><strong>Ordenadas por vencimiento</strong>, que es el orden en que hay que cobrar. Lo vencido va en rojo con los días de atraso, y las que se entregaron sin fecha acordada van al final.</li>
+          <li><strong>El abono se anota ahí mismo</strong>, sin entrar a la orden. Propone el saldo completo, que es lo que pasa la mayoría de las veces, y se puede bajar si el cliente trae menos.</li>
+          <li>Arriba, el <strong>total de lo que está a la vista</strong> y cuánto de eso ya venció. Con filtros puestos es el total de lo filtrado, no del taller entero.</li>
+        </ul>
+        <div class="note"><strong>Un abono no es una devolución.</strong> Si se capturó mal, se borra el abono. Si hay que devolver dinero, se anula la venta entera: eso además devuelve los repuestos a la bodega.</div>
+      </section>
+
       <section id="reportes">
-        <h2>14. Reportes</h2>
+        <h2>15. Reportes</h2>
         <ul>
           <li><strong>Ingresos</strong> por día, semana o mes, separados en <strong>repuestos</strong> y <strong>mano de obra</strong>: es lo que dice de dónde sale de verdad el dinero del taller.</li>
           <li><strong>Por sucursal</strong>, para comparar locales.</li>
           <li><strong>Por técnico</strong>, con lo que produjo cada uno.</li>
-          <li><strong>Cuentas por cobrar</strong>, con lo vencido aparte.</li>
+          <li><strong>Cuánto está por cobrar</strong>, con lo vencido aparte. El detalle está en su propia sección.</li>
           <li><strong>Exportar a CSV</strong>, que se abre en Excel, para el contador o para trabajarlo aparte.</li>
         </ul>
         <div class="note">Los reportes salen de las ventas registradas, no de un número que alguien escribe. Si un cobro no está en el sistema, no está en el reporte.</div>
       </section>
 
       <section id="faq">
-        <h2>15. Preguntas frecuentes</h2>
+        <h2>16. Preguntas frecuentes</h2>
 
         <h3>¿Necesito internet en el taller?</h3>
         <p>Sí, para trabajar en el sistema. La excepción son las <strong>fotos</strong>: se toman sin señal y se suben solas al recuperar la red.</p>
@@ -489,7 +504,7 @@
       </section>
 
       <section id="soporte">
-        <h2>16. Soporte</h2>
+        <h2>17. Soporte</h2>
         <p>Cualquier duda, o algo que no funcione como debería:</p>
         <div class="card">
           <p>📧 Correo: <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a></p>

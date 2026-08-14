@@ -41,6 +41,12 @@ class WorkOrderListScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          if (auth is AuthSignedIn && auth.user.role == AppRole.owner)
+            IconButton(
+              tooltip: 'Por cobrar',
+              icon: const Icon(Icons.payments_outlined),
+              onPressed: () => context.push('/por-cobrar'),
+            ),
           if (auth is AuthSignedIn && auth.user.role != AppRole.customer)
             IconButton(
               tooltip: 'Requerimientos',
@@ -62,6 +68,13 @@ class WorkOrderListScreen extends ConsumerWidget {
               },
               itemBuilder: (context) => [
                 if (auth.user.role == AppRole.owner) ...[
+                  const PopupMenuItem(
+                    value: '/por-cobrar',
+                    child: ListTile(
+                      leading: Icon(Icons.payments_outlined),
+                      title: Text('Por cobrar'),
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: '/reportes',
                     child: ListTile(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/report_repository.dart';
@@ -26,20 +27,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   static const _ranges = {7: '7 días', 30: '30 días', 90: '90 días'};
 
-  Future<void> _collect(Receivable sale) async {
-    final registered = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _PaymentSheet(sale: sale),
-    );
-
-    if (registered != true) return;
-
-    ref.invalidate(receivablesProvider(_filter.branchId));
-    // El abono no cambia lo facturado, pero sí lo que queda por cobrar en el resumen.
-    ref.invalidate(revenueReportProvider(_filter));
-  }
-
   @override
   Widget build(BuildContext context) {
     final report = ref.watch(revenueReportProvider(_filter));
@@ -63,10 +50,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             ),
             const SizedBox(height: 20),
 
-            _Receivables(
-              sales: receivables.value ?? const [],
-              onCollect: _collect,
-            ),
+            _ReceivablesTotal(sales: receivables.value ?? const []),
 
             report.when(
               loading: () => const Padding(
@@ -297,16 +281,15 @@ class _Report extends StatelessWidget {
   }
 }
 
-/// Lo facturado que todavía no entró en caja.
+/// Cuánto está por cobrar, y nada más.
 ///
-/// Está en el teléfono porque el cobro pasa en el mostrador: el cliente llega a dejar un
-/// abono y quien lo atiende tiene el teléfono en la mano, no la computadora de la oficina.
-/// Se ordena por vencimiento —es el orden en que hay que cobrar— y lo vencido va en rojo.
-class _Receivables extends StatelessWidget {
-  const _Receivables({required this.sales, required this.onCollect});
+/// El detalle vive en su propia pantalla: aquí es un indicador —se mira— y allá es trabajo
+/// —se busca al cliente y se le anota el abono—. Mezclarlos dejaba una lista recortada a diez
+/// que había que terminar de ver en la computadora.
+class _ReceivablesTotal extends StatelessWidget {
+  const _ReceivablesTotal({required this.sales});
 
   final List<Receivable> sales;
-  final Future<void> Function(Receivable sale) onCollect;
 
   @override
   Widget build(BuildContext context) {
@@ -333,188 +316,20 @@ class _Receivables extends StatelessWidget {
             '${money(overdue, 'HNL')} ya vencido',
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
           ),
-        const SizedBox(height: 8),
-
-        for (final sale in sales.take(10))
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              contentPadding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-              title: Text(sale.customerName ?? 'Mostrador'),
-              subtitle: Text(
-                [
-                  sale.number,
-                  if (sale.dueDate != null)
-                    '${sale.isOverdue ? 'venció' : 'vence'} ${_date(sale.dueDate!)}'
-                  else
-                    'sin fecha acordada',
-                  'abonado ${money(sale.amountPaid, 'HNL')} de ${money(sale.total, 'HNL')}',
-                ].join(' · '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: sale.isOverdue ? theme.colorScheme.error : null,
-                ),
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    money(sale.balance, 'HNL'),
-                    style: theme.textTheme.titleSmall?.copyWith(fontFamily: GarajFonts.mono),
-                  ),
-                  TextButton(
-                    onPressed: () => onCollect(sale),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 28),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('Abonar'),
-                  ),
-                ],
-              ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () => context.push('/por-cobrar'),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
+            child: Text('Ver las ${sales.length} facturas con saldo'),
           ),
-
-        if (sales.length > 10)
-          Text(
-            'y ${sales.length - 10} más. El resto se ve en el panel.',
-            style: theme.textTheme.bodySmall,
-          ),
-
+        ),
         const SizedBox(height: 20),
       ],
-    );
-  }
-
-  static String _date(DateTime value) {
-    final local = value.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}';
-  }
-}
-
-/// Captura de un abono. Propone el saldo completo porque es lo más frecuente —el cliente
-/// llega a terminar de pagar— y deja bajarlo si trae menos.
-class _PaymentSheet extends ConsumerStatefulWidget {
-  const _PaymentSheet({required this.sale});
-
-  final Receivable sale;
-
-  @override
-  ConsumerState<_PaymentSheet> createState() => _PaymentSheetState();
-}
-
-class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
-  late final TextEditingController _amount =
-      TextEditingController(text: widget.sale.balance.toStringAsFixed(2));
-  final _reference = TextEditingController();
-
-  PaymentMethod _method = PaymentMethod.cash;
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _amount.dispose();
-    _reference.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final amount = double.tryParse(_amount.text.trim().replaceAll(',', ''));
-
-    if (amount == null || amount <= 0) {
-      setState(() => _error = 'Escriba cuánto abonó.');
-      return;
-    }
-    if (amount > widget.sale.balance) {
-      setState(() => _error = 'El abono no puede pasar del saldo.');
-      return;
-    }
-
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-
-    try {
-      await ref.read(saleRepositoryProvider).registerPayment(
-            widget.sale.id,
-            amount: amount,
-            method: _method,
-            reference: _reference.text.trim().isEmpty ? null : _reference.text.trim(),
-          );
-
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      setState(() => _error = apiErrorMessage(e, 'No se pudo registrar el abono.'));
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Abono', style: theme.textTheme.titleMedium),
-          Text(
-            '${widget.sale.customerName ?? 'Mostrador'} · ${widget.sale.number} · '
-            'saldo ${money(widget.sale.balance, 'HNL')}',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 16),
-
-          TextField(
-            controller: _amount,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Cuánto abona'),
-          ),
-          const SizedBox(height: 12),
-
-          DropdownButtonFormField<PaymentMethod>(
-            initialValue: _method,
-            decoration: const InputDecoration(labelText: 'Forma de pago'),
-            items: [
-              for (final method in PaymentMethod.values)
-                DropdownMenuItem(value: method, child: Text(method.label)),
-            ],
-            onChanged: (value) => setState(() => _method = value ?? PaymentMethod.cash),
-          ),
-          const SizedBox(height: 12),
-
-          TextField(
-            controller: _reference,
-            decoration: const InputDecoration(
-              labelText: 'Referencia (opcional)',
-              hintText: 'Recibo, depósito, transferencia…',
-            ),
-          ),
-
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
-          ],
-
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? 'Guardando…' : 'Registrar abono'),
-          ),
-        ],
-      ),
     );
   }
 }

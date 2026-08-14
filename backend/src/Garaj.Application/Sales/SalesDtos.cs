@@ -170,6 +170,20 @@ public record SaleQuery : PageQuery
 
     /// <summary>Solo las que tienen saldo: la lista de cuentas por cobrar.</summary>
     public bool OnlyUnpaid { get; init; }
+
+    /// <summary>
+    /// Busca por nombre o teléfono del cliente, a nombre de quién salió la factura, número de
+    /// venta o número de la orden. Es como se busca a alguien cuando llama a preguntar por su
+    /// saldo: con lo que tenga a mano, no con un identificador.
+    /// </summary>
+    public string? Search { get; init; }
+
+    /// <summary>
+    /// Filtra por vencimiento: `true` solo las vencidas, `false` solo las que todavía no
+    /// vencen —incluidas las que se entregaron sin fecha acordada—, null todas. Solo tiene
+    /// sentido junto a <see cref="OnlyUnpaid"/>: una venta pagada no vence.
+    /// </summary>
+    public bool? Overdue { get; init; }
 }
 
 // ---------- Reportes ----------

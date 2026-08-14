@@ -50,8 +50,35 @@ public class SaleService(
             q = q.Where(s => s.BranchId == branchId);
         }
 
+        var ahora = clock.UtcNow;
+
+        // Vencida es la que tenía fecha acordada y ya pasó. Sin fecha acordada no vence: el
+        // taller la entregó sin plazo, así que no se puede decir que el cliente se atrasó.
+        if (query.Overdue is { } overdue)
+            q = overdue
+                ? q.Where(s => s.DueDate != null && s.DueDate < ahora)
+                : q.Where(s => s.DueDate == null || s.DueDate >= ahora);
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = query.Search.Trim();
+
+            // El teléfono se guarda en E.164 sin '+' y la gente lo dicta con guiones o
+            // espacios: se comparan solo los dígitos, o no encontraría nada.
+            var digits = new string(term.Where(char.IsDigit).ToArray());
+
+            q = q.Where(s =>
+                EF.Functions.ILike(s.Number, $"%{term}%")
+                || (s.CustomerName != null && EF.Functions.ILike(s.CustomerName, $"%{term}%"))
+                || db.Customers.Any(c => c.Id == s.CustomerId
+                                         && (EF.Functions.ILike(c.FullName, $"%{term}%")
+                                             || (digits.Length >= 4 && c.Phone.Contains(digits))))
+                || db.WorkOrders.Any(w => w.Id == s.WorkOrderId
+                                          && EF.Functions.ILike(w.Number, $"%{term}%")));
+        }
+
         var total = await q.CountAsync(ct);
-        var now = clock.UtcNow;
+        var now = ahora;
 
         // En cuentas por cobrar manda el vencimiento —es el orden en que hay que cobrar— y las
         // que no tienen fecha acordada van al final. En el resto, la venta más reciente arriba.
