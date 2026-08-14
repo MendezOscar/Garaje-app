@@ -63,6 +63,27 @@ async function downloadCsv() {
 }
 
 /**
+ * El mes del libro de ventas, en `yyyy-MM`, que es lo que entiende `<input type="month">`.
+ * Arranca en el mes en curso, que es el que el contador pide cuando llama.
+ */
+const mesLibro = ref(new Date().toISOString().slice(0, 7))
+
+/**
+ * El libro de ventas del mes: factura por factura, con CAI, RTN e ISV. Es lo que el contador
+ * necesita para la declaración, y lo que el reporte de ingresos no puede darle porque agrupa
+ * por periodo y por técnico.
+ */
+async function downloadSalesBook() {
+  const [year, month] = mesLibro.value.split('-').map(Number)
+
+  try {
+    await reportsApi.downloadSalesBook({ year, month, branchId: branchId.value || undefined })
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo generar el libro de ventas.')
+  }
+}
+
+/**
  * Barras apiladas en SVG. No hay librería de gráficas a propósito: son dos rectángulos por
  * periodo y meter 200 KB de dependencia para esto no se justifica.
  */
@@ -311,6 +332,21 @@ onMounted(async () => {
           </table>
         </details>
       </template>
+    </article>
+
+    <article class="card">
+      <header class="filters">
+        <h2>Libro de ventas</h2>
+        <div class="row">
+          <input v-model="mesLibro" type="month" />
+          <button type="button" @click="downloadSalesBook">Bajar CSV</button>
+        </div>
+      </header>
+      <p class="muted small">
+        Factura por factura, con su CAI, el RTN del cliente y el ISV: es lo que pide el contador
+        cada mes. Las anuladas van incluidas y marcadas, porque el número anulado también se
+        reporta.
+      </p>
     </article>
   </section>
 </template>

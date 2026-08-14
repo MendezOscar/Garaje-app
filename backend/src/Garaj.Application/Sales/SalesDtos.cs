@@ -462,4 +462,11 @@ public interface IReportService
     /// <summary>El mismo cierre en PDF, que es como se archiva o se firma.</summary>
     Task<byte[]> CashClosePdfAsync(
         DateTimeOffset? day, Guid? branchId, CancellationToken ct = default);
+
+    /// <summary>
+    /// El libro de ventas de un mes, factura por factura, para el contador: fecha, número
+    /// fiscal, CAI, RTN, exento, gravado, ISV y total. Incluye las anuladas, marcadas.
+    /// </summary>
+    Task<byte[]> SalesBookCsvAsync(
+        int year, int month, Guid? branchId, CancellationToken ct = default);
 }

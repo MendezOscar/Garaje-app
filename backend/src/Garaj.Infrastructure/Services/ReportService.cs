@@ -319,6 +319,96 @@ public class ReportService(
         return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
     }
 
+    // ---------- Libro de ventas ----------
+
+    public async Task<byte[]> SalesBookCsvAsync(
+        int year, int month, Guid? branchId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        if (month is < 1 or > 12) throw new AppException("El mes tiene que estar entre 1 y 12.");
+        if (year is < 2000 or > 2100) throw new AppException("El año no parece un año.");
+
+        // El mes del taller, no el UTC: una factura del 31 a las 7 de la noche pertenece a ese
+        // mes, y agrupando por la fecha UTC caería en el siguiente.
+        var from = new DateTimeOffset(year, month, 1, 0, 0, 0, LocalOffset);
+        var to = from.AddMonths(1);
+        var (utcFrom, utcTo) = (from.ToUniversalTime(), to.ToUniversalTime());
+
+        // Aquí sí entran las anuladas: el régimen exige reportar el número anulado, no
+        // esconderlo, y por eso este listado no reusa `ScopedSales`.
+        var q = db.Sales.AsNoTracking()
+            .Where(s => s.SaleDate >= utcFrom && s.SaleDate < utcTo);
+
+        if (branchId is { } id) q = q.Where(s => s.BranchId == id);
+
+        var rows = await q
+            .OrderBy(s => s.SaleDate).ThenBy(s => s.Number)
+            .Select(s => new
+            {
+                s.SaleDate,
+                s.Number,
+                s.FiscalNumber,
+                s.FiscalCai,
+                BranchName = s.Branch.Name,
+                Customer = s.CustomerName
+                    ?? db.Customers.Where(c => c.Id == s.CustomerId)
+                        .Select(c => c.FullName).FirstOrDefault(),
+                s.CustomerTaxId,
+                s.Subtotal,
+                s.DiscountTotal,
+                s.TaxTotal,
+                s.Total,
+                s.IsVoided
+            })
+            .ToListAsync(ct);
+
+        var csv = new StringBuilder();
+        csv.AppendLine(
+            "Fecha;Factura;Numero fiscal;CAI;Sucursal;Cliente;RTN;Exento;Gravado;ISV;Total;Estado");
+
+        foreach (var row in rows)
+        {
+            // Todo se factura gravado al 15%: el gravado es la base y el exento va en cero.
+            // Si algún día hay líneas exentas, esta es la columna que cambia.
+            var gravado = row.Subtotal - row.DiscountTotal;
+
+            csv.AppendLine(string.Join(';', [
+                ToLocal(row.SaleDate).ToString("dd/MM/yyyy", Culture),
+                row.Number,
+                row.FiscalNumber ?? "",
+                row.FiscalCai ?? "",
+                Clean(row.BranchName),
+                Clean(row.Customer ?? "Consumidor final"),
+                row.CustomerTaxId ?? "",
+                Number(0),
+                Number(gravado),
+                Number(row.TaxTotal),
+                Number(row.Total),
+                row.IsVoided ? "ANULADA" : ""
+            ]));
+        }
+
+        csv.AppendLine();
+
+        var vivas = rows.Where(r => !r.IsVoided).ToList();
+        csv.AppendLine(string.Join(';', [
+            "TOTAL", "", "", "", "", "", "",
+            Number(0),
+            Number(vivas.Sum(r => r.Subtotal - r.DiscountTotal)),
+            Number(vivas.Sum(r => r.TaxTotal)),
+            Number(vivas.Sum(r => r.Total)),
+            $"{vivas.Count} facturas, {rows.Count - vivas.Count} anuladas"
+        ]));
+
+        // Con BOM: sin él, Excel en Windows abre los acentos rotos.
+        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+    }
+
+    /// <summary>Un punto y coma dentro de un nombre partiría la fila en dos columnas.</summary>
+    private static string Clean(string value) => value.Replace(';', ',');
+
     // ---------- Cierre de caja ----------
 
     public async Task<CashCloseDto> CashCloseAsync(

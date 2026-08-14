@@ -744,6 +744,14 @@ export const reportsApi = {
   }) {
     await download('/api/reports/revenue.csv', 'ingresos.csv', params(query))
   },
+  /** El libro de ventas de un mes, para el contador. */
+  async downloadSalesBook(query: { year: number; month: number; branchId?: string }) {
+    await download(
+      '/api/reports/sales-book.csv',
+      `Libro de ventas ${query.year}-${String(query.month).padStart(2, '0')}.csv`,
+      params(query),
+    )
+  },
   /** Lo cobrado en un día. Sin fecha, hoy. */
   async cashClose(query: { date?: string; branchId?: string } = {}) {
     const { data } = await api.get<CashClose>('/api/reports/cash-close', {

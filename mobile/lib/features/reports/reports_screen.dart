@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/report_repository.dart';
@@ -27,6 +31,44 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   static const _ranges = {7: '7 días', 30: '30 días', 90: '90 días'};
 
+  /// Baja el libro de ventas del mes y lo pasa a la hoja de compartir: de ahí sale al correo
+  /// o al WhatsApp del contador, que es lo que se hace con él. Va por la app y no por el panel
+  /// porque el contador llama cuando llama, y el dueño casi nunca está frente a la computadora.
+  Future<void> _shareSalesBook() async {
+    final hoy = DateTime.now();
+
+    try {
+      final bytes = await ref
+          .read(reportRepositoryProvider)
+          .salesBookCsv(year: hoy.year, month: hoy.month);
+
+      final nombre = 'Libro de ventas ${hoy.year}-${hoy.month.toString().padLeft(2, '0')}.csv';
+      final file = File('${(await getTemporaryDirectory()).path}/$nombre');
+      await file.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          text: nombre,
+          // En iPad la hoja sale anclada a un punto; sin esto revienta.
+          sharePositionOrigin: _shareOrigin(context),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(e, 'No se pudo generar el libro de ventas.'))),
+      );
+    }
+  }
+
+  static Rect _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return Rect.zero;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
   @override
   Widget build(BuildContext context) {
     final report = ref.watch(revenueReportProvider(_filter));
@@ -35,7 +77,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final technicians = ref.watch(technicianOptionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reportes')),
+      appBar: AppBar(
+        title: const Text('Reportes'),
+        actions: [
+          IconButton(
+            tooltip: 'Libro de ventas del mes',
+            icon: const Icon(Icons.description_outlined),
+            onPressed: _shareSalesBook,
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(revenueReportProvider(_filter)),
         child: ListView(

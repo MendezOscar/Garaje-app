@@ -453,6 +453,27 @@ Decisiones que conviene conocer:
 - **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
   enlace, no por la ruta del taller.
 
+### Libro de ventas
+
+Lo que el contador pide cada mes para la declaración: factura por factura, con su CAI, el RTN
+del cliente y el ISV.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/reports/sales-book.csv?year=&month=&branchId=` | Owner | El mes en CSV. Sin fechas, el mes en curso |
+
+Decisiones que conviene conocer:
+
+- **No es `revenue.csv`.** Aquel agrupa por periodo y por técnico y sirve para el negocio; este
+  va factura por factura y sirve para el SAR. Son dos lectores distintos.
+- **Las anuladas van incluidas y marcadas** en la columna `Estado`: el régimen exige reportar el
+  número anulado, no esconderlo. El total del pie solo suma las vivas y dice cuántas se anularon.
+- **El mes es el del taller** (−06:00): una factura del 31 a las siete de la noche pertenece a
+  ese mes, no al siguiente.
+- **Exento va en cero** porque todo se factura gravado al 15%. Si algún día hay líneas exentas,
+  esa es la columna que cambia.
+- **`;` y BOM**, como el otro CSV: es lo que abre Excel en español sin romper los acentos.
+
 ### Recordatorios del próximo servicio
 
 A quién le toca servicio, según lo que el taller anotó al entregar el vehículo. Es trabajo que

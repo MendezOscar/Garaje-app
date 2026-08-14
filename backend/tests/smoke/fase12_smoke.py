@@ -352,6 +352,34 @@ check("el Dueño guarda la dirección de la casa matriz",
       status == 200 and guardada["address"] == "Bo. El Centro, 3 calle, Comayagüela",
       f"{status} {guardada}")
 
+print("\n[libro de ventas]")
+
+status, libro = api("GET", "/api/reports/sales-book.csv", token=owner)
+check("el Dueño baja el libro del mes", status == 200, str(status))
+
+texto = libro.decode("utf-8-sig")
+lineas = [l for l in texto.splitlines() if l.strip()]
+check("trae encabezado con lo que pide el contador",
+      lineas[0].startswith("Fecha;Factura;Numero fiscal;CAI"), lineas[0])
+check("incluye la factura fiscal con su CAI",
+      any("000-001-01-00000101" in l and "A1B2C3-D4E5F6" in l for l in lineas),
+      str([l for l in lineas if "000-001-01-" in l][:2]))
+check("marca la anulada en lugar de esconderla",
+      any("000-001-01-00000101" in l and "ANULADA" in l for l in lineas),
+      str([l for l in lineas if "ANULADA" in l][:2]))
+check("y cierra con el total del mes", lineas[-1].startswith("TOTAL"), lineas[-1])
+
+_, vacio = api("GET", "/api/reports/sales-book.csv?year=2019&month=3", token=owner)
+check("un mes sin ventas trae solo el encabezado y el total",
+      len([l for l in vacio.decode("utf-8-sig").splitlines() if l.strip()]) == 2,
+      vacio.decode("utf-8-sig")[:200])
+
+status, error = api("GET", "/api/reports/sales-book.csv?year=2026&month=13", token=owner)
+check("un mes que no existe se rechaza", status == 400, str(status))
+
+status, denied = api("GET", "/api/reports/sales-book.csv", token=technician)
+check("el técnico no baja el libro de ventas", status == 403, str(status))
+
 # Deja el taller sin rango activo: los demás humos y el móvil esperan la base de demostración.
 _, finales = api("GET", "/api/tenant/fiscal-ranges", token=owner)
 for r in finales:
