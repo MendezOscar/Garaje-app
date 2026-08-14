@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/customer_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/api/tenant_repository.dart';
 import '../../core/api/sale_repository.dart';
@@ -59,6 +60,12 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
   bool _fiscal = false;
   final _customerTaxId = TextEditingController();
 
+  /// A nombre de quién sale la factura. Se precarga con lo que tenga la ficha y se puede
+  /// cambiar aquí: pasa que el cliente la pide a nombre de la empresa donde trabaja, y eso
+  /// no convierte a la empresa en la dueña del carro. El cambio queda solo en la factura.
+  final _customerName = TextEditingController();
+  bool _fichaCargada = false;
+
   /// Entrega a crédito: lo que deja hoy y para cuándo queda el resto.
   bool _onCredit = false;
   final _initialPayment = TextEditingController();
@@ -67,7 +74,31 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
   @override
   void dispose() {
     _initialPayment.dispose();
+    _customerTaxId.dispose();
+    _customerName.dispose();
     super.dispose();
+  }
+
+  /// Trae el RTN y el nombre de facturación de la ficha, una sola vez y solo cuando hacen
+  /// falta: la mayoría de las entregas se cierran sin marcar la casilla.
+  Future<void> _cargarFicha() async {
+    if (_fichaCargada) return;
+    _fichaCargada = true;
+
+    try {
+      final ficha =
+          await ref.read(customerRepositoryProvider).get(widget.order.customerId);
+      if (!mounted) return;
+
+      setState(() {
+        if (_customerTaxId.text.trim().isEmpty) _customerTaxId.text = ficha.taxId ?? '';
+        if (_customerName.text.trim().isEmpty) {
+          _customerName.text = ficha.billingName ?? ficha.fullName;
+        }
+      });
+    } catch (_) {
+      // Sin ficha se escriben a mano; el backend igual cae al RTN guardado si lo hay.
+    }
   }
 
   /// Lo que suma la mano de obra de una cotización, sin sus repuestos.
@@ -140,6 +171,7 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             dueDate: _onCredit ? _dueDate : null,
             fiscal: _fiscal,
             customerTaxId: _fiscal ? _customerTaxId.text.trim() : null,
+            customerName: _fiscal ? _customerName.text.trim() : null,
           );
     });
   }
@@ -315,7 +347,11 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
               .watch(branchFiscalRangeProvider(widget.order.branchId))
               .maybeWhen(data: (r) => r, orElse: () => null),
           customerTaxId: _customerTaxId,
-          onFiscalChanged: (value) => setState(() => _fiscal = value),
+          customerName: _customerName,
+          onFiscalChanged: (value) {
+            setState(() => _fiscal = value);
+            if (value) _cargarFicha();
+          },
           onCredit: _onCredit,
           initialPayment: _initialPayment,
           dueDate: _dueDate,
@@ -351,6 +387,7 @@ class _CloseCard extends StatelessWidget {
     required this.fiscal,
     required this.fiscalRange,
     required this.customerTaxId,
+    required this.customerName,
     required this.onFiscalChanged,
     required this.onCredit,
     required this.initialPayment,
@@ -380,6 +417,7 @@ class _CloseCard extends StatelessWidget {
   final bool fiscal;
   final FiscalRange? fiscalRange;
   final TextEditingController customerTaxId;
+  final TextEditingController customerName;
   final ValueChanged<bool> onFiscalChanged;
 
   /// Por qué no se puede emitir con CAI, o null si sí se puede.
@@ -473,7 +511,19 @@ class _CloseCard extends StatelessWidget {
                 ),
               ),
 
-              if (fiscal)
+              if (fiscal) ...[
+                TextField(
+                  controller: customerName,
+                  textCapitalization: TextCapitalization.words,
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    labelText: 'A nombre de',
+                    helperText: 'Viene de la ficha. Cambiarlo afecta solo a esta factura: '
+                        'es lo que se hace cuando la pide a nombre de su empresa.',
+                    helperMaxLines: 3,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: customerTaxId,
                   keyboardType: TextInputType.number,
@@ -487,6 +537,7 @@ class _CloseCard extends StatelessWidget {
                     helperMaxLines: 2,
                   ),
                 ),
+              ],
 
               SwitchListTile(
                 value: onCredit,

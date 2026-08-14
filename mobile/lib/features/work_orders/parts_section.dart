@@ -32,11 +32,21 @@ class PartsSection extends ConsumerWidget {
     if (choice == null) return;
 
     try {
-      await ref.read(inventoryRepositoryProvider).addPart(
+      final repo = ref.read(inventoryRepositoryProvider);
+
+      switch (choice) {
+        case _FromCatalog(:final part, :final quantity):
+          await repo.addPart(order.id, partId: part.id, quantity: quantity);
+        case _Manual(:final description, :final quantity, :final unitPrice, :final unitCost):
+          await repo.addManualPart(
             order.id,
-            partId: choice.part.id,
-            quantity: choice.quantity,
+            description: description,
+            quantity: quantity,
+            unitPrice: unitPrice,
+            unitCost: unitCost,
           );
+      }
+
       await onChanged();
     } catch (e) {
       if (context.mounted) {
@@ -53,7 +63,12 @@ class PartsSection extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('¿Quitar ${line.partName}?'),
-        content: const Text('Vuelve a la bodega y queda registrado en el kardex.'),
+        content: Text(
+          line.partId == null
+              // Nunca salió de la bodega, así que tampoco vuelve a ella.
+              ? 'Se quita de la orden.'
+              : 'Vuelve a la bodega y queda registrado en el kardex.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Quitar')),
@@ -103,6 +118,7 @@ class PartsSection extends ConsumerWidget {
               title: Text(line.partName),
               subtitle: Text(
                 '${_quantity(line.quantity)} ${line.unit} × ${_money(line.unitPrice)}'
+                '${line.partId == null ? ' · a mano' : ''}'
                 '${line.taskTitle != null ? ' · ${line.taskTitle}' : ''}',
               ),
               trailing: Row(
@@ -143,11 +159,30 @@ class PartsSection extends ConsumerWidget {
   }
 }
 
-class _Choice {
-  const _Choice(this.part, this.quantity);
+/// Lo que devuelve el selector: o un repuesto del catálogo, o uno escrito a mano.
+sealed class _Choice {
+  const _Choice();
+}
+
+class _FromCatalog extends _Choice {
+  const _FromCatalog(this.part, this.quantity);
 
   final Part part;
   final double quantity;
+}
+
+class _Manual extends _Choice {
+  const _Manual({
+    required this.description,
+    required this.quantity,
+    required this.unitPrice,
+    this.unitCost,
+  });
+
+  final String description;
+  final double quantity;
+  final double unitPrice;
+  final double? unitCost;
 }
 
 class _PartPicker extends ConsumerStatefulWidget {
@@ -183,6 +218,15 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                 onChanged: (v) => setState(() => _search = v),
               ),
             ),
+            // A mano, arriba del listado: cuando el repuesto no está en el catálogo, buscarlo
+            // primero es perder el tiempo.
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Cargar a mano'),
+              subtitle: const Text('Lo que se compró de encargo y no está en el catálogo.'),
+              onTap: _askManual,
+            ),
+            const Divider(height: 1),
             Expanded(
               child: results.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -255,7 +299,87 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
     );
 
     if (quantity == null || quantity <= 0 || !mounted) return;
-    Navigator.pop(context, _Choice(part, quantity));
+    Navigator.pop(context, _FromCatalog(part, quantity));
+  }
+
+  /// Repuesto que no está en el catálogo: el que se compró de encargo para esta orden. No
+  /// descuenta existencias —nunca pasó por bodega— así que el precio hay que escribirlo.
+  Future<void> _askManual() async {
+    final concepto = TextEditingController();
+    final cantidad = TextEditingController(text: '1');
+    final precio = TextEditingController();
+    final costo = TextEditingController();
+
+    final manual = await showDialog<_Manual>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Repuesto a mano'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: concepto,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: 200,
+                decoration: const InputDecoration(labelText: 'Qué repuesto es'),
+              ),
+              TextField(
+                controller: cantidad,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Cantidad'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: precio,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Precio al cliente',
+                  prefixText: 'L ',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: costo,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Costo (opcional)',
+                  prefixText: 'L ',
+                  helperText: 'Lo que le costó al taller. Sin él, el margen sale inflado.',
+                  helperMaxLines: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final texto = concepto.text.trim();
+              final cant = double.tryParse(cantidad.text.replaceAll(',', '.'));
+              final unit = double.tryParse(precio.text.replaceAll(',', '.'));
+              if (texto.isEmpty || cant == null || cant <= 0 || unit == null) return;
+
+              Navigator.pop(
+                context,
+                _Manual(
+                  description: texto,
+                  quantity: cant,
+                  unitPrice: unit,
+                  unitCost: double.tryParse(costo.text.replaceAll(',', '.')),
+                ),
+              );
+            },
+            child: const Text('Cargar'),
+          ),
+        ],
+      ),
+    );
+
+    if (manual == null || !mounted) return;
+    Navigator.pop(context, manual);
   }
 }
 

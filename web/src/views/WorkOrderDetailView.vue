@@ -91,6 +91,12 @@ const historial = ref<WorkOrderListItem[]>([])
  */
 const conCai = ref(false)
 const rtnFactura = ref('')
+/**
+ * A nombre de quién sale la factura. Se precarga con lo que tenga la ficha y se puede
+ * cambiar aquí: pasa que el cliente pide la factura a nombre de la empresa donde trabaja,
+ * y eso no convierte a la empresa en el dueño del carro. El cambio queda solo en la factura.
+ */
+const nombreFactura = ref('')
 const rangoFiscal = ref<FiscalRange | null>(null)
 
 /** Por qué no se puede emitir con CAI, o null si sí se puede. */
@@ -126,6 +132,7 @@ async function load() {
       if (order.value.customerId) {
         const ficha = await customersApi.get(order.value.customerId).catch(() => null)
         rtnFactura.value = ficha?.taxId ?? ''
+        nombreFactura.value = ficha?.billingName ?? ficha?.fullName ?? ''
       }
     }
     manualLabor.value = order.value.manualLaborTotal ?? ''
@@ -183,6 +190,7 @@ function closeAndInvoice() {
       dueDate: onCredit.value && dueDate.value ? new Date(dueDate.value).toISOString() : undefined,
       fiscal: conCai.value,
       customerTaxId: conCai.value ? rtnFactura.value.trim() || undefined : undefined,
+      customerName: conCai.value ? nombreFactura.value.trim() || undefined : undefined,
     }),
   )
 }
@@ -661,9 +669,17 @@ onMounted(async () => {
           <p v-if="impedimentoCai" class="muted small">{{ impedimentoCai }}</p>
 
           <label v-if="conCai" class="rtn">
+            A nombre de
+            <input v-model="nombreFactura" placeholder="Nombre o razón social" />
+          </label>
+          <label v-if="conCai" class="rtn">
             RTN del cliente
             <input v-model="rtnFactura" placeholder="Sin RTN: consumidor final" />
           </label>
+          <p v-if="conCai" class="muted small">
+            Vienen de la ficha del cliente. Cambiarlos aquí afecta solo a esta factura: es lo
+            que se hace cuando la pide a nombre de su empresa.
+          </p>
           <p v-if="conCai && !rtnFactura.trim()" class="muted small">
             Sale a consumidor final. Arriba de L 10,000 el SAR pide el RTN o el número de
             identidad del cliente en su ficha.

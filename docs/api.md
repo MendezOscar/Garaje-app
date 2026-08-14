@@ -109,8 +109,8 @@ diferencia de inventario siempre tiene autor y hora, en vez de aparecer de la na
 | POST | `/api/stock/transfer` | Owner | Traslado entre sucursales |
 | PUT | `/api/stock/settings` | Owner | Mínimo de reposición y ubicación |
 | GET | `/api/work-orders/{id}/parts` | cualquiera | Repuestos cargados a la orden |
-| POST | `/api/work-orders/{id}/parts` | Owner o Técnico | Consume y descuenta de la bodega |
-| DELETE | `/api/work-orders/{id}/parts/{lineId}` | Owner o Técnico | Devuelve a la bodega |
+| POST | `/api/work-orders/{id}/parts` | Owner o Técnico | Con `partId`: descuenta de la bodega. Sin él: línea manual |
+| DELETE | `/api/work-orders/{id}/parts/{lineId}` | Owner o Técnico | Devuelve a la bodega si había salido de ella |
 
 `StockMovementType`: `1` entrada · `2` salida · `3` ajuste · `4` traslado recibido ·
 `5` traslado enviado.
@@ -127,6 +127,12 @@ Decisiones que conviene conocer antes de tocar esto:
   DTO ya viene resuelto.
 - **La transferencia son dos movimientos** con la misma hora, cada uno apuntando al otro por
   `CounterpartBranchId`: así el kardex de cada sucursal se lee solo.
+- **El repuesto se puede cargar a mano**, sin `partId` y con `description` y `unitPrice`. Es
+  para lo que se compró de encargo para esa orden y nunca pasó por bodega: no hay existencia
+  que descontar, así que **no genera movimiento de kardex** ni al cargarlo ni al quitarlo, y
+  el precio no puede salir de ningún catálogo. `unitCost` es opcional y queda en cero si no se
+  manda, lo que **infla el margen** de esa orden en los reportes; es preferible a inventarse un
+  costo. En el DTO se reconocen por `partId: null` y `sku: ""`.
 - **El precio y el costo se congelan** en `WorkOrderPart` al consumir. Cambiar el catálogo
   mañana no debe alterar lo que ya se cobró ni el margen de una orden cerrada.
 - **Quitar un repuesto de una orden no borra su movimiento**: entra uno de devolución. El
@@ -372,8 +378,8 @@ del cliente, desglose de exento y gravado, valor en letras y «Original: Cliente
 | POST | `/api/tenant/fiscal-ranges` | Owner | Registra uno y desactiva el anterior de esa sucursal |
 | DELETE | `/api/tenant/fiscal-ranges/{id}` | Owner | Deja de emitir con él |
 
-`POST /api/sales` y `POST /api/sales/close-work-order` aceptan `fiscal` (falso por defecto) y
-`customerTaxId`.
+`POST /api/sales` y `POST /api/sales/close-work-order` aceptan `fiscal` (falso por defecto),
+`customerTaxId` y `customerName`.
 
 Decisiones que conviene conocer:
 
@@ -391,6 +397,13 @@ Decisiones que conviene conocer:
   la mayoría de los clientes no la pide.
 - El RTN sale del que se mande, y si no del de la ficha del cliente; sin ninguno, la factura
   va a **consumidor final**.
+- **A nombre de quién sale** es lo mismo: `customerName` manda, y si va vacío se usa el
+  `billingName` de la ficha y, en su defecto, el nombre del cliente. Es para el caso de todos
+  los días —el cliente pide la factura con el RTN de la empresa donde trabaja—, y **no toca el
+  padrón**: la empresa no pasa a ser dueña del carro. Para que salga solo cada vez, se guarda
+  en la ficha (`billingName` en `POST`/`PUT /api/customers`).
+- **El nombre se congela en la venta** (`Sale.CustomerName`), como el CAI: si mañana corrigen
+  el nombre del cliente, una factura ya emitida sigue diciendo a nombre de quién salió.
 - **Arriba de L 10,000 no hay consumidor final**: sin RTN, la factura se emite con el número de
   identidad de la ficha del cliente, y sin ninguno de los dos responde 400 (Acuerdo 481-2017,
   art. 11). El rechazo ocurre antes de guardar, así que no quema ningún correlativo.

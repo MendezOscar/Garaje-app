@@ -11,6 +11,8 @@ public record CustomerDto(
     string? DocumentId,
     /// <summary>RTN, para la factura con CAI. Distinto de DocumentId, que es la identidad.</summary>
     string? TaxId,
+    /// <summary>A nombre de quién sale su factura, si no es a su propio nombre.</summary>
+    string? BillingName,
     string? Address,
     string? Notes,
     bool IsActive,
@@ -28,7 +30,8 @@ public record SaveCustomerRequest(
     string? Address,
     string? Notes,
     bool IsActive = true,
-    string? TaxId = null);
+    string? TaxId = null,
+    string? BillingName = null);
 
 /// <param name="Search">Busca por nombre, teléfono o placa de alguno de sus vehículos.</param>
 public record CustomerQuery : PageQuery

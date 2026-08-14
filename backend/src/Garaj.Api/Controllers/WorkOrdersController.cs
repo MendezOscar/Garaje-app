@@ -91,8 +91,12 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
         => Ok(await service.ListPartsAsync(id, ct));
 
     /// <summary>
-    /// Carga el repuesto y lo descuenta de la bodega de la sucursal de la orden. Devuelve
-    /// 409 si no hay existencia suficiente, diciendo cuánto queda.
+    /// Carga el repuesto en la orden.
+    ///
+    /// Con <c>partId</c> sale del catálogo y se descuenta de la bodega de la sucursal de la
+    /// orden; devuelve 409 si no hay existencia suficiente, diciendo cuánto queda. Sin
+    /// <c>partId</c> se carga a mano —hacen falta <c>description</c> y <c>unitPrice</c>— y no
+    /// toca el inventario: es lo que se compró de encargo y nunca pasó por bodega.
     /// </summary>
     [HttpPost("{id:guid}/parts")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
@@ -100,7 +104,7 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
         Guid id, AddWorkOrderPartRequest request, CancellationToken ct)
         => Ok(await service.AddPartAsync(id, request, ct));
 
-    /// <summary>Lo quita de la orden y lo devuelve a la bodega.</summary>
+    /// <summary>Lo quita de la orden, y lo devuelve a la bodega si había salido de ella.</summary>
     [HttpDelete("{id:guid}/parts/{partLineId:guid}")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
     public async Task<IActionResult> RemovePart(Guid id, Guid partLineId, CancellationToken ct)

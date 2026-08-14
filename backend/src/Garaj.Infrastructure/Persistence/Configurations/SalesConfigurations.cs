@@ -51,6 +51,7 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         b.Property(x => x.FiscalCai).HasMaxLength(50);
         b.Property(x => x.FiscalRangeText).HasMaxLength(80);
         b.Property(x => x.CustomerTaxId).HasMaxLength(50);
+        b.Property(x => x.CustomerName).HasMaxLength(200);
 
         b.Ignore(x => x.IsFiscal);
 

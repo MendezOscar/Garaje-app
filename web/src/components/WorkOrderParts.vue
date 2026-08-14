@@ -25,11 +25,29 @@ const error = ref('')
 const busy = ref(false)
 const adding = ref(false)
 
+/**
+ * De dónde sale el repuesto. El manual es para lo que se compró de encargo y nunca estuvo en
+ * bodega: no hay existencia que descontar ni precio de catálogo del que partir, así que el
+ * precio se escribe.
+ */
+const origen = ref<'catalogo' | 'manual'>('catalogo')
+const concepto = ref('')
+const precio = ref<number | ''>('')
+const costo = ref<number | ''>('')
+
 const selectedPart = computed(() => catalog.value.find((p) => p.id === selectedPartId.value))
 
 /** Lo que se le va a cobrar al cliente por lo que se está por agregar. */
-const preview = computed(() =>
-  selectedPart.value ? selectedPart.value.salePrice * (Number(quantity.value) || 0) : 0,
+const preview = computed(() => {
+  const cantidad = Number(quantity.value) || 0
+  if (origen.value === 'manual') return (Number(precio.value) || 0) * cantidad
+  return selectedPart.value ? selectedPart.value.salePrice * cantidad : 0
+})
+
+const listo = computed(() =>
+  origen.value === 'manual'
+    ? !!concepto.value.trim() && Number(precio.value) >= 0 && precio.value !== ''
+    : !!selectedPartId.value,
 )
 
 async function loadCatalog() {
@@ -48,16 +66,26 @@ async function open() {
 }
 
 async function add() {
-  if (!selectedPartId.value) return
+  if (!listo.value) return
 
   busy.value = true
   error.value = ''
   try {
-    await workOrdersApi.addPart(props.workOrderId, {
-      partId: selectedPartId.value,
-      quantity: Number(quantity.value),
-    })
+    await workOrdersApi.addPart(
+      props.workOrderId,
+      origen.value === 'manual'
+        ? {
+            description: concepto.value.trim(),
+            quantity: Number(quantity.value),
+            unitPrice: Number(precio.value),
+            unitCost: costo.value === '' ? undefined : Number(costo.value),
+          }
+        : { partId: selectedPartId.value, quantity: Number(quantity.value) },
+    )
     selectedPartId.value = ''
+    concepto.value = ''
+    precio.value = ''
+    costo.value = ''
     quantity.value = 1
     adding.value = false
     emit('changed')
@@ -70,7 +98,10 @@ async function add() {
 }
 
 async function remove(line: WorkOrderPart) {
-  if (!confirm(`¿Quitar ${line.partName} y devolverlo a la bodega?`)) return
+  const pregunta = line.partId
+    ? `¿Quitar ${line.partName} y devolverlo a la bodega?`
+    : `¿Quitar ${line.partName}?`
+  if (!confirm(pregunta)) return
 
   busy.value = true
   error.value = ''
@@ -110,7 +141,7 @@ watch(search, () => {
           <td>
             <strong>{{ line.partName }}</strong>
             <div class="muted small">
-              {{ line.sku }}
+              {{ line.sku || 'Cargado a mano' }}
               <template v-if="line.taskTitle"> · {{ line.taskTitle }}</template>
               <template v-if="showCost && line.unitCost">
                 · costo {{ formatMoney(line.unitCost) }}
@@ -136,30 +167,66 @@ watch(search, () => {
     </table>
 
     <form v-if="adding" class="add" @submit.prevent="add">
-      <input v-model="search" placeholder="Buscar por SKU, nombre o marca…" />
+      <div class="origen">
+        <label class="radio">
+          <input v-model="origen" type="radio" value="catalogo" />
+          Del inventario
+        </label>
+        <label class="radio">
+          <input v-model="origen" type="radio" value="manual" />
+          A mano
+        </label>
+      </div>
 
-      <select v-model="selectedPartId" size="6">
-        <option v-for="p in catalog" :key="p.id" :value="p.id">
-          {{ p.sku }} · {{ p.name }} — {{ formatQuantity(p.totalQuantity) }} {{ p.unit }} ·
-          {{ formatMoney(p.salePrice) }}
-        </option>
-      </select>
+      <template v-if="origen === 'catalogo'">
+        <input v-model="search" placeholder="Buscar por SKU, nombre o marca…" />
+
+        <select v-model="selectedPartId" size="6">
+          <option v-for="p in catalog" :key="p.id" :value="p.id">
+            {{ p.sku }} · {{ p.name }} — {{ formatQuantity(p.totalQuantity) }} {{ p.unit }} ·
+            {{ formatMoney(p.salePrice) }}
+          </option>
+        </select>
+      </template>
+
+      <template v-else>
+        <input v-model="concepto" placeholder="Qué repuesto es" maxlength="200" required />
+
+        <div class="row">
+          <label>
+            Precio
+            <input v-model.number="precio" type="number" step="0.01" min="0" required />
+          </label>
+          <label v-if="showCost">
+            Costo
+            <input v-model.number="costo" type="number" step="0.01" min="0" placeholder="0.00" />
+          </label>
+        </div>
+      </template>
 
       <div class="row">
         <label>
           Cantidad
           <input v-model.number="quantity" type="number" step="0.001" min="0.001" required />
         </label>
-        <span v-if="selectedPart" class="muted">= {{ formatMoney(preview) }}</span>
+        <span v-if="preview" class="muted">= {{ formatMoney(preview) }}</span>
       </div>
 
       <div class="row">
-        <button type="submit" :disabled="busy || !selectedPartId">Agregar y descontar</button>
+        <button type="submit" :disabled="busy || !listo">
+          {{ origen === 'manual' ? 'Agregar' : 'Agregar y descontar' }}
+        </button>
         <button type="button" @click="adding = false">Cancelar</button>
       </div>
 
       <p class="muted small">
-        Sale de la bodega de la sucursal de esta orden y queda registrado en el kardex.
+        <template v-if="origen === 'manual'">
+          No descuenta existencias: es para lo que se compró de encargo y nunca pasó por la
+          bodega. Si no pone el costo queda en cero y el margen de esta orden sale inflado.
+        </template>
+        <template v-else>
+          Sale de la bodega de la sucursal de esta orden y queda registrado en el kardex.
+        </template>
       </p>
     </form>
   </article>
@@ -226,6 +293,19 @@ tfoot td {
   flex-direction: column;
   gap: 0.5rem;
   margin-top: 0.75rem;
+}
+
+.origen {
+  display: flex;
+  gap: 1rem;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .add select {

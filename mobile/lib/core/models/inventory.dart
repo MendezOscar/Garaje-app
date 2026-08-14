@@ -173,7 +173,7 @@ class WorkOrderPart {
 
   factory WorkOrderPart.fromJson(Map<String, dynamic> json) => WorkOrderPart(
         id: json['id'] as String,
-        partId: json['partId'] as String,
+        partId: json['partId'] as String?,
         sku: json['sku'] as String,
         partName: json['partName'] as String,
         unit: json['unit'] as String,
@@ -184,7 +184,11 @@ class WorkOrderPart {
       );
 
   final String id;
-  final String partId;
+
+  /// Null en un repuesto cargado a mano: ese no está en el catálogo y nunca salió de bodega.
+  final String? partId;
+
+  /// Vacío en uno cargado a mano, que no tiene código.
   final String sku;
   final String partName;
   final String unit;

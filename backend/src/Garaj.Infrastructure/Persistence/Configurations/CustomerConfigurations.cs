@@ -13,6 +13,7 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         b.Property(x => x.Email).HasMaxLength(200);
         b.Property(x => x.DocumentId).HasMaxLength(30);
         b.Property(x => x.TaxId).HasMaxLength(50);
+        b.Property(x => x.BillingName).HasMaxLength(200);
         b.Property(x => x.Address).HasMaxLength(300);
         b.Property(x => x.Notes).HasMaxLength(1000);
 

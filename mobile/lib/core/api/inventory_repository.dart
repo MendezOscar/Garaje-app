@@ -44,6 +44,28 @@ class InventoryRepository {
     return WorkOrderPart.fromJson(response.data!);
   }
 
+  /// Carga a mano un repuesto que no está en el catálogo: lo que se compró de encargo para
+  /// esta orden. No toca el inventario, así que hay que decirle el precio.
+  Future<WorkOrderPart> addManualPart(
+    String workOrderId, {
+    required String description,
+    required double quantity,
+    required double unitPrice,
+    double? unitCost,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/parts',
+      data: {
+        'description': description,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'unitCost': unitCost,
+      },
+    );
+
+    return WorkOrderPart.fromJson(response.data!);
+  }
+
   Future<void> removePart(String workOrderId, String partLineId) =>
       _dio.delete<void>('/api/work-orders/$workOrderId/parts/$partLineId');
 

@@ -19,6 +19,8 @@ class Customer {
     this.notes,
     this.appUserEmail,
     this.taxId,
+    this.billingName,
+    this.documentId,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
@@ -27,6 +29,8 @@ class Customer {
         phone: json['phone'] as String,
         email: json['email'] as String?,
         taxId: json['taxId'] as String?,
+        billingName: json['billingName'] as String?,
+        documentId: json['documentId'] as String?,
         address: json['address'] as String?,
         notes: json['notes'] as String?,
         isActive: json['isActive'] as bool? ?? true,
@@ -46,8 +50,16 @@ class Customer {
   final bool hasAppAccess;
   final String? appUserEmail;
 
-  /// RTN, para la factura con CAI. Se escribe desde el panel; aquí solo se muestra.
+  /// RTN, para la factura con CAI.
   final String? taxId;
+
+  /// A nombre de quién sale su factura, si no es a su propio nombre: suele ser la empresa
+  /// dueña del RTN. Null significa que va a nombre del cliente.
+  final String? billingName;
+
+  /// Número de identidad. No se edita desde la app, pero viaja de vuelta al guardar para no
+  /// borrarlo: es lo que identifica al cliente en una factura de más de L 10,000 sin RTN.
+  final String? documentId;
 }
 
 /// Un vehículo del cliente, tal como sale del padrón.
@@ -108,6 +120,13 @@ class CustomerRepository {
         .toList();
   }
 
+  /// La ficha de un cliente. La usa el cierre de orden para precargar a nombre de quién
+  /// sale la factura y con qué RTN.
+  Future<Customer> get(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/customers/$id');
+    return Customer.fromJson(response.data!);
+  }
+
   Future<List<CustomerVehicle>> vehicles(String customerId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/vehicles',
@@ -119,6 +138,8 @@ class CustomerRepository {
         .toList();
   }
 
+  /// El backend reemplaza la ficha entera con lo que reciba, así que hay que mandarle
+  /// también lo que esta pantalla no edita —la identidad y si está activo—, o se borraría.
   Future<Customer> save({
     String? id,
     required String fullName,
@@ -127,6 +148,9 @@ class CustomerRepository {
     String? address,
     String? notes,
     String? taxId,
+    String? billingName,
+    String? documentId,
+    bool isActive = true,
   }) async {
     final data = {
       'fullName': fullName,
@@ -136,6 +160,9 @@ class CustomerRepository {
       'notes': notes,
       // RTN: solo lo tienen los clientes que piden factura con CAI.
       'taxId': taxId,
+      'billingName': billingName,
+      'documentId': documentId,
+      'isActive': isActive,
     };
 
     final response = id == null

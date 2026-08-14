@@ -186,6 +186,8 @@ export interface Customer {
   documentId: string | null
   /** RTN, para la factura con CAI. Distinto de la identidad. */
   taxId: string | null
+  /** A nombre de quién sale su factura, si no es a su propio nombre. */
+  billingName: string | null
   address: string | null
   notes: string | null
   isActive: boolean
@@ -336,7 +338,9 @@ export interface StockMovement {
 
 export interface WorkOrderPart {
   id: string
-  partId: string
+  /** Null en un repuesto cargado a mano: ese no está en el catálogo. */
+  partId: string | null
+  /** Vacío en uno cargado a mano, que no tiene código. */
   sku: string
   partName: string
   unit: string

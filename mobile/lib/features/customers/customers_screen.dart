@@ -398,6 +398,7 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
   late final _phone = TextEditingController(text: widget.customer?.phone ?? '');
   late final _email = TextEditingController(text: widget.customer?.email ?? '');
   late final _taxId = TextEditingController(text: widget.customer?.taxId ?? '');
+  late final _billingName = TextEditingController(text: widget.customer?.billingName ?? '');
   late final _address = TextEditingController(text: widget.customer?.address ?? '');
   late final _notes = TextEditingController(text: widget.customer?.notes ?? '');
 
@@ -406,7 +407,7 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _email, _taxId, _address, _notes]) {
+    for (final c in [_name, _phone, _email, _taxId, _billingName, _address, _notes]) {
       c.dispose();
     }
     super.dispose();
@@ -430,8 +431,14 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
             phone: _phone.text.trim(),
             email: _email.text.trim().isEmpty ? null : _email.text.trim(),
             taxId: _taxId.text.trim().isEmpty ? null : _taxId.text.trim(),
+            billingName:
+                _billingName.text.trim().isEmpty ? null : _billingName.text.trim(),
             address: _address.text.trim().isEmpty ? null : _address.text.trim(),
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            // No se editan aquí, pero viajan de vuelta: el backend reemplaza la ficha
+            // entera y omitirlos los borraría.
+            documentId: widget.customer?.documentId,
+            isActive: widget.customer?.isActive ?? true,
           );
 
       if (mounted) Navigator.pop(context, true);
@@ -488,6 +495,16 @@ class _CustomerFormState extends ConsumerState<_CustomerForm> {
               decoration: const InputDecoration(
                 labelText: 'RTN (opcional)',
                 helperText: 'Para la factura con CAI.',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _billingName,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: 'Factura a nombre de (opcional)',
+                helperText: 'Solo si no va a su nombre, p. ej. el de su empresa.',
+                hintText: _name.text.trim().isEmpty ? null : _name.text.trim(),
               ),
             ),
             const SizedBox(height: 8),

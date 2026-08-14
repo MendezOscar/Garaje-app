@@ -136,7 +136,7 @@ public class SaleService(
         db.Sales.Add(sale);
 
         if (request.Fiscal)
-            await AssignFiscalNumberAsync(sale, request.CustomerTaxId, ct);
+            await AssignFiscalNumberAsync(sale, request.CustomerTaxId, request.CustomerName, ct);
 
         var sequence = 0;
         foreach (var line in request.Lines)
@@ -189,7 +189,7 @@ public class SaleService(
         db.Sales.Add(sale);
 
         if (request.Fiscal)
-            await AssignFiscalNumberAsync(sale, request.CustomerTaxId, ct);
+            await AssignFiscalNumberAsync(sale, request.CustomerTaxId, request.CustomerName, ct);
 
         var sequence = 0;
 
@@ -199,7 +199,13 @@ public class SaleService(
             .Where(p => p.WorkOrderId == order.Id)
             .Select(p => new
             {
-                p.PartId, p.Part.Name, p.Part.Sku, p.Quantity, p.UnitPrice, p.UnitCost
+                p.PartId,
+                // Los del catálogo se describen con nombre y código; los cargados a mano, con
+                // lo que escribió quien los cargó, que es todo lo que hay de ellos.
+                Name = p.Part != null ? $"{p.Part.Name} ({p.Part.Sku})" : p.Description!,
+                p.Quantity,
+                p.UnitPrice,
+                p.UnitCost
             })
             .ToListAsync(ct);
 
@@ -209,7 +215,7 @@ public class SaleService(
             {
                 LineType = LineType.Part,
                 PartId = part.PartId,
-                Description = $"{part.Name} ({part.Sku})",
+                Description = part.Name,
                 Sequence = ++sequence,
                 Quantity = part.Quantity,
                 UnitPrice = part.UnitPrice,
@@ -539,7 +545,7 @@ public class SaleService(
     /// vuelve al rango ni cuando la factura se anula, que es lo que exige el régimen.
     /// </summary>
     private async Task AssignFiscalNumberAsync(
-        Sale sale, string? customerTaxId, CancellationToken ct)
+        Sale sale, string? customerTaxId, string? customerName, CancellationToken ct)
     {
         var range = await db.FiscalRanges
             .FirstOrDefaultAsync(r => r.BranchId == sale.BranchId && r.IsActive, ct)
@@ -564,17 +570,28 @@ public class SaleService(
 
         range.NextNumber++;
 
-        // El RTN de la factura: el que venga escrito, y si no el de la ficha del cliente.
-        // Sin ninguno, la factura sale a consumidor final, que es lo correcto.
-        var explicito = string.IsNullOrWhiteSpace(customerTaxId) ? null : customerTaxId.Trim();
+        // A quién se le factura: lo que venga escrito manda, y si no, lo que tenga la ficha.
+        // El RTN sin ninguno de los dos deja la factura a consumidor final, que es lo correcto;
+        // el nombre cae al del cliente, que es el que se imprimía siempre.
+        var rtnEscrito = Limpio(customerTaxId);
+        var nombreEscrito = Limpio(customerName);
 
-        sale.CustomerTaxId = explicito ?? (sale.CustomerId is { } customerId
+        var ficha = sale.CustomerId is { } customerId
             ? await db.Customers.AsNoTracking()
                 .Where(c => c.Id == customerId)
-                .Select(c => c.TaxId)
+                .Select(c => new { c.TaxId, c.BillingName, c.FullName })
                 .FirstOrDefaultAsync(ct)
-            : null);
+            : null;
+
+        sale.CustomerTaxId = rtnEscrito ?? ficha?.TaxId;
+
+        // Se congela siempre, no solo cuando lo cambian: la ficha se corrige mañana y una
+        // factura ya emitida no puede cambiar de nombre.
+        sale.CustomerName = nombreEscrito ?? ficha?.BillingName ?? ficha?.FullName;
     }
+
+    private static string? Limpio(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>
     /// Arriba de este monto, la factura fiscal no puede salir a nombre de «Consumidor final»:
@@ -665,7 +682,9 @@ public class SaleService(
                 ? direccion
                 : null,
             sale.CustomerId,
-            customer?.FullName,
+            // El nombre congelado al facturar manda sobre el de la ficha: la factura ya
+            // emitida dice a nombre de quién salió, aunque después le corrijan el nombre.
+            sale.CustomerName ?? customer?.FullName,
             customer?.Phone,
             sale.WorkOrderId,
             order?.Number,

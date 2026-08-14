@@ -51,6 +51,7 @@ class WorkOrderListItem {
     required this.status,
     required this.vehicleLabel,
     required this.vehicleType,
+    required this.customerId,
     required this.customerName,
     required this.customerPhone,
     required this.description,
@@ -70,6 +71,7 @@ class WorkOrderListItem {
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
+        customerId: json['customerId'] as String,
         customerName: json['customerName'] as String,
         customerPhone: json['customerPhone'] as String,
         assignedTechnicianName: json['assignedTechnicianName'] as String?,
@@ -89,6 +91,7 @@ class WorkOrderListItem {
   final String vehicleLabel;
   final VehicleType vehicleType;
   final String? plate;
+  final String customerId;
   final String customerName;
   final String customerPhone;
   final String? assignedTechnicianName;
@@ -198,6 +201,7 @@ class WorkOrderDetail {
     required this.vehicleId,
     required this.vehicleLabel,
     required this.vehicleType,
+    required this.customerId,
     required this.customerName,
     required this.customerPhone,
     required this.description,
@@ -230,6 +234,7 @@ class WorkOrderDetail {
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
+        customerId: json['customerId'] as String,
         customerName: json['customerName'] as String,
         customerPhone: json['customerPhone'] as String,
         assignedTechnicianId: json['assignedTechnicianId'] as String?,
@@ -266,6 +271,7 @@ class WorkOrderDetail {
   final String vehicleLabel;
   final VehicleType vehicleType;
   final String? plate;
+  final String customerId;
   final String customerName;
   final String customerPhone;
   final String? assignedTechnicianId;

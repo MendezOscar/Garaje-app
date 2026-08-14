@@ -65,7 +65,8 @@ public class CustomerService(
             .Skip(query.Skip)
             .Take(query.PageSize)
             .Select(c => new CustomerDto(
-                c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.Address, c.Notes, c.IsActive,
+                c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.BillingName, c.Address, c.Notes,
+                c.IsActive,
                 c.Vehicles.Count(v => v.IsActive),
                 c.AppUserId != null,
                 db.Users.Where(u => u.Id == c.AppUserId).Select(u => u.Email).FirstOrDefault()))
@@ -81,7 +82,8 @@ public class CustomerService(
         return await Scoped(scope)
             .Where(c => c.Id == id)
             .Select(c => new CustomerDto(
-                c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.Address, c.Notes, c.IsActive,
+                c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.BillingName, c.Address, c.Notes,
+                c.IsActive,
                 c.Vehicles.Count(v => v.IsActive),
                 c.AppUserId != null,
                 db.Users.Where(u => u.Id == c.AppUserId).Select(u => u.Email).FirstOrDefault()))
@@ -137,12 +139,15 @@ public class CustomerService(
         customer.Email = request.Email?.Trim();
         customer.DocumentId = request.DocumentId?.Trim();
         customer.TaxId = string.IsNullOrWhiteSpace(request.TaxId) ? null : request.TaxId.Trim();
+        customer.BillingName = string.IsNullOrWhiteSpace(request.BillingName)
+            ? null
+            : request.BillingName.Trim();
         customer.Address = request.Address?.Trim();
         customer.Notes = request.Notes?.Trim();
         customer.IsActive = request.IsActive;
     }
 
     private static CustomerDto Map(Customer c, int vehicleCount, string? appUserEmail = null) =>
-        new(c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.Address, c.Notes, c.IsActive,
-            vehicleCount, c.AppUserId != null, appUserEmail);
+        new(c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.BillingName, c.Address, c.Notes,
+            c.IsActive, vehicleCount, c.AppUserId != null, appUserEmail);
 }
