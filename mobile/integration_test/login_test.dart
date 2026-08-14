@@ -113,6 +113,21 @@ void main() {
     expect(find.text('Pedir cita'), findsNothing);
   });
 
+  testWidgets('la sesión guardada entra sin volver a pedir la contraseña', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    // Segundo arranque con el token ya en el llavero: es la app abierta a la mañana
+    // siguiente. Faltaba esta prueba y por eso pasó desapercibido que la app validaba la
+    // sesión sin mandar la cabecera Authorization, recibía 401 y devolvía al login.
+    await tester.pumpWidget(const ProviderScope(child: GarajApp()));
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ingresar'), findsNothing);
+    expect(find.text('Taller'), findsOneWidget);
+    expect(find.text('Óscar Méndez · Taller Garaj'), findsOneWidget);
+  });
+
   testWidgets('el Técnico ve solo lo suyo y puede abrir la orden', (tester) async {
     await signIn(tester, 'tecnico1@garaj.test');
 

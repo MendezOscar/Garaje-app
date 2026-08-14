@@ -48,8 +48,21 @@ class ApiClient {
   /// la sesión del técnico en medio del trabajo.
   Future<String?>? _refreshInFlight;
 
+  /// Las tres peticiones de sesión: van sin token de acceso —el de refresco viaja en el
+  /// cuerpo— y tampoco entran al reintento, porque refrescar para poder refrescar no lleva a
+  /// ninguna parte.
+  ///
+  /// `/api/auth/me` **no** está aquí a propósito. Es la que valida la sesión al arrancar, así
+  /// que necesita el token y necesita el refresco: dejarla dentro de un `contains('/api/auth/')`
+  /// hacía que arrancara sin cabecera, recibiera 401 y sacara al usuario al login en cada
+  /// arranque de la app.
+  static bool _isSessionEndpoint(String path) =>
+      path.contains('/api/auth/login') ||
+      path.contains('/api/auth/refresh') ||
+      path.contains('/api/auth/logout');
+
   Future<void> _attachToken(RequestOptions options, RequestInterceptorHandler handler) async {
-    if (!options.path.contains('/api/auth/')) {
+    if (!_isSessionEndpoint(options.path)) {
       final token = await _tokenStore.readAccessToken();
       if (token != null) options.headers['Authorization'] = 'Bearer $token';
     }
@@ -62,7 +75,7 @@ class ApiClient {
 
     if (error.response?.statusCode != 401 ||
         alreadyRetried ||
-        request.path.contains('/api/auth/')) {
+        _isSessionEndpoint(request.path)) {
       return handler.next(error);
     }
 

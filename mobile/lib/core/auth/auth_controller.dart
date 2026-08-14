@@ -29,6 +29,16 @@ class AuthSignedOut extends AuthState {
   const AuthSignedOut();
 }
 
+/// No se pudo comprobar la sesión porque el servidor no contestó: sin señal, una caída
+/// pasajera o un despliegue en curso. La sesión **no** se cierra —el token sigue en el
+/// llavero— y se vuelve a intentar. Sacar al usuario al login por un problema de red le
+/// borraba la sesión de un día para otro.
+class AuthUnreachable extends AuthState {
+  const AuthUnreachable(this.message);
+
+  final String message;
+}
+
 class AuthSignedIn extends AuthState {
   const AuthSignedIn(this.user);
 
@@ -47,19 +57,41 @@ class AuthController extends Notifier<AuthState> {
   Dio get _dio => ref.read(apiClientProvider).dio;
   TokenStore get _tokens => ref.read(tokenStoreProvider);
 
-  /// Valida contra el backend el token guardado. Si no sirve, se cierra sesión en silencio.
+  /// Valida contra el backend el token guardado. Si el servidor lo rechaza, se cierra sesión
+  /// en silencio; si no contesta, la sesión se conserva y se queda en [AuthUnreachable].
+  ///
+  /// Se reintenta una vez porque el fallo típico es de arranque: el teléfono abre la app
+  /// antes de tener red y el primer intento no llega a salir.
   Future<void> restoreSession() async {
     if (await _tokens.readAccessToken() == null) {
       state = const AuthSignedOut();
       return;
     }
 
-    try {
-      final response = await _dio.get<Map<String, dynamic>>('/api/auth/me');
-      state = AuthSignedIn(CurrentUser.fromJson(response.data!));
-    } on DioException {
-      await _tokens.clear();
-      state = const AuthSignedOut();
+    state = const AuthLoading();
+
+    for (var intento = 1; intento <= 2; intento++) {
+      try {
+        final response = await _dio.get<Map<String, dynamic>>('/api/auth/me');
+        state = AuthSignedIn(CurrentUser.fromJson(response.data!));
+        return;
+      } on DioException catch (error) {
+        // Si el refresh token ya no está, el interceptor lo borró porque el servidor rechazó
+        // la sesión: ahí sí toca el login. Mientras siga guardado, lo que falló fue la red.
+        if (await _tokens.readRefreshToken() == null) {
+          state = const AuthSignedOut();
+          return;
+        }
+
+        if (intento == 2) {
+          state = AuthUnreachable(
+            apiErrorMessage(error, 'No se pudo conectar con el servidor.'),
+          );
+          return;
+        }
+
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
     }
   }
 
