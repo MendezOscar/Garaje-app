@@ -112,6 +112,22 @@ public class ReportsController(IReportService service) : ControllerBase
         [FromQuery] DateTimeOffset? date, [FromQuery] Guid? branchId, CancellationToken ct)
         => Ok(await service.CashCloseAsync(date, branchId, ct));
 
+    /// <summary>
+    /// El libro de ventas de un mes, factura por factura, para la declaración del contador.
+    /// Sin <c>year</c> y <c>month</c>, el mes en curso.
+    /// </summary>
+    [HttpGet("sales-book.csv")]
+    public async Task<IActionResult> SalesBook(
+        [FromQuery] int? year, [FromQuery] int? month, [FromQuery] Guid? branchId,
+        CancellationToken ct)
+    {
+        var hoy = DateTimeOffset.UtcNow;
+        var (y, m) = (year ?? hoy.Year, month ?? hoy.Month);
+
+        var bytes = await service.SalesBookCsvAsync(y, m, branchId, ct);
+        return File(bytes, "text/csv", $"Libro de ventas {y}-{m:D2}.csv");
+    }
+
     [HttpGet("cash-close.pdf")]
     public async Task<IActionResult> CashClosePdf(
         [FromQuery] DateTimeOffset? date, [FromQuery] Guid? branchId, CancellationToken ct)

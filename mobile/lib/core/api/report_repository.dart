@@ -349,6 +349,17 @@ class ReportRepository {
 
     return CashClose.fromJson(response.data!);
   }
+
+  /// El libro de ventas de un mes, en CSV, tal como lo pide el contador.
+  Future<List<int>> salesBookCsv({required int year, required int month}) async {
+    final response = await _dio.get<List<int>>(
+      '/api/reports/sales-book.csv',
+      queryParameters: {'year': year, 'month': month},
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    return response.data!;
+  }
 }
 
 /// Solo lo puede pedir el Dueño: a los demás la API responde 403.
