@@ -179,7 +179,7 @@ python3 backend/tests/smoke/fase1_smoke.py
 # Humo de las fotos: 30 comprobaciones del ciclo subir / confirmar / listar / borrar
 python3 backend/tests/smoke/fase2_smoke.py
 
-# Humo del inventario: 49 comprobaciones de existencias, kardex y consumo
+# Humo del inventario: 60 comprobaciones de existencias, kardex y consumo
 python3 backend/tests/smoke/fase3_smoke.py
 
 # Humo de cotizaciones: 57 comprobaciones del circuito con el cliente
@@ -194,7 +194,7 @@ python3 backend/tests/smoke/fase6_smoke.py
 # Humo de recepción: 31 comprobaciones del alta en mostrador, diagnóstico y PDF
 python3 backend/tests/smoke/fase7_smoke.py
 
-# Humo de crédito: 40 comprobaciones de abonos, saldos y cuentas por cobrar
+# Humo de crédito: 46 comprobaciones de abonos, saldos y cuentas por cobrar
 python3 backend/tests/smoke/fase8_smoke.py
 
 # Humo de mano de obra: 55 comprobaciones de los dos modos de cobro y de los filtros
@@ -206,7 +206,7 @@ python3 backend/tests/smoke/fase10_smoke.py
 # Humo del taller: 30 comprobaciones de la ficha, el logo y las dos rutas que lo sirven
 python3 backend/tests/smoke/fase11_smoke.py
 
-# Humo de facturación con CAI: 33 comprobaciones del rango, el correlativo y las anulaciones
+# Humo de facturación con CAI: 47 comprobaciones del rango, el correlativo y las anulaciones
 python3 backend/tests/smoke/fase12_smoke.py
 
 # Alta del taller de un cliente (imprime la contraseña del Dueño una sola vez)

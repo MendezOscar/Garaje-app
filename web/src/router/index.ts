@@ -62,6 +62,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // Aparte de Reportes: esto no se mira, se trabaja —se busca al cliente que llamó y
+        // se le anota el abono—. En Reportes queda solo el total.
+        path: 'por-cobrar',
+        name: 'receivables',
+        component: () => import('@/views/owner/ReceivablesView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         path: 'reportes',
         name: 'reports',
         component: () => import('@/views/owner/ReportsView.vue'),

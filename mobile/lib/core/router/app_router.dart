@@ -8,6 +8,7 @@ import '../../features/login/login_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/receivables/receivables_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
@@ -60,6 +61,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
+      GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
       GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
       GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
       GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
@@ -93,10 +95,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Los reportes, los usuarios y el padrón de clientes son del Dueño: la API responde
+      // Los reportes, lo que está por cobrar, los usuarios y el padrón de clientes son del Dueño: la API responde
       // 403 a los demás, pero rebotarlos aquí evita enseñarles una pantalla que solo puede
       // fallar. Toda ruta que no esté en esta lista termina en el inicio del perfil.
-      if (location == '/reportes' || location == '/usuarios' || location == '/clientes') {
+      if (location == '/reportes' ||
+          location == '/por-cobrar' ||
+          location == '/usuarios' ||
+          location == '/clientes') {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null
             : homeRouteFor(auth.user.role);

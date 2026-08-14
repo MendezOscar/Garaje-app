@@ -12,6 +12,7 @@ import json
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 BASE = "http://localhost:5080"
@@ -184,6 +185,27 @@ check("la venta a crédito aparece", sale_id in ids, str(len(ids)))
 check("la de contado no", cash_sale["id"] not in ids)
 check("todas traen saldo mayor que cero",
       all(s["balance"] > 0 for s in pending["items"]))
+
+# La búsqueda de la sección Por cobrar: el cliente llama y quien contesta lo encuentra con
+# lo que tenga a mano, no con un identificador.
+def por_cobrar(extra=""):
+    _, page = api("GET", f"/api/sales?onlyUnpaid=true&pageSize=50{extra}", token=owner)
+    return [s["id"] for s in page["items"]]
+
+
+nombre = urllib.parse.quote(buyer["fullName"].split()[0])
+check("se busca por el nombre del cliente", sale_id in por_cobrar(f"&search={nombre}"))
+
+check("por el número de la venta",
+      por_cobrar(f"&search={urllib.parse.quote(sale['number'])}") == [sale_id])
+
+telefono = buyer["phone"][-8:]
+check("y por su teléfono", sale_id in por_cobrar(f"&search={telefono}"))
+
+check("lo que no existe no devuelve nada", por_cobrar("&search=zzzznoexiste") == [])
+
+check("la venta sin vencer sale en «por vencer»", sale_id in por_cobrar("&overdue=false"))
+check("y no en «vencidas»", sale_id not in por_cobrar("&overdue=true"))
 
 _, dashboard = api("GET", "/api/reports/dashboard", token=owner)
 check("el tablero suma lo por cobrar",
