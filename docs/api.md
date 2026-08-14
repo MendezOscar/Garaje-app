@@ -250,6 +250,9 @@ Decisiones que conviene conocer antes de tocar esto:
   entera el día que se emitió; lo que falta por entrar está en `onlyUnpaid` y en los dos
   campos `receivables` del tablero. Son dos preguntas distintas y mezclarlas haría que ningún
   número sirviera para ninguna.
+- **Los abonos solo salen en el detalle** (`GET /api/sales/{id}`), no en el listado: traerlos
+  en cada fila serían todos los abonos de todas las facturas en cada carga. Las dos pantallas
+  de Por cobrar los piden al desplegar una.
 - **Las cuentas por cobrar se buscan, no se recorren.** `search` cruza el nombre y el teléfono
   del cliente, a nombre de quién salió la factura, el número de venta y el de la orden: es lo
   que el cliente dicta cuando llama a preguntar por su saldo, y ninguno de esos datos es un
@@ -418,6 +421,37 @@ Decisiones que conviene conocer:
   art. 11). El rechazo ocurre antes de guardar, así que no quema ningún correlativo.
 - La ficha del taller (`PUT /api/tenant`) tiene `address`, la **casa matriz**, que el régimen
   pide aparte de la dirección del establecimiento que emite —esa sale de la sucursal—.
+
+### Estado de cuenta
+
+Lo que un cliente debe hoy, factura por factura y con los abonos de cada una. Es la respuesta a
+«¿cuánto le debo?», que antes había que armar a mano abriendo cada venta.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/customers/{id}/statement` | Owner | El estado de cuenta |
+| GET | `/api/customers/{id}/statement/pdf` | Owner | El mismo en PDF |
+| GET | `/api/customers/{id}/statement/whatsapp` | Owner | Enlace de WhatsApp con el mensaje escrito |
+| GET | `/public/statements/{token}` | — | Lo que abre el cliente, sin sesión |
+| GET | `/public/statements/{token}/pdf` | — | Su PDF |
+| GET | `/public/statements/{token}/logo` | — | El logo del taller para esa página |
+
+Decisiones que conviene conocer:
+
+- **Solo las facturas con saldo.** Una pagada ya no es una cuenta pendiente, y meterlas todas
+  convertiría una hoja en el historial de todo lo que el cliente ha gastado en su vida.
+- **`Customer.PublicToken` es la credencial**, igual que en la cotización: quien tenga el enlace
+  ve lo que ese cliente debe, sin cuenta ni contraseña. Es lo que permite mandárselo a alguien
+  que nunca va a instalar la app. Expone su nombre y sus facturas con saldo, nada más: ni el
+  costo del taller, ni quién recibió cada abono, ni un id con el que llegar a otra parte de la
+  API. Si un enlace se filtra, se corta cambiando el token de la fila.
+- **La página pública es del web, no de la API** (`/c/{token}`), como `/q/{token}`: el cliente
+  abre una página, no un JSON. Sale de `PublicBaseUrl`.
+- **Sin saldo no hay enlace**: `whatsapp` responde 400. Mandarle un estado de cuenta en cero a
+  alguien solo lo confunde.
+- **No es documento fiscal** y el PDF lo dice en el pie: la factura es la de cada venta.
+- **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
+  enlace, no por la ruta del taller.
 
 ### Datos de demostración
 

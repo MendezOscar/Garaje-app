@@ -27,6 +27,7 @@ class Receivable {
     required this.balance,
     required this.isOverdue,
     required this.saleDate,
+    this.customerId,
     this.customerName,
     this.workOrderNumber,
     this.dueDate,
@@ -41,6 +42,7 @@ class Receivable {
         balance: (json['balance'] as num).toDouble(),
         isOverdue: json['isOverdue'] as bool? ?? false,
         saleDate: DateTime.parse(json['saleDate'] as String),
+        customerId: json['customerId'] as String?,
         customerName: json['customerName'] as String?,
         workOrderNumber: json['workOrderNumber'] as String?,
         dueDate: json['dueDate'] == null ? null : DateTime.parse(json['dueDate'] as String),
@@ -54,6 +56,10 @@ class Receivable {
   final double balance;
   final bool isOverdue;
   final DateTime saleDate;
+  /// Null en una venta de mostrador sin cliente en el padrón: a ese no hay a quién mandarle
+  /// un estado de cuenta.
+  final String? customerId;
+
   final String? customerName;
 
   /// El número de la orden que la originó. Null en las ventas de mostrador.
@@ -219,10 +225,12 @@ class SaleRepository {
         .map((e) => (e as Map<String, dynamic>)['id'] as String)
         .toList();
 
-    return Future.wait(ids.map(_get));
+    return Future.wait(ids.map(get));
   }
 
-  Future<Sale> _get(String id) async {
+  /// Una venta con sus abonos. El listado no los trae —serían todos los de todas las filas
+  /// en cada carga— así que se piden solo al abrir una.
+  Future<Sale> get(String id) async {
     final response = await _dio.get<Map<String, dynamic>>('/api/sales/$id');
     return Sale.fromJson(response.data!);
   }
@@ -266,6 +274,16 @@ class SaleRepository {
     return Sale.fromJson(response.data!);
   }
 
+  /// El enlace de WhatsApp con el estado de cuenta del cliente: mensaje ya escrito y el
+  /// enlace público dentro. Responde 400 si el cliente no debe nada.
+  Future<String> statementLink(String customerId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/customers/$customerId/statement/whatsapp',
+    );
+
+    return response.data!['url'] as String;
+  }
+
   /// El PDF de la factura. Se baja con la sesión puesta —el endpoint pide `Authorization`,
   /// que el navegador del sistema no manda— y se devuelven los bytes para compartirlos.
   Future<List<int>> invoicePdf(String saleId) async {
@@ -282,6 +300,11 @@ class SaleRepository {
 final workOrderSalesProvider =
     FutureProvider.autoDispose.family<List<Sale>, String>(
   (ref, workOrderId) => ref.watch(saleRepositoryProvider).ofWorkOrder(workOrderId),
+);
+
+/// Los abonos de una factura. Se pide al abrirla, no en el listado.
+final saleDetailProvider = FutureProvider.autoDispose.family<Sale, String>(
+  (ref, saleId) => ref.watch(saleRepositoryProvider).get(saleId),
 );
 
 /// Solo el Dueño: a los demás la API responde 403 en el listado de ventas.

@@ -239,6 +239,77 @@ _, pending = api("GET", "/api/sales?onlyUnpaid=true&pageSize=50", token=owner)
 check("ya no está en cuentas por cobrar",
       sale_id not in [s["id"] for s in pending["items"]])
 
+# ------------------------------------------------------------ estado de cuenta
+
+print("\n[estado de cuenta]")
+
+status, denied = api("GET", f"/api/customers/{buyer['id']}/statement", token=technician)
+check("el técnico no ve el estado de cuenta de nadie", status == 403, str(status))
+
+status, denied = api("GET", f"/api/customers/{buyer['id']}/statement", token=customer)
+check("el cliente tampoco entra por la ruta del taller", status == 403, str(status))
+
+status, faltante = api("GET", f"/api/customers/{buyer['id']}/statement/whatsapp", token=owner)
+check("sin saldo no se manda un estado de cuenta en cero", status == 400, f"{status} {faltante}")
+
+# Una venta a crédito nueva, ya que la de arriba quedó pagada.
+status, aCredito = api("POST", "/api/sales", {
+    "branchId": matriz["id"],
+    "customerId": buyer["id"],
+    "paymentMethod": CASH,
+    "dueDate": "2099-12-31T00:00:00Z",
+    "initialPayment": 300,
+    "lines": [{"lineType": 2, "description": "Servicio para estado de cuenta",
+               "quantity": 1, "unitPrice": 2000}],
+}, token=owner)
+check("se crea otra venta a crédito", status == 201, f"{status} {aCredito}")
+
+api("POST", f"/api/sales/{aCredito['id']}/payments",
+    {"amount": 200, "method": CARD, "reference": "REC-777"}, token=owner)
+
+status, estado = api("GET", f"/api/customers/{buyer['id']}/statement", token=owner)
+check("el Dueño ve el estado de cuenta", status == 200, f"{status} {estado}")
+check("con el saldo total del cliente",
+      abs(estado["total"] - (aCredito["total"] - 500)) < 0.01,
+      f'{estado["total"]} vs {aCredito["total"] - 500}')
+
+factura = next((s for s in estado["sales"] if s["number"] == aCredito["number"]), None)
+check("trae la factura con saldo", factura is not None, str([s["number"] for s in estado["sales"]]))
+check("con sus dos abonos", factura and len(factura["payments"]) == 2,
+      str(len(factura["payments"]) if factura else None))
+check("y el detalle de cada uno",
+      factura and any(p["reference"] == "REC-777" for p in factura["payments"]),
+      str(factura["payments"] if factura else None))
+check("las pagadas no salen",
+      all(s["number"] != cash_sale["number"] for s in estado["sales"]),
+      str([s["number"] for s in estado["sales"]]))
+check("no dice quién recibió el abono, que es interno",
+      "registeredByName" not in json.dumps(estado), "aparece registeredByName")
+
+status, pdf = api("GET", f"/api/customers/{buyer['id']}/statement/pdf", token=owner)
+check("el PDF se genera", status == 200 and isinstance(pdf, bytes) and pdf[:4] == b"%PDF",
+      str(status))
+
+status, link = api("GET", f"/api/customers/{buyer['id']}/statement/whatsapp", token=owner)
+check("con saldo sí hay enlace de WhatsApp", status == 200, f"{status} {link}")
+check("apunta al teléfono del cliente", link["url"].startswith(f"https://wa.me/{buyer['phone']}"),
+      link["url"][:60])
+check("y el mensaje lleva el enlace público", "/c/" in link["message"], link["message"][-80:])
+
+token_publico = link["message"].split("/c/")[1].strip()
+
+status, publico = api("GET", f"/public/statements/{token_publico}")
+check("el enlace público abre sin sesión", status == 200, str(status))
+check("con el mismo total", abs(publico["total"] - estado["total"]) < 0.01,
+      f'{publico["total"]} vs {estado["total"]}')
+check("no filtra el costo del taller", "costTotal" not in json.dumps(publico))
+
+status, pdfPublico = api("GET", f"/public/statements/{token_publico}/pdf")
+check("y el PDF también", status == 200 and pdfPublico[:4] == b"%PDF", str(status))
+
+status, inventado = api("GET", "/public/statements/11111111-1111-1111-1111-111111111111")
+check("un token inventado no abre nada", status == 404, str(status))
+
 # ------------------------------------------------------------ la factura
 
 print("\n[la factura]")

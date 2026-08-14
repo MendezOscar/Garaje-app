@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, salesApi } from '@/api/garaj'
+import { branchesApi, salesApi, statementsApi } from '@/api/garaj'
 import {
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
   type Branch,
+  type SaleDetail,
   type SaleListItem,
 } from '@/types/domain'
-import { formatDate, formatMoney } from '@/utils/format'
+import { formatDate, formatDateTime, formatMoney } from '@/utils/format'
 
 /**
  * Cuentas por cobrar. Vive aparte de Reportes a propósito: un reporte se mira de vez en
@@ -25,6 +26,13 @@ const vencimiento = ref<'todas' | 'vencidas' | 'porVencer'>('todas')
 
 const loading = ref(false)
 const error = ref('')
+
+/**
+ * La venta desplegada para ver sus abonos, con el detalle ya traído. El listado no los trae
+ * —serían todos los abonos de todas las filas en cada carga— así que se piden al desplegar.
+ */
+const abierta = ref<string | null>(null)
+const detalle = ref<SaleDetail | null>(null)
 
 /** La venta a la que se le está anotando un abono, o null. */
 const cobrando = ref<SaleListItem | null>(null)
@@ -62,6 +70,55 @@ async function load() {
   }
 }
 
+async function abrir(sale: SaleListItem) {
+  if (abierta.value === sale.id) {
+    abierta.value = null
+    return
+  }
+
+  abierta.value = sale.id
+  detalle.value = null
+  error.value = ''
+
+  try {
+    detalle.value = await salesApi.get(sale.id)
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudieron cargar los abonos.')
+  }
+}
+
+/**
+ * Manda el estado de cuenta del cliente por WhatsApp. La pestaña se abre antes del await:
+ * Safari bloquea `window.open` si no viene del gesto del usuario.
+ */
+async function mandarEstadoDeCuenta(sale: SaleListItem) {
+  if (!sale.customerId) return
+
+  const tab = window.open('', '_blank')
+  error.value = ''
+  aviso.value = ''
+
+  try {
+    const link = await statementsApi.whatsappLink(sale.customerId)
+    if (tab) tab.location.href = link.url
+    else window.location.href = link.url
+  } catch (e) {
+    tab?.close()
+    error.value = errorMessage(e, 'No se pudo armar el enlace del estado de cuenta.')
+  }
+}
+
+async function bajarEstadoDeCuenta(sale: SaleListItem) {
+  if (!sale.customerId) return
+
+  error.value = ''
+  try {
+    await statementsApi.downloadPdf(sale.customerId, sale.customerName ?? 'cliente')
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo bajar el estado de cuenta.')
+  }
+}
+
 function cobrar(sale: SaleListItem) {
   cobrando.value = sale
   // Preseleccionado al saldo completo: lo más común es que el cliente venga a terminar de
@@ -87,6 +144,10 @@ async function guardarAbono() {
     })
     aviso.value = `Abono de ${formatMoney(amount)} anotado en ${sale.number}.`
     cobrando.value = null
+
+    // Si estaba desplegada, se relee para que el abono nuevo aparezca en la lista.
+    if (abierta.value === sale.id) detalle.value = await salesApi.get(sale.id)
+
     await load()
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo anotar el abono.')
@@ -221,8 +282,54 @@ onMounted(async () => {
               {{ formatMoney(sale.amountPaid) }} de {{ formatMoney(sale.total) }}
             </td>
             <td class="num"><strong>{{ formatMoney(sale.balance) }}</strong></td>
-            <td class="num">
+            <td class="num acciones">
               <button type="button" class="link" @click="cobrar(sale)">Abonar</button>
+              <button type="button" class="link muted" @click="abrir(sale)">
+                {{ abierta === sale.id ? 'Ocultar' : 'Abonos' }}
+              </button>
+            </td>
+          </tr>
+
+          <!-- Los abonos que ya se le hicieron a esta factura. -->
+          <tr v-if="abierta === sale.id" class="detalle">
+            <td colspan="5">
+              <p v-if="!detalle" class="muted small">Cargando abonos…</p>
+
+              <template v-else>
+                <p v-if="!detalle.payments.length" class="muted small">
+                  Todavía no ha abonado nada a esta factura.
+                </p>
+
+                <ul v-else>
+                  <li v-for="pago in detalle.payments" :key="pago.id">
+                    <span>
+                      {{ formatDateTime(pago.paidAt) }}
+                      · {{ PAYMENT_METHOD_LABEL[pago.method] }}
+                      <template v-if="pago.reference"> · {{ pago.reference }}</template>
+                      <template v-if="pago.registeredByName">
+                        · lo recibió {{ pago.registeredByName }}
+                      </template>
+                    </span>
+                    <strong>{{ formatMoney(pago.amount) }}</strong>
+                  </li>
+                </ul>
+
+                <p v-if="sale.customerId" class="estado">
+                  <button type="button" class="link" @click="mandarEstadoDeCuenta(sale)">
+                    Mandar estado de cuenta por WhatsApp
+                  </button>
+                  <button type="button" class="link muted" @click="bajarEstadoDeCuenta(sale)">
+                    Bajar en PDF
+                  </button>
+                  <span class="muted small">
+                    Lleva todas las facturas con saldo de este cliente, no solo esta.
+                  </span>
+                </p>
+                <p v-else class="muted small">
+                  Venta de mostrador sin cliente en el padrón: no hay a quién mandarle un
+                  estado de cuenta.
+                </p>
+              </template>
             </td>
           </tr>
 
@@ -353,6 +460,39 @@ td {
 
 .overdue td {
   background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.acciones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+}
+
+.detalle ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.detalle li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+
+.estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
+.link.muted {
+  color: var(--text-muted);
 }
 
 .cobro form {
