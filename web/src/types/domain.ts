@@ -508,6 +508,33 @@ export interface PublicQuote {
   }[]
 }
 
+/**
+ * Un vehículo al que le toca servicio, según lo que el taller recomendó al entregarlo.
+ *
+ * Lo que dispara el recordatorio es la fecha. El kilometraje se muestra como contexto: hasta
+ * que el vehículo no vuelve, el taller no sabe cuánto ha rodado.
+ */
+export interface ServiceReminder {
+  workOrderId: string
+  orderNumber: string
+  customerId: string
+  customerName: string
+  customerPhone: string
+  vehicleId: string
+  vehicleLabel: string
+  plate: string | null
+  branchName: string
+  /** Qué se le hizo la última vez. Da de qué hablar al llamarlo. */
+  lastService: string
+  closedAt: string | null
+  nextServiceAt: string
+  /** Días hasta que toque. Negativo si ya pasó. */
+  daysUntil: number
+  nextServiceMileage: number | null
+  lastMileage: number | null
+  remindedAt: string | null
+}
+
 /** Cuál de los tres mensajes se le arma al cliente. Espejo de `OrderMessageKind`. */
 export type OrderMessageKind = 'received' | 'ready' | 'invoice'
 

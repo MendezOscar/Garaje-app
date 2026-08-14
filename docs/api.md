@@ -453,6 +453,36 @@ Decisiones que conviene conocer:
 - **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
   enlace, no por la ruta del taller.
 
+### Recordatorios del próximo servicio
+
+A quién le toca servicio, según lo que el taller anotó al entregar el vehículo. Es trabajo que
+hoy se pierde por no acordarse: el cliente vuelve cuando algo suena, no cuando le toca.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/work-orders/reminders` | Owner | A quién llamar, el más atrasado primero |
+| POST | `/api/work-orders/{id}/service-reminder` | Owner | El enlace de WhatsApp, y sella el aviso |
+
+El próximo servicio se escribe al cerrar la orden: `nextServiceAt` y `nextServiceMileage` en
+`POST /api/sales/close-work-order`. La pantalla de cierre los propone —tres meses y +5,000 km
+sobre la lectura de la visita— y deja borrarlos.
+
+Decisiones que conviene conocer:
+
+- **Es opcional, y por eso se propone en vez de imponerse**: un cambio de aceite vuelve en tres
+  meses, una reparación de frenos no vuelve. Sin `nextServiceAt` la orden no genera recordatorio.
+- **La fecha manda; el kilometraje se muestra** («a los 45,000, última lectura 43,120»). No puede
+  disparar el aviso: hasta que el vehículo no vuelve, el taller no sabe cuánto ha rodado.
+- **Se cae solo cuando el cliente vuelve.** Si el vehículo tiene una orden abierta después de ese
+  cierre, deja de aparecer: sin eso, la lista recordaría llamar a quien está en el taller.
+- **Solo la última recomendación de cada vehículo**, no una por visita.
+- **Avisar deja constancia** (`NextServiceRemindedAt`) y lo saca de la lista. Se sella al armar
+  el enlace, no al enviarlo: no hay forma de saber si el mensaje salió, y de las dos
+  equivocaciones posibles es mejor no volver a llamar que llamar dos veces. Con
+  `includeReminded=true` se vuelven a ver.
+- **Nada de mensajes automáticos.** Mandarlos solos exige la API de WhatsApp Business, plantillas
+  aprobadas y pago por mensaje: es otro proyecto. Esto es una lista que el Dueño abre.
+
 ### Cierre de caja
 
 Lo **cobrado** en un día, para cuadrarlo contra el efectivo del cajón al cerrar.

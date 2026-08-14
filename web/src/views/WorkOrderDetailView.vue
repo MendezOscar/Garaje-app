@@ -80,6 +80,15 @@ const laborSource = ref('tasks')
 const diagnosis = ref('')
 
 /**
+ * Próximo servicio, que se anota al cerrar. Viene propuesto —tres meses y cinco mil kilómetros
+ * más que la última lectura— porque es lo que aplica a un mantenimiento normal, y se puede
+ * borrar: hay trabajos que no vuelven, y ponerles recordatorio sería llamar al cliente para
+ * nada.
+ */
+const nextServiceAt = ref('')
+const nextServiceMileage = ref<number | string>('')
+
+/**
  * Las demás órdenes del mismo vehículo, entregadas incluidas. Es la pregunta del mostrador
  * —«¿qué le hemos hecho a este carro?»— y hasta ahora no había forma de responderla: una
  * orden entregada desaparecía del tablero.
@@ -137,6 +146,7 @@ async function load() {
       }
     }
     manualLabor.value = order.value.manualLaborTotal ?? ''
+    proponerProximoServicio()
     if (auth.isOwner) {
       // El detalle de cada venta, no el listado: hacen falta los abonos, que solo vienen ahí.
       const page = await salesApi.list({ workOrderId: id.value })
@@ -171,6 +181,16 @@ function defaultLaborSource() {
   return approved?.id ?? 'tasks'
 }
 
+/** La propuesta del próximo servicio, calculada sobre la lectura de esta visita. */
+function proponerProximoServicio() {
+  const enTresMeses = new Date()
+  enTresMeses.setMonth(enTresMeses.getMonth() + 3)
+  nextServiceAt.value = enTresMeses.toISOString().slice(0, 10)
+
+  const km = order.value?.mileageIn ?? order.value?.vehicleMileage ?? null
+  nextServiceMileage.value = km ? km + 5000 : ''
+}
+
 /**
  * Cierra la orden: factura los repuestos consumidos y la mano de obra de los pasos, y la
  * marca como entregada. Es el paso que alimenta los reportes de ingresos.
@@ -192,6 +212,11 @@ function closeAndInvoice() {
       fiscal: conCai.value,
       customerTaxId: conCai.value ? rtnFactura.value.trim() || undefined : undefined,
       customerName: conCai.value ? nombreFactura.value.trim() || undefined : undefined,
+      // Vacío significa que este trabajo no se repite: la orden no genera recordatorio.
+      nextServiceAt: nextServiceAt.value
+        ? new Date(`${nextServiceAt.value}T09:00:00`).toISOString()
+        : undefined,
+      nextServiceMileage: Number(nextServiceMileage.value) || undefined,
     }),
   )
 }
@@ -747,6 +772,29 @@ onMounted(async () => {
             </label>
           </div>
 
+          <fieldset class="proximo">
+            <legend>Próximo servicio</legend>
+            <p class="muted small">
+              Para acordarse de llamarlo. Bórrelo si este trabajo no se repite.
+            </p>
+            <div class="credit">
+              <label>
+                Le toca el
+                <input v-model="nextServiceAt" type="date" />
+              </label>
+              <label>
+                O a los (km)
+                <input
+                  v-model="nextServiceMileage"
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="—"
+                />
+              </label>
+            </div>
+          </fieldset>
+
           <div class="actions">
             <button type="button" :disabled="busy" @click="closeAndInvoice">
               Facturar y entregar
@@ -1232,6 +1280,23 @@ dd {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.proximo {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.proximo legend {
+  padding: 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.proximo p {
+  margin: 0 0 0.5rem;
 }
 
 .avisos {

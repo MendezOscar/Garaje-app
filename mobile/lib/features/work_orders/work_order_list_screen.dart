@@ -76,6 +76,13 @@ class WorkOrderListScreen extends ConsumerWidget {
                     ),
                   ),
                   const PopupMenuItem(
+                    value: '/recordatorios',
+                    child: ListTile(
+                      leading: Icon(Icons.notifications_active_outlined),
+                      title: Text('Recordatorios'),
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: '/caja',
                     child: ListTile(
                       leading: Icon(Icons.point_of_sale_outlined),

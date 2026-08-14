@@ -92,6 +92,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // A quién le toca servicio. Es trabajo que se pierde por no acordarse.
+        path: 'recordatorios',
+        name: 'service-reminders',
+        component: () => import('@/views/owner/ServiceRemindersView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         // Lo cobrado en el día, que no es lo facturado: se abre al cerrar, con el efectivo
         // en la mano.
         path: 'caja',

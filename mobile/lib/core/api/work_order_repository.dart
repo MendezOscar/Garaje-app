@@ -165,6 +165,36 @@ class WorkOrderRepository {
     return response.data!['url'] as String;
   }
 
+  /// Los vehículos a los que les toca servicio. Solo el Dueño: a los demás la API dice 403.
+  Future<List<ServiceReminder>> serviceReminders({
+    bool? overdue,
+    bool includeReminded = false,
+    String? search,
+    int withinDays = 30,
+  }) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/work-orders/reminders',
+      queryParameters: {
+        'withinDays': withinDays,
+        if (overdue != null) 'overdue': overdue,
+        if (includeReminded) 'includeReminded': true,
+        if (search != null && search.isNotEmpty) 'search': search,
+      },
+    );
+
+    return response.data!
+        .map((e) => ServiceReminder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Arma el recordatorio y deja constancia de que ya se le avisó.
+  Future<String> serviceReminderLink(String workOrderId) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/service-reminder',
+    );
+    return response.data!['url'] as String;
+  }
+
   /// El catálogo de mano de obra del taller. El backend se lo niega al Cliente.
   Future<List<LaborServiceOption>> laborServices() async {
     final response = await _dio.get<List<dynamic>>('/api/labor-services');
@@ -193,6 +223,98 @@ class LaborServiceOption {
 final laborServicesProvider = FutureProvider<List<LaborServiceOption>>(
   (ref) => ref.watch(workOrderRepositoryProvider).laborServices(),
 );
+
+/// Un vehículo al que le toca servicio, según lo que el taller anotó al entregarlo.
+class ServiceReminder {
+  const ServiceReminder({
+    required this.workOrderId,
+    required this.orderNumber,
+    required this.customerName,
+    required this.customerPhone,
+    required this.vehicleLabel,
+    required this.plate,
+    required this.branchName,
+    required this.lastService,
+    required this.nextServiceAt,
+    required this.daysUntil,
+    required this.nextServiceMileage,
+    required this.lastMileage,
+    required this.remindedAt,
+  });
+
+  factory ServiceReminder.fromJson(Map<String, dynamic> json) => ServiceReminder(
+        workOrderId: json['workOrderId'] as String,
+        orderNumber: json['orderNumber'] as String,
+        customerName: json['customerName'] as String,
+        customerPhone: json['customerPhone'] as String,
+        vehicleLabel: json['vehicleLabel'] as String,
+        plate: json['plate'] as String?,
+        branchName: json['branchName'] as String,
+        lastService: json['lastService'] as String,
+        nextServiceAt: DateTime.parse(json['nextServiceAt'] as String),
+        daysUntil: json['daysUntil'] as int,
+        nextServiceMileage: json['nextServiceMileage'] as int?,
+        lastMileage: json['lastMileage'] as int?,
+        remindedAt: json['remindedAt'] == null
+            ? null
+            : DateTime.parse(json['remindedAt'] as String),
+      );
+
+  final String workOrderId;
+  final String orderNumber;
+  final String customerName;
+  final String customerPhone;
+  final String vehicleLabel;
+  final String? plate;
+  final String branchName;
+
+  /// Qué se le hizo la última vez. Da de qué hablar al llamarlo.
+  final String lastService;
+  final DateTime nextServiceAt;
+
+  /// Días hasta que toque. Negativo si ya pasó.
+  final int daysUntil;
+  final int? nextServiceMileage;
+  final int? lastMileage;
+  final DateTime? remindedAt;
+
+  bool get isOverdue => daysUntil < 0;
+}
+
+/// Qué recordatorios se están mirando.
+enum ReminderFilter {
+  /// Los del mes, sin los que ya se avisaron.
+  month,
+
+  /// Solo los que ya se pasaron de fecha.
+  overdue,
+
+  /// Los que ya se recordaron, para no volver a llamar.
+  reminded,
+}
+
+final serviceRemindersProvider =
+    FutureProvider.autoDispose.family<List<ServiceReminder>, ReminderFilter>(
+  (ref, filter) => ref.watch(workOrderRepositoryProvider).serviceReminders(
+        overdue: filter == ReminderFilter.overdue ? true : null,
+        includeReminded: filter == ReminderFilter.reminded,
+        // Los ya recordados se buscan hacia atrás, sin recortar por fecha.
+        withinDays: filter == ReminderFilter.reminded ? 365 : 30,
+        search: ref.watch(remindersSearchProvider),
+      ),
+);
+
+/// Lo escrito en el buscador de recordatorios. Fuera de la pantalla para que sobreviva a ir
+/// al detalle de una orden y volver.
+final remindersSearchProvider =
+    NotifierProvider<RemindersSearch, String>(RemindersSearch.new);
+
+class RemindersSearch extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String value) => state = value;
+}
 
 /// Si la bandeja muestra solo las órdenes vivas o también las entregadas y canceladas.
 /// Arranca en `true`: lo del día es lo que interesa al abrir la aplicación.

@@ -26,6 +26,7 @@ import type {
   SaleDetail,
   SaleListItem,
   SaveQuoteLine,
+  ServiceReminder,
   ServiceRequest,
   StockItem,
   StockMovement,
@@ -301,6 +302,24 @@ export const workOrdersApi = {
     const { data } = await api.get<WhatsAppLink>(`/api/work-orders/${id}/whatsapp`, {
       params: { kind },
     })
+    return data
+  },
+  /** Los vehículos a los que les toca servicio, el más atrasado primero. */
+  async reminders(query: {
+    branchId?: string
+    withinDays?: number
+    overdue?: boolean
+    includeReminded?: boolean
+    search?: string
+  } = {}) {
+    const { data } = await api.get<ServiceReminder[]>('/api/work-orders/reminders', {
+      params: params(query),
+    })
+    return data
+  },
+  /** Arma el recordatorio y deja constancia de que ya se le avisó. */
+  async serviceReminderLink(id: string) {
+    const { data } = await api.post<WhatsAppLink>(`/api/work-orders/${id}/service-reminder`)
     return data
   },
 }
@@ -666,6 +685,9 @@ export const salesApi = {
     customerTaxId?: string
     /** A nombre de quién sale. Vacío = el de la ficha, o el nombre del cliente. */
     customerName?: string
+    /** Cuándo le toca el próximo servicio. Vacío = este trabajo no se repite. */
+    nextServiceAt?: string
+    nextServiceMileage?: number
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
     return data

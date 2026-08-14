@@ -58,6 +58,26 @@ public class WorkOrder : TenantEntity, IBranchEntity
     /// </summary>
     public Guid PublicToken { get; set; } = Guid.NewGuid();
 
+    // ---------- Próximo servicio ----------
+    //
+    // Lo que el taller le recomendó al cliente al entregar. Se escribe al cerrar la orden y es
+    // opcional: hay trabajos que no vuelven, y ponerles recordatorio sería llamar a alguien
+    // para nada. Es una recomendación de esta orden, no del vehículo: si el carro vuelve antes,
+    // la orden nueva trae la suya y esta deja de importar.
+
+    /// <summary>Cuándo le toca. Null significa que este trabajo no se repite.</summary>
+    public DateTimeOffset? NextServiceAt { get; set; }
+
+    /// <summary>
+    /// A qué kilometraje le toca. Se guarda para decírselo al cliente —«a los 45,000»—, pero lo
+    /// que dispara el recordatorio es la fecha: hasta que el vehículo no vuelve, el taller no
+    /// sabe cuánto ha rodado.
+    /// </summary>
+    public int? NextServiceMileage { get; set; }
+
+    /// <summary>Cuándo se le recordó por última vez. Null si todavía no se le ha avisado.</summary>
+    public DateTimeOffset? NextServiceRemindedAt { get; set; }
+
     public Branch Branch { get; set; } = null!;
     public Vehicle Vehicle { get; set; } = null!;
     public ICollection<WorkOrderTask> Tasks { get; set; } = new List<WorkOrderTask>();

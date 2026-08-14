@@ -71,11 +71,25 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
   final _initialPayment = TextEditingController();
   DateTime? _dueDate;
 
+  /// Próximo servicio, propuesto a tres meses y cinco mil kilómetros más que la última
+  /// lectura. Se puede quitar: hay trabajos que no vuelven, y ponerles recordatorio sería
+  /// llamar al cliente para nada.
+  late DateTime? _nextServiceAt = DateTime.now().add(const Duration(days: 90));
+  late final _nextServiceMileage = TextEditingController(
+    // Sobre la lectura de esta visita. Si no se anotó, se deja vacío en lugar de inventar un
+    // número: un recordatorio con un kilometraje falso confunde al cliente.
+    text: switch (widget.order.mileageIn) {
+      final int km => '${km + 5000}',
+      _ => '',
+    },
+  );
+
   @override
   void dispose() {
     _initialPayment.dispose();
     _customerTaxId.dispose();
     _customerName.dispose();
+    _nextServiceMileage.dispose();
     super.dispose();
   }
 
@@ -172,6 +186,9 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             fiscal: _fiscal,
             customerTaxId: _fiscal ? _customerTaxId.text.trim() : null,
             customerName: _fiscal ? _customerName.text.trim() : null,
+            // Sin fecha, la orden no genera recordatorio: este trabajo no se repite.
+            nextServiceAt: _nextServiceAt,
+            nextServiceMileage: int.tryParse(_nextServiceMileage.text.trim()),
           );
     });
   }
@@ -355,6 +372,20 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
           onCredit: _onCredit,
           initialPayment: _initialPayment,
           dueDate: _dueDate,
+          nextServiceAt: _nextServiceAt,
+          nextServiceMileage: _nextServiceMileage,
+          onPickNextService: () async {
+            final hoy = DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _nextServiceAt ?? hoy.add(const Duration(days: 90)),
+              firstDate: hoy,
+              lastDate: hoy.add(const Duration(days: 365 * 3)),
+              helpText: 'Cuándo le toca el próximo servicio',
+            );
+            if (picked != null) setState(() => _nextServiceAt = picked);
+          },
+          onClearNextService: () => setState(() => _nextServiceAt = null),
           onSourceChanged: (value) => setState(() => _laborSource = value),
           onMethodChanged: (value) => setState(() => _method = value),
           onCreditChanged: (value) => setState(() => _onCredit = value),
@@ -396,6 +427,10 @@ class _CloseCard extends StatelessWidget {
     required this.onMethodChanged,
     required this.onCreditChanged,
     required this.onPickDueDate,
+    required this.nextServiceAt,
+    required this.nextServiceMileage,
+    required this.onPickNextService,
+    required this.onClearNextService,
     required this.onClose,
   });
 
@@ -412,6 +447,10 @@ class _CloseCard extends StatelessWidget {
   final void Function(PaymentMethod) onMethodChanged;
   final void Function(bool) onCreditChanged;
   final VoidCallback onPickDueDate;
+  final DateTime? nextServiceAt;
+  final TextEditingController nextServiceMileage;
+  final VoidCallback onPickNextService;
+  final VoidCallback onClearNextService;
   final VoidCallback onClose;
 
   final bool fiscal;
@@ -563,6 +602,46 @@ class _CloseCard extends StatelessWidget {
                   icon: const Icon(Icons.event_outlined, size: 18),
                   label: Text(
                     dueDate == null ? 'Fecha de pago' : 'Paga el ${_date(dueDate!)}',
+                  ),
+                ),
+              ],
+
+              const Divider(height: 24),
+
+              // Para acordarse de llamarlo. Va aquí porque es al entregar cuando el taller
+              // sabe qué le recomienda al cliente.
+              Text('PRÓXIMO SERVICIO', style: theme.textTheme.labelSmall),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: busy ? null : onPickNextService,
+                      icon: const Icon(Icons.event_repeat_outlined, size: 18),
+                      label: Text(
+                        nextServiceAt == null
+                            ? 'No se repite'
+                            : 'Le toca el ${_date(nextServiceAt!)}',
+                      ),
+                    ),
+                  ),
+                  if (nextServiceAt != null)
+                    IconButton(
+                      tooltip: 'Este trabajo no se repite',
+                      icon: const Icon(Icons.close),
+                      onPressed: busy ? null : onClearNextService,
+                    ),
+                ],
+              ),
+              if (nextServiceAt != null) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: nextServiceMileage,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'O a los (km)',
+                    helperText: 'Se le dice al recordarle. La fecha es la que avisa.',
+                    helperMaxLines: 2,
                   ),
                 ),
               ],

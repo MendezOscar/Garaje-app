@@ -214,6 +214,58 @@ public record OrderTrackingInvoiceDto(
     decimal Balance,
     DateTimeOffset? DueDate);
 
+// ---------- Recordatorios del próximo servicio ----------
+
+/// <summary>
+/// Un vehículo al que le toca servicio, según lo que el taller recomendó al entregarlo.
+/// </summary>
+/// <remarks>
+/// Es trabajo que hoy se pierde por no acordarse: el cliente vuelve cuando algo suena, no
+/// cuando le toca. Lo que dispara el recordatorio es la fecha; el kilometraje se muestra como
+/// contexto —«a los 45,000, y la última lectura fue 43,120»— porque hasta que el vehículo no
+/// vuelve, el taller no sabe cuánto ha rodado.
+/// </remarks>
+public record ServiceReminderDto(
+    Guid WorkOrderId,
+    string OrderNumber,
+    Guid CustomerId,
+    string CustomerName,
+    string CustomerPhone,
+    Guid VehicleId,
+    string VehicleLabel,
+    string? Plate,
+    string BranchName,
+    /// <summary>Qué se le hizo la última vez. Da de qué hablar al llamarlo.</summary>
+    string LastService,
+    DateTimeOffset? ClosedAt,
+    DateTimeOffset NextServiceAt,
+    /// <summary>Días hasta que toque. Negativo si ya pasó.</summary>
+    int DaysUntil,
+    int? NextServiceMileage,
+    /// <summary>Último kilometraje que se le leyó al vehículo, y cuándo.</summary>
+    int? LastMileage,
+    DateTimeOffset? RemindedAt);
+
+public record ServiceReminderQuery
+{
+    public Guid? BranchId { get; init; }
+
+    /// <summary>Cuánto se mira hacia adelante. Un mes por defecto: es cuando conviene llamar.</summary>
+    public int WithinDays { get; init; } = 30;
+
+    /// <summary>Solo los que ya se pasaron de fecha, o solo los que están por tocar.</summary>
+    public bool? Overdue { get; init; }
+
+    /// <summary>
+    /// Incluye los que ya se recordaron. Fuera por defecto: llamar dos veces en la semana
+    /// molesta más que no llamar.
+    /// </summary>
+    public bool IncludeReminded { get; init; }
+
+    /// <summary>Cliente, teléfono o placa.</summary>
+    public string? Search { get; init; }
+}
+
 public interface IWorkOrderService
 {
     Task<PagedResult<WorkOrderListItemDto>> ListAsync(WorkOrderQuery query, CancellationToken ct = default);
@@ -252,4 +304,14 @@ public interface IWorkOrderService
 
     /// <summary>El logo del taller para el encabezado de esa página. Null si no tiene.</summary>
     Task<TenantLogo?> TrackingLogoPublicAsync(Guid token, CancellationToken ct = default);
+
+    /// <summary>Los vehículos a los que les toca servicio, el más atrasado primero.</summary>
+    Task<IReadOnlyList<ServiceReminderDto>> ServiceRemindersAsync(
+        ServiceReminderQuery query, CancellationToken ct = default);
+
+    /// <summary>
+    /// El enlace de WhatsApp para recordarle el servicio, y deja constancia de que ya se le
+    /// avisó: así no se le llama dos veces la misma semana.
+    /// </summary>
+    Task<WhatsAppLinkDto> ServiceReminderLinkAsync(Guid workOrderId, CancellationToken ct = default);
 }
