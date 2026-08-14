@@ -30,6 +30,7 @@ const navItems = computed(() => {
         { to: { name: 'receivables' }, label: 'Por cobrar' },
         // Se abre todos los días al cerrar, así que va en el menú y no escondida en Reportes.
         { to: { name: 'cash-close' }, label: 'Caja' },
+        { to: { name: 'service-reminders' }, label: 'Recordatorios' },
         { to: { name: 'reports' }, label: 'Reportes' },
         { to: { name: 'users' }, label: 'Usuarios' },
         { to: { name: 'workshop' }, label: 'Taller' },

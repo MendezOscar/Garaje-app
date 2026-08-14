@@ -685,6 +685,149 @@ public class WorkOrderService(
         return $"{baseUrl}/o/{token}";
     }
 
+    // ---------- Recordatorios del próximo servicio ----------
+
+    public async Task<IReadOnlyList<ServiceReminderDto>> ServiceRemindersAsync(
+        ServiceReminderQuery query, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        var ahora = clock.UtcNow;
+        var hasta = ahora.AddDays(Math.Clamp(query.WithinDays, 1, 365));
+
+        var q = db.WorkOrders.AsNoTracking()
+            .Where(w => w.NextServiceAt != null && w.NextServiceAt <= hasta);
+
+        if (query.BranchId is { } branchId) q = q.Where(w => w.BranchId == branchId);
+
+        if (query.Overdue is { } overdue)
+        {
+            q = overdue
+                ? q.Where(w => w.NextServiceAt < ahora)
+                : q.Where(w => w.NextServiceAt >= ahora);
+        }
+
+        if (!query.IncludeReminded) q = q.Where(w => w.NextServiceRemindedAt == null);
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = query.Search.Trim();
+            var plate = PlateFormatter.Normalize(term);
+
+            q = q.Where(w =>
+                EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%")
+                || w.Vehicle.Customer.Phone.Contains(term)
+                || (w.Vehicle.Plate != null && w.Vehicle.Plate.Contains(plate)));
+        }
+
+        // Solo la última recomendación de cada vehículo: si se le atendió tres veces, la que
+        // manda es la de la última visita.
+        q = q.Where(w => !db.WorkOrders.Any(otra =>
+            otra.VehicleId == w.VehicleId
+            && otra.NextServiceAt != null
+            && otra.ClosedAt > w.ClosedAt));
+
+        // Y nada de vehículos que ya volvieron: sin esto, la lista recuerda llamar a quien
+        // tiene el carro en el taller ahora mismo. Las canceladas no cuentan: esa visita no
+        // ocurrió, así que el recordatorio sigue teniendo sentido.
+        q = q.Where(w => !db.WorkOrders.Any(otra =>
+            otra.VehicleId == w.VehicleId
+            && otra.Id != w.Id
+            && otra.Status != WorkOrderStatus.Cancelled
+            && otra.OpenedAt > w.ClosedAt));
+
+        var rows = await q
+            .OrderBy(w => w.NextServiceAt)
+            .Select(w => new
+            {
+                w.Id,
+                w.Number,
+                w.Vehicle.CustomerId,
+                CustomerName = w.Vehicle.Customer.FullName,
+                CustomerPhone = w.Vehicle.Customer.Phone,
+                w.VehicleId,
+                VehicleLabel = w.Vehicle.Brand + " " + w.Vehicle.Model,
+                w.Vehicle.Plate,
+                BranchName = w.Branch.Name,
+                w.Description,
+                w.ClosedAt,
+                w.NextServiceAt,
+                w.NextServiceMileage,
+                LastMileage = w.Vehicle.Mileage,
+                w.NextServiceRemindedAt
+            })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => new ServiceReminderDto(
+                r.Id,
+                r.Number,
+                r.CustomerId,
+                r.CustomerName,
+                r.CustomerPhone,
+                r.VehicleId,
+                r.VehicleLabel,
+                r.Plate,
+                r.BranchName,
+                r.Description,
+                r.ClosedAt,
+                r.NextServiceAt!.Value,
+                (int)Math.Round((r.NextServiceAt!.Value - ahora).TotalDays),
+                r.NextServiceMileage,
+                r.LastMileage,
+                r.NextServiceRemindedAt))
+            .ToList();
+    }
+
+    public async Task<WhatsAppLinkDto> ServiceReminderLinkAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        var order = await db.WorkOrders
+            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .FirstOrDefaultAsync(w => w.Id == workOrderId, ct)
+            ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        if (order.NextServiceAt is not { } toca)
+            throw new AppException(
+                $"La orden {order.Number} no tiene próximo servicio anotado, así que no hay "
+                + "nada que recordar.");
+
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == order.TenantId, ct)
+            ?? throw new NotFoundException("El taller no existe.");
+
+        var customer = order.Vehicle.Customer;
+        var vehicle = VehicleWithPlate(order.Vehicle);
+
+        var cuando = toca <= clock.UtcNow
+            ? "le tocaba servicio desde " + toca.ToLocalTime().ToString("dd/MM")
+            : "le toca servicio el " + toca.ToLocalTime().ToString("dd/MM");
+
+        var kilometraje = order.NextServiceMileage is { } km
+            ? $" o a los {km:N0} km"
+              + (order.Vehicle.Mileage is { } ultimo ? $" (la última lectura fue {ultimo:N0})" : "")
+            : "";
+
+        var message =
+            $"Hola {customer.FullName}, le saluda {tenant.Name}. A su {vehicle} "
+            + $"{cuando}{kilometraje}.\n\n¿Le agendamos una cita?";
+
+        // Se sella al armar el enlace y no al abrirlo: no hay forma de saber si el mensaje se
+        // llegó a enviar, y de las dos equivocaciones posibles es mejor no volver a llamar que
+        // llamar dos veces.
+        order.NextServiceRemindedAt = clock.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return new WhatsAppLinkDto(
+            $"https://wa.me/{customer.Phone}?text={Uri.EscapeDataString(message)}",
+            customer.Phone,
+            message);
+    }
+
     private async Task<IReadOnlyList<WorkOrderPartDto>> PartsOfAsync(
         Guid workOrderId, CancellationToken ct) =>
         await db.WorkOrderParts.AsNoTracking()

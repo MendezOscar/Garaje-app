@@ -19,7 +19,7 @@ PASSWORD = "Garaj123!"
 # Espejo de Garaj.Domain.Enums
 PART, LABOR = 1, 2
 CASH = 1
-DELIVERED = 8
+DELIVERED, CANCELLED = 8, 9
 DAY, WEEK, MONTH = 1, 2, 3
 
 ok = 0
@@ -108,6 +108,8 @@ stock_before = stock_of(owner, matriz["id"], part["id"])
 
 status, sale = api("POST", "/api/sales/close-work-order", {
     "workOrderId": order_id, "paymentMethod": CASH, "notes": "Prueba de humo",
+    # Con fecha pasada, para que el recordatorio salga atrasado en el bloque de más abajo.
+    "nextServiceAt": "2020-06-01T09:00:00Z", "nextServiceMileage": 48000,
 }, owner)
 check("el Dueño cierra la orden y genera la venta", status in (200, 201), f"{status} {sale}")
 
@@ -164,6 +166,60 @@ check("y el mismo saldo que la venta",
 status, pdf = api("GET", f"/public/work-orders/{tracking_token}/invoice.pdf")
 check("y la baja en PDF sin login",
       status == 200 and isinstance(pdf, bytes) and pdf[:4] == b"%PDF", str(status))
+
+print("\n[recordatorios del próximo servicio]")
+
+status, reminders = api("GET", "/api/work-orders/reminders?overdue=true", token=owner)
+check("el Dueño ve a quién le toca servicio", status == 200, f"{status} {reminders}")
+
+mine = next((r for r in reminders if r["workOrderId"] == order_id), None)
+check("la orden cerrada con fecha aparece", mine is not None,
+      str([r.get("orderNumber") for r in reminders]))
+check("y aparece atrasada", mine and mine["daysUntil"] < 0, str(mine and mine.get("daysUntil")))
+check("con el kilometraje que se anotó", mine and mine["nextServiceMileage"] == 48000,
+      str(mine and mine.get("nextServiceMileage")))
+check("y con el teléfono del cliente para llamarlo", bool(mine and mine["customerPhone"]),
+      str(mine and mine.get("customerPhone")))
+
+status, denied = api("GET", "/api/work-orders/reminders", token=tech1)
+check("el técnico no ve los recordatorios", status == 403, str(status))
+
+status, link = api("POST", f"/api/work-orders/{order_id}/service-reminder", token=owner)
+check("el recordatorio se manda por WhatsApp", status == 200, f"{status} {link}")
+check("con el vehículo en el mensaje",
+      mine["vehicleLabel"].split()[0] in link["message"], str(link.get("message")))
+check("y dice que le tocaba", "tocaba" in link["message"], str(link.get("message")))
+
+_, otra_vez = api("GET", "/api/work-orders/reminders?overdue=true", token=owner)
+check("después de avisar sale de la lista",
+      all(r["workOrderId"] != order_id for r in otra_vez),
+      str([r.get("orderNumber") for r in otra_vez]))
+
+_, recordados = api("GET", "/api/work-orders/reminders?overdue=true&includeReminded=true",
+                    token=owner)
+check("pero se puede ver entre los ya recordados",
+      any(r["workOrderId"] == order_id and r["remindedAt"] for r in recordados),
+      str([(r.get("orderNumber"), r.get("remindedAt")) for r in recordados]))
+
+# El vehículo vuelve al taller: el recordatorio ya no tiene sentido y desaparece.
+_, vuelta = api("POST", "/api/work-orders", {
+    "branchId": matriz["id"], "vehicleId": mine["vehicleId"],
+    "description": "Vuelve al taller, ya no hay que recordarle",
+}, owner)
+_, tras_volver = api("GET", "/api/work-orders/reminders?overdue=true&includeReminded=true",
+                     token=owner)
+check("y cuando el vehículo vuelve, deja de aparecer",
+      all(r["workOrderId"] != order_id for r in tras_volver),
+      str([r.get("orderNumber") for r in tras_volver]))
+
+# Si esa visita se cancela, no ocurrió: el recordatorio vuelve a tener sentido.
+api("POST", f"/api/work-orders/{vuelta['id']}/status",
+    {"status": CANCELLED, "note": "No llegó"}, owner)
+_, tras_cancelar = api("GET", "/api/work-orders/reminders?overdue=true&includeReminded=true",
+                       token=owner)
+check("pero si esa visita se cancela, el recordatorio vuelve",
+      any(r["workOrderId"] == order_id for r in tras_cancelar),
+      str([r.get("orderNumber") for r in tras_cancelar]))
 
 print("\n[venta de mostrador]")
 

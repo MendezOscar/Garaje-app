@@ -38,6 +38,9 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
         // índice sería un recorrido de toda la tabla en cada apertura.
         b.HasIndex(x => x.PublicToken).IsUnique();
 
+        // La lista de recordatorios pregunta justo por esto: a quién le toca servicio pronto.
+        b.HasIndex(x => new { x.TenantId, x.NextServiceAt });
+
         // Kanban del Dueño y bandeja del Técnico.
         b.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
         b.HasIndex(x => new { x.TenantId, x.AssignedTechnicianId, x.Status });

@@ -251,6 +251,8 @@ class SaleRepository {
     bool fiscal = false,
     String? customerTaxId,
     String? customerName,
+    DateTime? nextServiceAt,
+    int? nextServiceMileage,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/sales/close-work-order',
@@ -268,6 +270,10 @@ class SaleRepository {
         // A nombre de quién sale. Vacío usa el de la ficha, y si tampoco tiene, el nombre
         // del cliente.
         'customerName': customerName,
+        // Cuándo le toca el próximo servicio. Nulo significa que este trabajo no se repite y
+        // la orden no genera recordatorio.
+        'nextServiceAt': nextServiceAt?.toUtc().toIso8601String(),
+        'nextServiceMileage': nextServiceMileage,
       },
     );
 

@@ -135,6 +135,25 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
     public async Task<ActionResult<WhatsAppLinkDto>> WhatsApp(
         Guid id, [FromQuery] OrderMessageKind kind, CancellationToken ct)
         => Ok(await service.TrackingLinkAsync(id, kind, ct));
+
+    /// <summary>
+    /// Los vehículos a los que les toca servicio, el más atrasado primero. Es trabajo que hoy
+    /// se pierde por no acordarse.
+    /// </summary>
+    [HttpGet("reminders")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<IReadOnlyList<ServiceReminderDto>>> Reminders(
+        [FromQuery] ServiceReminderQuery query, CancellationToken ct)
+        => Ok(await service.ServiceRemindersAsync(query, ct));
+
+    /// <summary>
+    /// El enlace de WhatsApp del recordatorio. Es POST porque deja constancia de que ya se le
+    /// avisó: así el mismo cliente no recibe dos llamadas la misma semana.
+    /// </summary>
+    [HttpPost("{id:guid}/service-reminder")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<WhatsAppLinkDto>> ServiceReminder(Guid id, CancellationToken ct)
+        => Ok(await service.ServiceReminderLinkAsync(id, ct));
 }
 
 /// <summary>

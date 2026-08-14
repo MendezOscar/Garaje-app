@@ -366,6 +366,18 @@ public class SaleService(
             });
         }
 
+        // Lo que se le recomendó al cliente al entregar. Es opcional: hay trabajos que no
+        // vuelven, y la pantalla de cierre lo propone pero deja borrarlo.
+        if (request.NextServiceAt is { } proximo)
+        {
+            // A UTC antes de guardar: Npgsql rechaza un DateTimeOffset con offset distinto de
+            // cero en un `timestamptz`, y un cliente hondureño manda −06:00 con toda la razón.
+            order.NextServiceAt = proximo.ToUniversalTime();
+            order.NextServiceRemindedAt = null;
+        }
+
+        if (request.NextServiceMileage is { } km) order.NextServiceMileage = km;
+
         await db.SaveChangesAsync(ct);
         return await GetAsync(sale.Id, ct);
     }

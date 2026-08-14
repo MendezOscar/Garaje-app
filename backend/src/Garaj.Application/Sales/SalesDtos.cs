@@ -149,7 +149,12 @@ public record CloseWorkOrderRequest(
     // Emite con CAI, consumiendo un número del rango de la sucursal. Ver CreateSaleRequest.
     bool Fiscal = false,
     string? CustomerTaxId = null,
-    string? CustomerName = null);
+    string? CustomerName = null,
+    // Cuándo le toca el próximo servicio a este vehículo, y a qué kilometraje. Los dos son
+    // opcionales y se dejan vacíos cuando el trabajo no se repite: una reparación de frenos no
+    // vuelve, un cambio de aceite sí. Con fecha, la orden aparece en «Recordatorios».
+    DateTimeOffset? NextServiceAt = null,
+    int? NextServiceMileage = null);
 
 /// <summary>Un abono a una venta con saldo.</summary>
 public record RegisterPaymentRequest(
