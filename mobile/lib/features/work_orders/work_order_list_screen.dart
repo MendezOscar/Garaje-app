@@ -76,6 +76,13 @@ class WorkOrderListScreen extends ConsumerWidget {
                     ),
                   ),
                   const PopupMenuItem(
+                    value: '/caja',
+                    child: ListTile(
+                      leading: Icon(Icons.point_of_sale_outlined),
+                      title: Text('Cierre de caja'),
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: '/reportes',
                     child: ListTile(
                       leading: Icon(Icons.insights_outlined),

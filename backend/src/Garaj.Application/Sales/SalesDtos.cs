@@ -293,6 +293,53 @@ public record DashboardDto(
 
 public record StatusCountDto(WorkOrderStatus Status, int Count);
 
+// ---------- Cierre de caja ----------
+
+/// <summary>
+/// Lo <b>cobrado</b> en un día: por forma de pago, por quién lo recibió y abono por abono.
+/// </summary>
+/// <remarks>
+/// No es lo mismo que los ingresos del reporte, que son lo <b>facturado</b>. Una venta a
+/// crédito suma allí el día que se emite y aquí el día que el cliente paga, y una factura de
+/// hace tres meses que se abona hoy solo aparece aquí. Para cuadrar la caja al cerrar sirve
+/// esto; para saber cuánto trabajó el taller, aquello.
+///
+/// La fuente son los abonos, que ya son la única verdad del dinero: nada que mantener al día.
+/// </remarks>
+public record CashCloseDto(
+    /// <summary>El día del taller —no UTC—, a las 00:00 de su desplazamiento local.</summary>
+    DateTimeOffset Day,
+    string DayLabel,
+    Guid? BranchId,
+    string? BranchName,
+    string Currency,
+    decimal Total,
+    int PaymentCount,
+    IReadOnlyList<CashCloseMethodDto> ByMethod,
+    IReadOnlyList<CashCloseReceiverDto> ByReceiver,
+    IReadOnlyList<CashClosePaymentDto> Payments,
+    /// <summary>
+    /// Abonos del día que quedaron fuera porque su venta está anulada. Se informan en lugar de
+    /// esconderlos: una caja que no dice lo que omitió no sirve para cuadrar.
+    /// </summary>
+    int VoidedCount,
+    decimal VoidedAmount);
+
+public record CashCloseMethodDto(PaymentMethod Method, decimal Total, int Count);
+
+/// <summary>Cuánto recibió cada quien. Es la pregunta de a quién se le pide la caja.</summary>
+public record CashCloseReceiverDto(string ReceiverName, decimal Total, int Count);
+
+public record CashClosePaymentDto(
+    DateTimeOffset PaidAt,
+    string SaleNumber,
+    string? CustomerName,
+    string BranchName,
+    PaymentMethod Method,
+    string? Reference,
+    string ReceiverName,
+    decimal Amount);
+
 // ---------- Estado de cuenta ----------
 
 /// <summary>
@@ -402,4 +449,12 @@ public interface IReportService
 
     /// <summary>Las ventas del rango en CSV, para abrirlo en Excel.</summary>
     Task<byte[]> RevenueCsvAsync(RevenueQuery query, CancellationToken ct = default);
+
+    /// <summary>Lo cobrado en un día, para cuadrar la caja al cerrar. Hoy si no se indica día.</summary>
+    Task<CashCloseDto> CashCloseAsync(
+        DateTimeOffset? day, Guid? branchId, CancellationToken ct = default);
+
+    /// <summary>El mismo cierre en PDF, que es como se archiva o se firma.</summary>
+    Task<byte[]> CashClosePdfAsync(
+        DateTimeOffset? day, Guid? branchId, CancellationToken ct = default);
 }

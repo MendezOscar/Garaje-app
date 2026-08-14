@@ -3,7 +3,9 @@ using System.Text;
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Sales;
+using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
+using Garaj.Infrastructure.Documents;
 using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +24,8 @@ namespace Garaj.Infrastructure.Services;
 public class ReportService(
     GarajDbContext db,
     ITenantContext tenantContext,
-    IDateTimeProvider clock) : IReportService
+    IDateTimeProvider clock,
+    ITenantService tenants) : IReportService
 {
     private static readonly CultureInfo Culture = new("es-HN");
 
@@ -314,6 +317,110 @@ public class ReportService(
 
         // Con BOM: sin él, Excel en Windows abre los acentos rotos.
         return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+    }
+
+    // ---------- Cierre de caja ----------
+
+    public async Task<CashCloseDto> CashCloseAsync(
+        DateTimeOffset? day, Guid? branchId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        // El día es el del taller: un abono de las 7 de la noche cae en la caja de ese día, y
+        // agrupando por la fecha UTC caería en la del siguiente.
+        var start = StartOfLocalDay(day ?? clock.UtcNow);
+        var end = start.AddDays(1);
+        var (utcFrom, utcTo) = (start.ToUniversalTime(), end.ToUniversalTime());
+
+        var payments = db.SalePayments.AsNoTracking()
+            .Where(p => p.PaidAt >= utcFrom && p.PaidAt < utcTo);
+
+        if (branchId is { } id) payments = payments.Where(p => p.Sale.BranchId == id);
+
+        var rows = await payments
+            .OrderBy(p => p.PaidAt)
+            .Select(p => new
+            {
+                p.PaidAt,
+                p.Method,
+                p.Reference,
+                p.Amount,
+                p.CreatedByUserId,
+                p.Sale.Number,
+                p.Sale.IsVoided,
+                BranchName = p.Sale.Branch.Name,
+                // El nombre congelado al facturar manda sobre el de la ficha, igual que en la
+                // factura: la caja de ayer no cambia porque hoy le corrijan el nombre.
+                CustomerName = p.Sale.CustomerName
+                    ?? db.Customers.Where(c => c.Id == p.Sale.CustomerId)
+                        .Select(c => c.FullName).FirstOrDefault()
+            })
+            .ToListAsync(ct);
+
+        // Una venta anulada no entró en caja, pero sus abonos siguen en la base: se apartan y
+        // se informan aparte en lugar de desaparecer sin explicación.
+        var anuladas = rows.Where(r => r.IsVoided).ToList();
+        var vivas = rows.Where(r => !r.IsVoided).ToList();
+
+        var userIds = vivas.Where(r => r.CreatedByUserId is not null)
+            .Select(r => r.CreatedByUserId!.Value)
+            .Distinct()
+            .ToList();
+
+        var names = userIds.Count == 0
+            ? []
+            : await db.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+
+        string Receiver(Guid? userId) =>
+            userId is { } uid ? names.GetValueOrDefault(uid, "—") : "—";
+
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct);
+
+        var branchName = branchId is { } bid
+            ? await db.Branches.AsNoTracking()
+                .Where(b => b.Id == bid).Select(b => b.Name).FirstOrDefaultAsync(ct)
+            : null;
+
+        return new CashCloseDto(
+            start,
+            start.ToString("dddd d 'de' MMMM 'de' yyyy", Culture),
+            branchId,
+            branchName,
+            tenant?.Currency ?? "HNL",
+            vivas.Sum(r => r.Amount),
+            vivas.Count,
+            vivas.GroupBy(r => r.Method)
+                .OrderBy(g => g.Key)
+                .Select(g => new CashCloseMethodDto(g.Key, g.Sum(r => r.Amount), g.Count()))
+                .ToList(),
+            vivas.GroupBy(r => Receiver(r.CreatedByUserId))
+                .OrderByDescending(g => g.Sum(r => r.Amount))
+                .Select(g => new CashCloseReceiverDto(g.Key, g.Sum(r => r.Amount), g.Count()))
+                .ToList(),
+            vivas.Select(r => new CashClosePaymentDto(
+                    r.PaidAt, r.Number, r.CustomerName, r.BranchName, r.Method, r.Reference,
+                    Receiver(r.CreatedByUserId), r.Amount))
+                .ToList(),
+            anuladas.Count,
+            anuladas.Sum(r => r.Amount));
+    }
+
+    public async Task<byte[]> CashClosePdfAsync(
+        DateTimeOffset? day, Guid? branchId, CancellationToken ct = default)
+    {
+        var cierre = await CashCloseAsync(day, branchId, ct);
+
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct)
+            ?? throw new NotFoundException("El taller no existe.");
+
+        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+
+        return CashClosePdf.Render(cierre, tenant.Name, tenant.LegalName, tenant.Phone, logo);
     }
 
     // ---------- Interno ----------

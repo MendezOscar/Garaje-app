@@ -701,6 +701,35 @@ export interface RevenueReport {
   }[]
 }
 
+/**
+ * Lo **cobrado** en un día, que no es lo facturado: una venta a crédito suma en los ingresos
+ * el día que se emite y aquí el día que el cliente paga.
+ */
+export interface CashClose {
+  day: string
+  dayLabel: string
+  branchId: string | null
+  branchName: string | null
+  currency: string
+  total: number
+  paymentCount: number
+  byMethod: { method: PaymentMethod; total: number; count: number }[]
+  byReceiver: { receiverName: string; total: number; count: number }[]
+  payments: {
+    paidAt: string
+    saleNumber: string
+    customerName: string | null
+    branchName: string
+    method: PaymentMethod
+    reference: string | null
+    receiverName: string
+    amount: number
+  }[]
+  /** Abonos que quedaron fuera porque su venta está anulada. Se informan, no se esconden. */
+  voidedCount: number
+  voidedAmount: number
+}
+
 export interface Dashboard {
   currency: string
   revenueToday: number

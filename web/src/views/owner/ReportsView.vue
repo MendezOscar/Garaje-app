@@ -108,6 +108,9 @@ onMounted(async () => {
       <article>
         <span>Hoy</span>
         <strong>{{ formatMoney(dashboard.revenueToday) }}</strong>
+        <!-- Facturado, no cobrado: lo segundo se cuadra en Caja, y conviene que no se
+             confundan. -->
+        <RouterLink :to="{ name: 'cash-close' }" class="small">Lo cobrado hoy</RouterLink>
       </article>
       <article>
         <span>Esta semana</span>

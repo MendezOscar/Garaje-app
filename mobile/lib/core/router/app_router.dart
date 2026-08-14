@@ -7,6 +7,7 @@ import '../../features/inventory/inventory_screen.dart';
 import '../../features/login/login_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/reports/cash_close_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/receivables/receivables_screen.dart';
 import '../../features/users/users_screen.dart';
@@ -61,6 +62,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
+      GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
       GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
       GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
       GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
@@ -103,6 +105,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // 403 a los demás, pero rebotarlos aquí evita enseñarles una pantalla que solo puede
       // fallar. Toda ruta que no esté en esta lista termina en el inicio del perfil.
       if (location == '/reportes' ||
+          location == '/caja' ||
           location == '/por-cobrar' ||
           location == '/usuarios' ||
           location == '/clientes') {
