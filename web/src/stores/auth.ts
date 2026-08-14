@@ -47,7 +47,10 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = data
       if (!activeBranchId.value) setActiveBranch(data.branches[0]?.id ?? null)
     } catch {
-      clearSession()
+      // Solo se cierra si el interceptor ya borró la sesión porque el servidor la rechazó.
+      // Si sigue guardada, lo que falló fue la red: se conserva lo último que se supo del
+      // usuario y cada pantalla vuelve a pedir sus datos cuando haya conexión.
+      if (loadSession()) return
       user.value = null
     }
   }

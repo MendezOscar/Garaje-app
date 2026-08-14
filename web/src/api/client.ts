@@ -47,8 +47,14 @@ api.interceptors.response.use(
   async (error: AxiosError<ProblemDetails>) => {
     const original = error.config as InternalAxiosRequestConfig & { _retried?: boolean }
 
-    const isAuthCall = original?.url?.includes('/api/auth/')
-    if (error.response?.status !== 401 || original?._retried || isAuthCall) {
+    // Las peticiones de sesión no se reintentan: refrescar para poder refrescar no lleva a
+    // ninguna parte. `/api/auth/me` queda fuera de la lista a propósito —es la que revalida
+    // la sesión al recargar la página y sí tiene que poder refrescar—.
+    const isSessionCall = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout'].some(
+      (path) => original?.url?.includes(path),
+    )
+
+    if (error.response?.status !== 401 || original?._retried || isSessionCall) {
       return Promise.reject(error)
     }
 

@@ -79,6 +79,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return location == '/' ? null : '/';
       }
 
+      // Sin respuesta del servidor no se sabe si la sesión sirve. Se espera en el splash, que
+      // ofrece reintentar, en lugar de mandar al login a quien la tiene buena.
+      if (auth is AuthUnreachable) return location == '/' ? null : '/';
+
       // La bienvenida solo estorba a quien ya entró: si hay sesión, se da por vista.
       if (!seenWelcome && auth is AuthSignedOut) {
         return location == '/bienvenida' ? null : '/bienvenida';
