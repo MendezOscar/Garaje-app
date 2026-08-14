@@ -66,9 +66,13 @@ public class WorkOrderPartConfiguration : IEntityTypeConfiguration<WorkOrderPart
             .HasForeignKey(x => x.WorkOrderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        b.Property(x => x.Description).HasMaxLength(200);
+
+        // Opcional: una línea manual no apunta a ningún repuesto del catálogo.
         b.HasOne(x => x.Part)
             .WithMany()
             .HasForeignKey(x => x.PartId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(x => x.WorkOrderId);

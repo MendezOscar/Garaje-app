@@ -134,9 +134,11 @@ public record SaveStockSettingsRequest(
 
 // ---------- Repuestos de una orden ----------
 
+/// <param name="PartId">Null en una línea manual: ese repuesto no está en el catálogo.</param>
+/// <param name="Sku">Vacío en una línea manual, que no tiene código de catálogo.</param>
 public record WorkOrderPartDto(
     Guid Id,
-    Guid PartId,
+    Guid? PartId,
     string Sku,
     string PartName,
     string Unit,
@@ -147,15 +149,26 @@ public record WorkOrderPartDto(
     Guid? WorkOrderTaskId,
     string? TaskTitle);
 
+/// <param name="PartId">
+/// Del catálogo: descuenta de la bodega de la sucursal. Null carga el repuesto **a mano**,
+/// que es lo que se compró de encargo y nunca estuvo en bodega: entonces hacen falta
+/// <paramref name="Description"/> y <paramref name="UnitPrice"/>, y no se toca el inventario.
+/// </param>
 /// <param name="UnitPrice">
 /// Si va null se toma el del catálogo. Se permite fijarlo para poder cobrar distinto sin
-/// tocar el catálogo; queda congelado en la orden.
+/// tocar el catálogo; queda congelado en la orden. Obligatorio en una línea manual.
+/// </param>
+/// <param name="UnitCost">
+/// Lo que le costó al taller, solo en las líneas manuales. Si no se sabe, queda en cero y el
+/// margen de esa venta sale inflado.
 /// </param>
 public record AddWorkOrderPartRequest(
-    Guid PartId,
+    Guid? PartId,
     decimal Quantity,
     decimal? UnitPrice,
-    Guid? WorkOrderTaskId);
+    Guid? WorkOrderTaskId,
+    string? Description = null,
+    decimal? UnitCost = null);
 
 public interface IPartService
 {

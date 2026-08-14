@@ -119,7 +119,11 @@ public record CreateSaleRequest(
     bool Fiscal = false,
     // RTN del cliente para esta factura. Si va vacío se usa el de su ficha, y si no tiene
     // ninguno la factura sale a consumidor final.
-    string? CustomerTaxId = null);
+    string? CustomerTaxId = null,
+    // A nombre de quién sale la factura, cuando no es a nombre del cliente que la pide:
+    // suele ser la empresa dueña del RTN. Vacío usa el de su ficha, y si tampoco tiene,
+    // su propio nombre.
+    string? CustomerName = null);
 
 /// <summary>
 /// Cierre de la orden: la entrega al cliente y genera la venta con lo que se le hizo.
@@ -142,7 +146,8 @@ public record CloseWorkOrderRequest(
     decimal? InitialPayment = null,
     // Emite con CAI, consumiendo un número del rango de la sucursal. Ver CreateSaleRequest.
     bool Fiscal = false,
-    string? CustomerTaxId = null);
+    string? CustomerTaxId = null,
+    string? CustomerName = null);
 
 /// <summary>Un abono a una venta con saldo.</summary>
 public record RegisterPaymentRequest(

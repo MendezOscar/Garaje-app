@@ -278,6 +278,44 @@ if status == 200:
 else:
     check("el cliente ve qué repuestos le pusieron", False, str(status))
 
+print("\n[repuesto cargado a mano]")
+
+# Lo que se compró de encargo y nunca pasó por bodega: no hay existencia que descontar.
+antes_manual = stock_of(owner, matriz["id"], part_id)["quantity"]
+
+status, manual = api("POST", f"/api/work-orders/{order_id}/parts", {
+    "description": "Faro delantero izquierdo, traído de encargo",
+    "quantity": 1, "unitPrice": 2450, "unitCost": 1800,
+}, tech1)
+check("el técnico carga un repuesto a mano", status == 200, f"{status} {manual}")
+check("sin repuesto del catálogo detrás", manual["partId"] is None, str(manual.get("partId")))
+check("con el concepto que escribió",
+      manual["partName"] == "Faro delantero izquierdo, traído de encargo",
+      str(manual.get("partName")))
+check("sin código de catálogo", manual["sku"] == "", repr(manual.get("sku")))
+check("con el precio que le pusieron", manual["unitPrice"] == 2450, str(manual.get("unitPrice")))
+check("y su costo, para el margen", manual["unitCost"] == 1800, str(manual.get("unitCost")))
+
+check("no movió la bodega",
+      stock_of(owner, matriz["id"], part_id)["quantity"] == antes_manual,
+      str(antes_manual))
+
+status, sin_precio = api("POST", f"/api/work-orders/{order_id}/parts", {
+    "description": "Sin precio", "quantity": 1,
+}, tech1)
+check("uno a mano sin precio se rechaza", status == 400, f"{status} {sin_precio}")
+
+status, sin_concepto = api("POST", f"/api/work-orders/{order_id}/parts", {
+    "quantity": 1, "unitPrice": 100,
+}, tech1)
+check("y sin decir qué es, también", status == 400, f"{status} {sin_concepto}")
+
+status, _ = api("DELETE", f"/api/work-orders/{order_id}/parts/{manual['id']}", token=tech1)
+check("quitarlo responde 204", status == 204, str(status))
+check("y no devolvió nada a la bodega, porque nunca salió de ella",
+      stock_of(owner, matriz["id"], part_id)["quantity"] == antes_manual,
+      str(antes_manual))
+
 print("\n[devolución]")
 
 status, _ = api("DELETE", f"/api/work-orders/{order_id}/parts/{line['id']}", token=tech1)

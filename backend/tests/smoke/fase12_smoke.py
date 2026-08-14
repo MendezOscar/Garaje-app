@@ -96,17 +96,29 @@ _, customers = api("GET", "/api/customers?pageSize=5", token=owner)
 customer = customers["items"][0]
 
 
-def venta(fiscal=False, rtn=None, customer_id=None):
-    """Venta de mostrador de una unidad: lo mínimo para que exista una factura."""
+def venta(fiscal=False, rtn=None, customer_id=None, nombre=None, con_repuesto=True):
+    """Venta de mostrador de una unidad: lo mínimo para que exista una factura.
+
+    `con_repuesto=False` la arma con una línea de mano de obra suelta en vez de un repuesto:
+    no consume existencias, y así una comprobación que solo necesita una factura no le quita
+    stock a las que sí lo están probando.
+    """
+    linea = (
+        {"lineType": 1, "partId": part["id"], "quantity": 1}
+        if con_repuesto
+        else {"lineType": 2, "description": "Revisión general", "quantity": 1, "unitPrice": 500}
+    )
     body = {
         "branchId": matriz["id"],
         "customerId": customer_id,
         "paymentMethod": CASH,
-        "lines": [{"lineType": 1, "partId": part["id"], "quantity": 1}],
+        "lines": [linea],
         "fiscal": fiscal,
     }
     if rtn is not None:
         body["customerTaxId"] = rtn
+    if nombre is not None:
+        body["customerName"] = nombre
 
     return api("POST", "/api/sales", body, token=owner)
 
@@ -241,6 +253,60 @@ check("la factura toma el RTN de la ficha sin que se lo pasen",
 status, pdf = api("GET", f"/api/sales/{conRtn['id']}/pdf", token=owner)
 check("y el PDF se genera", status == 200 and isinstance(pdf, bytes) and pdf[:4] == b"%PDF",
       str(status))
+check("y sale a nombre del cliente, que es lo normal",
+      conRtn["customerName"] == customer["fullName"], str(conRtn.get("customerName")))
+
+print("\n[la factura a nombre de la empresa]")
+
+# El caso de todos los días: el cliente trae su carro, pero pide la factura con el RTN de la
+# empresa donde trabaja. Eso no convierte a la empresa en dueña del carro, así que el cambio
+# tiene que quedarse en la factura y no tocar el padrón.
+status, aEmpresa = venta(
+    fiscal=True, customer_id=customer["id"], con_repuesto=False,
+    rtn="08019012345678", nombre="Transportes Discua S. de R.L.")
+check("se puede facturar a nombre de otro", status in (200, 201), f"{status} {aEmpresa}")
+check("con el nombre que se escribió",
+      aEmpresa["customerName"] == "Transportes Discua S. de R.L.",
+      str(aEmpresa.get("customerName")))
+check("y su RTN", aEmpresa["customerTaxId"] == "08019012345678",
+      str(aEmpresa.get("customerTaxId")))
+
+status, sigueIgual = api("GET", f"/api/customers/{customer['id']}", token=owner)
+check("la ficha del cliente no cambió",
+      sigueIgual["fullName"] == customer["fullName"]
+      and sigueIgual["taxId"] == "05011985678901",
+      f"{sigueIgual.get('fullName')} / {sigueIgual.get('taxId')}")
+
+# El nombre queda congelado: la ficha se corrige mañana y la factura ya emitida no cambia.
+api("PUT", f"/api/customers/{customer['id']}", {
+    "fullName": "Nombre Corregido Después",
+    "phone": customer["phone"],
+    "documentId": customer["documentId"],
+    "isActive": True,
+    "taxId": "05011985678901",
+}, token=owner)
+
+status, releida = api("GET", f"/api/sales/{aEmpresa['id']}", token=owner)
+check("y renombrar al cliente no reescribe una factura ya emitida",
+      releida["customerName"] == "Transportes Discua S. de R.L.",
+      str(releida.get("customerName")))
+
+status, deFicha = api("PUT", f"/api/customers/{customer['id']}", {
+    "fullName": "Nombre Corregido Después",
+    "phone": customer["phone"],
+    "documentId": customer["documentId"],
+    "isActive": True,
+    "taxId": "05011985678901",
+    "billingName": "Ferretería El Progreso",
+}, token=owner)
+check("la ficha guarda a nombre de quién factura",
+      status == 200 and deFicha["billingName"] == "Ferretería El Progreso",
+      f"{status} {deFicha.get('billingName') if status == 200 else deFicha}")
+
+status, automatica = venta(fiscal=True, customer_id=customer["id"], con_repuesto=False)
+check("y la siguiente factura lo toma sola, sin escribirlo",
+      automatica["customerName"] == "Ferretería El Progreso",
+      str(automatica.get("customerName")))
 
 print("\n[consumidor final arriba de L 10,000]")
 

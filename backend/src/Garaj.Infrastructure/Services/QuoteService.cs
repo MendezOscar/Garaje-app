@@ -152,7 +152,15 @@ public class QuoteService(
         {
             var parts = await db.WorkOrderParts.AsNoTracking()
                 .Where(p => p.WorkOrderId == order.Id)
-                .Select(p => new { p.PartId, p.Part.Name, p.Part.Sku, p.Quantity, p.UnitPrice })
+                .Select(p => new
+                {
+                    p.PartId,
+                    // Los cargados a mano no tienen catálogo del que sacar nombre y código:
+                    // van con lo que escribió quien los cargó.
+                    Name = p.Part != null ? $"{p.Part.Name} ({p.Part.Sku})" : p.Description!,
+                    p.Quantity,
+                    p.UnitPrice
+                })
                 .ToListAsync(ct);
 
             foreach (var part in parts)
@@ -162,7 +170,7 @@ public class QuoteService(
                     QuoteId = quote.Id,
                     LineType = LineType.Part,
                     PartId = part.PartId,
-                    Description = $"{part.Name} ({part.Sku})",
+                    Description = part.Name,
                     Sequence = ++sequence,
                     Quantity = part.Quantity,
                     UnitPrice = part.UnitPrice,

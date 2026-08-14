@@ -29,25 +29,33 @@ const access = ref<{ customer: Customer; email: string; password: string } | nul
  */
 const rtn = ref('')
 
+/**
+ * A nombre de quién salen sus facturas. Vacío significa que van a su propio nombre; se llena
+ * cuando el cliente las pide a nombre de su empresa, que es de quien suele ser el RTN.
+ */
+const nombreFactura = ref('')
+
 async function saveRtn(customer: Customer) {
   busy.value = true
   error.value = ''
   notice.value = ''
   try {
     const value = rtn.value.trim()
+    const aNombreDe = nombreFactura.value.trim()
     const updated = await customersApi.update(customer.id, {
       fullName: customer.fullName,
       phone: customer.phone,
       email: customer.email,
       documentId: customer.documentId,
       taxId: value || null,
+      billingName: aNombreDe || null,
       address: customer.address,
       notes: customer.notes,
       isActive: customer.isActive,
     })
     Object.assign(customer, updated)
     notice.value = value
-      ? `RTN guardado: sus facturas con CAI saldrán a nombre de ${customer.fullName}.`
+      ? `Guardado: sus facturas con CAI saldrán a nombre de ${aNombreDe || customer.fullName}.`
       : 'RTN quitado.'
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo guardar el RTN.')
@@ -81,6 +89,7 @@ async function toggle(customer: Customer) {
 
   expandedId.value = customer.id
   rtn.value = customer.taxId ?? ''
+  nombreFactura.value = customer.billingName ?? ''
   vehicles.value = []
   vehicles.value = (await vehiclesApi.list({ customerId: customer.id })).items
 }
@@ -202,9 +211,15 @@ watch(search, () => {
                   RTN
                   <input v-model="rtn" placeholder="08019995123456" />
                 </label>
+                <label>
+                  A nombre de
+                  <input v-model="nombreFactura" :placeholder="customer.fullName" />
+                </label>
                 <button type="submit" :disabled="busy">Guardar</button>
                 <span class="muted small">
-                  Para la factura con CAI. Se puede corregir al facturar.
+                  Para la factura con CAI. Deje el nombre vacío si la factura va a nombre del
+                  cliente; llénelo cuando la pida a nombre de su empresa. Se puede corregir al
+                  facturar.
                 </span>
               </form>
             </td>

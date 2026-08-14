@@ -65,6 +65,13 @@ public class Sale : TenantEntity, IBranchEntity
     /// <summary>RTN del cliente en el momento de facturar. Sin él la factura va a consumidor final.</summary>
     public string? CustomerTaxId { get; set; }
 
+    /// <summary>
+    /// A nombre de quién salió la factura. Es una fotografía como el resto: la ficha del
+    /// cliente se puede corregir después y una factura ya emitida no cambia. Null en las
+    /// ventas sin CAI, que siguen mostrando el nombre que tenga la ficha hoy.
+    /// </summary>
+    public string? CustomerName { get; set; }
+
     public bool IsFiscal => FiscalNumber is not null;
 
     public Branch Branch { get; set; } = null!;

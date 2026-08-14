@@ -61,11 +61,18 @@ api.interceptors.response.use(
       const token = await refreshInFlight
       original.headers.Authorization = `Bearer ${token}`
       return api(original)
-    } catch {
-      clearSession()
-      // Recarga dura en vez de router.push: evita importar el router aquí y garantiza que
-      // no quede estado de una sesión muerta en memoria.
-      window.location.assign('/login')
+    } catch (fallo) {
+      // Solo se cierra la sesión si el servidor rechazó el refresh token. Un fallo de red o
+      // un 502 mientras se despliega dejaban al usuario en el login con un token que seguía
+      // siendo válido 30 días.
+      const status = (fallo as AxiosError).response?.status
+      if (status === 401 || status === 403) {
+        clearSession()
+        // Recarga dura en vez de router.push: evita importar el router aquí y garantiza que
+        // no quede estado de una sesión muerta en memoria.
+        window.location.assign('/login')
+      }
+
       return Promise.reject(error)
     }
   },

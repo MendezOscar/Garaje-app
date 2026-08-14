@@ -271,7 +271,7 @@
         <p>Es la pantalla donde pasa todo:</p>
         <ul>
           <li><strong>Diagnóstico</strong> y <strong>pasos</strong> de la reparación, cada uno con su técnico y su precio.</li>
-          <li><strong>Repuestos</strong>: se cargan de la bodega de la sucursal y se descuentan del inventario al consumirlos.</li>
+          <li><strong>Repuestos</strong>: se cargan de la bodega de la sucursal y se descuentan del inventario al consumirlos. Los que se compraron de encargo y nunca estuvieron en bodega se cargan <strong>a mano</strong>, con su concepto y su precio: esos no tocan el inventario, así que conviene anotarles también el costo o el margen de esa orden saldrá inflado.</li>
           <li><strong>Fotos</strong> de lo que se encontró y lo que se cambió.</li>
           <li><strong>Cotizaciones</strong> de esa orden, con su estado.</li>
           <li><strong>Cerrar y facturar</strong>, cuando el trabajo terminó.</li>
@@ -323,7 +323,7 @@
         <ul>
           <li>Cambiar el <strong>estado</strong>, escribir el <strong>diagnóstico</strong> y marcar los <strong>pasos</strong>.</li>
           <li><strong>Tomar fotos</strong> con la cámara y dejarlas pegadas a la orden.</li>
-          <li><strong>Cargar repuestos</strong> de la bodega de la sucursal.</li>
+          <li><strong>Cargar repuestos</strong> de la bodega de la sucursal, o <strong>a mano</strong> los que se compraron de encargo.</li>
           <li><strong>Armar y mandar la cotización</strong> por WhatsApp <span class="badge b-grey">Dueño</span>.</li>
           <li><strong>Cerrar y facturar</strong>, con o sin CAI, y compartir el PDF <span class="badge b-grey">Dueño</span>.</li>
           <li><strong>Historial del vehículo</strong>, igual que en el panel.</li>
@@ -345,7 +345,7 @@
           <li>Abra la orden que va a trabajar y páse la a <strong>En diagnóstico</strong>.</li>
           <li>Escriba lo que encontró en el <strong>diagnóstico</strong> y <strong>tome fotos</strong> — de lo dañado antes de tocarlo, y de la pieza vieja al cambiarla. Es lo que evita discusiones después.</li>
           <li>Agregue los <strong>pasos</strong> del trabajo y márquelos conforme avanza.</li>
-          <li><strong>Cargue los repuestos</strong> que usó. Salen de la bodega de su sucursal y quedan a su nombre en el kardex.</li>
+          <li><strong>Cargue los repuestos</strong> que usó. Salen de la bodega de su sucursal y quedan a su nombre en el kardex. Si el repuesto se compró de encargo y no está en el catálogo, use <strong>«Cargar a mano»</strong> y escriba qué es y cuánto costó.</li>
           <li>Cuando termine, deje la orden en <strong>Lista para entrega</strong>. El cobro lo hace el Dueño.</li>
         </ol>
         <div class="note">Usted no ve costos, ni margen, ni reportes, ni las órdenes de otras sucursales. No es un permiso pendiente: es a propósito.</div>
@@ -428,7 +428,8 @@
           <li>La tabla le muestra el número que sigue, cuántos quedan y cuándo vence.</li>
         </ol>
         <h3>Facturar con CAI</h3>
-        <p>Al cerrar la orden, la casilla <strong>«Factura con CAI» viene apagada</strong> y se marca cuando el cliente la pide: cada factura fiscal quema un número del rango autorizado, y en un taller la mayoría de los clientes no la pide. Al marcarla se ve el número que va a consumir y se puede escribir el <strong>RTN del cliente</strong> (viene precargado de su ficha).</p>
+        <p>Al cerrar la orden, la casilla <strong>«Factura con CAI» viene apagada</strong> y se marca cuando el cliente la pide: cada factura fiscal quema un número del rango autorizado, y en un taller la mayoría de los clientes no la pide. Al marcarla se ve el número que va a consumir y aparecen dos campos, los dos precargados de la ficha del cliente: <strong>a nombre de</strong> y el <strong>RTN</strong>.</p>
+        <p>Esos dos se pueden cambiar en el momento, y el cambio queda <strong>solo en esa factura</strong>: es lo que se hace cuando el cliente trae su carro pero pide la factura a nombre de la empresa donde trabaja, que es de quien suele ser el RTN. Su ficha no se toca, porque la empresa no pasó a ser la dueña del carro. Si ese cliente siempre la pide igual, conviene guardarlo de una vez en su ficha —en <strong>Clientes</strong>, campos <em>RTN</em> y <em>A nombre de</em>— y ya sale solo en cada factura.</p>
         <p>La factura fiscal sale con CAI, rango autorizado, fecha límite, número correlativo del SAR, RTN o identidad del cliente, importe exento y gravado, ISV, el valor en letras y «Original: Cliente · Copia: Obligado tributario emisor».</p>
         <div class="note warn">
           <strong>Tres cosas que conviene saber:</strong>
@@ -466,7 +467,10 @@
         <p>Sí, el mismo enlace se puede reenviar cuantas veces haga falta. Si se venció, se hace una nueva.</p>
 
         <h3>¿Puedo trabajar sin cargar el inventario?</h3>
-        <p>Sí. Se pueden escribir líneas a mano en la cotización y en la factura. Pero mientras el repuesto no esté en el inventario, no hay existencias ni kardex de esa pieza.</p>
+        <p>Sí. Se pueden escribir líneas a mano en la orden, en la cotización y en la factura. Pero mientras el repuesto no esté en el inventario, no hay existencias ni kardex de esa pieza.</p>
+
+        <h3>El cliente quiere la factura a nombre de su empresa.</h3>
+        <p>Al marcar «Factura con CAI» en el cierre, escriba el <strong>nombre</strong> y el <strong>RTN</strong> de la empresa. Eso queda solo en esa factura: la ficha del cliente no cambia, porque el carro sigue siendo suyo. Si siempre la pide igual, guárdelo en su ficha —<strong>Clientes</strong>, campos <em>RTN</em> y <em>A nombre de</em>— y sale solo la próxima vez.</p>
 
         <h3>Un técnico no ve una orden.</h3>
         <p>Revise a qué sucursales está asignado en <strong>Usuarios</strong>. Un técnico ve solo las órdenes de sus sucursales.</p>

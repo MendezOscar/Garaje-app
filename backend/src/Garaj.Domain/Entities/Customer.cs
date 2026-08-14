@@ -20,6 +20,13 @@ public class Customer : TenantEntity
 
     /// <summary>RTN, para la factura con CAI. Solo lo tienen los clientes que la piden.</summary>
     public string? TaxId { get; set; }
+
+    /// <summary>
+    /// A nombre de quién sale la factura, cuando no es el mismo que trae el carro: el RTN
+    /// suele ser el de la empresa donde trabaja. Null significa que va a su propio nombre.
+    /// </summary>
+    public string? BillingName { get; set; }
+
     public string? Address { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;

@@ -71,7 +71,11 @@ class ApiClient {
     }));
 
     if (token == null) {
-      await onSessionExpired();
+      // Si el refresh token sigue guardado, el refresco falló por red y no porque el
+      // servidor lo rechazara: se devuelve el error de la petición y la sesión sigue en pie
+      // para el siguiente intento, en lugar de sacar al usuario.
+      if (await _tokenStore.readRefreshToken() == null) await onSessionExpired();
+
       return handler.next(error);
     }
 
@@ -102,8 +106,13 @@ class ApiClient {
         refreshToken: data['refreshToken'] as String,
       );
       return data['accessToken'] as String;
-    } on DioException {
-      await _tokenStore.clear();
+    } on DioException catch (e) {
+      // Solo se borra la sesión si el servidor rechazó el refresh token. Un timeout, un 502
+      // mientras se despliega o un taller sin señal no lo invalidan —dura 30 días—, y
+      // borrarlo mandaba al técnico al login por un problema de red pasajero.
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) await _tokenStore.clear();
+
       return null;
     }
   }

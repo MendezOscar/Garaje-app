@@ -406,20 +406,36 @@ public class WorkOrderService(
             throw new ConflictException(
                 $"La orden está {Describe(order.Status).ToLowerInvariant()}: ya no admite repuestos.");
 
-        var part = await db.Parts.FirstOrDefaultAsync(p => p.Id == request.PartId, ct)
+        if (request.WorkOrderTaskId is { } taskId)
+            await FindTaskAsync(workOrderId, taskId, ct);
+
+        var line = request.PartId is { } partId
+            ? await FromCatalogAsync(order, partId, request, scope, ct)
+            : Manual(order, request);
+
+        db.WorkOrderParts.Add(line);
+        await db.SaveChangesAsync(ct);
+
+        return (await PartsOfAsync(order.Id, ct)).First(p => p.Id == line.Id);
+    }
+
+    /// <summary>
+    /// Repuesto del catálogo: sale de la bodega de la sucursal donde está el vehículo, no de
+    /// otra. Si no alcanza, ConsumeAsync corta con 409 y la línea no llega a crearse.
+    /// </summary>
+    private async Task<WorkOrderPart> FromCatalogAsync(
+        WorkOrder order, Guid partId, AddWorkOrderPartRequest request, AccessScope scope,
+        CancellationToken ct)
+    {
+        var part = await db.Parts.FirstOrDefaultAsync(p => p.Id == partId, ct)
             ?? throw new NotFoundException("El repuesto no existe.");
 
         if (!part.IsActive)
             throw new AppException($"{part.Name} está desactivado en el catálogo.");
 
-        if (request.WorkOrderTaskId is { } taskId)
-            await FindTaskAsync(workOrderId, taskId, ct);
-
-        // Sale de la bodega de la sucursal donde está el vehículo, no de otra: si falta,
-        // ConsumeAsync corta aquí con 409 y no se crea la línea.
         await stock.ConsumeAsync(order.BranchId, part.Id, request.Quantity, order.Id, scope.UserId, ct);
 
-        var line = new WorkOrderPart
+        return new WorkOrderPart
         {
             WorkOrderId = order.Id,
             PartId = part.Id,
@@ -430,11 +446,33 @@ public class WorkOrderService(
             UnitPrice = request.UnitPrice ?? part.SalePrice,
             UnitCost = part.CostPrice
         };
+    }
 
-        db.WorkOrderParts.Add(line);
-        await db.SaveChangesAsync(ct);
+    /// <summary>
+    /// Repuesto cargado a mano. No toca el inventario: es lo que se compró de encargo para
+    /// esta orden y nunca pasó por bodega, así que no hay existencia que descontar. El precio
+    /// es obligatorio porque no hay catálogo del que sacarlo.
+    /// </summary>
+    private static WorkOrderPart Manual(WorkOrder order, AddWorkOrderPartRequest request)
+    {
+        var concepto = request.Description?.Trim();
 
-        return (await PartsOfAsync(order.Id, ct)).First(p => p.Id == line.Id);
+        if (string.IsNullOrWhiteSpace(concepto))
+            throw new AppException("Escriba qué repuesto es.");
+
+        if (request.UnitPrice is not { } precio || precio < 0)
+            throw new AppException("Un repuesto cargado a mano necesita su precio.");
+
+        return new WorkOrderPart
+        {
+            WorkOrderId = order.Id,
+            PartId = null,
+            Description = concepto,
+            WorkOrderTaskId = request.WorkOrderTaskId,
+            Quantity = request.Quantity,
+            UnitPrice = precio,
+            UnitCost = request.UnitCost is { } costo && costo >= 0 ? costo : 0
+        };
     }
 
     public async Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default)
@@ -448,9 +486,11 @@ public class WorkOrderService(
             .FirstOrDefaultAsync(p => p.Id == partLineId && p.WorkOrderId == workOrderId, ct)
             ?? throw new NotFoundException("El repuesto no está cargado en esta orden.");
 
-        await stock.ReturnAsync(
-            order.BranchId, line.PartId, line.Quantity, order.Id, scope.UserId,
-            $"Devolución de {order.Number}", ct);
+        // Solo se devuelve a bodega lo que salió de ella: una línea manual nunca descontó nada.
+        if (line.PartId is { } partId)
+            await stock.ReturnAsync(
+                order.BranchId, partId, line.Quantity, order.Id, scope.UserId,
+                $"Devolución de {order.Number}", ct);
 
         db.WorkOrderParts.Remove(line);
         await db.SaveChangesAsync(ct);
@@ -464,9 +504,9 @@ public class WorkOrderService(
             .Select(p => new WorkOrderPartDto(
                 p.Id,
                 p.PartId,
-                p.Part.Sku,
-                p.Part.Name,
-                p.Part.Unit,
+                p.Part != null ? p.Part.Sku : "",
+                p.Part != null ? p.Part.Name : p.Description!,
+                p.Part != null ? p.Part.Unit : "unidad",
                 p.Quantity,
                 p.UnitPrice,
                 p.UnitCost,

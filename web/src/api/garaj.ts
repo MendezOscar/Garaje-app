@@ -96,6 +96,8 @@ export const customersApi = {
     documentId?: string
     /** RTN, solo en los clientes que piden factura con CAI. */
     taxId?: string
+    /** A nombre de quién sale su factura, si no es a su propio nombre. */
+    billingName?: string
     address?: string
     notes?: string
   }) {
@@ -108,6 +110,7 @@ export const customersApi = {
     email?: string | null
     documentId?: string | null
     taxId?: string | null
+    billingName?: string | null
     address?: string | null
     notes?: string | null
     isActive?: boolean
@@ -265,9 +268,20 @@ export const workOrdersApi = {
   async deleteTask(id: string, taskId: string) {
     await api.delete(`/api/work-orders/${id}/tasks/${taskId}`)
   },
+  /**
+   * Con `partId` sale del catálogo y descuenta de la bodega. Sin él se carga a mano —hacen
+   * falta `description` y `unitPrice`— y no toca el inventario.
+   */
   async addPart(
     id: string,
-    body: { partId: string; quantity: number; unitPrice?: number; workOrderTaskId?: string },
+    body: {
+      partId?: string
+      description?: string
+      quantity: number
+      unitPrice?: number
+      unitCost?: number
+      workOrderTaskId?: string
+    },
   ) {
     const { data } = await api.post<WorkOrderPart>(`/api/work-orders/${id}/parts`, body)
     return data
@@ -583,6 +597,8 @@ export const salesApi = {
     fiscal?: boolean
     /** RTN para esta factura. Vacío = el de la ficha del cliente. */
     customerTaxId?: string
+    /** A nombre de quién sale. Vacío = el de la ficha, o el nombre del cliente. */
+    customerName?: string
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
     return data
