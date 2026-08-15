@@ -548,13 +548,26 @@ class _Header extends StatelessWidget {
 
 /// Las demás órdenes del mismo vehículo, entregadas incluidas. Responde la pregunta del
 /// mostrador cuando el cliente vuelve a los dos meses: qué se le hizo y cuándo.
-class _VehicleHistorySection extends ConsumerWidget {
+/// Las visitas anteriores del vehículo, plegadas.
+///
+/// Un vehículo con años de taller trae veinte, y desplegadas empujan la línea de tiempo fuera
+/// de la pantalla. Cerrado ya contesta lo que casi siempre se pregunta —cuántas veces vino y
+/// cuándo la última—, así que abrirlo es para leer el detalle, no para enterarse.
+class _VehicleHistorySection extends ConsumerStatefulWidget {
   const _VehicleHistorySection({required this.order});
 
   final WorkOrderDetail order;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_VehicleHistorySection> createState() => _VehicleHistorySectionState();
+}
+
+class _VehicleHistorySectionState extends ConsumerState<_VehicleHistorySection> {
+  bool _abierto = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final order = widget.order;
     final history = ref.watch(vehicleHistoryProvider(order.vehicleId));
     final theme = Theme.of(context);
 
@@ -567,26 +580,46 @@ class _VehicleHistorySection extends ConsumerWidget {
           title: 'Historial del vehículo',
           child: Column(
             children: [
-              for (final previa in otras)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  title: Row(
+              InkWell(
+                onTap: () => setState(() => _abierto = !_abierto),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
                     children: [
-                      Text(previa.number, style: theme.textTheme.titleSmall),
-                      const SizedBox(width: 8),
-                      StatusChip(status: previa.status),
+                      Expanded(
+                        child: Text(
+                          '${otras.length} '
+                          '${otras.length == 1 ? 'visita antes' : 'visitas antes'}, '
+                          'la última el ${_fecha(otras.first.openedAt)}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      Icon(_abierto ? Icons.expand_less : Icons.expand_more),
                     ],
                   ),
-                  subtitle: Text(
-                    '${_fecha(previa.openedAt)} · ${previa.description}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  // `push` y no `go`: se vuelve a esta orden con la flecha de atrás.
-                  onTap: () => context.push('/ordenes/${previa.id}'),
                 ),
+              ),
+              if (_abierto)
+                for (final previa in otras)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    title: Row(
+                      children: [
+                        Text(previa.number, style: theme.textTheme.titleSmall),
+                        const SizedBox(width: 8),
+                        StatusChip(status: previa.status),
+                      ],
+                    ),
+                    subtitle: Text(
+                      '${_fecha(previa.openedAt)} · ${previa.description}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    // `push` y no `go`: se vuelve a esta orden con la flecha de atrás.
+                    onTap: () => context.push('/ordenes/${previa.id}'),
+                  ),
             ],
           ),
         );
