@@ -83,6 +83,7 @@ public static class DependencyInjection
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IWorkOrderService, WorkOrderService>();
+        services.AddScoped<IJobTemplateService, JobTemplateService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
         services.AddScoped<IPartService, PartService>();
         services.AddScoped<ILaborServiceCatalog, LaborServiceCatalog>();

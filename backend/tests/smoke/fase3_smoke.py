@@ -333,6 +333,126 @@ check("la devolución entra como movimiento, no borra el histórico",
 status, detail = api("GET", f"/api/work-orders/{order_id}", token=tech1)
 check("y desaparece del detalle", not any(p["id"] == line["id"] for p in detail["parts"]))
 
+print("\n[trabajos frecuentes]")
+
+# Se le pone un paso a la orden para que haya algo que guardar como plantilla.
+_, services = api("GET", "/api/labor-services", token=owner)
+service_id = services[0]["id"]
+
+api("POST", f"/api/work-orders/{order_id}/tasks",
+    {"title": "Revisión de humo", "laborServiceId": service_id}, owner)
+_, semilla = api("POST", f"/api/work-orders/{order_id}/parts",
+                 {"partId": part_id, "quantity": 2}, owner)
+
+nombre = "Trabajo de humo"
+status, plantilla = api("POST", "/api/job-templates/from-work-order",
+                        {"workOrderId": order_id, "name": nombre}, owner)
+
+if status == 409:
+    # Quedó de una corrida anterior: se reutiliza en vez de fallar.
+    _, existentes = api("GET", "/api/job-templates?includeInactive=true", token=owner)
+    plantilla = next(t for t in existentes if t["name"] == nombre)
+    status = 201
+
+check("una orden ya armada se guarda como trabajo frecuente", status in (200, 201),
+      f"{status} {plantilla}")
+check("y se lleva los pasos y los repuestos que tenía",
+      len(plantilla["tasks"]) >= 1 and len(plantilla["parts"]) >= 1,
+      f"{len(plantilla['tasks'])} pasos, {len(plantilla['parts'])} repuestos")
+
+template_id = plantilla["id"]
+
+# El repuesto ya cumplió su papel —quedar dentro de la plantilla—: se devuelve a la bodega para
+# medir sobre limpio que aplicarla no mueve el inventario.
+if isinstance(semilla, dict) and "id" in semilla:
+    api("DELETE", f"/api/work-orders/{order_id}/parts/{semilla['id']}", token=owner)
+
+status, dup = api("POST", "/api/job-templates",
+                  {"name": nombre, "isActive": True,
+                   "tasks": [{"title": "X"}], "parts": []}, owner)
+check("el nombre repetido se rechaza", status == 409, f"{status} {dup}")
+
+# Editarla reemplaza pasos y repuestos enteros, no los duplica ni deja huérfanos.
+status, editada = api("PUT", f"/api/job-templates/{template_id}",
+                      {"name": nombre, "description": "Editado por el humo", "isActive": True,
+                       "tasks": [{"title": "Único paso", "laborServiceId": service_id}],
+                       "parts": [{"partId": part_id, "quantity": 3}]}, owner)
+check("editarla responde 200", status == 200, f"{status} {editada}")
+check("y reemplaza los pasos enteros, no los suma",
+      len(editada["tasks"]) == 1 and len(editada["parts"]) == 1,
+      f"{len(editada['tasks'])} pasos, {len(editada['parts'])} repuestos")
+
+status, releida = api("GET", f"/api/job-templates/{template_id}", token=owner)
+check("y al releerla siguen siendo esos, no los viejos",
+      len(releida["tasks"]) == 1 and releida["parts"][0]["quantity"] == 3,
+      f"{len(releida['tasks'])} pasos, {releida['parts'][0]['quantity']}")
+
+plantilla = releida
+
+status, denied = api("POST", "/api/job-templates",
+                     {"name": "Del técnico", "isActive": True,
+                      "tasks": [{"title": "X"}], "parts": []}, tech1)
+check("el técnico no administra los trabajos frecuentes", status == 403, str(status))
+
+status, listado = api("GET", "/api/job-templates", token=tech1)
+check("pero sí los lista, que es lo que aplica en el patio", status == 200, str(status))
+
+status, denied = api("GET", "/api/job-templates", token=customer)
+check("el cliente no los ve", status == 403, str(status))
+
+# La prueba que importa: aplicar no puede mover el inventario.
+antes = stock_of(owner, matriz["id"], part_id)["quantity"]
+_, previo = api("GET", f"/api/work-orders/{order_id}", token=owner)
+pasos_previos = len(previo["tasks"])
+
+status, aplicado = api("POST", f"/api/work-orders/{order_id}/apply-template",
+                       {"templateId": template_id}, tech1)
+check("el técnico aplica el trabajo frecuente", status == 200, f"{status} {aplicado}")
+
+_, despues = api("GET", f"/api/work-orders/{order_id}", token=owner)
+check("los pasos se anexan a los que ya había, no los reemplazan",
+      len(despues["tasks"]) == pasos_previos + len(plantilla["tasks"]),
+      f"{pasos_previos} → {len(despues['tasks'])}")
+
+check("aplicarlo NO mueve el inventario: los repuestos se proponen, no se cargan",
+      stock_of(owner, matriz["id"], part_id)["quantity"] == antes,
+      f"{antes} → {stock_of(owner, matriz['id'], part_id)['quantity']}")
+check("y vienen con la existencia de esa bodega, para ver que no hay antes de intentarlo",
+      any(p["partId"] == part_id and p["available"] == antes
+          for p in aplicado["suggestedParts"]),
+      str(aplicado["suggestedParts"]))
+
+# Cargar uno propuesto sí descuenta: es el camino normal, el de siempre.
+sugerido = next(p for p in aplicado["suggestedParts"] if p["partId"] == part_id)
+status, cargado = api("POST", f"/api/work-orders/{order_id}/parts",
+                      {"partId": sugerido["partId"], "quantity": sugerido["quantity"]}, tech1)
+check("cargar un repuesto propuesto sí descuenta la bodega",
+      status == 200 and stock_of(owner, matriz["id"], part_id)["quantity"]
+      == antes - sugerido["quantity"],
+      f"{antes} → {stock_of(owner, matriz['id'], part_id)['quantity']}")
+api("DELETE", f"/api/work-orders/{order_id}/parts/{cargado['id']}", token=tech1)
+
+# El precio no vive en la plantilla: sale del catálogo cada vez que se pregunta.
+_, refrescada = api("GET", f"/api/job-templates/{template_id}", token=owner)
+esperado = sum(p["quantity"] for p in refrescada["parts"] if p["partId"] == part_id) * 1650
+check("el precio del trabajo sale del catálogo, no de lo que se guardó",
+      any(abs(p["unitPrice"] - 1650) < 0.01 for p in refrescada["parts"] if p["partId"] == part_id)
+      and refrescada["partsTotal"] >= esperado,
+      f"{refrescada['partsTotal']} vs {esperado}")
+check("y se cuenta cuántas veces se ha usado, para poner arriba lo que más se repite",
+      refrescada["usageCount"] >= 1, str(refrescada["usageCount"]))
+
+status, _ = api("DELETE", f"/api/job-templates/{template_id}", token=owner)
+check("darlo de baja responde 204", status == 204, str(status))
+
+status, listado = api("GET", "/api/job-templates", token=owner)
+check("y deja de aparecer al armar una orden",
+      not any(t["id"] == template_id for t in listado), str(len(listado)))
+
+status, baja = api("POST", f"/api/work-orders/{order_id}/apply-template",
+                   {"templateId": template_id}, owner)
+check("aplicar uno dado de baja se rechaza", status == 409, f"{status} {baja}")
+
 print(f"\n{ok} comprobaciones correctas, {len(failed)} fallidas")
 if failed:
     for name in failed:

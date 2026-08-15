@@ -52,6 +52,24 @@ Excluyentes a propósito: con precios por paso *y* un total global habría dos m
 lo mismo, y nadie sabría cuál mira la factura. Cambiar de modo no borra lo registrado en el
 otro —el total sobrevive a ir y volver—, simplemente se deja de mirar.
 
+## Trabajos frecuentes
+
+`JobTemplate` —con `JobTemplateTask` y `JobTemplatePart`— es lo que el taller repite, guardado
+para no volver a teclearlo. Es del **tenant**, como `Part` y `LaborService`: el trabajo se hace
+igual en las dos sucursales, y lo que cambia entre ellas —las existencias— no vive aquí.
+
+**No guarda precios, guarda referencias.** El importe lo resuelven `LaborService.PriceFor` y
+`Part.SalePrice` al consultarla, para que subir mañana el precio de un repuesto no deje veinte
+plantillas mintiendo.
+
+**Aplicarla no toca el inventario.** Un `WorkOrderPart` del catálogo genera su `StockMovement` de
+salida al crearse, y al aplicar la plantilla el trabajo apenas empieza: los repuestos vuelven
+como sugerencia y se cargan uno a uno cuando de verdad se instalan. `StockMovement` sigue
+contando solo lo que salió del estante.
+
+`UsageCount` existe para ordenar la lista por lo más usado —en orden alfabético, treinta
+plantillas son inservibles— y por eso una plantilla se da de baja en vez de borrarse.
+
 ## Usuarios y acceso
 
 `AppUser` no lleva el filtro global de tenant —el login tiene que encontrar al usuario por

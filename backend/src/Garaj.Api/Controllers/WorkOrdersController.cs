@@ -11,7 +11,8 @@ namespace Garaj.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/work-orders")]
-public class WorkOrdersController(IWorkOrderService service) : ControllerBase
+public class WorkOrdersController(
+    IWorkOrderService service, IJobTemplateService jobTemplates) : ControllerBase
 {
     /// <summary>
     /// Alimenta el kanban del Dueño y la bandeja del Técnico. El alcance lo resuelve el
@@ -73,6 +74,17 @@ public class WorkOrdersController(IWorkOrderService service) : ControllerBase
     public async Task<ActionResult<WorkOrderTaskDto>> AddTask(
         Guid id, SaveWorkOrderTaskRequest request, CancellationToken ct)
         => Ok(await service.AddTaskAsync(id, request, ct));
+
+    /// <summary>
+    /// Anexa a la orden los pasos de un trabajo frecuente y devuelve sus repuestos como
+    /// sugerencia —cargarlos descontaría bodega, y al aplicar la plantilla el trabajo todavía
+    /// no se ha hecho—. Se anexa, no se reemplaza: un trabajo real es «aceite y frenos».
+    /// </summary>
+    [HttpPost("{id:guid}/apply-template")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<ApplyJobTemplateResultDto>> ApplyTemplate(
+        Guid id, ApplyJobTemplateRequest request, CancellationToken ct)
+        => Ok(await jobTemplates.ApplyToWorkOrderAsync(id, request, ct));
 
     [HttpPut("{id:guid}/tasks/{taskId:guid}")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]

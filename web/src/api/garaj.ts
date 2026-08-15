@@ -1,10 +1,12 @@
 import axios from 'axios'
 import { api, download } from './client'
 import type {
+  ApplyJobTemplateResult,
   Branch,
   CashClose,
   Customer,
   FiscalRange,
+  JobTemplate,
   LaborService,
   MediaAttachment,
   MediaOwnerType,
@@ -274,6 +276,17 @@ export const workOrdersApi = {
     await api.delete(`/api/work-orders/${id}/tasks/${taskId}`)
   },
   /**
+   * Anexa los pasos de un trabajo frecuente y devuelve sus repuestos como sugerencia: hay que
+   * cargarlos uno a uno con `addPart`, que es lo que descuenta la bodega.
+   */
+  async applyTemplate(id: string, templateId: string) {
+    const { data } = await api.post<ApplyJobTemplateResult>(
+      `/api/work-orders/${id}/apply-template`,
+      { templateId },
+    )
+    return data
+  },
+  /**
    * Con `partId` sale del catálogo y descuenta de la bodega. Sin él se carga a mano —hacen
    * falta `description` y `unitPrice`— y no toca el inventario.
    */
@@ -494,6 +507,52 @@ export const laborServicesApi = {
     const { data } = await api.put<LaborService>(`/api/labor-services/${id}`, body)
     return data
   },
+}
+
+/**
+ * Trabajos frecuentes. Listarlos lo puede hacer el Técnico —es quien los aplica en el patio—;
+ * crearlos y darlos de baja es del Dueño, como el resto del catálogo.
+ */
+export const jobTemplatesApi = {
+  async list(includeInactive = false): Promise<JobTemplate[]> {
+    const { data } = await api.get<JobTemplate[]>('/api/job-templates', {
+      params: { includeInactive },
+    })
+    return data
+  },
+  async create(body: SaveJobTemplate) {
+    const { data } = await api.post<JobTemplate>('/api/job-templates', body)
+    return data
+  },
+  async update(id: string, body: SaveJobTemplate) {
+    const { data } = await api.put<JobTemplate>(`/api/job-templates/${id}`, body)
+    return data
+  },
+  /** Guarda una orden ya hecha como trabajo frecuente, con sus pasos y sus repuestos. */
+  async createFromWorkOrder(body: {
+    workOrderId: string
+    name: string
+    description?: string | null
+  }) {
+    const { data } = await api.post<JobTemplate>('/api/job-templates/from-work-order', body)
+    return data
+  },
+  async deactivate(id: string) {
+    await api.delete(`/api/job-templates/${id}`)
+  },
+}
+
+export interface SaveJobTemplate {
+  name: string
+  description?: string | null
+  isActive: boolean
+  tasks: {
+    title: string
+    description?: string | null
+    laborServiceId?: string | null
+    estimatedHours?: number | null
+  }[]
+  parts: { partId?: string | null; description?: string | null; quantity: number }[]
 }
 
 export const quotesApi = {

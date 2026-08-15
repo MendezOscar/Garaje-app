@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/inventory_repository.dart';
+import '../../core/api/job_template_repository.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/api/work_order_repository.dart';
@@ -157,6 +159,55 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         .addTask(widget.id, title, laborServiceId: catalogLabor ? serviceId : null));
   }
 
+  /// Arma la orden con un trabajo frecuente: anexa sus pasos y propone sus repuestos.
+  ///
+  /// Los repuestos no se cargan solos: cargarlos descuenta la bodega, y aquí el trabajo apenas
+  /// empieza. Se ofrecen en una hoja para irlos cargando conforme se instalan.
+  Future<void> _applyTemplate() async {
+    final templates = ref.read(jobTemplatesProvider).value ?? const <JobTemplate>[];
+    if (templates.isEmpty) return;
+
+    final choice = await showModalBottomSheet<JobTemplate>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final t in templates)
+              ListTile(
+                title: Text(t.name),
+                subtitle: Text(
+                  '${t.taskCount} paso${t.taskCount == 1 ? '' : 's'} · '
+                  '${t.partCount} repuesto${t.partCount == 1 ? '' : 's'}',
+                ),
+                trailing: Text(_money(t.total)),
+                onTap: () => Navigator.pop(context, t),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == null) return;
+
+    ApplyTemplateResult? result;
+    await _run(() async {
+      result = await ref.read(jobTemplateRepositoryProvider).apply(widget.id, choice.id);
+    });
+
+    final sugeridos = result?.suggestedParts ?? const <SuggestedPart>[];
+    if (!mounted || sugeridos.isEmpty) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => _SuggestedPartsSheet(workOrderId: widget.id, parts: sugeridos),
+    );
+
+    if (mounted) ref.invalidate(workOrderDetailProvider(widget.id));
+  }
+
   /// Cambia el servicio del catálogo que le pone precio a un paso.
   Future<void> _changeTaskLabor(WorkOrderTask task) async {
     final services = ref.read(laborServicesProvider).value ?? const <LaborServiceOption>[];
@@ -248,6 +299,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     // El catálogo de mano de obra se pide desde que se abre la orden: cuando el técnico va a
     // agregar un paso ya está en memoria. Al Cliente no se le pide: el backend se lo niega.
     if (_canEdit) ref.watch(laborServicesProvider);
+    if (_canEdit) ref.watch(jobTemplatesProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(detail.asData?.value.number ?? 'Orden')),
@@ -317,6 +369,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                       );
                 }),
                 isOwner: _isOwner,
+                hasTemplates: (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
+                onApplyTemplate: _applyTemplate,
                 onAdd: () => _addTask(order.isCatalogLabor),
                 onChangeMode: (mode) => _changeLaborMode(order, mode),
                 onEditTotal: () async {
@@ -711,12 +765,16 @@ class _TasksSection extends StatelessWidget {
     required this.onChangeLabor,
     required this.onChangeMode,
     required this.onEditTotal,
+    required this.hasTemplates,
+    required this.onApplyTemplate,
   });
 
   final WorkOrderDetail order;
   final bool canEdit;
   final bool isOwner;
   final bool busy;
+  final bool hasTemplates;
+  final VoidCallback onApplyTemplate;
   final void Function(WorkOrderTask task, bool value) onToggle;
   final VoidCallback onAdd;
   final void Function(WorkOrderTask task) onChangeLabor;
@@ -746,6 +804,17 @@ class _TasksSection extends StatelessWidget {
                 selected: {order.laborMode},
                 showSelectedIcon: false,
                 onSelectionChanged: busy ? null : (s) => onChangeMode(s.first),
+              ),
+            ),
+          // Antes de la lista: en una orden vacía, armarla de un toque es lo que hay que
+          // ofrecer antes de que nadie empiece a teclear de pie y con las manos sucias.
+          if (canEdit && hasTemplates)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: busy ? null : onApplyTemplate,
+                icon: const Icon(Icons.bolt_outlined, size: 18),
+                label: const Text('Aplicar trabajo frecuente'),
               ),
             ),
           if (order.tasks.isEmpty)
@@ -824,6 +893,94 @@ class _TasksSection extends StatelessWidget {
     );
   }
 }
+
+/// Los repuestos que el trabajo lleva, para irlos cargando conforme se instalan.
+///
+/// Se carga uno a uno y no todos de golpe: cada carga descuenta la bodega, y si de uno no hay
+/// existencia debe fallar solo esa línea —no el resto, y desde luego no los pasos, que ya
+/// quedaron puestos—.
+class _SuggestedPartsSheet extends ConsumerStatefulWidget {
+  const _SuggestedPartsSheet({required this.workOrderId, required this.parts});
+
+  final String workOrderId;
+  final List<SuggestedPart> parts;
+
+  @override
+  ConsumerState<_SuggestedPartsSheet> createState() => _SuggestedPartsSheetState();
+}
+
+class _SuggestedPartsSheetState extends ConsumerState<_SuggestedPartsSheet> {
+  final _cargados = <int>{};
+  int? _cargando;
+
+  Future<void> _cargar(int i, SuggestedPart part) async {
+    setState(() => _cargando = i);
+    try {
+      await ref.read(inventoryRepositoryProvider).addPart(
+            widget.workOrderId,
+            partId: part.partId!,
+            quantity: part.quantity,
+          );
+      if (mounted) setState(() => _cargados.add(i));
+    } catch (e) {
+      if (mounted) {
+        // El 409 de existencia insuficiente dice cuánto queda: se muestra tal cual.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo cargar el repuesto.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cargando = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          Text('Repuestos de este trabajo', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'Cárguelos al usarlos, no ahora: al cargarlos salen de la bodega.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          for (final (i, part) in widget.parts.indexed)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text('${_cantidad(part.quantity)} ${part.unit} · ${part.partName}'),
+              subtitle: part.partId == null
+                  ? const Text('Fuera del catálogo: se carga aparte, con su precio')
+                  : part.isShort
+                      ? Text(
+                          'Quedan ${_cantidad(part.available)}',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        )
+                      : null,
+              trailing: part.partId == null
+                  ? null
+                  : _cargados.contains(i)
+                      ? Icon(Icons.check, color: theme.colorScheme.primary)
+                      : TextButton(
+                          onPressed: _cargando != null ? null : () => _cargar(i, part),
+                          child: const Text('Cargar'),
+                        ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Sin decimales cuando no hacen falta: «2 unidad» se lee mejor que «2.00 unidad».
+String _cantidad(double value) =>
+    value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
 
 String _money(double value) => 'L ${value.toStringAsFixed(2)}';
 

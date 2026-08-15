@@ -557,6 +557,48 @@ Decisiones que conviene conocer:
 - **La página pública es del web** (`/o/{token}`), como `/q/{token}` y `/c/{token}`. Sale de
   `PublicBaseUrl`.
 
+### Trabajos frecuentes
+
+Lo que el taller repite —el cambio de aceite, las pastillas de adelante— guardado con sus pasos
+y sus repuestos, para armar la orden de un toque en vez de teclearla. Hasta ahora no existía
+ninguna plantilla: cada orden se escribía paso por paso, costara lo mismo el trabajo de todos
+los días que el irrepetible.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/job-templates?includeInactive=` | Owner o Técnico | La lista, el más usado primero |
+| GET | `/api/job-templates/{id}` | Owner o Técnico | Uno, con sus pasos y repuestos |
+| POST | `/api/job-templates` | Owner | Alta a mano |
+| POST | `/api/job-templates/from-work-order` | Owner | **Guarda una orden ya hecha como plantilla** |
+| PUT | `/api/job-templates/{id}` | Owner | Reemplaza la plantilla entera |
+| DELETE | `/api/job-templates/{id}` | Owner | La da de baja (no la borra) |
+| POST | `/api/work-orders/{id}/apply-template` | Owner o Técnico | Anexa los pasos y propone los repuestos |
+
+Decisiones que conviene conocer:
+
+- **El camino principal es `from-work-order`.** Los pasos, sus `LaborServiceId`, sus horas y los
+  `PartId` ya están ahí y ya están bien porque salieron de un trabajo real que se cobró; teclear
+  una plantilla desde cero es el camino secundario, para corregir. Los repuestos repetidos se
+  agrupan: si se pidió más a media reparación, la plantilla dice cuántos lleva el trabajo, no
+  repite el renglón.
+- **La plantilla no guarda precios, guarda referencias.** El importe sale de `Part.SalePrice` y
+  `LaborService.PriceFor` en cada consulta, así que subir mañana el precio de un repuesto no deja
+  veinte plantillas mintiendo. Los totales del DTO son «a precios de hoy».
+- **Aplicarla no mueve el inventario.** Cargar un repuesto del catálogo descuenta la bodega en
+  ese momento, y al aplicar la plantilla el trabajo todavía no se ha hecho: se consumirían piezas
+  que siguen en el estante, y una sola sin existencia haría fallar la aplicación entera dejando
+  al técnico sin sus pasos por culpa de un empaque. Por eso vuelven en `suggestedParts`, con la
+  existencia de esa sucursal en `available`, y se cargan uno a uno con `POST {id}/parts`.
+  Los que están fuera del catálogo no traen precio —la plantilla no lo guarda— y hay que
+  cargarlos a mano.
+- **Se anexa, no se reemplaza.** Un trabajo real es «aceite *y* frenos»: dos plantillas seguidas
+  suman pasos y la secuencia queda continua.
+- **Aplicar es del Técnico también** —es quien arma el trabajo, como en `tasks` y `parts`—;
+  administrarlas es del Dueño, como el resto del catálogo. Al Cliente se le niegan las dos cosas.
+- **No se borran, se dan de baja**: `UsageCount` es histórico y hay órdenes que se armaron con
+  ellas. Aplicar una dada de baja responde 409.
+- Son del **tenant**, no de la sucursal: el trabajo se hace igual en las dos.
+
 ### Datos de demostración
 
 | Método | Ruta | Auth | Qué hace |
