@@ -1035,19 +1035,34 @@ onMounted(async () => {
           </div>
         </article>
 
+        <!-- Plegado: un vehículo con años de taller trae veinte visitas y empujaba la línea de
+             tiempo fuera de la pantalla. El resumen contesta cerrado lo que casi siempre se
+             pregunta —cuántas veces vino y cuándo la última—, así que abrirlo es para leer el
+             detalle, no para enterarse. Sin `open` enlazado a propósito: lo maneja el navegador
+             y así no se cierra solo cada vez que la orden se recarga. -->
         <article v-if="historial.length" class="card">
-          <h2>Historial del vehículo</h2>
-          <ul class="historial">
-            <li v-for="previa in historial" :key="previa.id">
-              <RouterLink :to="{ name: 'work-order', params: { id: previa.id } }">
-                {{ previa.number }}
-              </RouterLink>
-              <span class="badge">{{ WORK_ORDER_STATUS_LABEL[previa.status] }}</span>
-              <div class="muted small">
-                {{ formatDate(previa.openedAt) }} · {{ previa.description }}
-              </div>
-            </li>
-          </ul>
+          <details class="historial-plegable">
+            <summary>
+              <h2>Historial del vehículo</h2>
+              <span class="muted small">
+                {{ historial.length }}
+                {{ historial.length === 1 ? 'visita antes' : 'visitas antes' }}, la última el
+                {{ formatDate(historial[0].openedAt) }}
+              </span>
+            </summary>
+
+            <ul class="historial">
+              <li v-for="previa in historial" :key="previa.id">
+                <RouterLink :to="{ name: 'work-order', params: { id: previa.id } }">
+                  {{ previa.number }}
+                </RouterLink>
+                <span class="badge">{{ WORK_ORDER_STATUS_LABEL[previa.status] }}</span>
+                <div class="muted small">
+                  {{ formatDate(previa.openedAt) }} · {{ previa.description }}
+                </div>
+              </li>
+            </ul>
+          </details>
         </article>
 
         <article class="card">
@@ -1503,6 +1518,41 @@ dd {
 .fiscal {
   margin: 0 0 0.25rem;
   font-size: 0.875rem;
+}
+
+.historial-plegable summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.125rem 0.5rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+/* El título no se parte a media frase: si no cabe con el resumen al lado, el resumen baja. */
+.historial-plegable summary h2 {
+  white-space: nowrap;
+}
+
+/* Safari sigue pintando su propio triángulo si no se le quita también por aquí. */
+.historial-plegable summary::-webkit-details-marker {
+  display: none;
+}
+
+/* El triángulo va al final y gira al abrir, para que se vea que hay algo debajo. */
+.historial-plegable summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.historial-plegable[open] summary::after {
+  content: '▴';
+}
+
+.historial-plegable[open] summary {
+  margin-bottom: 0.75rem;
 }
 
 .historial {
