@@ -29,6 +29,11 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
 
     public DbSet<MediaAttachment> MediaAttachments => Set<MediaAttachment>();
 
+    /// <summary>Trabajos frecuentes: los pasos y repuestos de lo que el taller repite.</summary>
+    public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();
+    public DbSet<JobTemplateTask> JobTemplateTasks => Set<JobTemplateTask>();
+    public DbSet<JobTemplatePart> JobTemplateParts => Set<JobTemplatePart>();
+
     public DbSet<Part> Parts => Set<Part>();
     public DbSet<StockItem> StockItems => Set<StockItem>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();

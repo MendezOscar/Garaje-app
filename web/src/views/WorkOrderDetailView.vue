@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import {
   customersApi,
+  jobTemplatesApi,
   laborServicesApi,
   quotesApi,
   salesApi,
@@ -25,8 +26,10 @@ import {
   VEHICLE_TYPE_LABEL,
   WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
+  type JobTemplate,
   type LaborService,
   type OrderMessageKind,
+  type SuggestedPart,
   type QuoteDetail,
   type SaleDetail,
   type User,
@@ -69,6 +72,19 @@ const newService = ref({ code: '', name: '', isFixedPrice: true, fixedPrice: 0, 
 
 /** Catálogo de mano de obra: es lo que le pone precio a cada paso. */
 const laborServices = ref<LaborService[]>([])
+
+/**
+ * Trabajos frecuentes. Aplicar uno anexa sus pasos y deja sus repuestos en
+ * `repuestosSugeridos` para cargarlos uno a uno: cargar un repuesto descuenta la bodega, y al
+ * aplicar la plantilla el trabajo todavía no se ha hecho.
+ */
+const jobTemplates = ref<JobTemplate[]>([])
+const plantillaElegida = ref('')
+const repuestosSugeridos = ref<SuggestedPart[]>([])
+
+/** Guardar esta orden como trabajo frecuente, para no volver a teclearla. */
+const guardandoPlantilla = ref(false)
+const nombrePlantilla = ref('')
 
 /** Cotizaciones de esta orden, con sus líneas: de ahí sale la mano de obra a facturar. */
 const quotes = ref<QuoteDetail[]>([])
@@ -311,6 +327,43 @@ function addTask() {
   })
 }
 
+/**
+ * Anexa los pasos del trabajo frecuente. Los repuestos quedan propuestos abajo, no cargados:
+ * cargarlos descuenta la bodega, y aquí el trabajo apenas empieza.
+ */
+function aplicarPlantilla() {
+  if (!plantillaElegida.value) return
+
+  return run(async () => {
+    const resultado = await workOrdersApi.applyTemplate(id.value, plantillaElegida.value)
+    repuestosSugeridos.value = resultado.suggestedParts
+    plantillaElegida.value = ''
+  })
+}
+
+/** Carga un repuesto propuesto del catálogo. Si no hay existencia, falla solo esa línea. */
+function cargarSugerido(part: SuggestedPart, i: number) {
+  if (!part.partId) return
+
+  return run(async () => {
+    await workOrdersApi.addPart(id.value, { partId: part.partId!, quantity: part.quantity })
+    repuestosSugeridos.value.splice(i, 1)
+  })
+}
+
+/** Guarda esta orden como trabajo frecuente, con sus pasos y sus repuestos. */
+function guardarComoPlantilla() {
+  const name = nombrePlantilla.value.trim()
+  if (!name) return
+
+  return run(async () => {
+    await jobTemplatesApi.createFromWorkOrder({ workOrderId: id.value, name })
+    jobTemplates.value = await jobTemplatesApi.list().catch(() => [])
+    nombrePlantilla.value = ''
+    guardandoPlantilla.value = false
+  })
+}
+
 /** Le pone (o le quita) el servicio del catálogo que da precio al paso. */
 function setTaskLabor(task: WorkOrderDetail['tasks'][number], laborServiceId: string) {
   return run(() =>
@@ -439,6 +492,7 @@ const availableTechnicians = computed(() =>
 onMounted(async () => {
   if (auth.isOwner) technicians.value = await usersApi.list('Technician').catch(() => [])
   if (canEdit.value) laborServices.value = await laborServicesApi.list().catch(() => [])
+  if (canEdit.value) jobTemplates.value = await jobTemplatesApi.list().catch(() => [])
   await load()
 })
 </script>
@@ -526,6 +580,49 @@ onMounted(async () => {
 
         <article class="card">
           <h2>Pasos de la reparación</h2>
+
+          <!-- Lo primero de la tarjeta a propósito: en una orden vacía, armarla de un toque es
+               justo lo que hay que ofrecer antes de que alguien empiece a teclear. -->
+          <div v-if="canEdit && jobTemplates.length" class="plantillas">
+            <select v-model="plantillaElegida" :disabled="busy">
+              <option value="">Aplicar un trabajo frecuente…</option>
+              <option v-for="t in jobTemplates" :key="t.id" :value="t.id">
+                {{ t.name }} · {{ formatMoney(t.total) }}
+              </option>
+            </select>
+            <button type="button" :disabled="busy || !plantillaElegida" @click="aplicarPlantilla">
+              Aplicar
+            </button>
+          </div>
+
+          <div v-if="repuestosSugeridos.length" class="sugeridos">
+            <p class="muted small">
+              Ese trabajo lleva estos repuestos. Se cargan al usarlos, no ahora: cargarlos
+              descuenta la bodega.
+            </p>
+            <ul>
+              <li v-for="(p, i) in repuestosSugeridos" :key="i">
+                <span>
+                  {{ p.quantity }} {{ p.unit }} · {{ p.partName }}
+                  <em v-if="p.partId && p.available < p.quantity" class="sin-existencia">
+                    quedan {{ p.available }}
+                  </em>
+                </span>
+                <button
+                  v-if="p.partId"
+                  type="button"
+                  class="link"
+                  :disabled="busy"
+                  @click="cargarSugerido(p, i)"
+                >
+                  Cargar
+                </button>
+                <!-- Fuera del catálogo no hay precio que copiar —la plantilla guarda a qué
+                     apunta, no cuánto cuesta—, así que se carga a mano abajo, con su precio. -->
+                <em v-else class="muted small">se compra aparte</em>
+              </li>
+            </ul>
+          </div>
 
           <fieldset v-if="auth.isOwner" class="labor-mode">
             <legend>Cómo se cobra la mano de obra</legend>
@@ -685,6 +782,27 @@ onMounted(async () => {
           <p v-if="canEdit" class="labor-total">
             Mano de obra <strong>{{ formatMoney(order.laborTotal) }}</strong>
           </p>
+
+          <!-- El camino bueno para crear un trabajo frecuente: desde una orden ya armada, donde
+               los pasos y los repuestos ya están y ya están bien. -->
+          <template v-if="auth.isOwner && (order.tasks.length || order.parts.length)">
+            <button
+              v-if="!guardandoPlantilla"
+              type="button"
+              class="link"
+              @click="guardandoPlantilla = true"
+            >
+              ¿Este trabajo se repite? Guardar como trabajo frecuente
+            </button>
+
+            <form v-else class="inline" @submit.prevent="guardarComoPlantilla">
+              <input v-model="nombrePlantilla" placeholder="Cambio de aceite y filtro" />
+              <button type="submit" :disabled="busy || !nombrePlantilla.trim()">Guardar</button>
+              <button type="button" class="link" @click="guardandoPlantilla = false">
+                Cancelar
+              </button>
+            </form>
+          </template>
         </article>
 
         <WorkOrderParts
@@ -1153,6 +1271,49 @@ dd {
 
 .new-service .checkbox input {
   width: auto;
+}
+
+.plantillas {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.plantillas select {
+  flex: 1;
+  min-width: 0;
+}
+
+.sugeridos {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.sugeridos p {
+  margin: 0 0 0.375rem;
+}
+
+.sugeridos ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sugeridos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.1875rem 0;
+  font-size: 0.875rem;
+}
+
+.sin-existencia {
+  color: var(--danger);
+  font-style: normal;
+  font-size: 0.75rem;
 }
 
 .labor-total {

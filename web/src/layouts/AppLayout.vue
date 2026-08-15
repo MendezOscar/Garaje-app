@@ -26,6 +26,7 @@ const navItems = computed(() => {
         { to: { name: 'customers' }, label: 'Clientes' },
         { to: { name: 'inventory' }, label: 'Inventario' },
         { to: { name: 'labor-services' }, label: 'Mano de obra' },
+        { to: { name: 'job-templates' }, label: 'Trabajos frecuentes' },
         { to: { name: 'quotes' }, label: 'Cotizaciones' },
         { to: { name: 'receivables' }, label: 'Por cobrar' },
         // Se abre todos los días al cerrar, así que va en el menú y no escondida en Reportes.

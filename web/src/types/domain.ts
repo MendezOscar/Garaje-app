@@ -407,6 +407,71 @@ export interface LaborService {
   price: number
 }
 
+/**
+ * Un trabajo que el taller repite, guardado con sus pasos y sus repuestos.
+ *
+ * Los totales vienen **a precios de hoy**: la plantilla guarda referencias al catálogo, no
+ * importes, así que subir mañana el precio de un repuesto no la deja mintiendo.
+ */
+export interface JobTemplate {
+  id: string
+  name: string
+  description: string | null
+  isActive: boolean
+  usageCount: number
+  lastUsedAt: string | null
+  tasks: JobTemplateTask[]
+  parts: JobTemplatePart[]
+  laborTotal: number
+  partsTotal: number
+  total: number
+}
+
+export interface JobTemplateTask {
+  id: string
+  title: string
+  description: string | null
+  sequence: number
+  laborServiceId: string | null
+  laborServiceName: string | null
+  estimatedHours: number | null
+  price: number | null
+}
+
+export interface JobTemplatePart {
+  id: string
+  partId: string | null
+  sku: string
+  partName: string
+  unit: string
+  quantity: number
+  unitPrice: number
+  total: number
+}
+
+/**
+ * Lo que dejó aplicar la plantilla: los pasos ya creados y los repuestos **propuestos**.
+ * No se cargan solos porque cargarlos descuenta bodega, y al aplicarla el trabajo todavía no
+ * se ha hecho.
+ */
+export interface ApplyJobTemplateResult {
+  templateName: string
+  tasks: WorkOrderTask[]
+  suggestedParts: SuggestedPart[]
+}
+
+export interface SuggestedPart {
+  partId: string | null
+  sku: string
+  partName: string
+  unit: string
+  quantity: number
+  unitPrice: number
+  /** Existencia en la bodega de la sucursal de la orden. */
+  available: number
+  description: string | null
+}
+
 export interface QuoteLine {
   id: string
   lineType: LineType
