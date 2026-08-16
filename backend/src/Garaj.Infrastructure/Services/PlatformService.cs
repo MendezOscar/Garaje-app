@@ -85,6 +85,8 @@ public class PlatformService(
                     request.TaxId,
                     request.Phone,
                     request.Email,
+                    // Si viene vacía, el provisioner genera una y la devuelve, como siempre.
+                    Password: request.Password,
                     PlanName: request.PlanName,
                     MonthlyFee: request.MonthlyFee,
                     PaidThrough: request.PaidThrough,

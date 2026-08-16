@@ -128,6 +128,61 @@ check("el técnico tampoco", status == 403, str(status))
 status, talleres = api("GET", "/api/platform/tenants", token=plataforma)
 check("la plataforma sí lista los talleres", status == 200 and len(talleres) >= 1, str(status))
 
+# ------------------------------------------------------------------ alta desde el panel
+
+print("\n[dar de alta un taller desde el panel]")
+
+# Un sufijo por corrida: el nombre del taller y el correo del Dueño son únicos.
+sufijo = date.today().strftime("%m%d") + str(abs(hash(BASE)) % 1000)
+elegida = "TallerNuevo9aA"
+
+status, nuevo = api("POST", "/api/platform/tenants", {
+    "name": f"Taller de Prueba {sufijo}",
+    "ownerEmail": f"dueno.prueba{sufijo}@garaj.test",
+    "ownerName": "Dueño de Prueba",
+    "branchName": "Matriz",
+    "branchCode": f"P{sufijo}",
+    "planName": "Básico",
+    "monthlyFee": 1200,
+    "password": elegida,
+}, token=plataforma)
+check("se crea el taller", status == 200, str(status))
+check("y devuelve la contraseña una sola vez", nuevo.get("password") == elegida, str(nuevo))
+
+# Lo que de verdad importa del alta: que el Dueño pueda entrar con lo que se le entregó.
+status, sesion = login(f"dueno.prueba{sufijo}@garaj.test", elegida)
+check("el Dueño nuevo entra con la contraseña escrita", status == 200, str(status))
+
+nuevo_owner = sesion["accessToken"] if status == 200 else None
+if nuevo_owner:
+    _, suyo = api("GET", "/api/auth/me", token=nuevo_owner)
+    check("y su taller nace pagado", suyo["subscription"]["paidThrough"] is not None, str(suyo))
+    check("sin aviso el primer día", suyo["subscription"]["state"] == "Active", str(suyo))
+
+    _, sus_ordenes = api("GET", "/api/work-orders", token=nuevo_owner)
+    check("y no ve nada del taller de al lado", sus_ordenes["total"] == 0, str(sus_ordenes))
+
+# Sin contraseña la genera el sistema, que es el otro camino.
+status, generado = api("POST", "/api/platform/tenants", {
+    "name": f"Taller Generado {sufijo}",
+    "ownerEmail": f"dueno.generado{sufijo}@garaj.test",
+    "ownerName": "Dueño Generado",
+    "branchName": "Matriz",
+}, token=plataforma)
+check("sin contraseña, se genera una", status == 200 and len(generado.get("password", "")) >= 8,
+      str(status))
+
+status, _ = login(f"dueno.generado{sufijo}@garaj.test", generado["password"])
+check("y también sirve para entrar", status == 200, str(status))
+
+status, _ = api("POST", "/api/platform/tenants", {
+    "name": f"Taller de Prueba {sufijo}",
+    "ownerEmail": f"otro{sufijo}@garaj.test",
+    "ownerName": "Otro",
+    "branchName": "Matriz",
+}, token=plataforma)
+check("dos talleres con el mismo nombre se rechazan", status == 409, str(status))
+
 # ------------------------------------------------------------------ al día
 
 print("\n[al día]")

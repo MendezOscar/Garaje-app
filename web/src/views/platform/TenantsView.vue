@@ -32,6 +32,7 @@ const vacio = {
   planName: '',
   monthlyFee: 0,
   paidThrough: '',
+  password: '',
 }
 
 const form = ref({ ...vacio })
@@ -95,6 +96,8 @@ async function crear() {
       planName: f.planName.trim() || null,
       monthlyFee: Number(f.monthlyFee) || 0,
       paidThrough: f.paidThrough || null,
+      // Vacía, la genera el servidor. Sale igual en la tarjeta de abajo en los dos casos.
+      password: f.password.trim() || null,
     })
 
     form.value = { ...vacio }
@@ -169,6 +172,18 @@ onMounted(load)
           Correo del Dueño
           <input v-model="form.ownerEmail" type="email" placeholder="juan@taller.hn" required />
         </label>
+        <label>
+          Contraseña
+          <input
+            v-model="form.password"
+            type="text"
+            placeholder="La escribe él, o se genera"
+            minlength="8"
+          />
+          <span class="ayuda">
+            Con el Dueño al lado, que la escriba él: se la lleva sabida. En blanco, se genera.
+          </span>
+        </label>
       </div>
 
       <div class="row">
@@ -207,7 +222,8 @@ onMounted(load)
 
       <p class="muted small">
         Si no se pone fecha, queda pagado hasta dentro de un mes: lo normal es que el taller
-        pague la instalación el día que se instala.
+        pague la instalación el día que se instala. La contraseña —la escriba él o se genere—
+        se enseña una sola vez al guardar, y el Dueño puede cambiarla en Usuarios.
       </p>
     </form>
 
@@ -317,6 +333,11 @@ label {
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.875rem;
+}
+
+.ayuda {
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 
 .actions {

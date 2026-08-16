@@ -931,6 +931,8 @@ export const platformApi = {
     planName?: string | null
     monthlyFee: number
     paidThrough?: string | null
+    /** Vacía: el servidor genera una y la devuelve una sola vez. */
+    password?: string | null
   }): Promise<CreatedTenant> {
     const { data } = await api.post<CreatedTenant>('/api/platform/tenants', body)
     return data

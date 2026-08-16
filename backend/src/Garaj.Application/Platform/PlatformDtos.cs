@@ -53,6 +53,11 @@ public record SubscriptionPaymentDto(
 /// Hasta cuándo queda pagado de entrada. Si se omite, un mes desde hoy: lo normal es que el
 /// taller pague la instalación el día que se instala.
 /// </param>
+/// <param name="Password">
+/// Contraseña del Dueño. Opcional a propósito: al instalar suele estar sentado al lado y
+/// prefiere escribir la suya —se la lleva sabida y no hay papel que perder—, pero si no está,
+/// se genera una y se entrega. Con cualquiera de las dos puede cambiarla después en Usuarios.
+/// </param>
 public record CreateTenantRequest(
     string Name,
     string OwnerEmail,
@@ -68,11 +73,13 @@ public record CreateTenantRequest(
     string? PlanName = null,
     decimal MonthlyFee = 0,
     DateOnly? PaidThrough = null,
-    int? GraceDays = null);
+    int? GraceDays = null,
+    string? Password = null);
 
 /// <summary>
-/// La contraseña del Dueño se devuelve <b>una sola vez</b>, al crear: no se guarda en claro en
-/// ninguna parte y no hay forma de volver a consultarla. Quien la crea la entrega y ya.
+/// La contraseña del Dueño se devuelve <b>una sola vez</b>, al crear —la haya escrito él o la
+/// haya generado el sistema—: no se guarda en claro en ninguna parte y no hay forma de volver a
+/// consultarla. Quien la crea la entrega y ya.
 /// </summary>
 public record CreatedTenantDto(Guid TenantId, Guid BranchId, string OwnerEmail, string Password);
 

@@ -78,9 +78,11 @@ define al taller como cliente nuestro, y así una sola lectura por clave primari
 trabajar. El historial sí va aparte, en `SubscriptionPayment`, que es la respuesta a «¿yo ya te
 pagué junio?» y por eso no se edita ni se borra.
 
-`PaidThrough` es `DateOnly` y no un instante porque una fecha de pago es un día. Comparando
-contra el día UTC, un taller hondureño se bloquea a las 6 de la tarde del día siguiente —seis
-horas de más a su favor, nunca de menos—, que es el lado correcto donde equivocarse.
+`PaidThrough` es `DateOnly` y no un instante porque una fecha de pago es un día, no una hora. El
+«hoy» contra el que se compara es **el de Honduras**, restándole el huso al reloj del servidor
+(`DateTimeProviderExtensions.Today`): el día UTC cambia a las 6 de la tarde de acá, así que
+contándolo en UTC el taller pagado hasta el jueves se quedaba sin poder trabajar el jueves a las
+seis, mientras cierra el día.
 
 **El estado no se guarda, se calcula**: `SubscriptionRules.For(tenant, hoy)` devuelve `Active`,
 `DueSoon`, `Grace`, `ReadOnly` o `Suspended`. Calcularlo evita el proceso nocturno que marca
