@@ -52,10 +52,10 @@ public class Tenant : AuditableEntity
     /// Hasta qué día está pagada la suscripción. Es el corazón de todo: de aquí salen el aviso
     /// que ve el Dueño y el bloqueo.
     ///
-    /// Es <c>DateOnly</c> y no un instante a propósito: una fecha de pago es un día. Al comparar
-    /// contra el día UTC, un taller hondureño se bloquea a las 6 de la tarde del día siguiente
-    /// —seis horas de más a su favor, nunca de menos—, que es mejor que cortarle a media mañana
-    /// por culpa de un huso horario.
+    /// Es <c>DateOnly</c> y no un instante a propósito: una fecha de pago es un día, no una
+    /// hora. El «hoy» contra el que se compara es el de Honduras y no el del servidor —ver
+    /// <c>DateTimeProviderExtensions.Today</c>—, porque el día UTC cambia a las 6 de la tarde
+    /// de acá y le cortaría el sistema al taller justo mientras cierra el día.
     /// </summary>
     public DateOnly? PaidThrough { get; set; }
 

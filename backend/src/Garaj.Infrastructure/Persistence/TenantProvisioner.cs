@@ -91,7 +91,9 @@ public class TenantProvisioner(
             GraceDays = Math.Clamp(request.GraceDays ?? 5, 0, 60),
             // Lo normal es que pague la instalación el día que se instala, así que sale pagado
             // hasta dentro de un mes salvo que se diga otra cosa.
-            PaidThrough = request.PaidThrough ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).AddMonths(1)
+            // `Today()` y no la fecha del servidor: el día UTC cambia a las 6 de la tarde de
+            // acá, y un taller dado de alta esa noche nacía con un día de más.
+            PaidThrough = request.PaidThrough ?? clock.Today().AddMonths(1)
         };
         db.Tenants.Add(tenant);
         tenantContext.SetTenant(tenant.Id);
