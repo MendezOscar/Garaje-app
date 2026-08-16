@@ -141,45 +141,14 @@ class WorkOrderListScreen extends ConsumerWidget {
               ),
             )
           : null,
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(myWorkOrdersProvider),
-        child: orders.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => _ErrorState(
-            message: apiErrorMessage(e, 'No se pudieron cargar las órdenes.'),
-            onRetry: () => ref.invalidate(myWorkOrdersProvider),
-          ),
-          data: (items) => items.isEmpty
-              // ListView aunque esté vacío: si no, no se puede tirar para refrescar.
-              ? ListView(
-                  children: [
-                    const SizedBox(height: 120),
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          // Con una búsqueda escrita, el mensaje de "no hay nada" del perfil
-                          // haría dudar de la búsqueda misma.
-                          ref.watch(ordersSearchProvider).trim().isEmpty
-                              ? emptyMessage
-                              : 'Ninguna orden coincide con esa búsqueda.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  // Una fila más al principio para el resumen de ingresos del Dueño.
-                  itemCount: items.length + 1,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => i == 0
-                      ? const _RevenueSummary()
-                      : _OrderCard(order: items[i - 1]),
-                ),
-        ),
-      ),
+      // La franja del cobro va pegada arriba de la bandeja: el Dueño tiene que toparse con
+      // ella, pero sin tapar nada —con la mensualidad por vencer se sigue trabajando igual—.
+      // Solo llega con datos para el Dueño: al Técnico el backend le manda null.
+      body: Column(children: [
+        if (auth is AuthSignedIn && (auth.user.subscription?.shouldWarn ?? false))
+          _SubscriptionBanner(info: auth.user.subscription!),
+        Expanded(child: _OrdersList(orders: orders, emptyMessage: emptyMessage)),
+      ]),
       bottomNavigationBar: auth is AuthSignedIn
           ? SafeArea(
               child: Padding(
@@ -192,6 +161,101 @@ class WorkOrderListScreen extends ConsumerWidget {
               ),
             )
           : null,
+    );
+  }
+}
+
+/// La lista en sí. Salió del `build` de arriba al aparecer la franja del cobro: dejarla
+/// anidada dentro de una Column empujaba todo dos niveles más adentro sin ganar nada.
+class _OrdersList extends ConsumerWidget {
+  const _OrdersList({required this.orders, required this.emptyMessage});
+
+  final AsyncValue<List<WorkOrderListItem>> orders;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(myWorkOrdersProvider),
+      child: orders.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => _ErrorState(
+          message: apiErrorMessage(e, 'No se pudieron cargar las órdenes.'),
+          onRetry: () => ref.invalidate(myWorkOrdersProvider),
+        ),
+        data: (items) => items.isEmpty
+            // ListView aunque esté vacío: si no, no se puede tirar para refrescar.
+            ? ListView(
+                children: [
+                  const SizedBox(height: 120),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        // Con una búsqueda escrita, el mensaje de "no hay nada" del perfil
+                        // haría dudar de la búsqueda misma.
+                        ref.watch(ordersSearchProvider).trim().isEmpty
+                            ? emptyMessage
+                            : 'Ninguna orden coincide con esa búsqueda.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(12),
+                // Una fila más al principio para el resumen de ingresos del Dueño.
+                itemCount: items.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, i) => i == 0
+                    ? const _RevenueSummary()
+                    : _OrderCard(order: items[i - 1]),
+              ),
+      ),
+    );
+  }
+}
+
+/// La franja del cobro. No tapa nada ni se puede cerrar: con la mensualidad vencida el taller
+/// tiene que enterarse, y estando al día no se pinta.
+class _SubscriptionBanner extends StatelessWidget {
+  const _SubscriptionBanner({required this.info});
+
+  final SubscriptionInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // El acuerdo de pago se pinta en gris: es un recordatorio, no una alarma.
+    final color = info.agreementThrough != null
+        ? scheme.outline
+        : info.canWrite
+            ? const Color(0xFFB26A00)
+            : scheme.error;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      color: color.withValues(alpha: 0.10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(info.canWrite ? Icons.info_outline : Icons.lock_outline,
+              size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              info.message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontWeight: info.canWrite ? FontWeight.normal : FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

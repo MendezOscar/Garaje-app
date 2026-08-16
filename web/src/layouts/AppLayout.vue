@@ -78,6 +78,9 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
         ]
       case Roles.Customer:
         return [{ title: null, items: [{ to: { name: 'my-vehicles' }, label: 'Mis vehículos' }] }]
+      case Roles.Platform:
+        // Nosotros. No hay órdenes ni clientes que ver: este perfil administra el cobro.
+        return [{ title: null, items: [{ to: { name: 'platform-tenants' }, label: 'Talleres' }] }]
       default:
         return []
     }
@@ -89,6 +92,24 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
  * está siempre, y este estado no le afecta.
  */
 const menuAbierto = ref(false)
+
+/**
+ * El aviso de la mensualidad. Viene resuelto del backend —incluido el texto— y solo llega al
+ * Dueño; al Técnico y al Cliente les llega null, así que aquí no hay nada que decidir sobre
+ * quién lo ve. Estando al día tampoco se pinta: un aviso permanente deja de leerse.
+ */
+const suscripcion = computed(() => {
+  const info = auth.user?.subscription
+  return info && info.state !== 'Active' ? info : (info?.agreementThrough ? info : null)
+})
+
+/** Cuánto apremia. Solo cambia el color y el ícono; el texto lo escribe el backend. */
+const tonoSuscripcion = computed(() => {
+  const estado = suscripcion.value?.state
+  if (!estado) return ''
+  if (suscripcion.value?.agreementThrough) return 'acuerdo'
+  return estado === 'DueSoon' ? 'aviso' : estado === 'Grace' ? 'urgente' : 'cortado'
+})
 
 // Al navegar se cierra solo: en un teléfono, quedarse con el menú encima de la pantalla que
 // se acaba de abrir es la forma más rápida de que parezca que no pasó nada.
@@ -105,7 +126,8 @@ async function logout() {
     <aside :class="{ abierto: menuAbierto }">
       <div class="brand">
         <BrandLogo variant="horizontal" :height="24" />
-        <div class="taller">
+        <!-- El perfil Plataforma no está «para» ningún taller: es el nuestro. -->
+        <div v-if="auth.role !== Roles.Platform" class="taller">
           <span class="para">para</span>
           <img
             v-if="logoTaller"
@@ -159,10 +181,14 @@ async function logout() {
           </option>
         </select>
 
-        <NotificationBell />
+        <!-- Los avisos son del trabajo del taller, y la plataforma no tiene taller. -->
+        <NotificationBell v-if="auth.role !== Roles.Platform" />
       </header>
 
       <main>
+        <p v-if="suscripcion" class="suscripcion" :class="tonoSuscripcion">
+          {{ suscripcion.message }}
+        </p>
         <RouterView />
       </main>
     </div>
@@ -346,6 +372,38 @@ header {
 main {
   flex: 1;
   padding: 1.5rem;
+}
+
+/* El aviso de la mensualidad. Va arriba del contenido y no en una esquina: el Dueño tiene que
+   toparse con él, pero se puede seguir trabajando con la franja puesta. */
+.suscripcion {
+  margin: 0 0 1rem;
+  padding: 0.625rem 0.875rem;
+  border-left: 3px solid currentcolor;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
+.suscripcion.acuerdo {
+  color: var(--text-muted);
+  background: var(--surface-alt);
+}
+
+.suscripcion.aviso {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.suscripcion.urgente {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  font-weight: 600;
+}
+
+.suscripcion.cortado {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  font-weight: 600;
 }
 
 .velo {

@@ -18,6 +18,32 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
         b.Property(x => x.DefaultPhoneCountryCode).HasMaxLength(5).IsRequired();
         b.Property(x => x.LogoStorageKey).HasMaxLength(500);
+
+        b.Property(x => x.PlanName).HasMaxLength(60);
+        b.Property(x => x.UnblockNote).HasMaxLength(300);
+
+        // La lista del panel de plataforma se pide siempre así: lo que vence primero, arriba.
+        b.HasIndex(x => x.PaidThrough);
+    }
+}
+
+public class SubscriptionPaymentConfiguration : IEntityTypeConfiguration<SubscriptionPayment>
+{
+    public void Configure(EntityTypeBuilder<SubscriptionPayment> b)
+    {
+        b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+        b.Property(x => x.Method).HasMaxLength(40);
+        b.Property(x => x.Reference).HasMaxLength(80);
+        b.Property(x => x.Note).HasMaxLength(300);
+
+        // Cascade: si algún día se borra un taller de verdad, su historial de cobro se va con él.
+        b.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(x => x.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Se lee de una sola forma: los pagos de un taller, el más reciente arriba.
+        b.HasIndex(x => new { x.TenantId, x.PaidOn });
     }
 }
 

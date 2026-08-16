@@ -341,10 +341,12 @@ repositorio.
 
 ## 6. Alta de un taller
 
-En producción no hay pantalla ni endpoint para crear un taller: el sembrador de demostración
-solo corre en Development y `POST /api/demo/seed` **borra la base entera** antes de sembrar.
-Un taller real se da de alta con un comando, desde la máquina de quien instala, apuntando a
-la base de producción con la cadena en user secrets (ver [README](../README.md)):
+Hay dos caminos, y el normal es el panel: **Talleres → Nuevo taller**, con el usuario de
+plataforma. Por dentro llama al mismo comando de abajo, así que el alta es una sola.
+
+El comando sigue existiendo para el primer arranque —cuando todavía no hay usuario de plataforma
+con quien entrar— y como salida de emergencia. Se corre desde la máquina de quien instala,
+apuntando a la base de producción con la cadena en user secrets (ver [README](../README.md)):
 
 ```bash
 cd backend
@@ -364,6 +366,22 @@ lista todos los que acepta.
 
 El catálogo de repuestos, la mano de obra y los técnicos los carga el Dueño desde el panel.
 El logo se puede subir después en **Taller** sin volver a la consola.
+
+### El usuario de plataforma
+
+Es el nuestro: el que da de alta talleres y les cobra la mensualidad. **Solo se crea por consola**
+—si el panel pudiera crear otro, una sesión robada bastaría para fabricarse llaves maestras
+nuevas— y no pertenece a ningún taller, que es justo lo que le impide ver los datos de ninguno.
+
+```bash
+cd backend
+dotnet run --project src/Garaj.Api -- create-platform-user \
+  --email admin@garajapp.hn --name "Nombre de quien administra"
+```
+
+Imprime la contraseña **una sola vez**. Con esa cuenta se entra al panel de siempre y aparece
+**Talleres**: quién está al día, a quién hay que cobrarle, registrar un pago, dar un acuerdo de
+pago o —último recurso— suspender. Un taller vencido no pierde sus datos: pasa a modo consulta.
 
 ### Puesta en marcha del primer cliente
 

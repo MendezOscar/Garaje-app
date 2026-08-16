@@ -31,7 +31,48 @@ public class Tenant : AuditableEntity
     /// <summary>Porcentaje de impuesto por defecto (ej. 15.00 = 15%).</summary>
     public decimal DefaultTaxRate { get; set; }
 
+    /// <summary>
+    /// Suspensión manual: el corte definitivo, decidido por nosotros. A diferencia del vencimiento
+    /// —que solo deja el taller en modo lectura— un taller suspendido no puede ni iniciar sesión.
+    /// </summary>
     public bool IsActive { get; set; } = true;
+
+    // ---------- Suscripción ----------
+    // Lo que el taller nos paga a nosotros. Vive aquí y no en una entidad aparte porque es
+    // parte de lo que define al taller como cliente nuestro, y porque así una sola lectura
+    // por clave primaria resuelve si puede trabajar. El historial de pagos sí va aparte.
+
+    /// <summary>Nombre del plan contratado, tal como se le ofreció. Informativo.</summary>
+    public string? PlanName { get; set; }
+
+    /// <summary>Cuota mensual acordada, en la moneda del taller.</summary>
+    public decimal MonthlyFee { get; set; }
+
+    /// <summary>
+    /// Hasta qué día está pagada la suscripción. Es el corazón de todo: de aquí salen el aviso
+    /// que ve el Dueño y el bloqueo.
+    ///
+    /// Es <c>DateOnly</c> y no un instante a propósito: una fecha de pago es un día. Al comparar
+    /// contra el día UTC, un taller hondureño se bloquea a las 6 de la tarde del día siguiente
+    /// —seis horas de más a su favor, nunca de menos—, que es mejor que cortarle a media mañana
+    /// por culpa de un huso horario.
+    /// </summary>
+    public DateOnly? PaidThrough { get; set; }
+
+    /// <summary>
+    /// Días de tolerancia después de <see cref="PaidThrough"/> en los que el taller sigue
+    /// trabajando con aviso. Por taller, no global: al primer cliente se le puede dar más.
+    /// </summary>
+    public int GraceDays { get; set; } = 5;
+
+    /// <summary>
+    /// Acuerdo de pago: hasta este día el taller trabaja aunque esté vencido. Es la válvula para
+    /// el que quedó debiendo y va a pagar; cortarle sería perder un cliente que se recupera.
+    /// </summary>
+    public DateOnly? UnblockedThrough { get; set; }
+
+    /// <summary>Por qué se le dio el acuerdo. Sin esto, en dos meses nadie se acuerda.</summary>
+    public string? UnblockNote { get; set; }
 
     public ICollection<Branch> Branches { get; set; } = new List<Branch>();
 }

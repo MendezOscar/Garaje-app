@@ -5,6 +5,8 @@ export const Roles = {
   Owner: 'Owner',
   Technician: 'Technician',
   Customer: 'Customer',
+  /** Nosotros: damos de alta talleres y les cobramos. No pertenece a ningún taller. */
+  Platform: 'Platform',
 } as const
 
 export type Role = (typeof Roles)[keyof typeof Roles]
@@ -26,6 +28,23 @@ export interface CurrentUser {
   tenantLogoUrl: string | null
   branches: BranchSummary[]
   customerId: string | null
+  /** Cómo va el taller con su mensualidad. Null salvo para el Dueño: el backend no lo manda. */
+  subscription: SubscriptionInfo | null
+}
+
+export type SubscriptionState = 'Active' | 'DueSoon' | 'Grace' | 'ReadOnly' | 'Suspended'
+
+export interface SubscriptionInfo {
+  state: SubscriptionState
+  /** Si el taller puede registrar trabajo. En false, la API responde 402 a todo lo que escribe. */
+  canWrite: boolean
+  paidThrough: string | null
+  daysLeft: number | null
+  readOnlyOn: string | null
+  agreementThrough: string | null
+  agreementNote: string | null
+  /** El texto ya redactado por el backend: los tres clientes dicen lo mismo. */
+  message: string
 }
 
 export interface AuthResponse {

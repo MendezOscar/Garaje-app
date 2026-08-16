@@ -59,6 +59,11 @@ public class DbSeeder(
 
         await db.SaveChangesAsync(ct);
 
+        // Nosotros, no el taller: administra los cobros. Sin taller (`TenantId` vacío), que es
+        // lo que hace que el filtro por taller no le enseñe nada de nadie. En producción se
+        // crea con `create-platform-user`, nunca por seed.
+        await CreateUserAsync("plataforma@garaj.test", "GarajApp", AppRoles.Platform, Guid.Empty);
+
         var owner = await CreateUserAsync("owner@garaj.test", "Óscar Méndez", AppRoles.Owner, tenant.Id);
         var tech1 = await CreateUserAsync("tecnico1@garaj.test", "Luis Cabrera", AppRoles.Technician, tenant.Id, [matriz.Id]);
         var tech2 = await CreateUserAsync("tecnico2@garaj.test", "Andrea Salas", AppRoles.Technician, tenant.Id, [norte.Id]);
@@ -69,7 +74,7 @@ public class DbSeeder(
         await SeedOperationsAsync(matriz, norte, vehicles, parts, owner.Id, tech1.Id, tech2.Id, now, ct);
 
         logger.LogInformation(
-            "Seed completo. Usuarios demo: owner@garaj.test / tecnico1@garaj.test / tecnico2@garaj.test / cliente@garaj.test — contraseña {Password}",
+            "Seed completo. Usuarios demo: owner@garaj.test / tecnico1@garaj.test / tecnico2@garaj.test / cliente@garaj.test / plataforma@garaj.test — contraseña {Password}",
             DemoPassword);
     }
 

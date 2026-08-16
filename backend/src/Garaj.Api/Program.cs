@@ -73,7 +73,8 @@ builder.Services
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AppPolicies.OwnerOnly, p => p.RequireRole(AppRoles.Owner))
     .AddPolicy(AppPolicies.TechnicianOrOwner, p => p.RequireRole(AppRoles.Owner, AppRoles.Technician))
-    .AddPolicy(AppPolicies.StaffOnly, p => p.RequireRole(AppRoles.Owner, AppRoles.Technician));
+    .AddPolicy(AppPolicies.StaffOnly, p => p.RequireRole(AppRoles.Owner, AppRoles.Technician))
+    .AddPolicy(AppPolicies.PlatformOnly, p => p.RequireRole(AppRoles.Platform));
 
 const string CorsPolicy = "garaj-clients";
 builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy =>
@@ -92,6 +93,14 @@ var app = builder.Build();
 if (args.FirstOrDefault() == "provision-tenant")
 {
     return await ProvisionTenantAsync(app, args);
+}
+
+// El usuario de plataforma —el nuestro, el que da de alta talleres y les cobra— tampoco tiene
+// endpoint que lo cree, y aquí la razón es más fuerte: si el panel pudiera crear otro, una
+// sesión robada bastaría para fabricarse llaves maestras nuevas.
+if (args.FirstOrDefault() == "create-platform-user")
+{
+    return await CreatePlatformUserAsync(app, args);
 }
 
 // Serilog va por fuera del manejo de errores a propósito. Al revés, el middleware de
@@ -122,6 +131,8 @@ app.UseCors(CorsPolicy);
 app.UseAuthentication();
 // Después de UseAuthentication: necesita los claims ya resueltos para fijar el tenant.
 app.UseMiddleware<TenantContextMiddleware>();
+// Después del anterior: necesita saber de qué taller es la petición para mirar su mensualidad.
+app.UseMiddleware<SubscriptionGuardMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -170,6 +181,10 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
               --email         Correo del taller
               --logo          Ruta a un PNG o JPEG con el logo
               --password      Contraseña del Dueño; si se omite, se genera y se imprime
+              --plan          Nombre del plan contratado
+              --fee           Cuota mensual acordada
+              --paid-through  Hasta cuándo queda pagado (aaaa-mm-dd); por omisión, un mes
+              --grace-days    Días de tolerancia tras el vencimiento (por omisión 5)
             """);
 
         return values.Count == 0 ? 1 : 0;
@@ -193,7 +208,15 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
             Phone: values.GetValueOrDefault("phone"),
             Email: values.GetValueOrDefault("email"),
             Password: values.GetValueOrDefault("password"),
-            LogoPath: values.GetValueOrDefault("logo")));
+            LogoPath: values.GetValueOrDefault("logo"),
+            PlanName: values.GetValueOrDefault("plan"),
+            MonthlyFee: decimal.TryParse(values.GetValueOrDefault("fee"), out var fee) ? fee : 0,
+            PaidThrough: DateOnly.TryParse(values.GetValueOrDefault("paid-through"), out var hasta)
+                ? hasta
+                : null,
+            GraceDays: int.TryParse(values.GetValueOrDefault("grace-days"), out var gracia)
+                ? gracia
+                : null));
 
         Console.WriteLine();
         Console.WriteLine($"Taller creado: {values["name"]}");
@@ -213,7 +236,56 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
     }
 }
 
-/// <summary>Convierte `--clave valor` en un diccionario. `provision-tenant` ya se consumió.</summary>
+/// <summary>
+/// Alta del usuario de plataforma: el nuestro. Se corre una vez al montar el ambiente, y de
+/// nuevo solo si hay que darle acceso a otra persona del equipo.
+/// </summary>
+static async Task<int> CreatePlatformUserAsync(WebApplication app, string[] args)
+{
+    var values = ParseArguments(args);
+
+    if (values.ContainsKey("help") || values.Count == 0)
+    {
+        Console.WriteLine(
+            """
+            Uso: dotnet run --project src/Garaj.Api -- create-platform-user [argumentos]
+
+              --email     Correo de quien administra GarajApp (obligatorio)
+              --name      Nombre completo (obligatorio)
+              --password  Contraseña; si se omite, se genera y se imprime
+            """);
+
+        return values.Count == 0 ? 1 : 0;
+    }
+
+    using var scope = app.Services.CreateScope();
+    var provisioner = scope.ServiceProvider.GetRequiredService<PlatformUserProvisioner>();
+
+    try
+    {
+        var result = await provisioner.RunAsync(
+            values.GetValueOrDefault("email") ?? "",
+            values.GetValueOrDefault("name") ?? "",
+            values.GetValueOrDefault("password"));
+
+        Console.WriteLine();
+        Console.WriteLine("Usuario de plataforma creado.");
+        Console.WriteLine($"  Correo     : {result.Email}");
+        Console.WriteLine($"  Contraseña : {result.Password}");
+        Console.WriteLine();
+        Console.WriteLine("Anótela ahora: no queda guardada. Esta cuenta administra el cobro de");
+        Console.WriteLine("todos los talleres, así que trátela como lo que es.");
+
+        return 0;
+    }
+    catch (AppException e)
+    {
+        Console.Error.WriteLine($"No se creó el usuario: {e.Message}");
+        return 1;
+    }
+}
+
+/// <summary>Convierte `--clave valor` en un diccionario. El nombre del comando ya se consumió.</summary>
 static Dictionary<string, string> ParseArguments(string[] args)
 {
     var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

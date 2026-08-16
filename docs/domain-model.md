@@ -70,6 +70,32 @@ contando solo lo que salió del estante.
 `UsageCount` existe para ordenar la lista por lo más usado —en orden alfabético, treinta
 plantillas son inservibles— y por eso una plantilla se da de baja en vez de borrarse.
 
+## Suscripción del taller
+
+Lo que el taller nos paga a nosotros vive en el propio `Tenant` —`PlanName`, `MonthlyFee`,
+`PaidThrough`, `GraceDays`, `UnblockedThrough`— y no en una entidad aparte: es parte de lo que
+define al taller como cliente nuestro, y así una sola lectura por clave primaria decide si puede
+trabajar. El historial sí va aparte, en `SubscriptionPayment`, que es la respuesta a «¿yo ya te
+pagué junio?» y por eso no se edita ni se borra.
+
+`PaidThrough` es `DateOnly` y no un instante porque una fecha de pago es un día. Comparando
+contra el día UTC, un taller hondureño se bloquea a las 6 de la tarde del día siguiente —seis
+horas de más a su favor, nunca de menos—, que es el lado correcto donde equivocarse.
+
+**El estado no se guarda, se calcula**: `SubscriptionRules.For(tenant, hoy)` devuelve `Active`,
+`DueSoon`, `Grace`, `ReadOnly` o `Suspended`. Calcularlo evita el proceso nocturno que marca
+estados y que un día no corre, y deja una sola definición para las tres bocas que preguntan.
+Vencer deja el taller **en modo consulta**, no sin datos: puede ver sus órdenes y sus clientes,
+pero no registrar trabajo nuevo. Un taller sin `PaidThrough` no se bloquea nunca.
+
+`IsActive` es otra cosa y ahora sí se lee: la suspensión a mano, que corta el login entero.
+
+`SubscriptionPayment` **no implementa `ITenantEntity`** aunque lleve `TenantId`. El filtro global
+aísla a un taller de otro, y esto no lo lee ningún taller: lo lee el perfil `Platform`, que no
+tiene taller —y por eso mismo no ve órdenes, clientes ni existencias de nadie—. Por la misma
+razón `AppUser` queda fuera del interceptor que rellena el tenant al guardar: al usuario de
+plataforma hay que dejarlo sin taller, que es lo que lo mantiene ciego.
+
 ## Usuarios y acceso
 
 `AppUser` no lleva el filtro global de tenant —el login tiene que encontrar al usuario por

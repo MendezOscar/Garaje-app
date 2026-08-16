@@ -27,3 +27,11 @@ public class ConflictException(string message)
 
 public class UnauthorizedException(string message = "Credenciales inválidas.")
     : AppException(message, HttpStatusCode.Unauthorized);
+
+/// <summary>
+/// El taller está al día con sus permisos pero no con su mensualidad. 402 y no 403 a propósito:
+/// no es que no tenga derecho a hacerlo, es que hay que pagar para volver a hacerlo, y el panel
+/// y la app distinguen los dos casos para decir cosas distintas.
+/// </summary>
+public class SubscriptionRequiredException(string message)
+    : AppException(message, HttpStatusCode.PaymentRequired);

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -180,9 +181,15 @@ class UploadQueue extends AsyncNotifier<List<PendingUpload>> {
         } catch (e) {
           final index = remaining.indexWhere((p) => p.id == item.id);
           if (index >= 0) {
+            // Un 402 es la mensualidad vencida, y eso no se arregla esperando: se da por
+            // agotada de una vez en vez de gastar los cinco intentos contra una pared.
+            final vencido = e is DioException && e.response?.statusCode == 402;
+
             remaining[index] = item.copyWith(
-              attempts: item.attempts + 1,
-              lastError: e.toString(),
+              attempts: vencido ? maxAttempts : item.attempts + 1,
+              lastError: vencido
+                  ? 'La mensualidad de GarajApp está vencida.'
+                  : e.toString(),
             );
           }
           // Si falló una, lo más probable es que no haya red: no tiene sentido

@@ -18,6 +18,9 @@ import type {
   Paged,
   Part,
   PaymentMethod,
+  PlatformTenant,
+  PlatformTenantDetail,
+  CreatedTenant,
   PresignedUpload,
   PublicQuote,
   QuoteDetail,
@@ -899,5 +902,90 @@ export const tenantApi = {
   },
   async deactivateFiscalRange(id: string) {
     await api.delete(`/api/tenant/fiscal-ranges/${id}`)
+  },
+}
+
+/**
+ * Lo nuestro: los talleres como clientes y su mensualidad. Solo responde al perfil Plataforma;
+ * a cualquier otro le devuelve 403.
+ */
+export const platformApi = {
+  async list(): Promise<PlatformTenant[]> {
+    const { data } = await api.get<PlatformTenant[]>('/api/platform/tenants')
+    return data
+  },
+  async get(id: string): Promise<PlatformTenantDetail> {
+    const { data } = await api.get<PlatformTenantDetail>(`/api/platform/tenants/${id}`)
+    return data
+  },
+  /** La contraseña del Dueño vuelve una sola vez: hay que entregarla en el momento. */
+  async create(body: {
+    name: string
+    ownerEmail: string
+    ownerName: string
+    branchName: string
+    branchCode?: string | null
+    city?: string | null
+    address?: string | null
+    phone?: string | null
+    planName?: string | null
+    monthlyFee: number
+    paidThrough?: string | null
+  }): Promise<CreatedTenant> {
+    const { data } = await api.post<CreatedTenant>('/api/platform/tenants', body)
+    return data
+  },
+  async registerPayment(
+    id: string,
+    body: {
+      amount: number
+      paidOn?: string | null
+      method?: string | null
+      reference?: string | null
+      months: number
+      note?: string | null
+    },
+  ): Promise<PlatformTenantDetail> {
+    const { data } = await api.post<PlatformTenantDetail>(
+      `/api/platform/tenants/${id}/payments`,
+      body,
+    )
+    return data
+  },
+  /** Acuerdo de pago: el taller sigue trabajando hasta la fecha acordada aunque deba. */
+  async setAgreement(id: string, body: { unblockedThrough: string; note?: string | null }) {
+    const { data } = await api.put<PlatformTenant>(
+      `/api/platform/tenants/${id}/agreement`,
+      body,
+    )
+    return data
+  },
+  async clearAgreement(id: string) {
+    const { data } = await api.delete<PlatformTenant>(`/api/platform/tenants/${id}/agreement`)
+    return data
+  },
+  async updateSubscription(
+    id: string,
+    body: {
+      planName?: string | null
+      monthlyFee: number
+      paidThrough?: string | null
+      graceDays: number
+    },
+  ) {
+    const { data } = await api.put<PlatformTenant>(
+      `/api/platform/tenants/${id}/subscription`,
+      body,
+    )
+    return data
+  },
+  /** Suspender corta el acceso entero: el taller ni entra. Es el último recurso. */
+  async suspend(id: string) {
+    const { data } = await api.post<PlatformTenant>(`/api/platform/tenants/${id}/suspend`)
+    return data
+  },
+  async reactivate(id: string) {
+    const { data } = await api.post<PlatformTenant>(`/api/platform/tenants/${id}/reactivate`)
+    return data
   },
 }
