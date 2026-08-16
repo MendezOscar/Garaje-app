@@ -32,6 +32,9 @@ public sealed class AccessScope
     public bool IsTechnician => Role == AppRoles.Technician;
     public bool IsCustomer => Role == AppRoles.Customer;
 
+    /// <summary>Nosotros. No pertenece a ningún taller y no ve los datos de ninguno.</summary>
+    public bool IsPlatform => Role == AppRoles.Platform;
+
     /// <summary>Construye el alcance desde la petición en curso, o falla si no hay sesión.</summary>
     public static AccessScope From(ITenantContext context)
     {
@@ -58,5 +61,15 @@ public sealed class AccessScope
     public void EnsureOwner()
     {
         if (!IsOwner) throw new ForbiddenException("Solo el Dueño puede realizar esta operación.");
+    }
+
+    /// <summary>
+    /// Solo nosotros damos de alta talleres y les movemos la mensualidad. La policy de la API ya
+    /// lo exige; se repite aquí porque es la operación más delicada del sistema y no debe
+    /// depender de que un controlador nuevo se acuerde de ponerse el atributo.
+    /// </summary>
+    public void EnsurePlatform()
+    {
+        if (!IsPlatform) throw new ForbiddenException("Solo GarajApp puede realizar esta operación.");
     }
 }

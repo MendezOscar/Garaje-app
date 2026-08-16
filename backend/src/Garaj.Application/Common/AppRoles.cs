@@ -12,7 +12,15 @@ public static class AppRoles
     /// <summary>Cliente: crea requerimientos y sigue el proceso de sus propios vehículos.</summary>
     public const string Customer = "Customer";
 
-    public static readonly string[] All = [Owner, Technician, Customer];
+    /// <summary>
+    /// Nosotros, los dueños de GarajApp: damos de alta talleres y les cobramos la mensualidad.
+    /// No pertenece a ningún taller y **no puede leer datos de ninguno**: su token va sin taller,
+    /// así que el global query filter le devuelve cero filas de órdenes, clientes e inventario.
+    /// Solo se crea por línea de comandos; desde el panel no se puede crear otro.
+    /// </summary>
+    public const string Platform = "Platform";
+
+    public static readonly string[] All = [Owner, Technician, Customer, Platform];
 }
 
 /// <summary>Claims propios del token, además de los estándar de JWT.</summary>
@@ -31,6 +39,7 @@ public static class AppClaims
 public static class AppPolicies
 {
     public const string OwnerOnly = "OwnerOnly";
+    public const string PlatformOnly = "PlatformOnly";
     public const string StaffOnly = "StaffOnly";
     public const string TechnicianOrOwner = "TechnicianOrOwner";
 }

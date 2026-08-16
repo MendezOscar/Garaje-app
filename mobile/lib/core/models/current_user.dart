@@ -42,6 +42,7 @@ class CurrentUser {
     required this.branches,
     this.tenantLogoUrl,
     this.customerId,
+    this.subscription,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) => CurrentUser(
@@ -56,6 +57,9 @@ class CurrentUser {
             .map((e) => BranchSummary.fromJson(e as Map<String, dynamic>))
             .toList(),
         customerId: json['customerId'] as String?,
+        subscription: json['subscription'] == null
+            ? null
+            : SubscriptionInfo.fromJson(json['subscription'] as Map<String, dynamic>),
       );
 
   final String id;
@@ -71,6 +75,52 @@ class CurrentUser {
 
   final List<BranchSummary> branches;
   final String? customerId;
+
+  /// Cómo va el taller con su mensualidad. **Null salvo para el Dueño**: el backend no se lo
+  /// manda al Técnico ni al Cliente, así que aquí no hay que acordarse de esconderlo.
+  final SubscriptionInfo? subscription;
+}
+
+/// El aviso de cobro, ya resuelto por el backend —el texto incluido— para que el panel y la
+/// app digan exactamente lo mismo.
+class SubscriptionInfo {
+  const SubscriptionInfo({
+    required this.state,
+    required this.canWrite,
+    required this.message,
+    this.paidThrough,
+    this.daysLeft,
+    this.readOnlyOn,
+    this.agreementThrough,
+    this.agreementNote,
+  });
+
+  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) => SubscriptionInfo(
+        state: json['state'] as String,
+        canWrite: json['canWrite'] as bool,
+        message: json['message'] as String? ?? '',
+        paidThrough: json['paidThrough'] as String?,
+        daysLeft: json['daysLeft'] as int?,
+        readOnlyOn: json['readOnlyOn'] as String?,
+        agreementThrough: json['agreementThrough'] as String?,
+        agreementNote: json['agreementNote'] as String?,
+      );
+
+  /// `Active`, `DueSoon`, `Grace`, `ReadOnly` o `Suspended`.
+  final String state;
+
+  /// Si el taller puede registrar trabajo. En false la API responde 402 a lo que escribe.
+  final bool canWrite;
+
+  final String message;
+  final String? paidThrough;
+  final int? daysLeft;
+  final String? readOnlyOn;
+  final String? agreementThrough;
+  final String? agreementNote;
+
+  /// Estando al día y sin acuerdo no se le dice nada: un aviso permanente deja de leerse.
+  bool get shouldWarn => state != 'Active' || agreementThrough != null;
 }
 
 class AuthResponse {

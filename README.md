@@ -209,10 +209,19 @@ python3 backend/tests/smoke/fase11_smoke.py
 # Humo de facturación con CAI: 47 comprobaciones del rango, el correlativo y las anulaciones
 python3 backend/tests/smoke/fase12_smoke.py
 
-# Alta del taller de un cliente (imprime la contraseña del Dueño una sola vez)
+# Humo del cobro: 46 comprobaciones del aviso, el bloqueo y el acuerdo de pago
+python3 backend/tests/smoke/fase13_smoke.py
+
+# Alta del taller de un cliente (imprime la contraseña del Dueño una sola vez).
+# Lo normal es hacerlo desde el panel, con el usuario de plataforma; el comando es el
+# primer arranque y la salida de emergencia.
 cd backend && dotnet run --project src/Garaj.Api -- provision-tenant \
   --name "Taller del Cliente" --branch "Matriz" --city Tegucigalpa \
   --owner-email dueno@cliente.hn --owner-name "Nombre del Dueño"
+
+# El usuario nuestro, el que administra los cobros. Solo por consola, nunca desde el panel.
+cd backend && dotnet run --project src/Garaj.Api -- create-platform-user \
+  --email admin@garajapp.hn --name "Nombre de quien administra"
 
 # Humo del móvil: 16 casos de sesión, alcance por perfil y las pantallas del taller
 cd mobile && flutter test integration_test/login_test.dart \

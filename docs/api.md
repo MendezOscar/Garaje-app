@@ -599,6 +599,56 @@ Decisiones que conviene conocer:
   ellas. Aplicar una dada de baja responde 409.
 - Son del **tenant**, no de la sucursal: el trabajo se hace igual en las dos.
 
+### Suscripción y plataforma
+
+Lo nuestro, no del taller: hasta cuándo tiene pagada la mensualidad cada cliente, el aviso antes
+de que se venza y el bloqueo si no paga. Antes de esto un taller dado de alta trabajaba para
+siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/platform/tenants` | Plataforma | Los talleres, lo que vence primero arriba |
+| GET | `/api/platform/tenants/{id}` | Plataforma | Ficha de cobro con el historial de pagos |
+| POST | `/api/platform/tenants` | Plataforma | **Da de alta un taller**, su sucursal y su Dueño |
+| POST | `/api/platform/tenants/{id}/payments` | Plataforma | Registra el pago y corre el vencimiento |
+| PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
+| PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
+| POST | `/api/platform/tenants/{id}/suspend` \| `/reactivate` | Plataforma | El corte definitivo |
+
+Decisiones que conviene conocer:
+
+- **El estado se calcula, no se guarda.** `SubscriptionRules.For(tenant, hoy)` devuelve `Active`,
+  `DueSoon`, `Grace`, `ReadOnly` o `Suspended` a partir de las fechas. Así no hace falta ningún
+  proceso nocturno que un día no corra, y las tres bocas que lo preguntan —el bloqueo, el
+  `/auth/me` y la lista del panel— contestan lo mismo por construcción.
+- **Vencer no es quedarse sin datos.** Pasada la gracia, el taller **sigue consultando todo lo
+  suyo**: lo que se corta es escribir. `GET` siempre pasa; `POST`, `PUT`, `PATCH` y `DELETE`
+  responden **402** con el motivo en `detail`. El filtro va por método y no por lista de rutas
+  para que la función que se escriba mañana quede cubierta el día que nace.
+- **`/api/auth/*` nunca se bloquea**, o el taller vencido no podría ni entrar a leer. Y las
+  peticiones anónimas tampoco: que el cliente final apruebe su cotización mientras el taller debe
+  es deliberado —la deuda es del taller, no suya—.
+- **Suspender es otra cosa**: corta el login (401), no solo la escritura. Es una decisión a mano
+  y gana incluso sobre un acuerdo de pago vigente.
+- **El acuerdo de pago** (`UnblockedThrough` + nota) devuelve el trabajo a un taller vencido hasta
+  la fecha acordada. Se cancela solo al registrar el pago.
+- **El aviso solo le llega al Dueño**: `/auth/me` trae `subscription` con el texto ya redactado, y
+  al Técnico y al Cliente les llega `null`. Lo que no se manda no se puede enseñar por error.
+- **Registrar un pago corre la fecha desde el vencimiento anterior**, no desde hoy: quien paga
+  tarde no pierde los días que ya pagó, y quien arrastra meses sigue debiendo.
+- **Un taller sin `paidThrough` no se bloquea nunca.** Es el caso de los que existían antes de
+  esto: el silencio no puede convertirse en un corte.
+
+Sobre el perfil `Platform`, que es la llave maestra del sistema:
+
+- **No pertenece a ningún taller** y por eso no ve los datos de ninguno: su token va sin taller,
+  así que el global query filter le devuelve cero órdenes, cero clientes y cero existencias. No es
+  una regla que haya que recordar escribir en cada endpoint nuevo; es la estructura.
+- **Solo se crea por consola**, con `dotnet run --project src/Garaj.Api -- create-platform-user`.
+  Si el panel pudiera crear otro, una sesión robada bastaría para fabricarse llaves nuevas.
+- El alta de talleres desde el panel llama al **mismo `TenantProvisioner`** que el comando de
+  consola, que sigue existiendo. La contraseña del Dueño vuelve **una sola vez** en la respuesta.
+
 ### Datos de demostración
 
 | Método | Ruta | Auth | Qué hace |
@@ -651,6 +701,9 @@ python3 backend/tests/smoke/fase7_smoke.py
 
 # Fase 8: crédito, abonos y costo en existencias
 python3 backend/tests/smoke/fase8_smoke.py
+
+# Fase 13: el cobro de la suscripción, el aviso, el bloqueo y el acuerdo de pago
+python3 backend/tests/smoke/fase13_smoke.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity;
 namespace Garaj.Infrastructure.Persistence;
 
 /// <summary>
-/// Los tres roles de Identity. Son globales, no por taller, y hacen falta tanto en el seeder
+/// Los roles de Identity. Son globales, no por taller, y hacen falta tanto en el seeder
 /// de desarrollo como al dar de alta un taller real: de ahí que vivan aparte.
 /// </summary>
 public static class RoleSeeder

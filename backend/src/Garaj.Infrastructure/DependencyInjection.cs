@@ -5,6 +5,7 @@ using Garaj.Application.Customers;
 using Garaj.Application.Inventory;
 using Garaj.Application.Media;
 using Garaj.Application.Notifications;
+using Garaj.Application.Platform;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
@@ -75,6 +76,8 @@ public static class DependencyInjection
         services.AddScoped<DbSeeder>();
         services.AddScoped<DemoSeeder>();
         services.AddScoped<TenantProvisioner>();
+        services.AddScoped<PlatformUserProvisioner>();
+        services.AddScoped<IPlatformService, PlatformService>();
 
         services.AddScoped<ITenantService, TenantService>();
 

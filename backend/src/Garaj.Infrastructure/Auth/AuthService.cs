@@ -1,7 +1,9 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Auth;
 using Garaj.Application.Common;
+using Garaj.Application.Subscriptions;
 using Garaj.Application.Tenants;
+using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -36,6 +38,8 @@ public class AuthService(
         if (!user.IsActive)
             throw new UnauthorizedException("La cuenta está desactivada.");
 
+        await EnsureTenantIsNotSuspendedAsync(user, ct);
+
         user.LastLoginAt = clock.UtcNow;
 
         return await IssueTokensAsync(user, ct);
@@ -63,6 +67,10 @@ public class AuthService(
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == stored.UserId, ct);
         if (user is null || !user.IsActive)
             throw new UnauthorizedException();
+
+        // También al refrescar: si no, un taller suspendido seguiría trabajando hasta 30 días
+        // con la sesión que ya tenía abierta.
+        await EnsureTenantIsNotSuspendedAsync(user, ct);
 
         var response = await IssueTokensAsync(user, ct, rotatedFrom: stored);
         return response;
@@ -124,9 +132,35 @@ public class AuthService(
         return new AuthResponse(accessToken, refreshToken, expiresAt, await BuildCurrentUserAsync(user, ct));
     }
 
+    /// <summary>
+    /// Un taller suspendido no entra, aunque la contraseña sea correcta. Es distinto del
+    /// vencimiento, que solo deja el sistema en modo consulta: esto es el corte decidido a mano.
+    /// </summary>
+    private async Task EnsureTenantIsNotSuspendedAsync(AppUser user, CancellationToken ct)
+    {
+        // El usuario de plataforma no pertenece a ningún taller: no hay nada que comprobar.
+        if (user.TenantId == Guid.Empty) return;
+
+        var activo = await db.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => t.Id == user.TenantId)
+            .Select(t => t.IsActive)
+            .FirstOrDefaultAsync(ct);
+
+        if (!activo)
+            throw new UnauthorizedException(
+                "El servicio de este taller está suspendido. Comuníquese con GarajApp.");
+    }
+
     private async Task<CurrentUserDto> BuildCurrentUserAsync(AppUser user, CancellationToken ct)
     {
         var role = (await userManager.GetRolesAsync(user)).FirstOrDefault() ?? string.Empty;
+
+        // Nosotros, no un taller: no hay ficha que cargar ni sucursales que enseñar.
+        if (role == AppRoles.Platform)
+            return new CurrentUserDto(
+                user.Id, user.Email ?? string.Empty, user.FullName, role,
+                Guid.Empty, "GarajApp", null, [], null);
 
         var tenant = await db.Tenants
             .IgnoreQueryFilters()
@@ -156,7 +190,12 @@ public class AuthService(
             tenant.Name,
             tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id),
             branches,
-            user.CustomerId);
+            user.CustomerId,
+            // Solo al Dueño: la mensualidad es asunto suyo y nuestro. Al Técnico y al Cliente
+            // les llega null, así que ninguna pantalla puede enseñarles lo que no recibió.
+            role == AppRoles.Owner
+                ? SubscriptionMessages.ToDto(SubscriptionRules.For(tenant, clock.Today()))
+                : null);
     }
 
     private async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)

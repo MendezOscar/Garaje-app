@@ -164,6 +164,19 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/customer/MyVehiclesView.vue'),
         meta: { roles: [Roles.Customer] },
       },
+      {
+        // Lo nuestro, no del taller: los talleres como clientes y su mensualidad.
+        path: 'plataforma/talleres',
+        name: 'platform-tenants',
+        component: () => import('@/views/platform/TenantsView.vue'),
+        meta: { roles: [Roles.Platform] },
+      },
+      {
+        path: 'plataforma/talleres/:id',
+        name: 'platform-tenant',
+        component: () => import('@/views/platform/TenantDetailView.vue'),
+        meta: { roles: [Roles.Platform] },
+      },
     ],
   },
   {
@@ -188,6 +201,8 @@ export function homeRouteFor(role: Role | null): string {
       return 'my-assignments'
     case Roles.Customer:
       return 'my-vehicles'
+    case Roles.Platform:
+      return 'platform-tenants'
     default:
       return 'login'
   }

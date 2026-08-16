@@ -41,7 +41,13 @@ public class TenantProvisioner(
         string? Phone = null,
         string? Email = null,
         string? Password = null,
-        string? LogoPath = null);
+        string? LogoPath = null,
+        // Lo que el taller nos paga a nosotros. Se fija al dar de alta porque el día de la
+        // instalación es cuando se acuerda, y porque un taller sin fecha no se bloquea nunca.
+        string? PlanName = null,
+        decimal MonthlyFee = 0,
+        DateOnly? PaidThrough = null,
+        int? GraceDays = null);
 
     public record Result(Guid TenantId, Guid BranchId, Guid OwnerUserId, string OwnerEmail, string Password);
 
@@ -79,7 +85,13 @@ public class TenantProvisioner(
             // Honduras: lempira, ISV general del 15% y el 504 al frente de los links de WhatsApp.
             Currency = "HNL",
             DefaultTaxRate = 15m,
-            DefaultPhoneCountryCode = "504"
+            DefaultPhoneCountryCode = "504",
+            PlanName = Trim(request.PlanName),
+            MonthlyFee = request.MonthlyFee,
+            GraceDays = Math.Clamp(request.GraceDays ?? 5, 0, 60),
+            // Lo normal es que pague la instalación el día que se instala, así que sale pagado
+            // hasta dentro de un mes salvo que se diga otra cosa.
+            PaidThrough = request.PaidThrough ?? DateOnly.FromDateTime(clock.UtcNow.UtcDateTime).AddMonths(1)
         };
         db.Tenants.Add(tenant);
         tenantContext.SetTenant(tenant.Id);
@@ -136,7 +148,7 @@ public class TenantProvisioner(
     /// Contraseña de un solo uso, para que el Dueño la cambie al entrar. Se imprime una vez y
     /// no queda guardada en ninguna parte.
     /// </summary>
-    private static string GeneratePassword()
+    internal static string GeneratePassword()
     {
         const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
         var chars = RandomNumberGenerator.GetItems<char>(alphabet, 12);

@@ -1,6 +1,8 @@
 // Espejo de los DTOs de la Fase 1. Los enums numéricos coinciden con los de
 // Garaj.Domain.Enums: si cambian allá, hay que cambiarlos aquí.
 
+import type { SubscriptionState } from './api'
+
 // Objetos const en vez de `enum`: el tsconfig usa `erasableSyntaxOnly`, que prohíbe la
 // sintaxis que emite código en tiempo de ejecución. El uso queda igual (`VehicleType.Car`).
 
@@ -948,4 +950,59 @@ export interface TenantSettings {
   defaultPhoneCountryCode: string
   /** Ruta relativa a la base de la API, o null. Se abre con `apiUrl()`. */
   logoUrl: string | null
+}
+
+/**
+ * Un taller visto desde nuestro lado, el de GarajApp: no lo que hace, sino cómo va con la
+ * mensualidad. Solo lo recibe el perfil Plataforma.
+ */
+export interface PlatformTenant {
+  id: string
+  name: string
+  legalName: string | null
+  phone: string | null
+  email: string | null
+  planName: string | null
+  monthlyFee: number
+  currency: string
+  paidThrough: string | null
+  graceDays: number
+  unblockedThrough: string | null
+  unblockNote: string | null
+  isActive: boolean
+  state: SubscriptionState
+  daysLeft: number | null
+  readOnlyOn: string | null
+  lastPaymentOn: string | null
+  branchCount: number
+  createdAt: string
+}
+
+export interface PlatformTenantDetail {
+  tenant: PlatformTenant
+  payments: SubscriptionPayment[]
+}
+
+export interface SubscriptionPayment {
+  id: string
+  paidOn: string
+  amount: number
+  currency: string
+  method: string | null
+  reference: string | null
+  /** A qué fecha quedó corrida la suscripción con este pago. */
+  coversThrough: string
+  note: string | null
+  createdAt: string
+}
+
+/**
+ * Lo que devuelve el alta de un taller. La contraseña viene **una sola vez**: no se guarda en
+ * claro en ninguna parte y no hay forma de volver a consultarla.
+ */
+export interface CreatedTenant {
+  tenantId: string
+  branchId: string
+  ownerEmail: string
+  password: string
 }

@@ -53,6 +53,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         HttpStatusCode.Forbidden => "Acceso denegado",
         HttpStatusCode.Unauthorized => "No autenticado",
         HttpStatusCode.Conflict => "Conflicto",
+        HttpStatusCode.PaymentRequired => "Suscripción vencida",
         HttpStatusCode.InternalServerError => "Error interno",
         _ => "Solicitud inválida"
     };

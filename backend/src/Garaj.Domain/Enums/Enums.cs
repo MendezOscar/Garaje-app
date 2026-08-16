@@ -105,3 +105,25 @@ public enum DevicePlatform
     IOS = 2,
     Web = 3
 }
+
+/// <summary>
+/// Cómo está el taller con su mensualidad. Se calcula a partir de las fechas cada vez que se
+/// pregunta —no se guarda— para que no dependa de ningún proceso nocturno que un día no corra.
+/// </summary>
+public enum SubscriptionState
+{
+    /// <summary>Pagado, o con acuerdo de pago vigente. Trabaja sin estorbo.</summary>
+    Active = 1,
+
+    /// <summary>Le quedan pocos días. Trabaja igual, pero el Dueño ve el aviso.</summary>
+    DueSoon = 2,
+
+    /// <summary>Se pasó la fecha pero está dentro de los días de tolerancia. Sigue trabajando.</summary>
+    Grace = 3,
+
+    /// <summary>Vencido: consulta todo lo suyo, pero no puede crear ni facturar.</summary>
+    ReadOnly = 4,
+
+    /// <summary>Suspendido a mano por nosotros. No entra.</summary>
+    Suspended = 5
+}

@@ -19,6 +19,18 @@ export function formatDate(value: string | null | undefined): string {
   return value ? dateOnly.format(new Date(value)) : '—'
 }
 
+/**
+ * Fecha sin hora, como la manda el backend («2026-08-15»). No se puede pasar por `new Date`
+ * a secas: esa cadena se lee como medianoche UTC y en Honduras se pintaría el día anterior,
+ * que en una fecha de vencimiento es exactamente el error que no se puede cometer.
+ */
+export function formatDay(value: string | null | undefined): string {
+  if (!value) return '—'
+
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  return dateOnly.format(new Date(year, month - 1, day))
+}
+
 const currency = new Intl.NumberFormat('es-HN', {
   style: 'currency',
   currency: 'HNL',

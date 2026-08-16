@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Domain.Common;
+using Garaj.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -38,7 +39,13 @@ public class AuditableEntityInterceptor(ITenantContext tenantContext, IDateTimeP
             if (entry.State is not (EntityState.Added or EntityState.Modified))
                 continue;
 
+            // AppUser queda fuera, igual que del global query filter y por un motivo parecido:
+            // no todo usuario pertenece a un taller. El de plataforma —el nuestro— se guarda
+            // con el taller vacío a propósito, y eso es justo lo que le impide ver datos
+            // ajenos; rellenárselo aquí le entregaría las llaves del primer taller que pase.
+            // Los cuatro sitios que crean usuarios ponen el taller a mano.
             if (entry.Entity is ITenantEntity tenantEntity
+                && entry.Entity is not AppUser
                 && entry.State == EntityState.Added
                 && tenantEntity.TenantId == Guid.Empty)
             {
