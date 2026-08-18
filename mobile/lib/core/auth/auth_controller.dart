@@ -125,6 +125,22 @@ class AuthController extends Notifier<AuthState> {
     await forceLogout();
   }
 
+  /// Borra la cuenta de quien está dentro y cierra la sesión.
+  ///
+  /// El taller conserva el trabajo que lleva la firma de esa persona —órdenes, movimientos de
+  /// bodega, facturas— pero anonimizado: borrarlo dejaría el histórico sin responsable, y las
+  /// facturas emitidas hay que guardarlas por ley. Lo que se va es lo personal y el acceso.
+  Future<void> deleteAccount() async {
+    await ref.read(pushMessagingProvider).stop();
+
+    await _dio.post<void>(
+      '/api/auth/delete-account',
+      data: {'confirm': 'ELIMINAR'},
+    );
+
+    await forceLogout();
+  }
+
   /// Cierre de sesión sin avisar al backend: lo usa el interceptor cuando el refresh falla.
   Future<void> forceLogout() async {
     await _tokens.clear();

@@ -755,6 +755,17 @@ export const salesApi = {
     return data
   },
   /** Un abono a una venta con saldo. Nunca por encima de lo que falta. */
+  /**
+   * Le crea un Dueño a un taller que ya existe: el rescate cuando se quedó sin nadie que
+   * pueda entrar. La contraseña vuelve una sola vez, igual que en el alta.
+   */
+  async createOwner(
+    id: string,
+    body: { email: string; fullName: string; password?: string | null },
+  ): Promise<CreatedTenant> {
+    const { data } = await api.post<CreatedTenant>(`/api/platform/tenants/${id}/owner`, body)
+    return data
+  },
   async registerPayment(id: string, body: {
     amount: number
     method: PaymentMethod
@@ -935,6 +946,17 @@ export const platformApi = {
     password?: string | null
   }): Promise<CreatedTenant> {
     const { data } = await api.post<CreatedTenant>('/api/platform/tenants', body)
+    return data
+  },
+  /**
+   * Le crea un Dueño a un taller que ya existe: el rescate cuando se quedó sin nadie que
+   * pueda entrar. La contraseña vuelve una sola vez, igual que en el alta.
+   */
+  async createOwner(
+    id: string,
+    body: { email: string; fullName: string; password?: string | null },
+  ): Promise<CreatedTenant> {
+    const { data } = await api.post<CreatedTenant>(`/api/platform/tenants/${id}/owner`, body)
     return data
   },
   async registerPayment(

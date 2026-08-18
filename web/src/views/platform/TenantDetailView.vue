@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { platformApi } from '@/api/garaj'
-import type { PlatformTenantDetail } from '@/types/domain'
+import type { CreatedTenant, PlatformTenantDetail } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
 /**
@@ -23,6 +23,8 @@ const tenant = computed(() => data.value?.tenant ?? null)
 const pago = ref({ amount: 0, paidOn: '', method: 'Transferencia', reference: '', months: 1 })
 const acuerdo = ref({ unblockedThrough: '', note: '' })
 const plan = ref({ planName: '', monthlyFee: 0, paidThrough: '', graceDays: 5 })
+const nuevoDueno = ref({ email: '', fullName: '', password: '' })
+const creado = ref<CreatedTenant | null>(null)
 
 /** Qué le está pasando al taller ahora mismo, dicho como se lo diríamos por teléfono. */
 const situacion = computed(() => {
@@ -118,6 +120,20 @@ function guardarPlan() {
       }),
     'No se pudo guardar el plan.',
   )
+}
+
+function crearDueno() {
+  const f = nuevoDueno.value
+  if (!f.email.trim() || !f.fullName.trim()) return
+
+  return accion(async () => {
+    creado.value = await platformApi.createOwner(id, {
+      email: f.email.trim(),
+      fullName: f.fullName.trim(),
+      password: f.password.trim() || null,
+    })
+    nuevoDueno.value = { email: '', fullName: '', password: '' }
+  }, 'No se pudo crear el Dueño.')
 }
 
 function suspender() {
@@ -269,6 +285,45 @@ onMounted(load)
       </form>
     </div>
 
+    <!-- Se enseña una sola vez: la contraseña no queda guardada en claro en ninguna parte. -->
+    <article v-if="creado" class="card credenciales">
+      <h2>Acceso creado</h2>
+      <p>Entrégueselas ahora. <strong>No se pueden volver a consultar.</strong></p>
+      <p class="mono">{{ creado.ownerEmail }}</p>
+      <p class="mono">{{ creado.password }}</p>
+      <button type="button" class="link" @click="creado = null">Ya las anoté</button>
+    </article>
+
+    <details class="rescate">
+      <summary>Crear otro acceso de Dueño</summary>
+      <form class="card" @submit.prevent="crearDueno">
+        <p class="muted small">
+          Para cuando el taller se quedó sin nadie que pueda entrar: perdió la contraseña, borró
+          su cuenta desde la app o se fue del negocio. Sus datos siguen intactos; lo que falta es
+          la puerta. El Dueño que ya exista no se toca.
+        </p>
+
+        <div class="row">
+          <label>
+            Correo
+            <input v-model="nuevoDueno.email" type="email" placeholder="dueno@taller.hn" required />
+          </label>
+          <label>
+            Nombre
+            <input v-model="nuevoDueno.fullName" placeholder="Juan Martínez" required />
+          </label>
+          <label>
+            Contraseña
+            <input v-model="nuevoDueno.password" type="text" placeholder="Se genera si va vacía" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" :disabled="busy">Crear acceso</button>
+        </div>
+      </form>
+    </details>
+
     <h2 class="historial">Pagos</h2>
 
     <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
@@ -392,6 +447,27 @@ label {
 
 .peligro {
   background: var(--danger);
+}
+
+.credenciales {
+  border-color: var(--success);
+  margin-top: 1rem;
+}
+
+.rescate {
+  margin-top: 1.5rem;
+}
+
+.rescate summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  margin: 0.25rem 0;
 }
 
 .historial {

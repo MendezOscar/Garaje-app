@@ -46,6 +46,23 @@ public class AuthController(IAuthService authService) : ControllerBase
         return Ok(await authService.GetCurrentUserAsync(userId, ct));
     }
 
+    /// <summary>
+    /// Borra la cuenta de quien la pide, desde la app. Apple lo exige a toda app con cuentas
+    /// y es lo correcto: quien entra tiene que poder salirse.
+    ///
+    /// El trabajo del taller que lleva su firma —órdenes, movimientos de bodega, facturas— se
+    /// conserva anonimizado: borrarlo dejaría el histórico sin responsable, y las facturas
+    /// emitidas hay que guardarlas por ley.
+    /// </summary>
+    [HttpPost("delete-account")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeleteAccount(DeleteAccountRequest request, CancellationToken ct)
+    {
+        await authService.DeleteMyAccountAsync(request, ct);
+        return NoContent();
+    }
+
     /// <summary>Endpoint de humo para verificar que las policies por rol están bien cableadas.</summary>
     [HttpGet("ping-owner")]
     [Authorize(Policy = AppPolicies.OwnerOnly)]

@@ -183,6 +183,38 @@ status, _ = api("POST", "/api/platform/tenants", {
 }, token=plataforma)
 check("dos talleres con el mismo nombre se rechazan", status == 409, str(status))
 
+# ------------------------------------------------------------------ el rescate
+
+print("\n[devolverle el acceso a un taller que se quedó sin Dueño]")
+
+nuevo_taller = nuevo["tenantId"]
+
+status, rescate = api("POST", f"/api/platform/tenants/{nuevo_taller}/owner", {
+    "email": f"rescate{sufijo}@garaj.test",
+    "fullName": "Dueño de Rescate",
+}, token=plataforma)
+check("se le crea otro Dueño", status == 200, str(status))
+check("con contraseña de una sola vez", len(rescate.get("password", "")) >= 8, str(status))
+
+status, sesion_rescate = api("POST", "/api/auth/login", {
+    "email": f"rescate{sufijo}@garaj.test", "password": rescate["password"],
+})
+check("y entra al taller", status == 200, str(status))
+check("como Dueño", sesion_rescate["user"]["role"] == "Owner",
+      str(sesion_rescate["user"]["role"]))
+check("del taller correcto", sesion_rescate["user"]["tenantId"] == nuevo_taller,
+      str(sesion_rescate["user"]["tenantId"]))
+
+status, _ = api("POST", f"/api/platform/tenants/{nuevo_taller}/owner", {
+    "email": f"rescate{sufijo}@garaj.test", "fullName": "Repetido",
+}, token=plataforma)
+check("un correo que ya existe se rechaza", status == 409, str(status))
+
+status, _ = api("POST", f"/api/platform/tenants/{tenant_id}/owner", {
+    "email": f"colado{sufijo}@garaj.test", "fullName": "Colado",
+}, token=owner)
+check("el Dueño de un taller no se crea Dueños", status == 403, str(status))
+
 # ------------------------------------------------------------------ al día
 
 print("\n[al día]")
