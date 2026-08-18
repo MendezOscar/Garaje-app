@@ -18,6 +18,7 @@ public class AuthService(
     JwtTokenGenerator tokenGenerator,
     IOptions<JwtOptions> jwtOptions,
     IDateTimeProvider clock,
+    ITenantContext tenantContext,
     IHttpContextAccessorAdapter requestInfo) : IAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
@@ -150,6 +151,55 @@ public class AuthService(
         if (!activo)
             throw new UnauthorizedException(
                 "El servicio de este taller está suspendido. Comuníquese con GarajApp.");
+    }
+
+    /// <summary>Frase que hay que escribir para borrar la cuenta. En español, como la pantalla.</summary>
+    private const string DeleteConfirmation = "ELIMINAR";
+
+    public async Task DeleteMyAccountAsync(DeleteAccountRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (!string.Equals(request.Confirm?.Trim(), DeleteConfirmation, StringComparison.OrdinalIgnoreCase))
+            throw new AppException("Escriba ELIMINAR para confirmar que quiere borrar su cuenta.");
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == scope.UserId, ct)
+            ?? throw new NotFoundException("El usuario no existe.");
+
+        // La ficha del cliente **no** se borra: es del taller, tiene sus vehículos, sus órdenes
+        // y sus facturas, y la ley obliga a conservarlas. Lo que se borra es el acceso, y así
+        // el taller puede volver a dárselo si el cliente cambia de opinión.
+        if (user.CustomerId is { } customerId)
+        {
+            var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
+            if (customer is not null) customer.AppUserId = null;
+        }
+
+        // Los teléfonos registrados para avisos y las sucursales asignadas dejan de tener sentido.
+        db.DeviceTokens.RemoveRange(await db.DeviceTokens.Where(d => d.UserId == user.Id).ToListAsync(ct));
+        db.UserBranches.RemoveRange(await db.UserBranches.Where(b => b.UserId == user.Id).ToListAsync(ct));
+
+        // La fila del usuario se conserva anonimizada y no se borra: su nombre está en órdenes,
+        // movimientos de bodega y facturas emitidas. Borrarla dejaría el histórico del taller
+        // sin responsable —y en el caso de las facturas, sin quien las emitió—. Lo que se va es
+        // lo personal: nombre, correo, teléfono y la contraseña.
+        var anonimo = $"eliminado-{user.Id:N}@garajapp.local";
+
+        user.FullName = "Cuenta eliminada";
+        user.Email = anonimo;
+        user.NormalizedEmail = userManager.NormalizeEmail(anonimo);
+        user.UserName = anonimo;
+        user.NormalizedUserName = userManager.NormalizeName(anonimo);
+        user.PhoneNumber = null;
+        user.PasswordHash = null;
+        user.CustomerId = null;
+        user.IsActive = false;
+        user.SecurityStamp = Guid.NewGuid().ToString();
+
+        await db.SaveChangesAsync(ct);
+
+        // Cierra la sesión en todos sus aparatos, no solo en el que pidió el borrado.
+        await RevokeAllForUserAsync(user.Id, ct);
     }
 
     private async Task<CurrentUserDto> BuildCurrentUserAsync(AppUser user, CancellationToken ct)

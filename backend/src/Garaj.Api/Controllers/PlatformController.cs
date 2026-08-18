@@ -38,6 +38,16 @@ public class PlatformController(IPlatformService service) : ControllerBase
         CreateTenantRequest request, CancellationToken ct)
         => Ok(await service.CreateTenantAsync(request, ct));
 
+    /// <summary>
+    /// Le crea un Dueño a un taller que ya existe. Es el rescate cuando el taller se quedó sin
+    /// nadie que pueda entrar —perdió la contraseña, borró su cuenta desde la app, se fue del
+    /// negocio—: sus datos están intactos, pero desde adentro no hay forma de abrirlo.
+    /// </summary>
+    [HttpPost("{id:guid}/owner")]
+    public async Task<ActionResult<CreatedTenantDto>> CreateOwner(
+        Guid id, CreateOwnerRequest request, CancellationToken ct)
+        => Ok(await service.CreateOwnerAsync(id, request, ct));
+
     /// <summary>Registra el pago del mes y corre la fecha de vencimiento.</summary>
     [HttpPost("{id:guid}/payments")]
     public async Task<ActionResult<PlatformTenantDetailDto>> RegisterPayment(

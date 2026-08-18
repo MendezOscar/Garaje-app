@@ -14,8 +14,28 @@ marcados como anónimos. Los errores salen como `application/problem+json` con e
 | POST | `/api/auth/refresh` | anónimo | Rota el refresh token y emite un par nuevo |
 | POST | `/api/auth/logout` | anónimo | Revoca el refresh token de la sesión |
 | GET | `/api/auth/me` | cualquiera | Perfil del usuario autenticado |
+| POST | `/api/auth/delete-account` | cualquiera | **Borra la cuenta de quien la pide** |
 | GET | `/api/auth/ping-owner` | Owner | Prueba de humo de las policies por rol |
 | GET | `/health` | anónimo | Estado de la API y de la base |
+
+### Borrar la propia cuenta
+
+`POST /api/auth/delete-account` con `{"confirm":"ELIMINAR"}`. Apple lo exige a toda app con
+cuentas, y de paso es lo correcto: quien entra tiene que poder salirse.
+
+- **La fila del usuario no se borra, se anonimiza.** Su nombre está en órdenes, movimientos de
+  bodega y facturas emitidas; borrarla dejaría el histórico del taller sin responsable y las
+  facturas sin quien las emitió, que además hay que conservar por ley. Lo que se va es lo
+  personal: nombre, correo, teléfono y contraseña. La cuenta queda inactiva y sin forma de entrar.
+- **Al Cliente se le borra el acceso, no su ficha.** El padrón, los vehículos y las órdenes son
+  del taller. `Customer.AppUserId` queda libre, así que el taller puede volver a darle acceso.
+- Se cierran **todas** sus sesiones, no solo la que pidió el borrado, y se dan de baja sus
+  teléfonos registrados para avisos.
+- La confirmación literal (`ELIMINAR`) es un cerrojo contra la llamada por accidente, no un
+  trámite: la app la manda sola tras el diálogo.
+- **Si el único Dueño borra su cuenta, el taller queda sin quien lo administre.** Los datos
+  siguen ahí; lo que falta es la puerta. Se abre con
+  `POST /api/platform/tenants/{id}/owner`, que es justo para eso.
 
 ### Fase 1 — núcleo operativo
 
@@ -610,6 +630,7 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | GET | `/api/platform/tenants` | Plataforma | Los talleres, lo que vence primero arriba |
 | GET | `/api/platform/tenants/{id}` | Plataforma | Ficha de cobro con el historial de pagos |
 | POST | `/api/platform/tenants` | Plataforma | **Da de alta un taller**, su sucursal y su Dueño |
+| POST | `/api/platform/tenants/{id}/owner` | Plataforma | Le crea un Dueño a un taller que ya existe |
 | POST | `/api/platform/tenants/{id}/payments` | Plataforma | Registra el pago y corre el vencimiento |
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
 | PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
@@ -648,6 +669,10 @@ Sobre el perfil `Platform`, que es la llave maestra del sistema:
   Si el panel pudiera crear otro, una sesión robada bastaría para fabricarse llaves nuevas.
 - El alta de talleres desde el panel llama al **mismo `TenantProvisioner`** que el comando de
   consola, que sigue existiendo. La contraseña del Dueño vuelve **una sola vez** en la respuesta.
+- **`{id}/owner` es el rescate.** Un taller puede quedarse sin nadie que entre: el Dueño perdió la
+  contraseña, borró su cuenta desde la app o se fue del negocio. Sus datos están intactos y desde
+  adentro no hay forma de abrirlo, porque restablecer contraseñas es una acción del propio taller.
+  No toca al Dueño que exista: agrega otro.
 
 ### Datos de demostración
 

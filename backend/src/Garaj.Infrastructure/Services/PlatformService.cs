@@ -3,7 +3,9 @@ using Garaj.Application.Common;
 using Garaj.Application.Platform;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Rules;
+using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garaj.Infrastructure.Services;
@@ -21,7 +23,8 @@ public class PlatformService(
     GarajDbContext db,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
-    TenantProvisioner provisioner) : IPlatformService
+    TenantProvisioner provisioner,
+    UserManager<AppUser> userManager) : IPlatformService
 {
     public async Task<IReadOnlyList<PlatformTenantDto>> ListAsync(CancellationToken ct = default)
     {
@@ -103,6 +106,47 @@ public class PlatformService(
         }
 
         return new CreatedTenantDto(result.TenantId, result.BranchId, result.OwnerEmail, result.Password);
+    }
+
+    public async Task<CreatedTenantDto> CreateOwnerAsync(
+        Guid tenantId, CreateOwnerRequest request, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var tenant = await FindAsync(tenantId, ct);
+
+        var email = (request.Email ?? "").Trim().ToLowerInvariant();
+        var nombre = (request.FullName ?? "").Trim();
+
+        if (email.Length == 0 || nombre.Length == 0)
+            throw new AppException("Hacen falta el correo y el nombre del Dueño.");
+
+        if (await userManager.FindByEmailAsync(email) is not null)
+            throw new ConflictException($"El correo {email} ya tiene usuario.");
+
+        var owner = new AppUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,
+            FullName = nombre,
+            TenantId = tenant.Id,
+            CreatedAt = clock.UtcNow
+        };
+
+        var password = string.IsNullOrWhiteSpace(request.Password)
+            ? TenantProvisioner.GeneratePassword()
+            : request.Password;
+
+        var created = await userManager.CreateAsync(owner, password);
+        if (!created.Succeeded)
+            throw new AppException(
+                $"No se pudo crear el Dueño: {string.Join("; ", created.Errors.Select(e => e.Description))}");
+
+        await userManager.AddToRoleAsync(owner, AppRoles.Owner);
+
+        // El Dueño no se asigna a sucursales: las ve todas por rol.
+        return new CreatedTenantDto(tenant.Id, Guid.Empty, email, password);
     }
 
     public async Task<PlatformTenantDetailDto> RegisterPaymentAsync(

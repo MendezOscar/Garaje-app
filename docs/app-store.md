@@ -127,9 +127,15 @@ Contraseña: Garaj123!
 Es el perfil Dueño, que ve todas las funciones. El taller de demostración tiene seis semanas de
 historia para que se puedan revisar los reportes y el cierre de caja.
 
+Para borrar la cuenta: menú «⋯» arriba a la derecha → Eliminar mi cuenta. Se confirma en un
+diálogo y la cuenta queda eliminada de inmediato.
+
 La aplicación no recopila datos de menores ni contenido generado por usuarios que se comparta
 públicamente. Las fotos que se toman quedan asociadas a la orden de trabajo del taller.
 ```
+
+> Si el revisor borra la cuenta de demostración, hay que volver a crearla antes de responderle:
+> desde **Plataforma → Talleres → el taller → Crear otro acceso de Dueño**.
 
 **Antes de mandar a revisar hay que confirmar que esa cuenta existe en producción**, que es a
 donde apunta la compilación que se sube. Ojo con esto:
@@ -163,6 +169,6 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
 - [ ] Las dos URL (soporte y privacidad) responden.
 - [ ] La cuenta del revisor entra **en producción**.
 - [ ] Cumplimiento de exportación: usa HTTPS estándar → exento.
-- [ ] **Borrar la cuenta desde la app**: Apple lo exige a las apps con cuentas. Aquí las crea el
-      taller y no hay registro público; hay que explicarlo en las notas y estar listos para
-      agregar la opción si el revisor insiste. Es el riesgo de rechazo más probable.
+- [x] **Borrar la cuenta desde la app**: hecho. Está en el menú «⋯» de la bandeja, como
+      **Eliminar mi cuenta**, para los tres perfiles: un diálogo y dos toques, sin trámites ni
+      correos. Ver [api.md](api.md#borrar-la-propia-cuenta).

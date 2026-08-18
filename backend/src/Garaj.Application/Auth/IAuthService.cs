@@ -13,4 +13,10 @@ public interface IAuthService
     Task LogoutAsync(string refreshToken, CancellationToken ct = default);
 
     Task<CurrentUserDto> GetCurrentUserAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Elimina la cuenta de quien la pide. Cierra la sesión en todos sus aparatos y borra sus
+    /// datos personales; el trabajo del taller que lleva su firma se conserva anonimizado.
+    /// </summary>
+    Task DeleteMyAccountAsync(DeleteAccountRequest request, CancellationToken ct = default);
 }

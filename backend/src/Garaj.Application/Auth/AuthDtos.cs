@@ -4,6 +4,12 @@ public record LoginRequest(string Email, string Password);
 
 public record RefreshTokenRequest(string RefreshToken);
 
+/// <summary>
+/// Borrado de la propia cuenta. Lleva confirmación escrita porque no tiene vuelta atrás y
+/// porque, en el caso del Dueño, deja al taller sin quien lo administre.
+/// </summary>
+public record DeleteAccountRequest(string Confirm);
+
 /// <param name="ExpiresAt">Vencimiento del access token; el cliente refresca antes de llegar aquí.</param>
 public record AuthResponse(
     string AccessToken,

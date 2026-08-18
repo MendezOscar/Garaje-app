@@ -241,6 +241,38 @@ status, _ = api("POST", "/api/customers/00000000-0000-0000-0000-000000000009/app
 }, token=owner)
 check("un cliente inexistente da 404", status == 404, str(status))
 
+# ------------------------------------------------------------------ borrar la propia cuenta
+
+print("\n[el usuario borra su propia cuenta]")
+
+status, _ = api("POST", "/api/auth/delete-account", {"confirm": "por favor"}, token=client_token)
+check("sin la confirmación exacta no se borra nada", status == 400, str(status))
+
+status, _ = login(client_email, new_password)
+check("y la cuenta sigue sirviendo", status == 200, str(status))
+
+status, _ = api("POST", "/api/auth/delete-account", {"confirm": "ELIMINAR"}, token=client_token)
+check("con la confirmación se borra", status == 204, str(status))
+
+status, _ = login(client_email, new_password)
+check("el correo ya no entra", status == 401, str(status))
+
+# Lo que importa del diseño: se borra el acceso, no el cliente del taller. Sus vehículos, sus
+# órdenes y sus facturas son del taller y la ley obliga a conservarlas.
+status, ficha = api("GET", f"/api/customers/{buyer['id']}", token=owner)
+check("el taller conserva la ficha del cliente", status == 200 and ficha["fullName"].startswith("Cliente Sin App"),
+      str(status))
+check("y queda sin acceso a la app", ficha["hasAppAccess"] is False, str(ficha.get("hasAppAccess")))
+check("sin correo de entrada", ficha["appUserEmail"] is None, str(ficha.get("appUserEmail")))
+
+# Y como la ficha quedó libre, el taller puede volver a darle acceso si el cliente vuelve.
+status, revivido = api("POST", f"/api/customers/{buyer['id']}/app-access", {
+    "email": f"cliente.vuelve{suffix}@garaj.test", "password": new_password,
+}, token=owner)
+check("el taller puede volver a darle acceso", status == 200, str(status))
+check("con el correo nuevo", revivido["appUserEmail"] == f"cliente.vuelve{suffix}@garaj.test",
+      str(revivido.get("appUserEmail")))
+
 print(f"\n{ok} comprobaciones bien, {len(failed)} mal")
 if failed:
     for name in failed:

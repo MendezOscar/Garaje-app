@@ -93,6 +93,13 @@ public record RegisterPaymentRequest(
     int Months = 1,
     string? Note = null);
 
+/// <summary>
+/// Alta de un Dueño para un taller que ya existe. Es el rescate: si el único Dueño perdió la
+/// contraseña, borró su cuenta desde la app o se fue del negocio, el taller queda con sus datos
+/// intactos pero sin nadie que pueda entrar, y desde adentro no hay forma de arreglarlo.
+/// </summary>
+public record CreateOwnerRequest(string Email, string FullName, string? Password = null);
+
 /// <summary>El acuerdo de pago: hasta cuándo se le suelta el freno y por qué.</summary>
 public record PaymentAgreementRequest(DateOnly UnblockedThrough, string? Note);
 
@@ -113,6 +120,10 @@ public interface IPlatformService
     Task<PlatformTenantDetailDto> GetAsync(Guid tenantId, CancellationToken ct = default);
 
     Task<CreatedTenantDto> CreateTenantAsync(CreateTenantRequest request, CancellationToken ct = default);
+
+    /// <summary>Le crea un Dueño nuevo a un taller existente. La contraseña vuelve una sola vez.</summary>
+    Task<CreatedTenantDto> CreateOwnerAsync(
+        Guid tenantId, CreateOwnerRequest request, CancellationToken ct = default);
 
     /// <summary>Registra el pago y corre la fecha de vencimiento. Cancela el acuerdo si lo había.</summary>
     Task<PlatformTenantDetailDto> RegisterPaymentAsync(
