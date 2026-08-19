@@ -1,5 +1,8 @@
 # Publicar en la App Store
 
+Para Google Play, ver [play-store.md](play-store.md): los textos son otros —los límites no
+coinciden— y hay dos formularios que Apple no tiene.
+
 Todo lo que App Store Connect va a pedir, escrito de antemano. Se preparó **antes** de tener la
 membresía a propósito: cuando Apple apruebe, publicar es llenar formularios con esto al lado, no
 inventar textos con prisa.
