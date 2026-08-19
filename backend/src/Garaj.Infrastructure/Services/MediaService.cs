@@ -153,6 +153,81 @@ public class MediaService(
         return await MapAsync(items, ct);
     }
 
+    public async Task<IReadOnlyList<MediaAttachmentDto>> ListForQuotePublicAsync(
+        Guid tenantId, Guid quoteId, CancellationToken ct = default)
+    {
+        // Igual que en la orden: sin filtro de tenant y acotado a mano, porque quien llega es
+        // el cliente por el link de WhatsApp y no hay sesión de la que sacar el taller.
+        var items = await db.MediaAttachments.AsNoTracking().IgnoreQueryFilters()
+            .Where(m => m.TenantId == tenantId
+                        && m.IsConfirmed
+                        && m.IsVisibleToCustomer
+                        && m.OwnerType == MediaOwnerType.Quote
+                        && m.OwnerId == quoteId)
+            .OrderBy(m => m.TakenAt)
+            .ToListAsync(ct);
+
+        return await MapAsync(items, ct);
+    }
+
+    public async Task<IReadOnlyList<byte[]>> DownloadThumbnailsAsync(
+        MediaOwnerType ownerType, Guid ownerId, Guid tenantId, int max, CancellationToken ct = default)
+    {
+        if (max <= 0) return [];
+
+        var keys = await db.MediaAttachments.AsNoTracking().IgnoreQueryFilters()
+            .Where(m => m.TenantId == tenantId
+                        && m.IsConfirmed
+                        && m.IsVisibleToCustomer
+                        && m.OwnerType == ownerType
+                        && m.OwnerId == ownerId)
+            .OrderBy(m => m.TakenAt)
+            .Take(max)
+            .Select(m => m.ThumbnailKey ?? m.StorageKey)
+            .ToListAsync(ct);
+
+        var images = new List<byte[]>(keys.Count);
+
+        foreach (var key in keys)
+        {
+            try
+            {
+                await using var stream = await storage.DownloadAsync(key, ct);
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer, ct);
+                images.Add(buffer.ToArray());
+            }
+            catch (Exception e)
+            {
+                // Una foto que no se pudo bajar no vale un PDF sin cotización: se omite.
+                logger.LogWarning(e, "No se pudo leer {Key} para el documento.", key);
+            }
+        }
+
+        return images;
+    }
+
+    public async Task PurgeAsync(
+        MediaOwnerType ownerType, IReadOnlyCollection<Guid> ownerIds, CancellationToken ct = default)
+    {
+        if (ownerIds.Count == 0) return;
+
+        var attachments = await db.MediaAttachments
+            .Where(m => m.OwnerType == ownerType && ownerIds.Contains(m.OwnerId))
+            .ToListAsync(ct);
+
+        if (attachments.Count == 0) return;
+
+        db.MediaAttachments.RemoveRange(attachments);
+        await db.SaveChangesAsync(ct);
+
+        foreach (var attachment in attachments)
+        {
+            await TryDeleteObjectAsync(attachment.StorageKey, ct);
+            if (attachment.ThumbnailKey is { } thumbKey) await TryDeleteObjectAsync(thumbKey, ct);
+        }
+    }
+
     public async Task DeleteAsync(Guid attachmentId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
@@ -228,6 +303,13 @@ public class MediaService(
             return;
         }
 
+        if (ownerType == MediaOwnerType.Quote)
+        {
+            var exists = await ScopedQuotes(scope).AnyAsync(q => q.Id == ownerId, ct);
+            if (!exists) throw new NotFoundException("La cotización no existe.");
+            return;
+        }
+
         if (workOrderId is not { } id || !await ScopedOrders(scope).AnyAsync(w => w.Id == id, ct))
             throw new NotFoundException("La orden de trabajo no existe.");
     }
@@ -238,6 +320,20 @@ public class MediaService(
 
         if (scope.IsTechnician) return q.Where(w => w.AssignedTechnicianId == scope.UserId);
         if (scope.IsCustomer) return q.Where(w => w.Vehicle.CustomerId == scope.CustomerId);
+
+        return q;
+    }
+
+    /// <summary>
+    /// El mismo alcance que el servicio de cotizaciones: el Cliente ve las suyas y el Técnico
+    /// no participa en la parte comercial.
+    /// </summary>
+    private IQueryable<Quote> ScopedQuotes(AccessScope scope)
+    {
+        var q = db.Quotes.AsNoTracking();
+
+        if (scope.IsTechnician) return q.Where(_ => false);
+        if (scope.IsCustomer) return q.Where(x => x.CustomerId == scope.CustomerId);
 
         return q;
     }
@@ -304,6 +400,7 @@ public class MediaService(
             MediaOwnerType.ServiceRequest => "service-requests",
             MediaOwnerType.WorkOrder => "work-orders",
             MediaOwnerType.WorkOrderTask => "work-order-tasks",
+            MediaOwnerType.Quote => "quotes",
             _ => "other"
         };
 

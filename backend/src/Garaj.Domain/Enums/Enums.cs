@@ -37,7 +37,10 @@ public enum MediaOwnerType
 {
     ServiceRequest = 1,
     WorkOrder = 2,
-    WorkOrderTask = 3
+    WorkOrderTask = 3,
+
+    /// <summary>Fotos del daño que justifican el presupuesto. Las ve el cliente en su link.</summary>
+    Quote = 4
 }
 
 public enum StockMovementType

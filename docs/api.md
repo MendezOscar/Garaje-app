@@ -70,6 +70,23 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST/PUT | `/api/work-orders/{id}/tasks[/{taskId}]` | Owner o Técnico | Pasos de la reparación |
 | POST | `/api/work-orders/{id}/tasks/{taskId}/complete` | Owner o Técnico | Marca el paso |
 | DELETE | `/api/work-orders/{id}/tasks/{taskId}` | Owner | Elimina el paso |
+| DELETE | `/api/work-orders/{id}` | Owner | Borra la orden abierta por error; **409** si ya se facturó |
+
+**Borrar una orden** es para la que se abrió por error —el vehículo equivocado, dos veces la
+misma—, no para la que salió mal: esa se cancela y queda. Se lleva sus pasos, sus fotos y su
+línea de tiempo, y no se puede deshacer.
+
+Lo que no se lleva:
+
+- **Los repuestos vuelven a bodega**, con su movimiento de entrada. Si no, la orden se iría y
+  el faltante se quedaría.
+- **La cotización sobrevive** y queda sin orden: el cliente puede tenerla en su teléfono.
+- **El requerimiento vuelve a `Approved`**, listo para volver a convertirse. El vehículo sigue
+  esperando trabajo.
+- **Los movimientos de bodega se quedan**: son la historia del inventario, no de la orden.
+
+Una orden **facturada no se borra**: la venta explica de qué era, y el cliente tiene el papel
+en la mano. Responde 409 diciendo que se anule la factura si se hizo por error.
 
 ### Fase 2 — evidencia fotográfica
 
@@ -85,7 +102,11 @@ puede reintentar el `PUT` sin repetir la petición completa.
 | GET | `/api/media/work-order/{id}` | cualquiera | Galería: fotos de la orden y de sus pasos |
 | DELETE | `/api/media/{id}` | quien la subió, o el Dueño | Borra la foto y sus objetos |
 
-`ownerType`: `1` requerimiento · `2` orden de trabajo · `3` paso de la reparación.
+`ownerType`: `1` requerimiento · `2` orden de trabajo · `3` paso de la reparación ·
+`4` cotización.
+
+El **Cliente** solo adjunta a sus requerimientos: el proceso de reparación y el presupuesto los
+documenta el taller. El **Técnico** no ve cotizaciones, así que tampoco sus fotos.
 
 Los tres pasos de una subida:
 
@@ -186,6 +207,13 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | GET | `/public/quotes/{token}` | **anónimo** | La cotización que abre el cliente |
 | POST | `/public/quotes/{token}/respond` | **anónimo** | Aprobar o rechazar |
 | GET | `/public/quotes/{token}/pdf` | **anónimo** | PDF sin login |
+
+**Fotos del presupuesto.** Se adjuntan con los mismos endpoints de la fase 2, con
+`ownerType=4` y el id de la cotización. El cliente las ve en su página (`photos`, con la URL
+prefirmada, la miniatura y el pie) y en el PDF, donde van al final: primero cuánto es, después
+por qué. Solo salen las marcadas visibles al cliente, así que una foto interna del taller se
+queda dentro; y en el PDF entran las seis primeras, porque es un documento que viaja por
+WhatsApp.
 
 Los dos endpoints de PDF autenticados —`/api/quotes/{id}/pdf` y `/api/sales/{id}/pdf`— se
 piden **con la cabecera `Authorization`**, no abriendo la URL en una pestaña. El navegador no

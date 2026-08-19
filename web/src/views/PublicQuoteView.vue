@@ -153,6 +153,27 @@ onMounted(load)
         <div class="grand"><span>Total</span><span>{{ money(quote.total) }}</span></div>
       </div>
 
+      <!--
+        Las fotos van entre el precio y el botón de aprobar: es donde el cliente se pregunta
+        por qué cuesta eso, y donde verlo le contesta sin tener que llamar al taller.
+      -->
+      <section v-if="quote.photos.length" class="fotos-seccion">
+        <h2>Fotos</h2>
+        <div class="fotos">
+          <!-- Al original en pestaña nueva: en el teléfono es la forma de ver el detalle. -->
+          <a
+            v-for="(photo, i) in quote.photos"
+            :key="i"
+            :href="photo.url"
+            target="_blank"
+            rel="noopener"
+          >
+            <img :src="photo.thumbnailUrl" :alt="photo.caption ?? 'Foto del trabajo cotizado'" />
+            <span v-if="photo.caption" class="muted small">{{ photo.caption }}</span>
+          </a>
+        </div>
+      </section>
+
       <p v-if="error" class="error">{{ error }}</p>
 
       <!-- Respuesta del cliente -->
@@ -229,6 +250,28 @@ onMounted(load)
 </template>
 
 <style scoped>
+.fotos-seccion h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.5rem;
+}
+
+.fotos a {
+  display: block;
+}
+
+.fotos img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
 .page {
   min-height: 100dvh;
   padding: 1rem;

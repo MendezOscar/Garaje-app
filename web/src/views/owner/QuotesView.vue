@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { laborServicesApi, partsApi, quotesApi } from '@/api/garaj'
+import PhotoGallery from '@/components/PhotoGallery.vue'
 import {
   LINE_TYPE_LABEL,
   LineType,
@@ -321,6 +322,13 @@ onMounted(async () => {
             <button type="submit" :disabled="busy">Agregar</button>
           </div>
         </form>
+
+        <!--
+          Las fotos del daño, justo debajo del precio: el cliente las ve en su link y en el
+          PDF, y es lo que hace que apruebe sin ir a preguntar al taller. La clave las
+          remonta al cambiar de cotización, para no arrastrar las fotos de la anterior.
+        -->
+        <PhotoGallery :key="selected.id" :quote-id="selected.id" :can-edit="selected.isEditable" />
 
         <p v-if="selected.customerResponseNote" class="notes">
           <strong>El cliente respondió:</strong> «{{ selected.customerResponseNote }}»

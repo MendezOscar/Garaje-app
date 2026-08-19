@@ -6,10 +6,20 @@ import { MediaOwnerType, type MediaAttachment } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 
 const props = defineProps<{
-  workOrderId: string
+  /** Fotos de una orden: las suyas y las de sus pasos, agrupadas por paso. */
+  workOrderId?: string
+  /** Fotos de una cotización: el daño que justifica el precio y que el cliente ve en su link. */
+  quoteId?: string
   /** Falso para el Cliente: mira el proceso, no lo documenta. */
   canEdit: boolean
 }>()
+
+/** A qué se adjunta lo que se suba aquí. */
+const owner = computed(() =>
+  props.quoteId
+    ? { ownerType: MediaOwnerType.Quote, ownerId: props.quoteId }
+    : { ownerType: MediaOwnerType.WorkOrder, ownerId: props.workOrderId! },
+)
 
 const photos = ref<MediaAttachment[]>([])
 const error = ref('')
@@ -32,7 +42,10 @@ const groups = computed(() => {
 
 async function load() {
   try {
-    photos.value = await mediaApi.listForWorkOrder(props.workOrderId)
+    // La orden trae en una llamada las fotos de sus pasos; la cotización solo tiene las suyas.
+    photos.value = props.quoteId
+      ? await mediaApi.list(MediaOwnerType.Quote, props.quoteId)
+      : await mediaApi.listForWorkOrder(props.workOrderId!)
   } catch (e) {
     error.value = errorMessage(e, 'No se pudieron cargar las fotos.')
   }
@@ -49,10 +62,7 @@ async function onFilesPicked(event: Event) {
 
   for (const file of files) {
     try {
-      await mediaApi.upload(file, {
-        ownerType: MediaOwnerType.WorkOrder,
-        ownerId: props.workOrderId,
-      })
+      await mediaApi.upload(file, owner.value)
     } catch (e) {
       // Una foto que falla no cancela las demás: se avisa y se sigue con el resto.
       error.value = errorMessage(e, `No se pudo subir ${file.name}.`)
@@ -85,7 +95,7 @@ onMounted(load)
 <template>
   <article class="card">
     <header>
-      <h2>Fotos del proceso</h2>
+      <h2>{{ quoteId ? 'Fotos de la cotización' : 'Fotos del proceso' }}</h2>
       <button v-if="canEdit" type="button" :disabled="uploading > 0" @click="fileInput?.click()">
         {{ uploading > 0 ? `Subiendo ${uploading}…` : 'Agregar fotos' }}
       </button>
@@ -102,7 +112,11 @@ onMounted(load)
     <p v-if="error" class="error">{{ error }}</p>
 
     <p v-if="!photos.length && uploading === 0" class="muted">
-      Todavía no hay fotos de esta orden.
+      {{
+        quoteId
+          ? 'Sin fotos. Las que agregue aquí las verá el cliente junto al precio.'
+          : 'Todavía no hay fotos de esta orden.'
+      }}
     </p>
 
     <div v-for="group in groups" :key="group.title" class="group">
