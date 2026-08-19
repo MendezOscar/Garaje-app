@@ -14,12 +14,16 @@ inventar textos con prisa.
 | Clasificación por edad | 4+ |
 | Idioma principal | Español (México) — es-MX es el que más se acerca a Honduras |
 | Derechos de autor | `2026 Óscar Armando Cruz Méndez` |
-| URL de soporte | `https://garajapp.hn/soporte` |
-| URL de política de privacidad | `https://garajapp.hn/privacidad.html` |
+| URL de soporte | `https://www.garajeapp.com/soporte` |
+| URL de política de privacidad | `https://www.garajeapp.com/privacidad` |
 
-> Las dos URL tienen que responder **antes** de mandar a revisar: un enlace roto es rechazo casi
-> seguro. `privacidad.html` ya existe en el sitio; falta que `soporte` exista aunque sea como una
-> página con el WhatsApp y el correo.
+> Van sobre **garajeapp.com**, que es el dominio que está en el aire. `garajapp.hn` no existe:
+> no está registrado y no resuelve. Si algún día se registra, se cambian estas dos filas y los
+> enlaces de las dos páginas, no el resto.
+
+Las dos responden hoy y son estáticas (`web/public/soporte.html` y `privacidad.html`), así que
+no dependen de que la API esté arriba: si el backend se cae, el enlace que Apple revisa sigue
+abriendo.
 
 ### Palabras clave (100 caracteres, separadas por coma, sin espacios)
 
@@ -166,7 +170,7 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
 - [ ] `flutter build ipa --dart-define=API_URL=https://<api de producción>` — que **no** apunte a
       localhost ni a pruebas.
 - [ ] `--build-name` y `--build-number` puestos al compilar; el número no se puede repetir.
-- [ ] Las dos URL (soporte y privacidad) responden.
+- [x] Las dos URL (soporte y privacidad) responden.
 - [ ] La cuenta del revisor entra **en producción**.
 - [ ] Cumplimiento de exportación: usa HTTPS estándar → exento.
 - [x] **Borrar la cuenta desde la app**: hecho. Está en el menú «⋯» de la bandeja, como

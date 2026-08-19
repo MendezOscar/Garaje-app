@@ -336,6 +336,7 @@ const incluye = [
            Vue no lo conoce y lo mandaría al 404. El manual no se enlaza a propósito: se abre
            por su ruta (/manual) cuando hace falta mandárselo a alguien. -->
       <a href="/privacidad">Privacidad</a>
+      <a href="/soporte">Soporte</a>
       <RouterLink :to="{ name: 'login' }">Entrar al panel</RouterLink>
     </footer>
   </div>

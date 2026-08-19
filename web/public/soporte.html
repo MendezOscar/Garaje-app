@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<!--
+  Página de soporte. Archivo estático en `web/public`, servido tal cual en /soporte.html —y en
+  /soporte, que es la URL que se declara en la App Store—.
+
+  Existe porque Apple y Google piden una URL de soporte que responda, y un enlace roto ahí es
+  rechazo casi seguro. Pero no es un trámite: es la página que abre el Dueño del taller a las
+  siete de la mañana cuando no puede entrar, así que arriba de todo va cómo hablar con alguien,
+  no un formulario.
+
+  Si cambia el WhatsApp o el correo, cámbielo también en privacidad.html y en docs/app-store.md.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soporte — GarajApp</title>
+  <meta name="description" content="Cómo contactar a GarajApp y qué hacer ante lo más común: no puedo entrar, olvidé la contraseña, quiero eliminar mi cuenta." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --brand: #1f6feb; --brand-deep: #124293; --brand-light: #e8f0fe;
+      --ink: #14171c; --muted: #6b7480; --bg: #f7f8fa; --card: #fff; --border: #d9dde4;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); background: var(--bg); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header { border-bottom: 1px solid var(--border); background: #fff; }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; max-width: 780px; margin: 0 auto; padding: 0 24px; }
+    .nav img { height: 26px; width: auto; display: block; }
+    .nav a.home { color: var(--muted); font-weight: 600; font-size: 15px; }
+    main { max-width: 780px; margin: 0 auto; padding: 32px 24px 80px; }
+    h1 { font-size: clamp(28px, 5vw, 38px); font-weight: 800; letter-spacing: -.02em; }
+    .fecha { color: var(--muted); font-size: 15px; margin: 6px 0 24px; }
+    h2 { font-size: 21px; font-weight: 800; margin: 34px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 20px 0 6px; }
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 8px 22px; }
+    li { margin: 5px 0; }
+    code { background: var(--brand-light); color: var(--brand-deep); padding: 1px 6px; border-radius: 5px; font-size: 13.5px; font-family: ui-monospace, Menlo, monospace; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14.5px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
+    .tbl-wrap { overflow-x: auto; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin: 16px 0; }
+    .note { border-left: 4px solid var(--brand); background: var(--brand-light); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14.5px; }
+    footer { border-top: 1px solid var(--border); padding: 24px; color: var(--muted); font-size: 14px; text-align: center; }
+    @media print { header { display: none; } body { background: #fff; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <a href="/"><img src="/brand/garajapp-horizontal.svg" alt="GarajApp" /></a>
+      <a href="/" class="home">← Volver al inicio</a>
+    </div>
+  </header>
+
+  <main>
+    <h1>Soporte</h1>
+    <p class="fecha">Atendemos a personas, no tickets. Escríbanos y le contestamos.</p>
+
+    <div class="card">
+      <h3>Hablar con nosotros</h3>
+      <p>💬 WhatsApp <a href="https://wa.me/50498242108">+504 9824 2108</a> — es lo más rápido.<br />
+      📧 <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a></p>
+      <p>Si nos escribe por un problema, ayuda mucho que nos diga <strong>el nombre de su
+      taller</strong>, qué estaba haciendo y —si puede— una foto de la pantalla.</p>
+    </div>
+
+    <h2>No puedo entrar</h2>
+
+    <h3>Olvidé mi contraseña</h3>
+    <p>La restablece el <strong>Dueño</strong> del taller desde el panel, en
+    <strong>Usuarios</strong>: entra a su usuario y le pone una nueva. Es así a propósito —quien
+    conoce a su gente es él, no nosotros—, y es inmediato.</p>
+
+    <h3>El Dueño perdió la suya</h3>
+    <p>Ahí sí escríbanos. Le creamos otro acceso de Dueño y le mandamos la contraseña, que se
+    cambia al entrar. Le vamos a pedir que confirme quién es: es la llave de todo el taller.</p>
+
+    <h3>Dice que el taller está suspendido</h3>
+    <p>Es la mensualidad. Escríbanos y lo resolvemos; si hay un acuerdo de pago, se reactiva el
+    mismo día. Sus datos no se tocan mientras tanto: la información del taller sigue completa.</p>
+
+    <h2>Eliminar mi cuenta</h2>
+    <p>Desde la app: menú <strong>⋯</strong> arriba a la derecha de la bandeja →
+    <strong>Eliminar mi cuenta</strong>. Se cierra la sesión en todos sus aparatos y sus datos
+    personales —nombre, correo, teléfono, contraseña— se borran; con ellos se va la posibilidad
+    de entrar.</p>
+    <p>Lo que <strong>no</strong> se borra es el trabajo del taller: las órdenes, los movimientos
+    de bodega y las facturas emitidas se quedan, sin su nombre. Las facturas hay que conservarlas
+    por ley tributaria, y una orden sin responsable dejaría el historial del taller cojo.</p>
+    <div class="note">Si usted es cliente de un taller y borra su cuenta, el taller conserva sus
+    vehículos y su historial de reparaciones: son suyos, del taller. Puede volver a darle acceso
+    cuando quiera.</div>
+
+    <h2>No me llegan los avisos</h2>
+    <p>Revise que el teléfono tenga permitidas las notificaciones de GarajApp
+    (<em>Ajustes → GarajApp → Notificaciones</em>). Si las permitió y aun así no llegan, salga de
+    la sesión y vuelva a entrar: el teléfono se vuelve a registrar solo.</p>
+
+    <h2>Soy cliente de un taller</h2>
+    <p>Si le llegó un enlace por WhatsApp para ver su vehículo, aprobar una cotización o bajar su
+    factura, y algo no le abre, escríbale primero <strong>al taller</strong>: ellos ven su orden y
+    se la vuelven a mandar. Nosotros no podemos ver la información de un taller sin que ellos nos
+    lo pidan — así está hecho el sistema, a propósito.</p>
+
+    <h2>Precios y facturación del servicio</h2>
+    <p>GarajApp se cobra por mensualidad, por taller. Para cambiar de plan, pedir su comprobante
+    de pago o acordar una fecha distinta, escríbanos por WhatsApp.</p>
+
+    <h2>Privacidad</h2>
+    <p>Qué guardamos, para qué y cuánto dura está en la
+    <a href="/privacidad">política de privacidad</a>. Para pedir una copia de sus datos o su
+    borrado, escríbanos: se responde en un máximo de 30 días.</p>
+  </main>
+
+  <footer>© GarajApp · <a href="/manual">Manual de usuario</a> · <a href="/privacidad">Privacidad</a> · <a href="/">garajeapp.com</a></footer>
+</body>
+</html>
