@@ -171,7 +171,9 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
       localhost ni a pruebas.
 - [ ] `--build-name` y `--build-number` puestos al compilar; el número no se puede repetir.
 - [x] Las dos URL (soporte y privacidad) responden.
-- [ ] La cuenta del revisor entra **en producción**.
+- [x] La cuenta del revisor entra **en producción**: `Taller Demo`, tres sucursales y meses de
+      historia. Quedó **sin fecha de pago**, así que la suscripción nunca lo deja en solo lectura
+      a media revisión.
 - [ ] Cumplimiento de exportación: usa HTTPS estándar → exento.
 - [x] **Borrar la cuenta desde la app**: hecho. Está en el menú «⋯» de la bandeja, como
       **Eliminar mi cuenta**, para los tres perfiles: un diálogo y dos toques, sin trámites ni
