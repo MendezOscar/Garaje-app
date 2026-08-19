@@ -9,9 +9,11 @@ Escribe en la base: va contra el entorno local.
 """
 
 import json
+import struct
 import sys
 import urllib.error
 import urllib.request
+import zlib
 
 BASE = "http://localhost:5080"
 PASSWORD = "Garaj123!"
@@ -19,6 +21,7 @@ PASSWORD = "Garaj123!"
 # Espejo de Garaj.Domain.Enums
 PART, LABOR = 1, 2
 DRAFT, SENT, APPROVED, REJECTED, EXPIRED = 1, 2, 3, 4, 5
+QUOTE_MEDIA = 4  # MediaOwnerType.Quote
 
 ok = 0
 failed = []
@@ -34,10 +37,12 @@ def check(name, condition, detail=""):
         print(f"  FALLA {name}" + (f" — {detail}" if detail else ""))
 
 
-def request(method, url, body=None, token=None):
-    data = json.dumps(body).encode() if body is not None else None
+def request(method, url, body=None, token=None, raw=None, content_type=None):
+    data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
     req = urllib.request.Request(url, data=data, method=method)
-    if data is not None:
+    if content_type:
+        req.add_header("Content-Type", content_type)
+    elif data is not None and raw is None:
         req.add_header("Content-Type", "application/json")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
@@ -66,6 +71,41 @@ def login(email):
     if status != 200:
         sys.exit(f"No se pudo entrar como {email}: {status} {data}")
     return data["accessToken"]
+
+
+def png(width, height, color):
+    """PNG mínimo hecho a mano: un archivo real sin depender de Pillow."""
+
+    def chunk(tag, payload):
+        body = tag + payload
+        return struct.pack(">I", len(payload)) + body + struct.pack(">I", zlib.crc32(body))
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    rows = b"".join(b"\x00" + bytes(color) * width for _ in range(height))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", header)
+            + chunk(b"IDAT", zlib.compress(rows))
+            + chunk(b"IEND", b""))
+
+
+def upload(token, owner_id, image, caption=None, visible=True):
+    """Pedir URL, subir al bucket y confirmar. Devuelve (status, dto o error)."""
+    status, presigned = api("POST", "/api/media/upload-url", {
+        "ownerType": QUOTE_MEDIA, "ownerId": owner_id, "contentType": "image/png",
+        "sizeBytes": len(image), "fileName": "dano.png", "caption": caption,
+        "isVisibleToCustomer": visible,
+    }, token)
+
+    if status != 200:
+        return status, presigned
+
+    put_status, _ = request("PUT", presigned["uploadUrl"], raw=image,
+                            content_type=presigned["headers"]["Content-Type"])
+    if put_status not in (200, 204):
+        return put_status, {"detail": "el PUT al bucket falló"}
+
+    return api("POST", f"/api/media/{presigned['attachmentId']}/confirm", token=token)
 
 
 print("Fase 4 — cotizaciones y WhatsApp\n")
@@ -167,6 +207,34 @@ status, error = api("POST", f"/api/quotes/{quote_id}/lines", {
 }, owner)
 check("una cantidad en cero se rechaza", status == 400, f"{status} {error}")
 
+print("\n[fotos del daño]")
+
+# El PDF antes de las fotos, para comprobar después que las lleva dentro.
+_, pdf_sin_fotos = api("GET", f"/api/quotes/{quote_id}/pdf", token=owner)
+
+status, foto = upload(owner, quote_id, png(24, 24, (200, 60, 40)), caption="Faja rota")
+check("el Dueño adjunta una foto a la cotización", status == 200, f"{status} {foto}")
+check("y queda con su pie de foto", foto.get("caption") == "Faja rota", str(foto))
+
+status, interna = upload(owner, quote_id, png(16, 16, (20, 20, 20)),
+                         caption="Nota interna", visible=False)
+check("y otra marcada como interna", status == 200, f"{status} {interna}")
+
+status, gallery = api(f"GET", f"/api/media?ownerType={QUOTE_MEDIA}&ownerId={quote_id}", token=owner)
+check("el taller ve las dos en la galería", status == 200 and len(gallery) == 2,
+      f"{status} {gallery}")
+
+status, denied = upload(tech1, quote_id, png(8, 8, (0, 0, 255)))
+check("el técnico no adjunta fotos a una cotización", status == 404, str(status))
+
+status, denied = upload(customer, quote_id, png(8, 8, (0, 255, 0)))
+check("el cliente tampoco: la cotización la documenta el taller", status == 403, str(status))
+
+_, pdf_con_fotos = api("GET", f"/api/quotes/{quote_id}/pdf", token=owner)
+check("el PDF crece porque lleva la foto dentro",
+      len(pdf_con_fotos) > len(pdf_sin_fotos),
+      f"{len(pdf_sin_fotos)} → {len(pdf_con_fotos)}")
+
 print("\n[envío por WhatsApp]")
 
 status, link = api("POST", f"/api/quotes/{quote_id}/send", token=owner)
@@ -204,6 +272,11 @@ check("ve el nombre del taller", public["tenantName"] == "Taller Garaj", str(pub
 check("ve las líneas", len(public["lines"]) == len(quote["lines"]), str(len(public["lines"])))
 check("ve el total", abs(public["total"] - quote["total"]) < 0.01)
 check("puede responder", public["canRespond"] is True, str(public.get("canRespond")))
+check("ve la foto del daño junto al precio", len(public["photos"]) == 1, str(public.get("photos")))
+check("pero no la foto interna del taller",
+      public["photos"][0]["caption"] == "Faja rota", str(public["photos"]))
+check("y la foto no trae más que lo que se mira",
+      set(public["photos"][0]) == {"url", "thumbnailUrl", "caption"}, str(public["photos"][0]))
 check("no se filtra ningún id interno",
       not any(k for k in public if k.lower().endswith("id")), str(list(public.keys())))
 

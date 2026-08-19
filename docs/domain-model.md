@@ -119,7 +119,7 @@ desactivarse a sí mismo: dejaría el taller sin quien administre y sin forma de
 ## Evidencia fotográfica
 
 `MediaAttachment` se relaciona de forma polimórfica por `(OwnerType, OwnerId)` con
-`ServiceRequest`, `WorkOrder` o `WorkOrderTask` — sin FK, se valida en la aplicación.
+`ServiceRequest`, `WorkOrder`, `WorkOrderTask` o `Quote` — sin FK, se valida en la aplicación.
 Guarda solo la clave del objeto; el binario vive en el bucket S3-compatible y se sirve por
 URL prefirmada. `IsConfirmed` distingue las subidas completadas de las que quedaron a medias
 y hay que purgar; `IsVisibleToCustomer` decide qué ve el cliente.

@@ -181,7 +181,13 @@ public record PublicQuoteDto(
     DateTimeOffset? RespondedAt,
     bool IsExpired,
     bool CanRespond,
-    IReadOnlyList<PublicQuoteLineDto> Lines);
+    IReadOnlyList<PublicQuoteLineDto> Lines,
+    // Las fotos del daño. Van al final porque se leen después del precio: primero cuánto es,
+    // luego por qué.
+    IReadOnlyList<PublicQuotePhotoDto> Photos);
+
+/// <summary>Una foto de la cotización tal como la ve el cliente: sin ids ni quién la subió.</summary>
+public record PublicQuotePhotoDto(string Url, string ThumbnailUrl, string? Caption);
 
 public record PublicQuoteLineDto(
     LineType LineType,

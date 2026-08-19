@@ -72,5 +72,29 @@ public interface IMediaService
     Task<IReadOnlyList<MediaAttachmentDto>> ListForOrderPublicAsync(
         Guid tenantId, Guid workOrderId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Las fotos de la cotización que ve el cliente en el link de WhatsApp, sin sesión. Mismo
+    /// criterio que arriba: el taller llega por parámetro porque aquí no hay usuario.
+    /// </summary>
+    Task<IReadOnlyList<MediaAttachmentDto>> ListForQuotePublicAsync(
+        Guid tenantId, Guid quoteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Las miniaturas del recurso ya descargadas, para incrustarlas en un PDF que viaja por
+    /// WhatsApp y tiene que verse sin conexión. Devuelve como mucho <paramref name="max"/>.
+    /// </summary>
+    Task<IReadOnlyList<byte[]>> DownloadThumbnailsAsync(
+        MediaOwnerType ownerType, Guid ownerId, Guid tenantId, int max, CancellationToken ct = default);
+
     Task DeleteAsync(Guid attachmentId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Borra las fotos de estos recursos, del registro y del bucket, sin comprobar permisos.
+    /// </summary>
+    /// <remarks>
+    /// La llama el servicio que acaba de borrar el recurso dueño de las fotos: para entonces
+    /// ya comprobó quién podía hacerlo, y el recurso ya no existe para volver a comprobarlo.
+    /// </remarks>
+    Task PurgeAsync(
+        MediaOwnerType ownerType, IReadOnlyCollection<Guid> ownerIds, CancellationToken ct = default);
 }

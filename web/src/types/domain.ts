@@ -112,6 +112,7 @@ export const MediaOwnerType = {
   ServiceRequest: 1,
   WorkOrder: 2,
   WorkOrderTask: 3,
+  Quote: 4,
 } as const
 export type MediaOwnerType = (typeof MediaOwnerType)[keyof typeof MediaOwnerType]
 
@@ -572,6 +573,12 @@ export interface PublicQuote {
     unitPrice: number
     discount: number
     total: number
+  }[]
+  /** Las fotos del daño que el taller adjuntó al presupuesto. */
+  photos: {
+    url: string
+    thumbnailUrl: string
+    caption: string | null
   }[]
 }
 

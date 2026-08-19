@@ -174,6 +174,64 @@ public class WorkOrderService(
         return await GetAsync(id, ct);
     }
 
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
+            ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        // Una factura emitida explica una orden: si la orden desaparece, la venta queda sin
+        // decir de qué era, y el cuadre de caja y los reportes dejan de cuadrar con el papel
+        // que el cliente tiene en la mano. Esa se anula, no se borra.
+        if (order.SaleId is not null || await db.Sales.AnyAsync(s => s.WorkOrderId == id, ct))
+            throw new ConflictException(
+                $"La orden {order.Number} ya está facturada: no se puede borrar. "
+                + "Anule la factura si se hizo por error.");
+
+        // Los pasos se van en cascada, así que sus ids hay que tenerlos antes de borrar.
+        var taskIds = await db.WorkOrderTasks
+            .Where(t => t.WorkOrderId == id)
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+        // Lo que salió de bodega vuelve a bodega: si no, la orden se va y el faltante se queda.
+        var lines = await db.WorkOrderParts.Where(p => p.WorkOrderId == id).ToListAsync(ct);
+        foreach (var line in lines.Where(l => l.PartId is not null))
+            await stock.ReturnAsync(
+                order.BranchId, line.PartId!.Value, line.Quantity, order.Id, scope.UserId,
+                $"Orden borrada {order.Number}", ct);
+
+        // La cotización es un documento aparte —el cliente puede tenerla en su teléfono—, así
+        // que se queda; solo deja de apuntar a una orden que ya no existe.
+        var quotes = await db.Quotes.Where(q => q.WorkOrderId == id).ToListAsync(ct);
+        foreach (var quote in quotes) quote.WorkOrderId = null;
+
+        // El requerimiento vuelve a estar aprobado y sin convertir: el vehículo sigue
+        // esperando trabajo, y desde ahí se puede volver a abrir la orden bien hecha.
+        var requests = await db.ServiceRequests.Where(r => r.WorkOrderId == id).ToListAsync(ct);
+        foreach (var request in requests)
+        {
+            request.WorkOrderId = null;
+            request.Status = ServiceRequestStatus.Approved;
+        }
+
+        // Los avisos apuntan a una pantalla que ya no abre.
+        db.Notifications.RemoveRange(
+            await db.Notifications.Where(n => n.WorkOrderId == id).ToListAsync(ct));
+
+        db.WorkOrders.Remove(order);
+
+        // Un solo guardado: la devolución a bodega y el borrado entran o no entran juntos.
+        await db.SaveChangesAsync(ct);
+
+        // Las fotos al final, ya con el borrado confirmado: si el bucket falla queda un archivo
+        // huérfano —barato— en vez de una orden sin las fotos que se acaban de perder.
+        await media.PurgeAsync(MediaOwnerType.WorkOrder, [id], ct);
+        await media.PurgeAsync(MediaOwnerType.WorkOrderTask, taskIds, ct);
+    }
+
     public async Task<WorkOrderDetailDto> AssignAsync(
         Guid id, AssignTechnicianRequest request, CancellationToken ct = default)
     {

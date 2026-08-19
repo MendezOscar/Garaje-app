@@ -393,6 +393,44 @@ check("alerta de repuestos bajo mínimo", dashboard["partsBelowMinimum"] >= 1,
 check("trae los últimos 14 días", len(dashboard["lastDays"]) == 14,
       str(len(dashboard.get("lastDays", []))))
 
+print("\n[borrar una orden]")
+
+# La orden abierta por error: se borra entera y lo que había salido de bodega vuelve.
+_, temp = api("POST", "/api/work-orders", {
+    "branchId": matriz["id"], "vehicleId": order["vehicleId"],
+    "description": "Orden abierta por error, para borrar",
+}, owner)
+
+antes = stock_of(owner, matriz["id"], part["id"])
+api("POST", f"/api/work-orders/{temp['id']}/parts", {"partId": part["id"], "quantity": 2}, owner)
+check("el repuesto sale de bodega al cargarlo",
+      stock_of(owner, matriz["id"], part["id"]) == antes - 2, str(antes))
+
+_, cotizada = api("POST", "/api/quotes/from-work-order", {"workOrderId": temp["id"]}, owner)
+
+status, denied = api("DELETE", f"/api/work-orders/{temp['id']}", token=tech1)
+check("el técnico no borra órdenes", status == 403, str(status))
+
+status, _ = api("DELETE", f"/api/work-orders/{temp['id']}", token=owner)
+check("el Dueño borra la orden", status == 204, str(status))
+
+status, _ = api("GET", f"/api/work-orders/{temp['id']}", token=owner)
+check("y deja de existir", status == 404, str(status))
+
+check("el repuesto vuelve a bodega",
+      stock_of(owner, matriz["id"], part["id"]) == antes,
+      f"{antes} vs {stock_of(owner, matriz['id'], part['id'])}")
+
+status, sobrevive = api("GET", f"/api/quotes/{cotizada['id']}", token=owner)
+check("la cotización sobrevive a la orden", status == 200, str(status))
+check("y queda sin orden, no rota", sobrevive["workOrderId"] is None,
+      str(sobrevive.get("workOrderId")))
+
+# La orden ya facturada es otra cosa: el cliente tiene el papel en la mano.
+status, error = api("DELETE", f"/api/work-orders/{order_id}", token=owner)
+check("una orden facturada no se borra", status == 409, f"{status} {error}")
+check("y el mensaje dice por qué", "facturada" in str(error.get("detail", "")).lower(), str(error))
+
 print(f"\n{ok} comprobaciones correctas, {len(failed)} fallidas")
 if failed:
     for name in failed:

@@ -221,6 +221,10 @@ export const workOrdersApi = {
     const { data } = await api.put<WorkOrderDetail>(`/api/work-orders/${id}`, body)
     return data
   },
+  /** Borra la orden abierta por error. 409 si ya se facturó. */
+  async remove(id: string) {
+    await api.delete(`/api/work-orders/${id}`)
+  },
   async assign(id: string, technicianId: string | null) {
     const { data } = await api.put<WorkOrderDetail>(`/api/work-orders/${id}/assign`, { technicianId })
     return data

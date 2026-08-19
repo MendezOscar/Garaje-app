@@ -42,6 +42,19 @@ public class WorkOrdersController(
         Guid id, UpdateWorkOrderRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
 
+    /// <summary>
+    /// Borra la orden. Es para la que se abrió por error: devuelve a bodega los repuestos que
+    /// tenía cargados, borra sus fotos, pasos e historial, y deja libres la cotización y el
+    /// requerimiento que la mencionaban. Devuelve 409 si ya se facturó.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return NoContent();
+    }
+
     /// <summary>Asigna o desasigna el técnico responsable. Pase null para dejarla sin asignar.</summary>
     [HttpPut("{id:guid}/assign")]
     [Authorize(Policy = AppPolicies.OwnerOnly)]

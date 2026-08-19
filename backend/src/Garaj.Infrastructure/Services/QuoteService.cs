@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
+using Garaj.Application.Media;
 using Garaj.Application.Notifications;
 using Garaj.Application.Quotes;
 using Garaj.Application.Tenants;
@@ -18,8 +19,15 @@ public class QuoteService(
     IDateTimeProvider clock,
     IConfiguration configuration,
     ITenantService tenants,
+    IMediaService media,
     INotificationPublisher notifications) : IQuoteService
 {
+    /// <summary>
+    /// Cuántas fotos entran en el PDF. Es un documento que viaja por WhatsApp: con las
+    /// primeras se entiende el daño, y con veinte no lo abre nadie.
+    /// </summary>
+    private const int PhotosInPdf = 6;
+
     public async Task<PagedResult<QuoteListItemDto>> ListAsync(
         QuoteQuery query, CancellationToken ct = default)
     {
@@ -355,8 +363,11 @@ public class QuoteService(
         var detail = await GetAsync(id, ct);
         var tenant = await CurrentTenantAsync(ct);
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+        var photos = await media.DownloadThumbnailsAsync(
+            MediaOwnerType.Quote, id, tenant.Id, PhotosInPdf, ct);
 
-        return QuotePdf.Render(detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo);
+        return QuotePdf.Render(
+            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
     }
 
     public async Task<QuoteDetailDto> RespondAsync(
@@ -413,8 +424,11 @@ public class QuoteService(
             ct);
 
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+        var photos = await media.DownloadThumbnailsAsync(
+            MediaOwnerType.Quote, quote.Id, quote.TenantId, PhotosInPdf, ct);
 
-        return QuotePdf.Render(detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo);
+        return QuotePdf.Render(
+            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
     }
 
     public async Task<TenantLogo?> LogoPublicAsync(Guid token, CancellationToken ct = default)
@@ -768,6 +782,10 @@ public class QuoteService(
                 .FirstOrDefaultAsync(ct)
             : null;
 
+        var photos = (await media.ListForQuotePublicAsync(quote.TenantId, quote.Id, ct))
+            .Select(p => new PublicQuotePhotoDto(p.Url, p.ThumbnailUrl, p.Caption))
+            .ToList();
+
         return new PublicQuoteDto(
             quote.Number,
             quote.Status,
@@ -795,6 +813,7 @@ public class QuoteService(
                 .OrderBy(l => l.Sequence)
                 .Select(l => new PublicQuoteLineDto(
                     l.LineType, l.Description, l.Quantity, l.UnitPrice, l.Discount, l.Total))
-                .ToList());
+                .ToList(),
+            photos);
     }
 }

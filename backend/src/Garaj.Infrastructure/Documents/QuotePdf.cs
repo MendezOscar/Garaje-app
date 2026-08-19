@@ -19,9 +19,13 @@ public static class QuotePdf
     /// PNG del logo del taller, o null. Va como bytes y no como URL: el PDF viaja por
     /// WhatsApp y tiene que verse igual sin conexión.
     /// </param>
+    /// <param name="photos">
+    /// Miniaturas del daño, ya descargadas. Van al final del documento: el cliente lee primero
+    /// el precio y después por qué. Vacío si la cotización no lleva fotos.
+    /// </param>
     public static byte[] Render(
         QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId,
-        byte[]? logo = null)
+        byte[]? logo = null, IReadOnlyList<byte[]>? photos = null)
     {
         var document = Document.Create(container =>
         {
@@ -32,7 +36,8 @@ public static class QuotePdf
                 page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken4));
 
                 page.Header().Element(header => Header(header, quote, tenantName, legalName, phone, taxId, logo));
-                page.Content().PaddingVertical(1, Unit.Centimetre).Element(content => Content(content, quote));
+                page.Content().PaddingVertical(1, Unit.Centimetre)
+                    .Element(content => Content(content, quote, photos ?? []));
                 page.Footer().Element(footer => Footer(footer, quote));
             });
         });
@@ -75,7 +80,8 @@ public static class QuotePdf
         });
     }
 
-    private static void Content(IContainer container, QuoteDetailDto quote)
+    private static void Content(
+        IContainer container, QuoteDetailDto quote, IReadOnlyList<byte[]> photos)
     {
         container.Column(column =>
         {
@@ -183,6 +189,36 @@ public static class QuotePdf
 
                     if (quote.CustomerResponseNote is { } note)
                         c.Item().Text($"«{note}»").FontSize(9).Italic();
+                });
+            }
+
+            if (photos.Count > 0) column.Item().Element(item => Photos(item, photos));
+        });
+    }
+
+    /// <summary>
+    /// Las fotos del daño, de tres en tres. Es lo que convierte un precio en un presupuesto
+    /// que el cliente entiende sin haber visto el carro abierto.
+    /// </summary>
+    private static void Photos(IContainer container, IReadOnlyList<byte[]> photos)
+    {
+        container.PaddingTop(8).Column(column =>
+        {
+            column.Item().PaddingBottom(4).Text("Fotos").SemiBold().FontSize(10);
+
+            column.Spacing(6);
+
+            foreach (var fila in photos.Chunk(3))
+            {
+                column.Item().Row(row =>
+                {
+                    row.Spacing(6);
+
+                    foreach (var photo in fila)
+                        row.RelativeItem().Height(110).Image(photo).FitArea();
+
+                    // Relleno para que una fila incompleta no estire sus fotos a lo ancho.
+                    for (var i = fila.Length; i < 3; i++) row.RelativeItem();
                 });
             }
         });

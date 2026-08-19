@@ -276,6 +276,13 @@ public interface IWorkOrderService
 
     /// <summary>Elige si la mano de obra sale del catálogo o de un total escrito a mano.</summary>
     Task<WorkOrderDetailDto> SetLaborModeAsync(Guid id, SetLaborModeRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Borra la orden creada por error: devuelve sus repuestos a bodega, borra sus fotos y sus
+    /// pasos, y suelta la cotización y el requerimiento que la mencionaban. Responde 409 si ya
+    /// está facturada.
+    /// </summary>
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
     Task<WorkOrderDetailDto> ChangeStatusAsync(Guid id, ChangeStatusRequest request, CancellationToken ct = default);
 
     Task<WorkOrderTaskDto> AddTaskAsync(Guid workOrderId, SaveWorkOrderTaskRequest request, CancellationToken ct = default);

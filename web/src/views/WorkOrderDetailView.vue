@@ -489,6 +489,33 @@ const availableTechnicians = computed(() =>
   technicians.value.filter((t) => t.isActive && t.branchIds.includes(order.value?.branchId ?? '')),
 )
 
+/**
+ * Borra la orden abierta por error. La confirmación dice el número y lo que se lleva por
+ * delante: es lo único que separa «me equivoqué de vehículo» de perder las fotos de un
+ * trabajo real. Los repuestos vuelven a bodega solos, en el servidor.
+ */
+async function borrarOrden() {
+  if (!order.value) return
+
+  const aviso =
+    `¿Borrar la orden ${order.value.number}?\n\n`
+    + 'Se van sus fotos, sus pasos y su historial, y no se puede deshacer. '
+    + 'Los repuestos cargados vuelven a bodega.'
+
+  if (!confirm(aviso)) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    await workOrdersApi.remove(order.value.id)
+    await router.push({ name: 'work-orders' })
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
 onMounted(async () => {
   if (auth.isOwner) technicians.value = await usersApi.list('Technician').catch(() => [])
   if (canEdit.value) laborServices.value = await laborServicesApi.list().catch(() => [])
@@ -1065,6 +1092,19 @@ onMounted(async () => {
           </details>
         </article>
 
+        <!-- Al final y plegada: se llega aquí queriendo, no de un clic mal dado. -->
+        <article v-if="auth.isOwner" class="card">
+          <details>
+            <summary><h2>Borrar la orden</h2></summary>
+            <p class="muted small">
+              Para la que se abrió por error. Una orden ya facturada no se borra: esa se anula.
+            </p>
+            <button type="button" class="peligro" :disabled="busy" @click="borrarOrden">
+              Borrar la orden {{ order.number }}
+            </button>
+          </details>
+        </article>
+
         <article class="card">
           <h2>Línea de tiempo</h2>
           <ol class="timeline">
@@ -1090,6 +1130,15 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.peligro {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+summary h2 {
+  display: inline;
+}
+
 header {
   display: flex;
   align-items: flex-start;
