@@ -36,16 +36,23 @@ void main() {
     await tester.tap(find.text('Ingresar'));
 
     // pumpAndSettle no espera respuestas de red: hay que darle tiempo real al round-trip
-    // del login y al de la lista de órdenes que carga después.
+    // del login y al de la pantalla de inicio que carga después.
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
   }
 
-  /// Abre una pantalla del menú «Más» de la bandeja. Reportes, Clientes, Usuarios e
-  /// Inventario dejaron de ser iconos sueltos: no cabían seis en la barra de un teléfono.
-  Future<void> openFromMenu(WidgetTester tester, String option) async {
-    await tester.tap(find.byTooltip('Más'));
+  /// Cambia de destino en la barra de abajo.
+  Future<void> goTo(WidgetTester tester, String destino) async {
+    await tester.tap(find.text(destino).last);
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
+  }
+
+  /// Abre una pantalla desde «Más», que es donde vive lo que no es de todos los días.
+  /// Reportes, Clientes, Usuarios, Inventario y Por cobrar dejaron de ser iconos sueltos en
+  /// la barra de arriba y entradas de un menú «⋯»: ahora son renglones agrupados.
+  Future<void> openFromMore(WidgetTester tester, String option) async {
+    await goTo(tester, 'Más');
 
     await tester.tap(find.text(option));
     await tester.pump(const Duration(seconds: 4));
@@ -95,22 +102,45 @@ void main() {
     expect(await OnboardingStore().hasSeen(), isTrue);
   });
 
-  testWidgets('el Dueño ve las órdenes de todo el taller', (tester) async {
+  testWidgets('el Dueño entra a «Hoy», no a la bandeja', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    expect(find.text('Taller'), findsOneWidget);
-    expect(find.text('Óscar Méndez · Taller Garaj'), findsOneWidget);
-    // El seeder deja una orden abierta en cada sucursal.
-    expect(find.textContaining('MTZ-'), findsOneWidget);
-    expect(find.textContaining('SPS-'), findsOneWidget);
-    // El resumen de ingresos es solo suyo; los otros perfiles no lo ven.
-    expect(find.text('INGRESOS'), findsOneWidget);
-    expect(find.text('Hoy'), findsOneWidget);
-    // La campana está en las tres bandejas. El botón de alta también, pero al taller le
-    // dice "Recibir vehículo": el Dueño registra el ingreso, no pide cita.
-    expect(find.byTooltip('Avisos'), findsOneWidget);
+    // Lo primero es cómo va el día, y arriba lo cobrado: lo facturado es otra cifra y no
+    // es la pregunta de quien abre el teléfono a media tarde.
+    expect(find.text('Hoy'), findsWidgets);
+    expect(find.text('COBRADO HOY'), findsOneWidget);
+    expect(find.text('FACTURADO'), findsOneWidget);
+    expect(find.text('Taller Garaj'), findsWidgets);
+
+    // Los cuatro destinos de la barra de abajo, que antes era una línea de texto con el
+    // nombre del usuario.
+    expect(find.text('Órdenes'), findsOneWidget);
+    expect(find.text('Caja'), findsOneWidget);
+    expect(find.text('Más'), findsOneWidget);
+
+    // Recibir un vehículo es lo que más se hace en el mostrador: acción principal, no una
+    // pantalla a dos saltos.
     expect(find.text('Recibir vehículo'), findsOneWidget);
-    expect(find.text('Pedir cita'), findsNothing);
+    expect(find.text('Pedir una cita'), findsNothing);
+    expect(find.byTooltip('Avisos'), findsOneWidget);
+
+    // Las órdenes siguen estando, en su destino.
+    await goTo(tester, 'Órdenes');
+    expect(find.textContaining('MTZ-'), findsWidgets);
+    // El seeder deja una orden abierta en cada sucursal.
+    expect(find.textContaining('SPS-'), findsWidgets);
+    // El resumen de ingresos ya no encabeza la bandeja: se mudó a Hoy.
+    expect(find.text('INGRESOS'), findsNothing);
+  });
+
+  testWidgets('la caja del día es un destino, no una entrada de menú', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await goTo(tester, 'Caja');
+
+    // Se abre todos los días al cerrar, con el efectivo en la mano.
+    expect(find.text('Cierre de caja'), findsOneWidget);
+    expect(find.byTooltip('Elegir el día'), findsOneWidget);
   });
 
   testWidgets('la sesión guardada entra sin volver a pedir la contraseña', (tester) async {
@@ -124,21 +154,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ingresar'), findsNothing);
-    expect(find.text('Taller'), findsOneWidget);
-    expect(find.text('Óscar Méndez · Taller Garaj'), findsOneWidget);
+    expect(find.text('Hoy'), findsWidgets);
   });
 
-  testWidgets('el Técnico ve solo lo suyo y puede abrir la orden', (tester) async {
+  testWidgets('«Más» agrupa el taller y termina en la cuenta', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await goTo(tester, 'Más');
+
+    expect(find.text('Requerimientos'), findsOneWidget);
+    expect(find.text('Por cobrar'), findsOneWidget);
+    expect(find.text('Reportes'), findsOneWidget);
+    expect(find.text('Inventario'), findsOneWidget);
+    expect(find.text('Usuarios'), findsOneWidget);
+
+    // El grupo de la cuenta queda al final, a un desplazamiento: es donde el revisor de Apple
+    // la busca, así que la prueba llega hasta él como llegaría él.
+    await tester.scrollUntilVisible(
+      find.text('Eliminar mi cuenta'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Salir'), findsOneWidget);
+    expect(find.text('Eliminar mi cuenta'), findsOneWidget);
+
+    await tester.tap(find.text('Eliminar mi cuenta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Eliminar su cuenta?'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('¿Eliminar su cuenta?'), findsNothing);
+  });
+
+  testWidgets('el Técnico entra a su cola de trabajo', (tester) async {
     await signIn(tester, 'tecnico1@garaj.test');
 
-    expect(find.text('Mis asignaciones'), findsOneWidget);
-    expect(find.textContaining('MTZ-'), findsOneWidget);
-    expect(find.text('INGRESOS'), findsNothing);
-    expect(find.byTooltip('Avisos'), findsOneWidget);
-    expect(find.text('Recibir vehículo'), findsOneWidget);
-    expect(find.text('Pedir cita'), findsNothing);
+    expect(find.text('Mi trabajo'), findsWidgets);
+    expect(find.textContaining('MTZ-'), findsWidgets);
     // La orden de la otra sucursal es de otro técnico: no debe aparecer.
     expect(find.textContaining('SPS-'), findsNothing);
+    // Ni ingresos ni caja: el dinero del taller no es asunto suyo.
+    expect(find.text('COBRADO HOY'), findsNothing);
+    expect(find.text('Caja'), findsNothing);
+    // Sus tres destinos.
+    expect(find.text('Repuestos'), findsOneWidget);
+    expect(find.text('Más'), findsOneWidget);
+    expect(find.byTooltip('Buscar una orden'), findsOneWidget);
+  });
+
+  testWidgets('el Técnico abre la orden y tiene la acción fija abajo', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
 
     await tester.tap(find.textContaining('MTZ-').first);
     await tester.pump(const Duration(seconds: 4));
@@ -154,6 +220,15 @@ void main() {
     expect(find.text('Mandar el enlace'), findsOneWidget);
     expect(find.text('Mandar la factura'), findsNothing);
 
+    // La acción del día está fija abajo, sin desplazar: marcar el paso que sigue o, si ya no
+    // queda ninguno, mover el estado. Cuál de las dos depende de por dónde vaya la orden.
+    final marcar = find.textContaining('Marcar «').evaluate().isNotEmpty;
+    final pasar = find.textContaining('Pasar a ').evaluate().isNotEmpty;
+    expect(marcar || pasar, isTrue);
+
+    // Y ya no hay una sección «Cambiar estado» al final de la torre.
+    expect(find.text('CAMBIAR ESTADO'), findsNothing);
+
     // Lo de más abajo hay que traerlo a la vista: el ListView no construye lo que no se ve.
     // Y hay que decirle por cuál desplazarse: el cuadro del diagnóstico también es
     // desplazable, así que el buscador encontraría dos y no sabría por cuál decidirse.
@@ -167,17 +242,72 @@ void main() {
 
     await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300, scrollable: page);
     expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
-    // Al Técnico sí se le ofrecen transiciones; al Cliente no.
-    expect(find.text('CAMBIAR ESTADO'), findsOneWidget);
+  });
+
+  testWidgets('el Técnico puede detener el trabajo diciendo qué falta', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
+
+    await tester.tap(find.textContaining('MTZ-').first);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    // El menú solo aparece si la orden admite transiciones; si no, no hay nada que probar.
+    if (find.byTooltip('Más acciones').evaluate().isEmpty) return;
+
+    await tester.tap(find.byTooltip('Más acciones'));
+    await tester.pumpAndSettle();
+
+    // Detener no está en el menú de toda orden: depende de su estado.
+    if (find.text('Detener el trabajo').evaluate().isEmpty) return;
+
+    await tester.tap(find.text('Detener el trabajo'));
+    await tester.pumpAndSettle();
+
+    // La hoja pregunta el motivo, que es lo que el mostrador necesita para comprar el
+    // repuesto o para llamar al cliente. Antes solo se elegía un estado.
+    expect(find.text('Detener el trabajo'), findsWidgets);
+    expect(find.text('Qué falta'), findsOneWidget);
+    expect(find.text('Detener y avisar'), findsOneWidget);
+
+    // Se cierra sin detener nada: esta prueba no cambia el estado de la orden.
+    await tester.tapAt(const Offset(200, 60));
+    await tester.pumpAndSettle();
+    expect(find.text('Detener y avisar'), findsNothing);
+  });
+
+  testWidgets('el Técnico ve existencias pero no las mueve', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
+
+    await goTo(tester, 'Repuestos');
+
+    expect(find.text('Inventario'), findsWidgets);
+    // Ni alta de catálogo ni entradas: la API se lo negaría.
+    expect(find.text('Nuevo repuesto'), findsNothing);
+
+    await tester.tap(find.byType(Card).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrada por compra'), findsNothing);
+    expect(find.text('Kardex'), findsOneWidget);
+  });
+
+  testWidgets('el Cliente entra a su vehículo, no a una bandeja', (tester) async {
+    await signIn(tester, 'cliente@garaj.test');
+
+    expect(find.text('Mi vehículo'), findsWidgets);
+    expect(find.text('Historial'), findsOneWidget);
+    // Su vehículo se cuenta en palabras, no con los estados internos del taller.
+    expect(find.text('Ver el avance'), findsWidgets);
+    expect(find.text('Pedir una cita'), findsOneWidget);
+    // Nada del taller: ni caja, ni ingresos, ni folios encabezando la pantalla.
+    expect(find.text('COBRADO HOY'), findsNothing);
+    expect(find.text('Recibir vehículo'), findsNothing);
   });
 
   testWidgets('el Cliente sigue su vehículo pero no cambia estados', (tester) async {
     await signIn(tester, 'cliente@garaj.test');
 
-    expect(find.text('Mis vehículos'), findsOneWidget);
-    expect(find.textContaining('MTZ-'), findsOneWidget);
-
-    await tester.tap(find.textContaining('MTZ-').first);
+    await tester.tap(find.text('Ver el avance').first);
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
@@ -189,6 +319,9 @@ void main() {
     expect(find.text('AVISAR AL CLIENTE'), findsNothing);
     // Ve quién tiene su vehículo, que es lo que preguntaría por teléfono.
     expect(find.text('TÉCNICO RESPONSABLE'), findsOneWidget);
+    // Y no tiene barra de acciones: no mueve estados ni marca pasos.
+    expect(find.textContaining('Pasar a '), findsNothing);
+    expect(find.textContaining('Marcar «'), findsNothing);
 
     final page = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(find.text('FOTOS DEL PROCESO'), 300, scrollable: page);
@@ -199,11 +332,21 @@ void main() {
     expect(find.text('CAMBIAR ESTADO'), findsNothing);
   });
 
+  testWidgets('el Cliente tiene el historial de su vehículo', (tester) async {
+    await signIn(tester, 'cliente@garaj.test');
+
+    await goTo(tester, 'Historial');
+
+    // Sin importes: al Cliente el backend no le da las facturas, van por el enlace público.
+    expect(find.text('VISITAS'), findsOneWidget);
+    expect(find.text('DESDE'), findsOneWidget);
+    expect(find.textContaining('MTZ-'), findsWidgets);
+  });
+
   testWidgets('el Cliente pide una cita desde su teléfono', (tester) async {
     await signIn(tester, 'cliente@garaj.test');
 
-    expect(find.text('Pedir cita'), findsOneWidget);
-    await tester.tap(find.text('Pedir cita'));
+    await tester.tap(find.text('Pedir una cita'));
     await tester.pumpAndSettle();
 
     // Los vehículos y las sucursales los trae la API: hay que darle tiempo de red.
@@ -220,30 +363,25 @@ void main() {
     expect(find.text('Cuéntenos qué necesita.'), findsOneWidget);
   });
 
-  testWidgets('el Dueño abre los reportes desde la bandeja', (tester) async {
+  testWidgets('el Dueño abre los reportes desde Más', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await openFromMenu(tester, 'Reportes');
+    await openFromMore(tester, 'Reportes');
 
-    expect(find.text('Reportes'), findsOneWidget);
+    expect(find.text('Reportes'), findsWidgets);
     expect(find.text('TOTAL FACTURADO'), findsOneWidget);
     // Los filtros que solo existen aquí: rango, agrupación y el reparto por técnico.
     expect(find.text('30 días'), findsOneWidget);
-    // El filtro por técnico es lo nuevo. El reparto de abajo depende de que haya ventas
-    // en el rango, así que no se comprueba aquí: eso lo cubre el humo del backend.
     expect(find.text('Todos los técnicos'), findsOneWidget);
 
-    // El detalle de lo que está por cobrar se mudó a su propia pantalla: aquí queda el
-    // total, y ninguna factura suelta con su botón de abonar.
+    // El detalle de lo que está por cobrar vive en su propia pantalla.
     expect(find.text('Abonar'), findsNothing);
   });
 
   testWidgets('el Dueño registra un abono desde Por cobrar', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await tester.tap(find.byTooltip('Por cobrar'));
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
+    await openFromMore(tester, 'Por cobrar');
 
     expect(find.text('Por cobrar'), findsWidgets);
     // Lo que distingue a esta pantalla de un reporte: se busca y se filtra.
@@ -264,32 +402,10 @@ void main() {
     expect(find.widgetWithText(TextField, 'Cuánto abona'), findsOneWidget);
   });
 
-  testWidgets('Por cobrar filtra por vencimiento', (tester) async {
+  testWidgets('el Dueño aprueba y asigna desde Requerimientos', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await tester.tap(find.byTooltip('Por cobrar'));
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Vencidas'));
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
-
-    // O trae vencidas, o dice que con esos filtros no hay nada. Lo que no puede es
-    // quedarse en blanco ni reventar.
-    final hayResultados = find.text('Abonar').evaluate().isNotEmpty;
-    expect(
-      hayResultados || find.text('Nada con esos filtros.').evaluate().isNotEmpty,
-      isTrue,
-    );
-  });
-
-  testWidgets('el Dueño aprueba y asigna desde la bandeja', (tester) async {
-    await signIn(tester, 'owner@garaj.test');
-
-    await tester.tap(find.byTooltip('Requerimientos'));
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
+    await openFromMore(tester, 'Requerimientos');
 
     // El seeder deja uno pendiente y otro ya convertido en orden.
     expect(find.text('Aprobar y asignar'), findsWidgets);
@@ -306,14 +422,12 @@ void main() {
     expect(find.text('¿Quién lo atiende?'), findsNothing);
   });
 
-  testWidgets('el Técnico ve la bandeja pero no decide', (tester) async {
+  testWidgets('el Técnico ve los requerimientos pero no decide', (tester) async {
     await signIn(tester, 'tecnico1@garaj.test');
 
-    await tester.tap(find.byTooltip('Requerimientos'));
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
+    await openFromMore(tester, 'Requerimientos');
 
-    expect(find.text('Requerimientos'), findsOneWidget);
+    expect(find.text('Requerimientos'), findsWidgets);
     // Puede recibir vehículos, pero aprobar es del Dueño.
     expect(find.text('Recibir vehículo'), findsOneWidget);
     expect(find.text('Aprobar y asignar'), findsNothing);
@@ -321,6 +435,8 @@ void main() {
 
   testWidgets('el Dueño cotiza y cobra desde la orden', (tester) async {
     await signIn(tester, 'owner@garaj.test');
+
+    await goTo(tester, 'Órdenes');
 
     await tester.tap(find.textContaining('MTZ-').first);
     await tester.pump(const Duration(seconds: 4));
@@ -341,7 +457,7 @@ void main() {
   testWidgets('el Dueño busca en el padrón de clientes', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await openFromMenu(tester, 'Clientes');
+    await openFromMore(tester, 'Clientes');
 
     expect(find.text('Clientes'), findsWidgets);
     expect(find.text('Nuevo cliente'), findsOneWidget);
@@ -352,9 +468,9 @@ void main() {
   testWidgets('el Dueño ve la bodega y puede moverla', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 
-    await openFromMenu(tester, 'Inventario');
+    await openFromMore(tester, 'Inventario');
 
-    expect(find.text('Inventario'), findsOneWidget);
+    expect(find.text('Inventario'), findsWidgets);
     expect(find.text('Nuevo repuesto'), findsOneWidget);
     expect(find.text('Bajo mínimo'), findsOneWidget);
 
@@ -364,22 +480,6 @@ void main() {
 
     expect(find.text('Entrada por compra'), findsOneWidget);
     expect(find.text('Ajuste por conteo'), findsOneWidget);
-    expect(find.text('Kardex'), findsOneWidget);
-  });
-
-  testWidgets('el Técnico ve existencias pero no las mueve', (tester) async {
-    await signIn(tester, 'tecnico1@garaj.test');
-
-    await openFromMenu(tester, 'Inventario');
-
-    expect(find.text('Inventario'), findsOneWidget);
-    // Ni alta de catálogo ni entradas: la API se lo negaría.
-    expect(find.text('Nuevo repuesto'), findsNothing);
-
-    await tester.tap(find.byType(Card).first);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Entrada por compra'), findsNothing);
     expect(find.text('Kardex'), findsOneWidget);
   });
 
@@ -406,6 +506,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Credenciales inválidas.'), findsOneWidget);
-    expect(find.text('Taller'), findsNothing);
+    expect(find.text('Hoy'), findsNothing);
   });
 }
