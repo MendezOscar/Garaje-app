@@ -32,7 +32,9 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
           {
             title: 'Trabajo',
             items: [
+              { to: { name: 'home' }, label: 'Inicio' },
               { to: { name: 'work-orders' }, label: 'Órdenes' },
+              { to: { name: 'receive-vehicle' }, label: 'Recibir vehículo' },
               { to: { name: 'service-requests' }, label: 'Requerimientos' },
               { to: { name: 'service-reminders' }, label: 'Recordatorios' },
             ],
@@ -88,10 +90,41 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
 )
 
 /**
- * En pantalla angosta el menú se retira fuera de vista y se saca con el botón. En escritorio
+ * En pantalla angosta el menú se retira fuera de vista y se saca desde «Más». En escritorio
  * está siempre, y este estado no le afecta.
  */
 const menuAbierto = ref(false)
+
+/**
+ * La barra de abajo del teléfono.
+ *
+ * El panel se usa también desde el teléfono —el taller lo tiene en la pantalla de inicio— y
+ * ahí el menú entero era un cajón que había que sacar con la hamburguesa de la esquina, arriba
+ * y a la izquierda, que es justo donde el pulgar no llega. Aquí van los tres destinos que se
+ * usan a diario y «Más», que abre el cajón con el resto.
+ */
+const barraAbajo = computed<{ to: object; label: string }[]>(() => {
+  switch (auth.role) {
+    case Roles.Owner:
+      return [
+        { to: { name: 'home' }, label: 'Inicio' },
+        { to: { name: 'work-orders' }, label: 'Órdenes' },
+        { to: { name: 'receive-vehicle' }, label: 'Recibir' },
+      ]
+    case Roles.Technician:
+      return [
+        { to: { name: 'my-assignments' }, label: 'Mi trabajo' },
+        { to: { name: 'service-requests' }, label: 'Requerimientos' },
+        { to: { name: 'inventory' }, label: 'Repuestos' },
+      ]
+    case Roles.Customer:
+      return [{ to: { name: 'my-vehicles' }, label: 'Mis vehículos' }]
+    case Roles.Platform:
+      return [{ to: { name: 'platform-tenants' }, label: 'Talleres' }]
+    default:
+      return []
+  }
+})
 
 /**
  * El aviso de la mensualidad. Viene resuelto del backend —incluido el texto— y solo llega al
@@ -162,14 +195,10 @@ async function logout() {
 
     <div class="col">
       <header>
-        <button
-          type="button"
-          class="hamburguesa"
-          aria-label="Menú"
-          @click="menuAbierto = !menuAbierto"
-        >
-          ☰
-        </button>
+        <!-- En el teléfono el menú de la izquierda no se ve, y con él se iba la marca: en la
+             barra de arriba queda el isotipo, que también dice que esto no es un navegador
+             cualquiera abierto en cualquier página. -->
+        <BrandLogo class="marca-movil" variant="isotipo" :height="22" />
 
         <select
           v-if="auth.user && auth.user.branches.length > 1"
@@ -191,6 +220,16 @@ async function logout() {
         </p>
         <RouterView />
       </main>
+
+      <!-- Solo en pantalla angosta; en escritorio el menú de la izquierda ya está siempre. -->
+      <nav class="barra-abajo">
+        <RouterLink v-for="item in barraAbajo" :key="item.label" :to="item.to">
+          {{ item.label }}
+        </RouterLink>
+        <button type="button" :class="{ on: menuAbierto }" @click="menuAbierto = !menuAbierto">
+          Más
+        </button>
+      </nav>
     </div>
   </div>
 </template>
@@ -356,17 +395,10 @@ header {
   background: var(--surface);
 }
 
-.hamburguesa {
+/* La barra de abajo del teléfono y la marca de arriba. Fuera de pantalla angosta no existen. */
+.barra-abajo,
+.marca-movil {
   display: none;
-  margin-right: auto;
-  padding: 0.25rem 0.625rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text);
-  font-size: 1.125rem;
-  line-height: 1.2;
-  cursor: pointer;
 }
 
 main {
@@ -428,12 +460,55 @@ main {
     box-shadow: 0 0 2rem rgb(0 0 0 / 25%);
   }
 
-  .hamburguesa {
-    display: block;
+  main {
+    /* Sitio para la barra de abajo, y para la franja del gesto de iOS. */
+    padding: 1rem 1rem calc(4.5rem + env(safe-area-inset-bottom));
   }
 
-  main {
-    padding: 1rem;
+  .marca-movil {
+    display: block;
+    margin-right: auto;
+  }
+
+  .barra-abajo {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .barra-abajo a,
+  .barra-abajo button {
+    display: grid;
+    place-items: center;
+    min-height: 3.5rem;
+    padding: 0.25rem;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .barra-abajo a:hover {
+    text-decoration: none;
+  }
+
+  /* El destino actual se marca con una línea arriba, del ancho del dedo: en la pantalla de un
+     taller, con sol de frente, el color solo no siempre se distingue. */
+  .barra-abajo a.router-link-active,
+  .barra-abajo button.on {
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: inset 0 3px 0 var(--accent);
   }
 }
 </style>

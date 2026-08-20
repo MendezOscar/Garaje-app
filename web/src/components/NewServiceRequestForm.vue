@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, customersApi, serviceRequestsApi, vehiclesApi } from '@/api/garaj'
+import { branchesApi, customersApi, serviceRequestsApi, usersApi, vehiclesApi, workOrdersApi } from '@/api/garaj'
 import { useAuthStore } from '@/stores/auth'
-import { VEHICLE_TYPE_LABEL, VehicleType, type Branch, type Customer, type Vehicle } from '@/types/domain'
+import {
+  VEHICLE_TYPE_LABEL,
+  VehicleType,
+  type Branch,
+  type Customer,
+  type User,
+  type Vehicle,
+} from '@/types/domain'
 
 /**
  * Recepción en el mostrador: el taller registra el requerimiento por el cliente.
@@ -16,11 +23,28 @@ import { VEHICLE_TYPE_LABEL, VehicleType, type Branch, type Customer, type Vehic
  * alta en otra pantalla antes de poder recibir la moto es exactamente lo que hace que nadie
  * use el sistema y todo acabe otra vez en un cuaderno.
  */
-const emit = defineEmits<{ created: [] }>()
+/**
+ * Dos modos con la misma hoja de recepción, porque el mostrador es el mismo:
+ *
+ * - `request` registra un requerimiento, que alguien tendrá que aprobar. Es lo que se hace
+ *   cuando el cliente llama para pedir cita.
+ * - `order` abre la orden de trabajo directo. Es lo que pasa cuando el vehículo ya está en el
+ *   patio: pedirle al mostrador que registre un requerimiento y luego lo apruebe es hacerle
+ *   dar dos vueltas para llegar al mismo sitio.
+ *
+ * Y dos presentaciones: `panel` es el bloque plegable de la bandeja de requerimientos;
+ * `page`, la pantalla propia de «Recibir vehículo», donde el formulario ya está abierto.
+ */
+const props = withDefaults(
+  defineProps<{ mode?: 'request' | 'order'; variant?: 'panel' | 'page' }>(),
+  { mode: 'request', variant: 'panel' },
+)
+
+const emit = defineEmits<{ created: [id: string | null] }>()
 
 const auth = useAuthStore()
 
-const open = ref(false)
+const open = ref(props.variant === 'page')
 const busy = ref(false)
 const error = ref('')
 
@@ -50,7 +74,17 @@ const form = ref({
   description: '',
   reportedSymptoms: '',
   mileage: '' as string | number,
+  // Solo en modo orden: la orden nace con fecha prometida y con técnico si ya se sabe quién.
+  promisedAt: '',
+  technicianId: '',
 })
+
+/** Los técnicos, para asignar al recibir. Solo se piden en modo orden y solo los ve el Dueño. */
+const technicians = ref<User[]>([])
+
+const techniciansForBranch = computed(() =>
+  technicians.value.filter((t) => t.isActive && t.branchIds.includes(form.value.branchId)),
+)
 
 /** El técnico solo recibe en sus sucursales; al Dueño se le muestran todas. */
 const allowedBranches = computed(() =>
@@ -161,19 +195,41 @@ async function submit() {
   busy.value = true
   error.value = ''
   try {
-    await serviceRequestsApi.create({
-      branchId: form.value.branchId,
-      vehicleId: form.value.vehicleId,
-      description: form.value.description.trim(),
-      reportedSymptoms: form.value.reportedSymptoms.trim() || undefined,
-      mileage: Number(form.value.mileage) || undefined,
-    })
+    let creada: string | null = null
+
+    if (props.mode === 'order') {
+      const orden = await workOrdersApi.create({
+        branchId: form.value.branchId,
+        vehicleId: form.value.vehicleId,
+        description: form.value.description.trim(),
+        assignedTechnicianId: form.value.technicianId || null,
+        mileageIn: Number(form.value.mileage) || undefined,
+        // El input da «2026-08-19T16:00»; el backend espera un instante con zona.
+        promisedAt: form.value.promisedAt
+          ? new Date(form.value.promisedAt).toISOString()
+          : undefined,
+      })
+      creada = orden.id
+    } else {
+      await serviceRequestsApi.create({
+        branchId: form.value.branchId,
+        vehicleId: form.value.vehicleId,
+        description: form.value.description.trim(),
+        reportedSymptoms: form.value.reportedSymptoms.trim() || undefined,
+        mileage: Number(form.value.mileage) || undefined,
+      })
+    }
 
     reset()
-    open.value = false
-    emit('created')
+    if (props.variant === 'panel') open.value = false
+    emit('created', creada)
   } catch (e) {
-    error.value = errorMessage(e, 'No se pudo registrar el requerimiento.')
+    error.value = errorMessage(
+      e,
+      props.mode === 'order'
+        ? 'No se pudo abrir la orden.'
+        : 'No se pudo registrar el requerimiento.',
+    )
   } finally {
     busy.value = false
   }
@@ -193,6 +249,8 @@ function reset() {
     description: '',
     reportedSymptoms: '',
     mileage: '',
+    promisedAt: '',
+    technicianId: '',
   }
   error.value = ''
 }
@@ -204,12 +262,16 @@ watch(allowedBranches, (list) => {
 onMounted(async () => {
   branches.value = await branchesApi.list().catch(() => [])
   form.value.branchId = allowedBranches.value[0]?.id ?? ''
+
+  if (props.mode === 'order') {
+    technicians.value = await usersApi.list('Technician').catch(() => [])
+  }
 })
 </script>
 
 <template>
-  <article class="panel">
-    <header>
+  <article :class="variant === 'page' ? 'hoja' : 'panel'">
+    <header v-if="variant === 'panel'">
       <div>
         <h2>Registrar un requerimiento</h2>
         <p class="muted small">
@@ -322,7 +384,7 @@ onMounted(async () => {
           />
         </label>
 
-        <label>
+        <label v-if="mode === 'request'">
           Qué ha notado el cliente (opcional)
           <textarea
             v-model="form.reportedSymptoms"
@@ -331,14 +393,44 @@ onMounted(async () => {
           />
         </label>
 
-        <label class="narrow-field">
-          Kilometraje (opcional)
-          <input v-model="form.mileage" type="number" min="0" />
-        </label>
+        <div class="row">
+          <label class="narrow-field">
+            Kilometraje (opcional)
+            <input v-model="form.mileage" type="number" min="0" />
+          </label>
+
+          <template v-if="mode === 'order'">
+            <!-- Prometer una fecha al recibir es lo que después hace que el tablero pueda
+                 decir qué está atrasado. -->
+            <label class="narrow-field">
+              Fecha prometida (opcional)
+              <input v-model="form.promisedAt" type="datetime-local" />
+            </label>
+
+            <label class="narrow-field">
+              Técnico (opcional)
+              <select v-model="form.technicianId">
+                <option value="">Asignar después</option>
+                <option v-for="t in techniciansForBranch" :key="t.id" :value="t.id">
+                  {{ t.fullName }}
+                </option>
+              </select>
+            </label>
+          </template>
+        </div>
 
         <div class="actions">
-          <button type="submit" :disabled="busy">Registrar requerimiento</button>
-          <button type="button" class="secondary" @click="open = false">Cancelar</button>
+          <button type="submit" :disabled="busy">
+            {{ mode === 'order' ? 'Abrir la orden' : 'Registrar requerimiento' }}
+          </button>
+          <button
+            v-if="variant === 'panel'"
+            type="button"
+            class="secondary"
+            @click="open = false"
+          >
+            Cancelar
+          </button>
         </div>
       </template>
     </form>
@@ -346,6 +438,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* En pantalla propia el formulario no lleva marco ni la línea que lo separaba de la cabecera
+   del panel: el marco lo pone la pantalla y la cabecera no existe. */
+.hoja {
+  padding: 0;
+}
+
+.hoja form {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .panel {
   padding: 1rem;
   border: 1px solid var(--border);
