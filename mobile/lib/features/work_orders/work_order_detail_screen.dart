@@ -689,31 +689,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 mostrarTecnico: !_isTechnician,
               ),
               const SizedBox(height: 14),
-              _TasksCard(
-                order: order,
-                canEdit: _canEdit,
-                busy: _busy,
-                onChangeLabor: _changeTaskLabor,
-                onToggle: (task, value) => _run(() async {
-                  await ref.read(workOrderRepositoryProvider).completeTask(
-                        widget.id,
-                        task.id,
-                        isDone: value,
-                      );
-                }),
-                onAdd: () => _addTask(order.isCatalogLabor),
-                mostrarManoDeObra: _canEdit && !_isOwner,
-                siguienteId: siguientePaso?.id,
-                hasTemplates:
-                    (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
-                onApplyTemplate: _applyTemplate,
-                onComoSeCobra: _isOwner ? () => _comoSeCobra(order) : null,
-              ),
-              const SizedBox(height: 12),
-              if (_isOwner) _TotalCard(order: order),
-              // Los renglones van en el orden en que el trabajo los pide: se diagnostica,
-              // se arman los pasos —arriba—, se cargan los repuestos, se cotiza, se
-              // fotografía, se avisa y se cobra. Lo que solo se consulta va al final.
+              // El orden es el del trabajo: se diagnostica, se ve por cuánto va, se arman
+              // los pasos, se cargan los repuestos, se cotiza, se fotografía, se avisa y se
+              // cobra. Lo que solo se consulta va al final.
               if (_canEdit)
                 _FilaDiagnostico(
                   order: order,
@@ -747,6 +725,28 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                     ),
                   ),
                 ),
+              if (_isOwner) _TotalCard(order: order),
+              _TasksCard(
+                order: order,
+                canEdit: _canEdit,
+                busy: _busy,
+                onChangeLabor: _changeTaskLabor,
+                onToggle: (task, value) => _run(() async {
+                  await ref.read(workOrderRepositoryProvider).completeTask(
+                        widget.id,
+                        task.id,
+                        isDone: value,
+                      );
+                }),
+                onAdd: () => _addTask(order.isCatalogLabor),
+                mostrarManoDeObra: _canEdit && !_isOwner,
+                siguienteId: siguientePaso?.id,
+                hasTemplates:
+                    (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
+                onApplyTemplate: _applyTemplate,
+                onComoSeCobra: _isOwner ? () => _comoSeCobra(order) : null,
+              ),
+              const SizedBox(height: 12),
               if (_canEdit || order.parts.isNotEmpty)
                 _Fila(
                   icono: Icons.inventory_2_outlined,
