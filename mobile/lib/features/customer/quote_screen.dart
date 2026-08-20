@@ -5,6 +5,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/media_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/api/work_order_repository.dart';
+import '../../core/models/media.dart';
 import '../../core/models/quote.dart';
 import '../../core/theme/garaj_brand.dart';
 import '../reports/reports_screen.dart' show money;
@@ -302,7 +303,7 @@ class _Fotos extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final fotos = ref.watch(quoteMediaProvider(quoteId)).value ?? const [];
+    final fotos = ref.watch(mediaDeProvider((MediaOwnerType.quote, quoteId))).value ?? const [];
     if (fotos.isEmpty) return const SizedBox.shrink();
 
     return Padding(

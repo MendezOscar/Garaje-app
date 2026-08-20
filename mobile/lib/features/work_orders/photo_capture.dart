@@ -13,9 +13,13 @@ import '../../core/sync/upload_queue.dart';
 ///
 /// Fuera de la galería porque el técnico también dispara desde su pantalla de trabajo, sin
 /// abrir la orden: documentar es lo que más se le olvida, y cada toque de más es una foto menos.
+///
+/// Sirve para la orden y para la cotización: la foto del daño es lo que hace que un
+/// presupuesto se entienda sin ir al taller, y se toma con el vehículo delante.
 Future<bool> capturarFoto(
   WidgetRef ref, {
-  required String workOrderId,
+  required String ownerId,
+  MediaOwnerType ownerType = MediaOwnerType.workOrder,
   ImageSource source = ImageSource.camera,
 }) async {
   final picked = await ImagePicker().pickImage(
@@ -31,12 +35,12 @@ Future<bool> capturarFoto(
 
   await ref.read(uploadQueueProvider.notifier).enqueue(
         photo: await comprimirFoto(File(picked.path)),
-        ownerType: MediaOwnerType.workOrder,
-        ownerId: workOrderId,
+        ownerType: ownerType,
+        ownerId: ownerId,
         takenAt: DateTime.now(),
       );
 
-  ref.invalidate(workOrderMediaProvider(workOrderId));
+  ref.invalidate(mediaProviderDe(ownerType, ownerId));
   return true;
 }
 
@@ -55,3 +59,13 @@ Future<File> comprimirFoto(File original) async {
 
   return result == null ? original : File(result.path);
 }
+
+/// El provider que lista las fotos de ese dueño. La orden tiene endpoint propio —trae también
+/// las de sus pasos—; lo demás sale del listado general por dueño.
+FutureProvider<List<MediaAttachment>> mediaProviderDe(
+  MediaOwnerType ownerType,
+  String ownerId,
+) =>
+    ownerType == MediaOwnerType.workOrder
+        ? workOrderMediaProvider(ownerId)
+        : mediaDeProvider((ownerType, ownerId));

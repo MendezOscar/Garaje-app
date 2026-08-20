@@ -8,11 +8,29 @@ import '../../core/models/media.dart';
 import '../../core/sync/upload_queue.dart';
 import 'photo_capture.dart';
 
-/// Fotos del proceso de una orden: lo que el técnico documenta y lo que el cliente mira.
+/// Fotos de lo que se documenta: el proceso de una orden o el daño de una cotización.
+///
+/// La misma galería para las dos porque es el mismo gesto —apuntar y disparar con el vehículo
+/// delante— y el mismo problema: la señal del taller. Lo único que cambia es de quién son las
+/// fotos y el rótulo.
 class PhotoGallery extends ConsumerStatefulWidget {
-  const PhotoGallery({required this.workOrderId, required this.canEdit, super.key});
+  const PhotoGallery({
+    required this.ownerId,
+    required this.canEdit,
+    this.ownerType = MediaOwnerType.workOrder,
+    this.titulo = 'FOTOS DEL PROCESO',
+    this.vacioPropio = 'Todavía no hay fotos. Tome una para documentar el proceso.',
+    this.vacioAjeno = 'El taller todavía no ha subido fotos.',
+    super.key,
+  });
 
-  final String workOrderId;
+  final String ownerId;
+  final MediaOwnerType ownerType;
+  final String titulo;
+
+  /// Qué decir cuando no hay fotos: a quien puede tomarlas y a quien solo las mira.
+  final String vacioPropio;
+  final String vacioAjeno;
   final bool canEdit;
 
   @override
@@ -30,15 +48,23 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _flush());
   }
 
+  FutureProvider<List<MediaAttachment>> get _fotos =>
+      mediaProviderDe(widget.ownerType, widget.ownerId);
+
   Future<void> _flush() async {
     await ref.read(uploadQueueProvider.notifier).flush();
-    if (mounted) ref.invalidate(workOrderMediaProvider(widget.workOrderId));
+    if (mounted) ref.invalidate(_fotos);
   }
 
   Future<void> _takePhoto(ImageSource source) async {
     setState(() => _busy = true);
     try {
-      await capturarFoto(ref, workOrderId: widget.workOrderId, source: source);
+      await capturarFoto(
+        ref,
+        ownerId: widget.ownerId,
+        ownerType: widget.ownerType,
+        source: source,
+      );
     } catch (e) {
       _snack(apiErrorMessage(e, 'No se pudo guardar la foto.'));
     } finally {
@@ -63,7 +89,7 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
 
     try {
       await ref.read(mediaRepositoryProvider).delete(photo.id);
-      ref.invalidate(workOrderMediaProvider(widget.workOrderId));
+      ref.invalidate(_fotos);
     } catch (e) {
       _snack(apiErrorMessage(e, 'No se pudo eliminar la foto.'));
     }
@@ -88,8 +114,8 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final media = ref.watch(workOrderMediaProvider(widget.workOrderId));
-    final pending = ref.watch(pendingUploadsForProvider(widget.workOrderId));
+    final media = ref.watch(_fotos);
+    final pending = ref.watch(pendingUploadsForProvider(widget.ownerId));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -100,7 +126,7 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
             children: [
               Expanded(
                 child: Text(
-                  'FOTOS DEL PROCESO',
+                  widget.titulo,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     letterSpacing: 0.6,
@@ -139,9 +165,7 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
             ),
             data: (photos) => photos.isEmpty && pending.isEmpty
                 ? Text(
-                    widget.canEdit
-                        ? 'Todavía no hay fotos. Tome una para documentar el proceso.'
-                        : 'El taller todavía no ha subido fotos.',
+                    widget.canEdit ? widget.vacioPropio : widget.vacioAjeno,
                     style: theme.textTheme.bodySmall,
                   )
                 : GridView.count(

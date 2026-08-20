@@ -231,7 +231,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   Future<void> _tomarFoto() async {
     setState(() => _busy = true);
     try {
-      final tomada = await capturarFoto(ref, workOrderId: widget.id);
+      final tomada = await capturarFoto(ref, ownerId: widget.id);
       if (tomada && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Foto guardada en la orden.')),
@@ -777,7 +777,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               _FilaFotos(
                 workOrderId: order.id,
                 onTap: () => _abrirSeccion(
-                  (order) => PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
+                  (order) => PhotoGallery(ownerId: order.id, canEdit: _canEdit),
                 ),
               ),
               // El Técnico también avisa: muchas veces es él quien entrega el vehículo. El

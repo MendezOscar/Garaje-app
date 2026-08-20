@@ -180,7 +180,7 @@ class _AhoraCardState extends ConsumerState<_AhoraCard> {
   Future<void> _foto() async {
     setState(() => _busy = true);
     try {
-      final tomada = await capturarFoto(ref, workOrderId: widget.order.id);
+      final tomada = await capturarFoto(ref, ownerId: widget.order.id);
       if (tomada) _aviso('Foto guardada en la orden.');
     } catch (e) {
       _aviso(apiErrorMessage(e, 'No se pudo guardar la foto.'));

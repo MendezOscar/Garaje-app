@@ -503,6 +503,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('COTIZACIONES'), findsOneWidget);
 
+    // Las fotos del daño se suben desde el teléfono, que es donde está el vehículo. Solo si
+    // la orden ya tiene alguna cotización: sin cotización no hay dónde adjuntarlas.
+    if (find.textContaining('COT-').evaluate().isNotEmpty) {
+      expect(find.text('FOTOS DEL DAÑO'), findsWidgets);
+    }
+
     await tester.pageBack();
     await tester.pumpAndSettle();
 

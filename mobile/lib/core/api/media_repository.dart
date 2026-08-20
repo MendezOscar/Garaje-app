@@ -94,10 +94,13 @@ final workOrderMediaProvider =
   (ref, workOrderId) => ref.watch(mediaRepositoryProvider).listForWorkOrder(workOrderId),
 );
 
-/// Las fotos del daño de una cotización. Las sube el taller desde el panel y las mira el
-/// cliente antes de aprobar: es lo que hace que un presupuesto se entienda sin ir al taller.
-final quoteMediaProvider =
-    FutureProvider.autoDispose.family<List<MediaAttachment>, String>(
-  (ref, quoteId) =>
-      ref.watch(mediaRepositoryProvider).list(MediaOwnerType.quote, quoteId),
+/// Las fotos de cualquier otro dueño: una cotización, un requerimiento. Las de la cotización
+/// son las del daño —las sube el taller y las mira el cliente antes de aprobar—, que es lo
+/// que hace que un presupuesto se entienda sin ir al taller.
+///
+/// Un solo provider para todos los dueños: con uno por tipo, subir una foto invalidaba una
+/// caché y dejaba la otra con la lista vieja.
+final mediaDeProvider = FutureProvider.autoDispose
+    .family<List<MediaAttachment>, (MediaOwnerType, String)>(
+  (ref, dueno) => ref.watch(mediaRepositoryProvider).list(dueno.$1, dueno.$2),
 );
