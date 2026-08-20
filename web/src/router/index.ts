@@ -57,6 +57,22 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/AppLayout.vue'),
     children: [
       {
+        // La entrada del Dueño: cómo va el día. Antes caía en el tablero y estos datos
+        // vivían dentro de Reportes, que es una pantalla para mirar y no para trabajar.
+        path: 'inicio',
+        name: 'home',
+        component: () => import('@/views/owner/HomeView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
+        // Recibir el vehículo que ya está en el patio: abre la orden de una vez, sin pasar
+        // por un requerimiento que alguien tenga que aprobar.
+        path: 'recibir',
+        name: 'receive-vehicle',
+        component: () => import('@/views/owner/ReceiveVehicleView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         path: 'ordenes',
         name: 'work-orders',
         component: () => import('@/views/owner/WorkOrderBoardView.vue'),
@@ -196,7 +212,7 @@ export const router = createRouter({
 export function homeRouteFor(role: Role | null): string {
   switch (role) {
     case Roles.Owner:
-      return 'work-orders'
+      return 'home'
     case Roles.Technician:
       return 'my-assignments'
     case Roles.Customer:

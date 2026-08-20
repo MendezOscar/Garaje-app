@@ -37,7 +37,7 @@ import {
   type FiscalRange,
   type WorkOrderListItem,
 } from '@/types/domain'
-import { formatDate, formatDateTime, formatMoney, relativeTime, whatsappLink } from '@/utils/format'
+import { formatDate, formatDateTime, formatMoney, whatsappLink } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -135,6 +135,32 @@ const impedimentoCai = computed(() => {
 
 const id = computed(() => route.params.id as string)
 const canEdit = computed(() => !auth.isCustomer)
+
+/**
+ * El estado siguiente «hacia adelante»: el menor de los permitidos que esté por encima del
+ * actual, sin contar los que detienen la orden ni la cancelación.
+ *
+ * Es el que se pinta como botón principal en la cabecera. El orden que manda el backend no
+ * sirve para eso: desde «En proceso» el primero de la lista es «Esperando repuestos», que es
+ * un frenazo y no un avance.
+ */
+const siguienteNatural = computed(() => {
+  const detenidos: WorkOrderStatus[] = [
+    WorkOrderStatus.WaitingApproval,
+    WorkOrderStatus.WaitingParts,
+  ]
+
+  const candidatos = (order.value?.allowedNextStatuses ?? [])
+    .filter((s) => !detenidos.includes(s) && s !== WorkOrderStatus.Cancelled)
+    .sort((a, b) => a - b)
+
+  return candidatos.find((s) => s > (order.value?.status ?? 0)) ?? candidatos[0] ?? null
+})
+
+/** Los demás caminos permitidos, incluidos los que detienen la orden y la cancelación. */
+const otrosEstados = computed(() =>
+  (order.value?.allowedNextStatuses ?? []).filter((s) => s !== siguienteNatural.value),
+)
 
 async function load() {
   try {
@@ -526,63 +552,73 @@ onMounted(async () => {
 
 <template>
   <section v-if="order" class="detail">
-    <header>
-      <div>
+    <!-- La cabecera se queda pegada arriba con las acciones del día. Antes «Cambiar estado»
+         era una tarjeta más entre doce, en la segunda columna y casi al final: para mover una
+         orden había que buscarla desplazando. -->
+    <header class="fija">
+      <div class="quien">
         <h1>{{ order.number }}</h1>
-        <p class="muted">
-          {{ order.branchName }} · abierta {{ relativeTime(order.openedAt) }}
-          <template v-if="order.promisedAt"> · prometida {{ formatDateTime(order.promisedAt) }}</template>
+        <StatusBadge :status="order.status" />
+        <p class="muted small">
+          {{ order.vehicleLabel }}<template v-if="order.plate"> · {{ order.plate }}</template>
+          · {{ order.customerName }}
+          <template v-if="order.promisedAt">
+            · prometida {{ formatDateTime(order.promisedAt) }}
+          </template>
         </p>
       </div>
-      <StatusBadge :status="order.status" />
+
+      <div class="acciones">
+        <!-- El paso natural hacia adelante, en primario. Los demás caminos —detenerla,
+             devolverla, cancelarla— se abren a propósito: cinco botones iguales en la
+             cabecera invitan al clic equivocado. -->
+        <button
+          v-if="canEdit && siguienteNatural"
+          type="button"
+          :disabled="busy"
+          @click="changeStatus(siguienteNatural)"
+        >
+          Pasar a {{ WORK_ORDER_STATUS_LABEL[siguienteNatural] }}
+        </button>
+
+        <details v-if="canEdit && otrosEstados.length" class="otros">
+          <summary>Otro estado</summary>
+          <div class="menu">
+            <button
+              v-for="next in otrosEstados"
+              :key="next"
+              type="button"
+              class="suave"
+              :class="{ peligro: next === WorkOrderStatus.Cancelled }"
+              :disabled="busy"
+              @click="changeStatus(next)"
+            >
+              {{ WORK_ORDER_STATUS_LABEL[next] }}
+            </button>
+          </div>
+        </details>
+
+        <a v-if="canEdit" class="boton-suave" href="#avisar">Avisar al cliente</a>
+        <a v-if="auth.isOwner" class="boton-suave" :href="sales.length ? '#cobrar-hecho' : '#cobrar'">
+          {{ sales.length ? 'Ver la venta' : 'Cobrar' }}
+        </a>
+      </div>
     </header>
+
+    <!-- La nota del cambio de estado vive junto a los botones que la usan. -->
+    <div v-if="canEdit && order.allowedNextStatuses.length" class="nota-estado">
+      <input v-model="statusNote" placeholder="Nota para la línea de tiempo (opcional)" />
+      <label class="checkbox">
+        <input v-model="noteIsInternal" type="checkbox" />
+        Nota interna: el cliente no la ve
+      </label>
+    </div>
 
     <p v-if="error" class="error">{{ error }}</p>
 
     <div class="grid">
-      <div class="col">
-        <article class="card">
-          <h2>Vehículo y cliente</h2>
-          <dl>
-            <dt>{{ VEHICLE_TYPE_LABEL[order.vehicleType] }}</dt>
-            <dd>{{ order.vehicleLabel }} <span v-if="order.plate" class="plate">{{ order.plate }}</span></dd>
-            <dt>Cliente</dt>
-            <dd>
-              {{ order.customerName }}
-              <a :href="whatsapp" target="_blank" rel="noopener" class="wa">WhatsApp</a>
-            </dd>
-            <dt>Kilometraje al ingreso</dt>
-            <dd>{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
-          </dl>
-        </article>
-
-        <article class="card">
-          <h2>Avisar al cliente</h2>
-          <!-- El mismo enlace sirve toda la reparación: el cliente lo abre sin cuenta y ve en
-               qué va su vehículo. Se manda al recibir, otra vez cuando está listo, y al final
-               con la factura. -->
-          <p class="muted small">
-            Le llega un enlace donde ve el avance, las fotos y —al cerrar— su factura. No
-            necesita instalar nada.
-          </p>
-          <div class="avisos">
-            <button type="button" @click="mandarPorWhatsApp('received')">
-              Mandar el enlace
-            </button>
-            <button type="button" class="suave" @click="mandarPorWhatsApp('ready')">
-              Avisar que está listo
-            </button>
-            <button
-              v-if="sales.some((s) => !s.isVoided)"
-              type="button"
-              class="suave"
-              @click="mandarPorWhatsApp('invoice')"
-            >
-              Mandar la factura
-            </button>
-          </div>
-        </article>
-
+      <!-- La columna de trabajo: lo que se hace hoy con el vehículo enfrente. -->
+      <div class="col trabajo">
         <article class="card">
           <h2>Motivo de ingreso</h2>
           <p>{{ order.description }}</p>
@@ -844,8 +880,54 @@ onMounted(async () => {
         <PhotoGallery :work-order-id="order.id" :can-edit="canEdit" />
       </div>
 
-      <div class="col">
-        <article v-if="auth.isOwner && !sales.length && order.status !== WorkOrderStatus.Cancelled" class="card">
+      <!-- La columna de consulta: quién es el cliente, qué se le cobra, y plegado lo que solo
+           se mira cuando algo no cuadra. -->
+      <div class="col consulta">
+        <article class="card">
+          <h2>Vehículo y cliente</h2>
+          <dl>
+            <dt>{{ VEHICLE_TYPE_LABEL[order.vehicleType] }}</dt>
+            <dd>{{ order.vehicleLabel }} <span v-if="order.plate" class="plate">{{ order.plate }}</span></dd>
+            <dt>Cliente</dt>
+            <dd>
+              {{ order.customerName }}
+              <a :href="whatsapp" target="_blank" rel="noopener" class="wa">WhatsApp</a>
+            </dd>
+            <dt>Kilometraje al ingreso</dt>
+            <dd>{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
+            <dt>Sucursal</dt>
+            <dd>{{ order.branchName }} · abierta el {{ formatDate(order.openedAt) }}</dd>
+          </dl>
+        </article>
+
+        <article id="avisar" class="card">
+          <h2>Avisar al cliente</h2>
+          <!-- El mismo enlace sirve toda la reparación: el cliente lo abre sin cuenta y ve en
+               qué va su vehículo. Se manda al recibir, otra vez cuando está listo, y al final
+               con la factura. -->
+          <p class="muted small">
+            Le llega un enlace donde ve el avance, las fotos y —al cerrar— su factura. No
+            necesita instalar nada.
+          </p>
+          <div class="avisos">
+            <button type="button" @click="mandarPorWhatsApp('received')">
+              Mandar el enlace
+            </button>
+            <button type="button" class="suave" @click="mandarPorWhatsApp('ready')">
+              Avisar que está listo
+            </button>
+            <button
+              v-if="sales.some((s) => !s.isVoided)"
+              type="button"
+              class="suave"
+              @click="mandarPorWhatsApp('invoice')"
+            >
+              Mandar la factura
+            </button>
+          </div>
+        </article>
+
+        <article id="cobrar" v-if="auth.isOwner && !sales.length && order.status !== WorkOrderStatus.Cancelled" class="card">
           <h2>Cerrar y facturar</h2>
           <p class="muted small">
             Cobra los repuestos ya cargados ({{ formatMoney(order.partsTotal) }}) más la mano
@@ -947,7 +1029,7 @@ onMounted(async () => {
           </div>
         </article>
 
-        <article v-if="auth.isOwner && sales.length" class="card">
+        <article id="cobrar-hecho" v-if="auth.isOwner && sales.length" class="card">
           <h2>Venta</h2>
           <div v-for="sale in sales" :key="sale.id" class="sale">
             <p v-if="sale.fiscalNumber" class="fiscal">
@@ -1042,25 +1124,6 @@ onMounted(async () => {
           </select>
         </article>
 
-        <article v-if="canEdit && order.allowedNextStatuses.length" class="card">
-          <h2>Cambiar estado</h2>
-          <input v-model="statusNote" placeholder="Nota para la línea de tiempo (opcional)" />
-          <label class="checkbox">
-            <input v-model="noteIsInternal" type="checkbox" />
-            Nota interna: el cliente no la ve
-          </label>
-          <div class="actions">
-            <button
-              v-for="next in order.allowedNextStatuses"
-              :key="next"
-              type="button"
-              :disabled="busy"
-              @click="changeStatus(next)"
-            >
-              {{ WORK_ORDER_STATUS_LABEL[next] }}
-            </button>
-          </div>
-        </article>
 
         <!-- Plegado: un vehículo con años de taller trae veinte visitas y empujaba la línea de
              tiempo fuera de la pantalla. El resumen contesta cerrado lo que casi siempre se
@@ -1093,6 +1156,31 @@ onMounted(async () => {
         </article>
 
         <!-- Al final y plegada: se llega aquí queriendo, no de un clic mal dado. -->
+        <!-- Plegada: se consulta cuando algo no cuadra —quién movió el estado y cuándo—,
+             no en el trabajo del día. Sin `open` enlazado, igual que el historial: lo
+             maneja el navegador y así no se cierra al recargar la orden. -->
+        <article class="card">
+          <details>
+            <summary>
+              <h2>Línea de tiempo</h2>
+              <span class="muted small">{{ order.timeline.length }} cambio(s) de estado</span>
+            </summary>
+            <ol class="timeline">
+              <li v-for="(entry, i) in order.timeline" :key="i">
+                <div class="dot" />
+                <div>
+                  <strong>{{ WORK_ORDER_STATUS_LABEL[entry.toStatus] }}</strong>
+                  <span v-if="!entry.isVisibleToCustomer" class="internal">interna</span>
+                  <div class="muted small">
+                    {{ formatDateTime(entry.changedAt) }} · {{ entry.changedByName }}
+                  </div>
+                  <p v-if="entry.note">{{ entry.note }}</p>
+                </div>
+              </li>
+            </ol>
+          </details>
+        </article>
+
         <article v-if="auth.isOwner" class="card">
           <details>
             <summary><h2>Borrar la orden</h2></summary>
@@ -1105,22 +1193,6 @@ onMounted(async () => {
           </details>
         </article>
 
-        <article class="card">
-          <h2>Línea de tiempo</h2>
-          <ol class="timeline">
-            <li v-for="(entry, i) in order.timeline" :key="i">
-              <div class="dot" />
-              <div>
-                <strong>{{ WORK_ORDER_STATUS_LABEL[entry.toStatus] }}</strong>
-                <span v-if="!entry.isVisibleToCustomer" class="internal">interna</span>
-                <div class="muted small">
-                  {{ formatDateTime(entry.changedAt) }} · {{ entry.changedByName }}
-                </div>
-                <p v-if="entry.note">{{ entry.note }}</p>
-              </div>
-            </li>
-          </ol>
-        </article>
       </div>
     </div>
   </section>
@@ -1147,20 +1219,154 @@ header {
   margin-bottom: 1rem;
 }
 
+/* Pegada arriba: la acción del día no se busca desplazando. El fondo es opaco porque debajo
+   pasan tarjetas. */
+header.fija {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  flex-wrap: wrap;
+  margin: -1.5rem -1.5rem 1rem;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.quien {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 header h1 {
   margin: 0;
 }
 
 header p {
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
+  margin: 0;
+  flex-basis: 100%;
 }
 
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Los enlaces que llevan a una tarjeta se ven como botones secundarios: hacen lo mismo que
+   desplazarse, pero sin buscar. */
+.boton-suave {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.boton-suave:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* «Otro estado»: un desplegable nativo, sin JavaScript. Se cierra al elegir porque la orden
+   se recarga y el detalle se vuelve a pintar. */
+.otros {
+  position: relative;
+}
+
+.otros summary {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+
+.otros summary::-webkit-details-marker {
+  display: none;
+}
+
+.otros summary::after {
+  content: ' ▾';
+  color: var(--text-muted);
+}
+
+.otros[open] summary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.otros .menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 12rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 18%);
+}
+
+.otros .menu button {
+  text-align: left;
+}
+
+.nota-estado {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: -0.5rem 0 1rem;
+}
+
+.nota-estado input[type='text'],
+.nota-estado input:not([type]) {
+  flex: 1;
+  min-width: 14rem;
+}
+
+/* Trabajo a la izquierda y ancho; consulta a la derecha y angosta. Antes eran dos columnas
+   del mismo peso, y lo que se hace hoy competía con lo que solo se mira. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  header.fija {
+    margin: -1rem -1rem 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  /* En el teléfono la cabecera fija se queda arriba, pero la acción principal se repite
+     abajo, al alcance del pulgar: es la que se toca. */
+  .acciones {
+    width: 100%;
+  }
+
+  .acciones button {
+    flex: 1;
+  }
 }
 
 .col {

@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { usersApi, workOrdersApi } from '@/api/garaj'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
-  KANBAN_COLUMNS,
-  WORK_ORDER_STATUS_LABEL,
   VEHICLE_TYPE_LABEL,
   WorkOrderStatus,
   type User,
   type WorkOrderListItem,
 } from '@/types/domain'
-import { relativeTime } from '@/utils/format'
+import { formatDateTime, relativeTime } from '@/utils/format'
 
 const auth = useAuthStore()
 
@@ -22,6 +21,12 @@ const branchId = ref<string>('')
 const verCerradas = ref(false)
 const loading = ref(false)
 const error = ref('')
+
+/** Tablero o lista. Se recuerda: cada taller tiene su forma de mirar el trabajo. */
+const vista = ref<'tablero' | 'lista'>(
+  (localStorage.getItem('garaj.vista-ordenes') as 'tablero' | 'lista') || 'tablero',
+)
+watch(vista, (valor) => localStorage.setItem('garaj.vista-ordenes', valor))
 
 /**
  * Con una búsqueda escrita se dejan de filtrar las cerradas aunque el interruptor esté
@@ -56,22 +61,88 @@ async function load() {
 /** Entregada y Cancelada van al final, y solo cuando hay algo que poner en ellas. */
 const CERRADAS: WorkOrderStatus[] = [WorkOrderStatus.Delivered, WorkOrderStatus.Cancelled]
 
-const columns = computed(() => {
-  const visibles = [
-    ...KANBAN_COLUMNS,
-    ...CERRADAS.filter((status) => orders.value.some((o) => o.status === status)),
-  ]
+/**
+ * Cuatro carriles en vez de nueve columnas.
+ *
+ * El tablero tenía una columna por estado, con scroll horizontal y mínimo de 15rem cada una:
+ * en un taller pequeño la mayoría de las tarjetas vive en dos o tres, y las demás eran
+ * columnas vacías que empujaban el trabajo fuera de la pantalla. El estado exacto no se
+ * pierde —va en la insignia de cada tarjeta—, que es donde de verdad hace falta.
+ */
+const CARRILES: { clave: string; titulo: string; tono: string; estados: WorkOrderStatus[] }[] = [
+  {
+    clave: 'entrando',
+    titulo: 'Entrando',
+    tono: 'activo',
+    estados: [WorkOrderStatus.Received, WorkOrderStatus.Diagnosing],
+  },
+  {
+    clave: 'trabajo',
+    titulo: 'En trabajo',
+    tono: 'activo',
+    estados: [WorkOrderStatus.InProgress, WorkOrderStatus.Testing],
+  },
+  {
+    clave: 'detenidas',
+    titulo: 'Detenidas',
+    tono: 'detenido',
+    estados: [WorkOrderStatus.WaitingApproval, WorkOrderStatus.WaitingParts],
+  },
+  {
+    clave: 'listas',
+    titulo: 'Listas para entrega',
+    tono: 'listo',
+    estados: [WorkOrderStatus.Ready],
+  },
+  {
+    clave: 'cerradas',
+    titulo: 'Cerradas',
+    tono: 'gris',
+    estados: CERRADAS,
+  },
+]
 
-  return visibles.map((status) => ({
-    status,
-    label: WORK_ORDER_STATUS_LABEL[status],
-    items: orders.value.filter((o) => o.status === status),
-  }))
-})
+const carriles = computed(() =>
+  CARRILES.map((carril) => ({
+    ...carril,
+    items: orders.value.filter((o) => carril.estados.includes(o.status)),
+  })).filter((carril) => carril.clave !== 'cerradas' || carril.items.length > 0),
+)
+
+/**
+ * En el teléfono los carriles no caben uno al lado del otro, y apilarlos deja el trabajo a
+ * cuatro pantallas de scroll. Se eligen con un chip y se ve una sola columna.
+ */
+const consulta = window.matchMedia('(max-width: 60rem)')
+const angosto = ref(consulta.matches)
+const carrilElegido = ref('entrando')
+
+function alCambiarAncho(e: MediaQueryListEvent) {
+  angosto.value = e.matches
+}
+
+const visibles = computed(() =>
+  angosto.value && vista.value === 'tablero'
+    ? carriles.value.filter((c) => c.clave === carrilElegido.value)
+    : carriles.value,
+)
+
+/** La lista densa: todas las órdenes en una tabla, ordenadas por lo que urge. */
+const filas = computed(() =>
+  [...orders.value].sort((a, b) => {
+    const atrasoA = isLate(a) ? 0 : 1
+    const atrasoB = isLate(b) ? 0 : 1
+    if (atrasoA !== atrasoB) return atrasoA - atrasoB
+
+    return (a.promisedAt ?? '9999').localeCompare(b.promisedAt ?? '9999')
+  }),
+)
 
 const abiertas = computed(
   () => orders.value.filter((o) => !CERRADAS.includes(o.status)).length,
 )
+
+const atrasadas = computed(() => orders.value.filter(isLate).length)
 
 const branches = computed(() => auth.user?.branches ?? [])
 
@@ -97,9 +168,12 @@ function isLate(order: WorkOrderListItem) {
 }
 
 onMounted(async () => {
+  consulta.addEventListener('change', alCambiarAncho)
   technicians.value = await usersApi.list('Technician').catch(() => [])
   await load()
 })
+
+onUnmounted(() => consulta.removeEventListener('change', alCambiarAncho))
 
 watch([search, branchId, verCerradas], load)
 </script>
@@ -121,33 +195,60 @@ watch([search, branchId, verCerradas], load)
         Ver entregadas
       </label>
 
+      <!-- Tablero para ver el patio; lista para cuando hay treinta órdenes vivas. -->
+      <div class="segmento">
+        <button type="button" :class="{ on: vista === 'tablero' }" @click="vista = 'tablero'">
+          Tablero
+        </button>
+        <button type="button" :class="{ on: vista === 'lista' }" @click="vista = 'lista'">
+          Lista
+        </button>
+      </div>
+
       <span class="count">{{ abiertas }} abiertas</span>
+      <span v-if="atrasadas" class="count alerta">{{ atrasadas }} atrasadas</span>
     </header>
 
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="loading" class="muted">Cargando…</p>
 
-    <div class="board">
-      <div v-for="column in columns" :key="column.status" class="column">
+    <!-- En pantalla angosta el carril se elige con un chip: cuatro columnas no caben. -->
+    <div v-if="angosto && vista === 'tablero'" class="chips">
+      <button
+        v-for="carril in carriles"
+        :key="carril.clave"
+        type="button"
+        :class="{ on: carril.clave === carrilElegido }"
+        @click="carrilElegido = carril.clave"
+      >
+        {{ carril.titulo }} {{ carril.items.length }}
+      </button>
+    </div>
+
+    <div v-if="vista === 'tablero'" class="board" :class="{ angosto }">
+      <div v-for="carril in visibles" :key="carril.clave" class="column">
         <h2>
-          {{ column.label }}
-          <span class="count">{{ column.items.length }}</span>
+          <span class="punto" :class="carril.tono" />
+          {{ carril.titulo }}
+          <span class="count">{{ carril.items.length }}</span>
         </h2>
 
         <RouterLink
-          v-for="order in column.items"
+          v-for="order in carril.items"
           :key="order.id"
           class="card"
           :to="{ name: 'work-order', params: { id: order.id } }"
         >
           <div class="card-head">
-            <strong>{{ order.number }}</strong>
+            <strong class="num">{{ order.number }}</strong>
             <span v-if="isLate(order)" class="late" title="Pasó la fecha prometida">Atrasada</span>
+            <!-- El estado exacto: el carril agrupa, la insignia precisa. -->
+            <StatusBadge :status="order.status" />
           </div>
 
           <div class="vehicle">
             {{ order.vehicleLabel }}
-            <span v-if="order.plate" class="plate">{{ order.plate }}</span>
+            <span v-if="order.plate" class="plate num">{{ order.plate }}</span>
           </div>
 
           <div class="muted small">
@@ -175,11 +276,54 @@ watch([search, branchId, verCerradas], load)
             </option>
           </select>
 
-          <div class="muted small">Abierta {{ relativeTime(order.openedAt) }}</div>
+          <div class="muted small">
+            Abierta {{ relativeTime(order.openedAt) }}
+            <template v-if="order.promisedAt">
+              · prometida {{ relativeTime(order.promisedAt) }}
+            </template>
+          </div>
         </RouterLink>
 
-        <p v-if="!column.items.length && !loading" class="empty">—</p>
+        <p v-if="!carril.items.length && !loading" class="empty">—</p>
       </div>
+    </div>
+
+    <!-- La alternativa densa. Con treinta órdenes vivas el tablero se vuelve un paisaje. -->
+    <div v-else class="tabla">
+      <table>
+        <thead>
+          <tr>
+            <th>Folio</th>
+            <th>Vehículo</th>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th>Técnico</th>
+            <th>Prometida</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="order in filas" :key="order.id" :class="{ tarde: isLate(order) }">
+            <td class="num">
+              <RouterLink :to="{ name: 'work-order', params: { id: order.id } }">
+                {{ order.number }}
+              </RouterLink>
+            </td>
+            <td>
+              {{ order.vehicleLabel }}
+              <span v-if="order.plate" class="plate num">{{ order.plate }}</span>
+            </td>
+            <td>{{ order.customerName }}</td>
+            <td><StatusBadge :status="order.status" /></td>
+            <td class="muted">{{ order.assignedTechnicianName ?? 'Sin asignar' }}</td>
+            <td class="muted small">
+              {{ order.promisedAt ? formatDateTime(order.promisedAt) : '—' }}
+            </td>
+          </tr>
+          <tr v-if="!filas.length && !loading">
+            <td colspan="6" class="empty">No hay órdenes con esos filtros.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </template>
@@ -198,26 +342,77 @@ watch([search, branchId, verCerradas], load)
   margin-right: auto;
 }
 
+.segmento {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+
+.segmento button {
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.segmento button.on {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+}
+
+.chips button {
+  flex-shrink: 0;
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.chips button.on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Cuatro carriles caben en la pantalla sin scroll horizontal. */
 .board {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(15rem, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
+  align-items: start;
+}
+
+.board.angosto {
+  grid-template-columns: 1fr;
 }
 
 .column {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 15rem;
+  min-width: 0;
 }
 
 .column h2 {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   margin: 0;
   padding-bottom: 0.375rem;
   border-bottom: 2px solid var(--border);
@@ -227,12 +422,40 @@ watch([search, branchId, verCerradas], load)
   color: var(--text-muted);
 }
 
+.column h2 .count {
+  margin-left: auto;
+}
+
+.punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-muted);
+}
+
+.punto.activo {
+  background: var(--accent);
+}
+
+.punto.detenido {
+  background: var(--warning);
+}
+
+.punto.listo {
+  background: var(--success);
+}
+
 .count {
   padding: 0.0625rem 0.375rem;
   border-radius: 999px;
   background: var(--surface-alt);
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.count.alerta {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
 }
 
 .card {
@@ -254,8 +477,15 @@ watch([search, branchId, verCerradas], load)
 
 .card-head {
   display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.card-head strong {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  margin-right: auto;
 }
 
 .late {
@@ -277,7 +507,6 @@ watch([search, branchId, verCerradas], load)
   padding: 0 0.25rem;
   border: 1px solid var(--border);
   border-radius: 3px;
-  font-family: ui-monospace, monospace;
   font-size: 0.75rem;
 }
 
@@ -315,6 +544,48 @@ watch([search, branchId, verCerradas], load)
 .assign {
   padding: 0.25rem;
   font-size: 0.75rem;
+}
+
+/* ---------------------------------------------------------------- lista */
+
+.tabla {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* La fila atrasada se marca en el borde y no en el fondo: con veinte atrasadas, veinte
+   franjas rojas dejan de decir nada. */
+tr.tarde td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
 }
 
 .small {

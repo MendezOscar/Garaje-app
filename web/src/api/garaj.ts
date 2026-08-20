@@ -217,6 +217,24 @@ export const workOrdersApi = {
     const { data } = await api.get<WorkOrderDetail>(`/api/work-orders/${id}`)
     return data
   },
+  /**
+   * Abre la orden directo, sin pasar por un requerimiento.
+   *
+   * Es lo que ocurre en el mostrador: el vehículo ya está ahí y el trabajo empieza. El
+   * requerimiento es para lo que se pide desde fuera —el cliente por la app— y hasta hoy era
+   * el único camino en el panel, con dos pantallas para la acción más frecuente del taller.
+   */
+  async create(body: {
+    branchId: string
+    vehicleId: string
+    description: string
+    assignedTechnicianId?: string | null
+    mileageIn?: number
+    promisedAt?: string
+  }) {
+    const { data } = await api.post<WorkOrderDetail>('/api/work-orders', body)
+    return data
+  },
   async update(id: string, body: { description: string; diagnosis?: string; promisedAt?: string }) {
     const { data } = await api.put<WorkOrderDetail>(`/api/work-orders/${id}`, body)
     return data
