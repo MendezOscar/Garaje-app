@@ -9,7 +9,9 @@ import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/inventory.dart';
+import '../../core/models/media.dart';
 import '../../core/models/quote.dart';
+import 'photo_gallery.dart';
 
 /// Cotizaciones de la orden. Para el Cliente es donde aprueba el trabajo sin salir de la
 /// app; para el Dueño, desde donde la arma y la manda por WhatsApp.
@@ -503,6 +505,23 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                   label: const Text('Agregar línea'),
                 ),
               ),
+
+            // Las fotos del daño, que es lo que hace que un presupuesto se entienda sin ir al
+            // taller. Se toman con el vehículo delante, así que tienen que poder subirse
+            // desde el teléfono y no solo desde el panel.
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: PhotoGallery(
+                ownerId: quote.id,
+                ownerType: MediaOwnerType.quote,
+                // Mientras se pueda editar: una cotización respondida es un documento
+                // cerrado, y cambiarle las fotos es cambiarle lo que el cliente aprobó.
+                canEdit: editable,
+                titulo: 'FOTOS DEL DAÑO',
+                vacioPropio: 'Sin fotos. Una del daño explica el presupuesto mejor que el texto.',
+                vacioAjeno: 'El taller no adjuntó fotos a este presupuesto.',
+              ),
+            ),
 
             const Divider(height: 20),
             Row(
