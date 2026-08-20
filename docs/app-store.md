@@ -182,7 +182,6 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
       historia. Quedó **sin fecha de pago**, así que la suscripción nunca lo deja en solo lectura
       a media revisión.
 - [ ] Cumplimiento de exportación: usa HTTPS estándar → exento.
-- [x] **Borrar la cuenta desde la app**: hecho, como **Eliminar mi cuenta**, para los tres
-      perfiles: un diálogo y dos toques, sin trámites ni correos. El Dueño la tiene en la
-      pestaña **Más → Cuenta**; el Técnico y el Cliente, en el menú «⋯» de su bandeja. Ver
-      [api.md](api.md#borrar-la-propia-cuenta).
+- [x] **Borrar la cuenta desde la app**: hecho, como **Eliminar mi cuenta**, en la pestaña
+      **Más → Cuenta** de los tres perfiles: un diálogo y dos toques, sin trámites ni correos.
+      Ver [api.md](api.md#borrar-la-propia-cuenta).

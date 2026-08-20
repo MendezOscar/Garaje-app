@@ -14,7 +14,10 @@ import '../../features/receivables/receivables_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
+import '../../features/customer/quote_screen.dart';
+import '../../features/shell/customer_shell.dart';
 import '../../features/shell/owner_shell.dart';
+import '../../features/shell/technician_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
@@ -39,18 +42,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // El Dueño entra al armazón de cuatro destinos —Hoy, Órdenes, Caja, Más— y no a la
       // bandeja pelada: lo primero que quiere saber al abrir la app es cómo va el día.
       GoRoute(path: '/taller', builder: (_, __) => const OwnerShell()),
+      // El Técnico entra a su cola de trabajo, no a una bandeja de taller; el Cliente, a su
+      // vehículo. Los dos con su barra de abajo: la bandeja pelada era la misma para los tres.
+      GoRoute(path: '/mis-asignaciones', builder: (_, __) => const TechnicianShell()),
+      GoRoute(path: '/mis-vehiculos', builder: (_, __) => const CustomerShell()),
+      // La bandeja con buscador sigue existiendo, pero como destino de la lupa: es donde se
+      // busca una orden vieja, con el vehículo ya entregado.
       GoRoute(
-        path: '/mis-asignaciones',
+        path: '/ordenes',
         builder: (_, __) => const WorkOrderListScreen(
-          title: 'Mis asignaciones',
-          emptyMessage: 'No tienes órdenes asignadas ahora mismo.',
-        ),
-      ),
-      GoRoute(
-        path: '/mis-vehiculos',
-        builder: (_, __) => const WorkOrderListScreen(
-          title: 'Mis vehículos',
-          emptyMessage: 'No tienes vehículos en el taller.',
+          title: 'Buscar una orden',
+          emptyMessage: 'No hay órdenes abiertas.',
         ),
       ),
       GoRoute(
@@ -58,6 +60,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => WorkOrderDetailScreen(id: state.pathParameters['id']!),
       ),
       GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: '/presupuesto/:id',
+        builder: (_, state) => QuoteScreen(id: state.pathParameters['id']!),
+      ),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
       GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
@@ -94,7 +100,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // El detalle es accesible desde cualquier perfil: el backend decide si el usuario
       // puede verla y devuelve 404 si no le corresponde. Los avisos y la petición de cita
       // están por encima del perfil: cada uno ve lo suyo dentro de la pantalla.
-      if (location.startsWith('/ordenes/') ||
+      if (location.startsWith('/ordenes') ||
+          location.startsWith('/presupuesto/') ||
           location == '/avisos' ||
           location == '/nueva-cita') {
         return null;

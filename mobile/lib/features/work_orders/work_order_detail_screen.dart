@@ -14,6 +14,7 @@ import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
 import '../shared/status_chip.dart';
 import 'invoice_section.dart';
+import 'photo_capture.dart';
 import 'parts_section.dart';
 import 'photo_gallery.dart';
 import 'quotes_section.dart';
@@ -83,6 +84,148 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// El estado siguiente «hacia adelante»: el menor de los permitidos que esté por encima del
+  /// actual, sin contar los que detienen la orden ni la cancelación.
+  static WorkOrderStatus? _siguienteNatural(
+    WorkOrderDetail order,
+    List<WorkOrderStatus> permitidos,
+  ) {
+    final candidatos = permitidos
+        .where((s) => !s.isBlocked && s != WorkOrderStatus.cancelled)
+        .toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    if (candidatos.isEmpty) return null;
+
+    return candidatos.firstWhere(
+      (s) => s.value > order.status.value,
+      orElse: () => candidatos.first,
+    );
+  }
+
+  Future<void> _completeTask(WorkOrderTask task) =>
+      _run(() => ref
+          .read(workOrderRepositoryProvider)
+          .completeTask(widget.id, task.id, isDone: true));
+
+  Future<void> _tomarFoto() async {
+    setState(() => _busy = true);
+    try {
+      final tomada = await capturarFoto(ref, workOrderId: widget.id);
+      if (tomada && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto guardada en la orden.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo guardar la foto.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Detener el trabajo diciendo por qué.
+  ///
+  /// Antes esto era elegir «Esperando repuestos» entre nueve estados y, con suerte, escribir
+  /// una nota. El motivo es lo que el mostrador necesita para comprar el repuesto o para
+  /// llamar al cliente, así que aquí se pregunta primero y el estado sale de la respuesta.
+  Future<void> _detener(WorkOrderDetail order) async {
+    final opciones = [
+      (
+        WorkOrderStatus.waitingParts,
+        'Falta un repuesto',
+        'El mostrador lo ve y lo compra.',
+        Icons.inventory_2_outlined,
+      ),
+      (
+        WorkOrderStatus.waitingApproval,
+        'Falta que el cliente apruebe',
+        'Se le manda la cotización.',
+        Icons.chat_bubble_outline,
+      ),
+    ].where((o) => order.allowedNextStatuses.contains(o.$1)).toList();
+
+    if (opciones.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esta orden no se puede detener en su estado actual.')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController();
+    var elegido = opciones.first.$1;
+
+    final confirmado = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setInner) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              16 + MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Detener el trabajo', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text(
+                  'El mostrador lo ve al instante y queda escrito por qué.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                for (final (status, titulo, pie, icono) in opciones)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(icono),
+                    title: Text(titulo),
+                    subtitle: Text(pie),
+                    selected: status == elegido,
+                    trailing: status == elegido
+                        ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () => setInner(() => elegido = status),
+                  ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Qué falta',
+                    helperText: 'El cliente lo ve en su seguimiento.',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Detener y avisar'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    final nota = controller.text.trim();
+    await _run(() => ref.read(workOrderRepositoryProvider).changeStatus(
+          widget.id,
+          elegido,
+          note: nota.isEmpty ? null : nota,
+        ));
   }
 
   Future<void> _changeStatus(WorkOrderStatus status) async {
@@ -331,32 +474,71 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ? const <WorkOrderStatus>[]
         : cargada.allowedNextStatuses;
 
+    // Para el Técnico la acción del día no es mover el estado, es marcar el paso que está
+    // haciendo: el estado lo mueve el mostrador, o él mismo cuando ya no queda ningún paso.
+    final pendientes = (cargada?.tasks ?? const <WorkOrderTask>[])
+        .where((t) => !t.isDone)
+        .toList()
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    final siguientePaso = _canEdit && !_isOwner && pendientes.isNotEmpty ? pendientes.first : null;
+
+    // El botón fijo lleva el paso natural hacia adelante, no el primero de la lista: desde
+    // «En proceso» el backend permite antes «Esperando repuestos», que es un frenazo y no un
+    // avance. Detener y cancelar viven en el menú, que es donde se buscan a propósito.
+    final natural = cargada == null ? null : _siguienteNatural(cargada, siguientes);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(cargada?.number ?? 'Orden'),
         actions: [
           // El estado siguiente está fijo abajo; los otros caminos —devolverla a diagnóstico,
-          // cancelarla— son de vez en cuando y caben en el menú.
-          if (siguientes.length > 1)
-            PopupMenuButton<WorkOrderStatus>(
-              tooltip: 'Otros estados',
-              onSelected: _busy ? null : _changeStatus,
+          // cancelarla, detenerla— son de vez en cuando y caben en el menú.
+          if (cargada != null && _canEdit && siguientes.isNotEmpty)
+            PopupMenuButton<Object>(
+              tooltip: 'Más acciones',
+              onSelected: _busy
+                  ? null
+                  : (value) {
+                      if (value == 'detener') {
+                        _detener(cargada);
+                      } else {
+                        _changeStatus(value as WorkOrderStatus);
+                      }
+                    },
               itemBuilder: (context) => [
-                for (final next in siguientes.skip(1))
-                  PopupMenuItem(value: next, child: Text('Pasar a ${next.label}')),
+                // Detener es lo que el técnico necesitaba y no tenía: hasta hoy elegía
+                // «Esperando repuestos» en una lista de estados, sin decir qué falta.
+                if (siguientes.any((s) => s.isBlocked))
+                  const PopupMenuItem(
+                    value: 'detener',
+                    child: ListTile(
+                      leading: Icon(Icons.pause_circle_outline),
+                      title: Text('Detener el trabajo'),
+                    ),
+                  ),
+                for (final next in siguientes)
+                  if (next != natural && !next.isBlocked)
+                    PopupMenuItem(value: next, child: Text('Pasar a ${next.label}')),
               ],
             ),
         ],
       ),
       // La acción del día no se busca desplazando: se queda al alcance del pulgar. Antes
       // «Cambiar estado» era una sección más en una torre de doce, casi al final.
-      bottomNavigationBar: siguientes.isEmpty
+      bottomNavigationBar: siguientePaso == null && natural == null
           ? null
           : _ActionBar(
-              next: siguientes.first,
+              // El Técnico ve el paso; el Dueño, el estado. Cada uno con el botón de la
+              // derecha que usa: la cámara el que trabaja, el WhatsApp el que avisa.
+              label: siguientePaso != null
+                  ? 'Marcar «${siguientePaso.title}»'
+                  : 'Pasar a ${natural!.label}',
+              icon: _isOwner ? Icons.chat_outlined : Icons.photo_camera_outlined,
               busy: _busy,
-              onChange: () => _changeStatus(siguientes.first),
-              onWhatsApp: _mandarEnlace,
+              onMain: siguientePaso != null
+                  ? () => _completeTask(siguientePaso)
+                  : () => _changeStatus(natural!),
+              onSecondary: _isOwner ? _mandarEnlace : _tomarFoto,
             ),
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -461,19 +643,21 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   }
 }
 
-/// La acción de hoy, fija abajo: pasar la orden al estado que sigue y avisarle al cliente.
+/// La acción de hoy, fija abajo: el paso que sigue para el Técnico, el estado para el Dueño.
 class _ActionBar extends StatelessWidget {
   const _ActionBar({
-    required this.next,
+    required this.label,
+    required this.icon,
     required this.busy,
-    required this.onChange,
-    required this.onWhatsApp,
+    required this.onMain,
+    required this.onSecondary,
   });
 
-  final WorkOrderStatus next;
+  final String label;
+  final IconData icon;
   final bool busy;
-  final VoidCallback onChange;
-  final VoidCallback onWhatsApp;
+  final VoidCallback onMain;
+  final VoidCallback onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -491,12 +675,8 @@ class _ActionBar extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton(
-                  onPressed: busy ? null : onChange,
-                  child: Text(
-                    'Pasar a ${next.label}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  onPressed: busy ? null : onMain,
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
               ),
               const SizedBox(width: 8),
@@ -504,7 +684,7 @@ class _ActionBar extends StatelessWidget {
                 width: 52,
                 height: 48,
                 child: OutlinedButton(
-                  onPressed: busy ? null : onWhatsApp,
+                  onPressed: busy ? null : onSecondary,
                   style: OutlinedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     shape: const RoundedRectangleBorder(
@@ -512,7 +692,7 @@ class _ActionBar extends StatelessWidget {
                     ),
                     side: BorderSide(color: theme.dividerColor),
                   ),
-                  child: const Icon(Icons.chat_outlined, size: 20),
+                  child: Icon(icon, size: 20),
                 ),
               ),
             ],

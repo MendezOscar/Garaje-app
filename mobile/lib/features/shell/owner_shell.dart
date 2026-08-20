@@ -42,7 +42,6 @@ class _OwnerShellState extends State<OwnerShell> {
       const WorkOrderListScreen(
         title: 'Órdenes',
         emptyMessage: 'No hay órdenes abiertas en el taller.',
-        inShell: true,
       ),
       const CashCloseScreen(),
       const MoreScreen(),

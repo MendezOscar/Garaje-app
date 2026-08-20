@@ -362,6 +362,14 @@ final myWorkOrdersProvider = FutureProvider.autoDispose<List<WorkOrderListItem>>
   },
 );
 
+/// Las órdenes vivas del usuario, sin buscador ni filtro de pantalla.
+///
+/// Aparte de `myWorkOrdersProvider`, que sigue lo que se escribe en la bandeja: una pantalla
+/// de inicio no puede cambiar de contenido porque alguien dejó una placa escrita en otra.
+final openOrdersProvider = FutureProvider.autoDispose<List<WorkOrderListItem>>(
+  (ref) => ref.watch(workOrderRepositoryProvider).list(),
+);
+
 /// Todo lo que se le ha hecho a un vehículo, entregado incluido. Es lo que se pregunta en el
 /// mostrador cuando el cliente vuelve: «¿qué le hicieron la vez pasada?».
 final vehicleHistoryProvider =

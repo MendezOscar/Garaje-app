@@ -9,11 +9,12 @@ import '../../core/models/current_user.dart';
 import '../reports/reports_screen.dart' show money;
 import '../shared/delete_account.dart';
 
-/// El resto del taller, en una pantalla.
+/// El resto de la app, en una pantalla.
 ///
-/// Antes todo esto era un menú «⋯» en la barra de la bandeja: nueve entradas iguales, sin
-/// saber si había algo dentro hasta abrirlas. Aquí van agrupadas por lo que se va a hacer
-/// —trabajo, dinero, catálogos— y con el dato al lado, para no entrar a ver si hay algo.
+/// Antes todo esto era un menú «⋯» en la barra de la bandeja: entradas iguales, sin saber si
+/// había algo dentro hasta abrirlas. Aquí van agrupadas por lo que se va a hacer y con el dato
+/// al lado, para no entrar a ver si hay algo. Lo que aparece depende del perfil: el Dueño
+/// administra un taller, el Técnico solo necesita salir de aquí, y el Cliente menos.
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
 
@@ -23,8 +24,12 @@ class MoreScreen extends ConsumerWidget {
     if (auth is! AuthSignedIn) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final d = ref.watch(dashboardProvider).value;
-    final recordatorios = ref.watch(remindersDueProvider).value;
+    final role = auth.user.role;
+
+    // El resumen es del Dueño: a los demás la API responde 403, así que ni se pide.
+    final d = role == AppRole.owner ? ref.watch(dashboardProvider).value : null;
+    final recordatorios =
+        role == AppRole.owner ? ref.watch(remindersDueProvider).value : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Más')),
@@ -44,7 +49,7 @@ class MoreScreen extends ConsumerWidget {
                   children: [
                     Text(auth.user.fullName, style: theme.textTheme.titleSmall),
                     Text(
-                      'Dueño · ${auth.user.tenantName}',
+                      '${_perfil(role)} · ${auth.user.tenantName}',
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
@@ -54,76 +59,104 @@ class MoreScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
 
-          _Group(
-            title: 'Trabajo',
-            rows: [
-              _Row(
-                icon: Icons.inbox_outlined,
-                label: 'Requerimientos',
-                foot: d == null
-                    ? null
-                    : d.pendingRequests == 0
-                        ? 'nada sin atender'
-                        : '${d.pendingRequests} sin atender',
-                route: '/requerimientos',
-              ),
-              _Row(
-                icon: Icons.notifications_active_outlined,
-                label: 'Recordatorios',
-                foot: recordatorios == null
-                    ? null
-                    : recordatorios.isEmpty
-                        ? 'ninguno este mes'
-                        : '${recordatorios.length} este mes',
-                route: '/recordatorios',
-              ),
-            ],
-          ),
+          if (role == AppRole.owner) ...[
+            _Group(
+              title: 'Trabajo',
+              rows: [
+                _Row(
+                  icon: Icons.inbox_outlined,
+                  label: 'Requerimientos',
+                  foot: d == null
+                      ? null
+                      : d.pendingRequests == 0
+                          ? 'nada sin atender'
+                          : '${d.pendingRequests} sin atender',
+                  route: '/requerimientos',
+                ),
+                _Row(
+                  icon: Icons.notifications_active_outlined,
+                  label: 'Recordatorios',
+                  foot: recordatorios == null
+                      ? null
+                      : recordatorios.isEmpty
+                          ? 'ninguno este mes'
+                          : '${recordatorios.length} este mes',
+                  route: '/recordatorios',
+                ),
+              ],
+            ),
+            _Group(
+              title: 'Dinero',
+              rows: [
+                _Row(
+                  icon: Icons.payments_outlined,
+                  label: 'Por cobrar',
+                  foot: d == null
+                      ? null
+                      : d.overdueReceivables > 0
+                          ? '${money(d.overdueReceivables, d.currency)} vencido'
+                          : money(d.receivables, d.currency),
+                  route: '/por-cobrar',
+                ),
+                _Row(icon: Icons.insights_outlined, label: 'Reportes', route: '/reportes'),
+              ],
+            ),
+            _Group(
+              title: 'Catálogos y taller',
+              rows: [
+                _Row(icon: Icons.contacts_outlined, label: 'Clientes', route: '/clientes'),
+                _Row(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Inventario',
+                  foot: d == null || d.partsBelowMinimum == 0
+                      ? null
+                      : '${d.partsBelowMinimum} bajo mínimo',
+                  route: '/inventario',
+                ),
+                _Row(icon: Icons.group_outlined, label: 'Usuarios', route: '/usuarios'),
+              ],
+            ),
+          ],
 
-          _Group(
-            title: 'Dinero',
-            rows: [
-              _Row(
-                icon: Icons.payments_outlined,
-                label: 'Por cobrar',
-                foot: d == null
-                    ? null
-                    : d.overdueReceivables > 0
-                        ? '${money(d.overdueReceivables, d.currency)} vencido'
-                        : money(d.receivables, d.currency),
-                route: '/por-cobrar',
-              ),
-              _Row(
-                icon: Icons.insights_outlined,
-                label: 'Reportes',
-                route: '/reportes',
-              ),
-            ],
-          ),
+          if (role == AppRole.technician)
+            _Group(
+              title: 'Trabajo',
+              rows: [
+                // Las citas que el mostrador todavía no ha convertido en orden: el técnico las
+                // consulta para saber qué le va a caer.
+                _Row(
+                  icon: Icons.inbox_outlined,
+                  label: 'Requerimientos',
+                  route: '/requerimientos',
+                ),
+                _Row(icon: Icons.notifications_outlined, label: 'Avisos', route: '/avisos'),
+                _Row(
+                  icon: Icons.search,
+                  label: 'Buscar una orden',
+                  foot: 'por placa, folio o cliente',
+                  route: '/ordenes',
+                ),
+                // A veces el mostrador es él: recibir un vehículo no es solo del Dueño.
+                _Row(
+                  icon: Icons.add_circle_outline,
+                  label: 'Recibir un vehículo',
+                  route: '/nueva-cita',
+                ),
+              ],
+            ),
 
-          _Group(
-            title: 'Catálogos y taller',
-            rows: [
-              _Row(
-                icon: Icons.contacts_outlined,
-                label: 'Clientes',
-                route: '/clientes',
-              ),
-              _Row(
-                icon: Icons.inventory_2_outlined,
-                label: 'Inventario',
-                foot: d == null || d.partsBelowMinimum == 0
-                    ? null
-                    : '${d.partsBelowMinimum} bajo mínimo',
-                route: '/inventario',
-              ),
-              _Row(
-                icon: Icons.group_outlined,
-                label: 'Usuarios',
-                route: '/usuarios',
-              ),
-            ],
-          ),
+          if (role == AppRole.customer)
+            _Group(
+              title: 'Su taller',
+              rows: [
+                _Row(icon: Icons.notifications_outlined, label: 'Avisos', route: '/avisos'),
+                _Row(
+                  icon: Icons.add_circle_outline,
+                  label: 'Pedir una cita',
+                  route: '/nueva-cita',
+                ),
+              ],
+            ),
 
           _Group(
             title: 'Cuenta',
@@ -139,7 +172,7 @@ class MoreScreen extends ConsumerWidget {
                 icon: Icons.person_remove_outlined,
                 label: 'Eliminar mi cuenta',
                 danger: true,
-                onTap: () => confirmarEliminarCuenta(context, ref, AppRole.owner),
+                onTap: () => confirmarEliminarCuenta(context, ref, role),
               ),
             ],
           ),
@@ -148,6 +181,12 @@ class MoreScreen extends ConsumerWidget {
     );
   }
 }
+
+String _perfil(AppRole role) => switch (role) {
+      AppRole.owner => 'Dueño',
+      AppRole.technician => 'Mecánico',
+      AppRole.customer => 'Cliente',
+    };
 
 class _Group extends StatelessWidget {
   const _Group({required this.title, required this.rows});

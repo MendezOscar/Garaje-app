@@ -10,7 +10,6 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
 import '../notifications/notifications_screen.dart';
-import '../shared/delete_account.dart';
 import '../shared/status_chip.dart';
 import '../shared/subscription_banner.dart';
 import '../shared/tenant_logo.dart';
@@ -22,17 +21,11 @@ class WorkOrderListScreen extends ConsumerWidget {
   const WorkOrderListScreen({
     required this.title,
     required this.emptyMessage,
-    this.inShell = false,
     super.key,
   });
 
   final String title;
   final String emptyMessage;
-
-  /// Dentro del armazón del Dueño, que ya trae la barra de abajo con los cuatro destinos: el
-  /// menú «⋯», los atajos de la barra de arriba y el pie con el nombre viven allí y aquí
-  /// estorbarían repetidos.
-  final bool inShell;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,102 +43,7 @@ class WorkOrderListScreen extends ConsumerWidget {
             Expanded(child: Text(title, overflow: TextOverflow.ellipsis)),
           ],
         ),
-        actions: [
-          if (!inShell && auth is AuthSignedIn && auth.user.role == AppRole.owner)
-            IconButton(
-              tooltip: 'Por cobrar',
-              icon: const Icon(Icons.payments_outlined),
-              onPressed: () => context.push('/por-cobrar'),
-            ),
-          if (!inShell && auth is AuthSignedIn && auth.user.role != AppRole.customer)
-            IconButton(
-              tooltip: 'Requerimientos',
-              icon: const Icon(Icons.inbox_outlined),
-              onPressed: () => context.push('/requerimientos'),
-            ),
-          const NotificationBell(),
-          // El resto del taller va en un menú y no en más iconos: la barra de un teléfono no
-          // aguanta seis, y estas pantallas se abren de vez en cuando, no a cada rato.
-          if (!inShell && auth is AuthSignedIn)
-            PopupMenuButton<String>(
-              tooltip: 'Más',
-              onSelected: (value) {
-                if (value == 'salir') {
-                  ref.read(authControllerProvider.notifier).logout();
-                } else if (value == 'eliminar-cuenta') {
-                  confirmarEliminarCuenta(context, ref, auth.user.role);
-                } else {
-                  context.push(value);
-                }
-              },
-              itemBuilder: (context) => [
-                if (auth.user.role == AppRole.owner) ...[
-                  const PopupMenuItem(
-                    value: '/por-cobrar',
-                    child: ListTile(
-                      leading: Icon(Icons.payments_outlined),
-                      title: Text('Por cobrar'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: '/recordatorios',
-                    child: ListTile(
-                      leading: Icon(Icons.notifications_active_outlined),
-                      title: Text('Recordatorios'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: '/caja',
-                    child: ListTile(
-                      leading: Icon(Icons.point_of_sale_outlined),
-                      title: Text('Cierre de caja'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: '/reportes',
-                    child: ListTile(
-                      leading: Icon(Icons.insights_outlined),
-                      title: Text('Reportes'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: '/clientes',
-                    child: ListTile(
-                      leading: Icon(Icons.contacts_outlined),
-                      title: Text('Clientes'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: '/usuarios',
-                    child: ListTile(
-                      leading: Icon(Icons.group_outlined),
-                      title: Text('Usuarios'),
-                    ),
-                  ),
-                ],
-                if (auth.user.role != AppRole.customer)
-                  const PopupMenuItem(
-                    value: '/inventario',
-                    child: ListTile(
-                      leading: Icon(Icons.inventory_2_outlined),
-                      title: Text('Inventario'),
-                    ),
-                  ),
-                const PopupMenuItem(
-                  value: 'salir',
-                  child: ListTile(leading: Icon(Icons.logout), title: Text('Salir')),
-                ),
-                // Quien entra tiene que poder salirse del todo, no solo cerrar la sesión.
-                const PopupMenuItem(
-                  value: 'eliminar-cuenta',
-                  child: ListTile(
-                    leading: Icon(Icons.person_remove_outlined),
-                    title: Text('Eliminar mi cuenta'),
-                  ),
-                ),
-              ],
-            ),
-        ],
+        actions: const [NotificationBell()],
         // El filtro va en la barra y no dentro de la lista: así no se va con el scroll
         // justo cuando se está buscando una orden vieja.
         bottom: auth is AuthSignedIn ? const _OrdersFilter() : null,
@@ -169,18 +67,6 @@ class WorkOrderListScreen extends ConsumerWidget {
           SubscriptionBanner(info: auth.user.subscription!),
         Expanded(child: _OrdersList(orders: orders, emptyMessage: emptyMessage)),
       ]),
-      bottomNavigationBar: !inShell && auth is AuthSignedIn
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  '${auth.user.fullName} · ${auth.user.tenantName}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            )
-          : null,
     );
   }
 }

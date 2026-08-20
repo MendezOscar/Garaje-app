@@ -49,6 +49,7 @@ class WorkOrderListItem {
     required this.number,
     required this.branchName,
     required this.status,
+    required this.vehicleId,
     required this.vehicleLabel,
     required this.vehicleType,
     required this.customerId,
@@ -68,6 +69,7 @@ class WorkOrderListItem {
         number: json['number'] as String,
         branchName: json['branchName'] as String,
         status: WorkOrderStatus.fromValue(json['status'] as int),
+        vehicleId: json['vehicleId'] as String,
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
@@ -88,6 +90,7 @@ class WorkOrderListItem {
   final String number;
   final String branchName;
   final WorkOrderStatus status;
+  final String vehicleId;
   final String vehicleLabel;
   final VehicleType vehicleType;
   final String? plate;
