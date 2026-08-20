@@ -94,9 +94,13 @@ Primera versión.
 En [`app-store/capturas-6.9/`](app-store/capturas-6.9/), tomadas del simulador de iPhone 16 Pro
 Max con la base de demostración (`docs/demo.md`), que es la que se ve vivida.
 
+> **Hay que rehacer la primera.** `1-bandeja.png` es de cuando el Dueño entraba a la bandeja con
+> los ingresos encima; ahora entra a **Hoy** y la barra de abajo tiene cuatro destinos. Las otras
+> cuatro siguen valiendo.
+
 | # | Pantalla | Por qué esa |
 | --- | --- | --- |
-| 1 | Bandeja de órdenes | Lo primero que abre el taller, con los ingresos del día arriba |
+| 1 | Hoy | Lo primero que abre el taller: lo cobrado, lo que urge y el patio |
 | 2 | Detalle de una orden | Los pasos, el técnico y el enlace para el cliente |
 | 3 | Reportes | La gráfica de ingresos: es lo que convence al dueño |
 | 4 | Inventario | Existencias por sucursal |
@@ -134,8 +138,8 @@ Contraseña: Garaj123!
 Es el perfil Dueño, que ve todas las funciones. El taller de demostración tiene seis semanas de
 historia para que se puedan revisar los reportes y el cierre de caja.
 
-Para borrar la cuenta: menú «⋯» arriba a la derecha → Eliminar mi cuenta. Se confirma en un
-diálogo y la cuenta queda eliminada de inmediato.
+Para borrar la cuenta: pestaña «Más» abajo a la derecha → Cuenta → Eliminar mi cuenta. Se
+confirma en un diálogo y la cuenta queda eliminada de inmediato.
 
 La aplicación no recopila datos de menores ni contenido generado por usuarios que se comparta
 públicamente. Las fotos que se toman quedan asociadas a la orden de trabajo del taller.
@@ -178,6 +182,7 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
       historia. Quedó **sin fecha de pago**, así que la suscripción nunca lo deja en solo lectura
       a media revisión.
 - [ ] Cumplimiento de exportación: usa HTTPS estándar → exento.
-- [x] **Borrar la cuenta desde la app**: hecho. Está en el menú «⋯» de la bandeja, como
-      **Eliminar mi cuenta**, para los tres perfiles: un diálogo y dos toques, sin trámites ni
-      correos. Ver [api.md](api.md#borrar-la-propia-cuenta).
+- [x] **Borrar la cuenta desde la app**: hecho, como **Eliminar mi cuenta**, para los tres
+      perfiles: un diálogo y dos toques, sin trámites ni correos. El Dueño la tiene en la
+      pestaña **Más → Cuenta**; el Técnico y el Cliente, en el menú «⋯» de su bandeja. Ver
+      [api.md](api.md#borrar-la-propia-cuenta).

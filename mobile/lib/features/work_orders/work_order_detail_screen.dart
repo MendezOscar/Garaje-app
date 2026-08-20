@@ -60,6 +60,31 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     }
   }
 
+  /// El enlace de seguimiento por WhatsApp, el mismo de «Avisar al cliente». Está también en
+  /// la barra fija porque es lo que se hace justo después de mover el estado, y bajar a
+  /// buscarlo con el cliente esperando no lo hace nadie.
+  Future<void> _mandarEnlace() async {
+    setState(() => _busy = true);
+    try {
+      final url =
+          await ref.read(workOrderRepositoryProvider).trackingLink(widget.id, 'received');
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir WhatsApp.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _changeStatus(WorkOrderStatus status) async {
     final note = await _askForNote(status);
     if (note == null) return; // canceló
@@ -301,8 +326,38 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     if (_canEdit) ref.watch(laborServicesProvider);
     if (_canEdit) ref.watch(jobTemplatesProvider);
 
+    final cargada = detail.asData?.value;
+    final siguientes = cargada == null || !_canEdit
+        ? const <WorkOrderStatus>[]
+        : cargada.allowedNextStatuses;
+
     return Scaffold(
-      appBar: AppBar(title: Text(detail.asData?.value.number ?? 'Orden')),
+      appBar: AppBar(
+        title: Text(cargada?.number ?? 'Orden'),
+        actions: [
+          // El estado siguiente está fijo abajo; los otros caminos —devolverla a diagnóstico,
+          // cancelarla— son de vez en cuando y caben en el menú.
+          if (siguientes.length > 1)
+            PopupMenuButton<WorkOrderStatus>(
+              tooltip: 'Otros estados',
+              onSelected: _busy ? null : _changeStatus,
+              itemBuilder: (context) => [
+                for (final next in siguientes.skip(1))
+                  PopupMenuItem(value: next, child: Text('Pasar a ${next.label}')),
+              ],
+            ),
+        ],
+      ),
+      // La acción del día no se busca desplazando: se queda al alcance del pulgar. Antes
+      // «Cambiar estado» era una sección más en una torre de doce, casi al final.
+      bottomNavigationBar: siguientes.isEmpty
+          ? null
+          : _ActionBar(
+              next: siguientes.first,
+              busy: _busy,
+              onChange: () => _changeStatus(siguientes.first),
+              onWhatsApp: _mandarEnlace,
+            ),
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -395,24 +450,71 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               // enfrente: si solo estuviera en el web habría que subir a la computadora
               // con el vehículo ya entregado.
               if (_isOwner) InvoiceSection(order: order),
-              if (_canEdit && order.allowedNextStatuses.isNotEmpty)
-                _Section(
-                  title: 'Cambiar estado',
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final next in order.allowedNextStatuses)
-                        FilledButton.tonal(
-                          onPressed: _busy ? null : () => _changeStatus(next),
-                          child: Text(next.label),
-                        ),
-                    ],
-                  ),
-                ),
               _VehicleHistorySection(order: order),
               _TimelineSection(entries: order.timeline),
               const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La acción de hoy, fija abajo: pasar la orden al estado que sigue y avisarle al cliente.
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({
+    required this.next,
+    required this.busy,
+    required this.onChange,
+    required this.onWhatsApp,
+  });
+
+  final WorkOrderStatus next;
+  final bool busy;
+  final VoidCallback onChange;
+  final VoidCallback onWhatsApp;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: busy ? null : onChange,
+                  child: Text(
+                    'Pasar a ${next.label}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 52,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: busy ? null : onWhatsApp,
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(6)),
+                    ),
+                    side: BorderSide(color: theme.dividerColor),
+                  ),
+                  child: const Icon(Icons.chat_outlined, size: 20),
+                ),
+              ),
             ],
           ),
         ),

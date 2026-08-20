@@ -304,6 +304,14 @@ final serviceRemindersProvider =
       ),
 );
 
+/// Los vehículos a los que les toca servicio este mes, sin pasar por el buscador.
+///
+/// Aparte del provider de la pantalla a propósito: el conteo del inicio no puede depender de
+/// lo que alguien dejó escrito en el buscador de Recordatorios.
+final remindersDueProvider = FutureProvider.autoDispose<List<ServiceReminder>>(
+  (ref) => ref.watch(workOrderRepositoryProvider).serviceReminders(),
+);
+
 /// Lo escrito en el buscador de recordatorios. Fuera de la pantalla para que sobreviva a ir
 /// al detalle de una orden y volver.
 final remindersSearchProvider =
