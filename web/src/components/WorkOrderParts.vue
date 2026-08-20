@@ -135,7 +135,10 @@ watch(search, () => {
       Todavía no se ha cargado ningún repuesto a esta orden.
     </p>
 
-    <table v-if="parts.length">
+    <!-- En el teléfono la fila no cabe: la tabla se recorre dentro de su marco en vez de
+         empujar la pantalla de lado. -->
+    <div v-if="parts.length" class="tabla">
+      <table>
       <tbody>
         <tr v-for="line in parts" :key="line.id">
           <td>
@@ -164,7 +167,8 @@ watch(search, () => {
           <td v-if="canEdit"></td>
         </tr>
       </tfoot>
-    </table>
+      </table>
+    </div>
 
     <form v-if="adding" class="add" @submit.prevent="add">
       <div class="origen">
@@ -256,8 +260,13 @@ h2 {
   color: var(--text-muted);
 }
 
+.tabla {
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
+  min-width: 20rem;
   border-collapse: collapse;
   font-size: 0.9375rem;
 }

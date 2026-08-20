@@ -162,6 +162,71 @@ const otrosEstados = computed(() =>
   (order.value?.allowedNextStatuses ?? []).filter((s) => s !== siguienteNatural.value),
 )
 
+/**
+ * Días de atraso sobre la fecha prometida, o null si no hay promesa, todavía no vence o la
+ * orden ya se entregó. Va en la cabecera porque es lo primero que hay que saber al abrirla:
+ * si el cliente ya tiene motivo para llamar.
+ */
+const atraso = computed(() => {
+  const o = order.value
+  if (!o?.promisedAt) return null
+  if (o.status === WorkOrderStatus.Delivered || o.status === WorkOrderStatus.Cancelled) return null
+
+  const dias = Math.floor((Date.now() - new Date(o.promisedAt).getTime()) / 86_400_000)
+  return dias >= 1 ? dias : null
+})
+
+/** El ISV que se le va a aplicar al cerrar. Sale de la ficha del taller. */
+const tasaImpuesto = ref(0)
+
+/**
+ * Lo que se cobraría hoy, con el mismo cálculo que hace el servidor al cerrar: los pasos (o el
+ * total escrito a mano) más los repuestos cargados, y el ISV sobre la suma.
+ *
+ * Es un estimado a la vista, no una factura: antes había que abrir la tarjeta de cierre para
+ * enterarse de por cuánto iba la orden.
+ */
+const cobro = computed(() => {
+  const labor = order.value?.laborTotal ?? 0
+  const parts = order.value?.partsTotal ?? 0
+  const impuesto = Math.round(((labor + parts) * tasaImpuesto.value) / 100 * 100) / 100
+  return { labor, parts, impuesto, total: labor + parts + impuesto }
+})
+
+/** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
+const ultimaCotizacion = computed(
+  () =>
+    [...quotes.value].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )[0] ?? null,
+)
+
+/** La tarjeta de cierre va plegada; «Cerrar y facturar» de la cabecera es lo que la abre. */
+const cobroAbierto = ref(false)
+
+function abrirCobro() {
+  cobroAbierto.value = true
+  // Después de pintar: el `details` tiene que estar abierto para que el navegador sepa a qué
+  // altura llevarlo.
+  requestAnimationFrame(() =>
+    document.getElementById('cobrar')?.scrollIntoView({ block: 'center' }),
+  )
+}
+
+/** El selector de trabajos frecuentes, que solo hace falta con la orden vacía. */
+const plantillasAbiertas = ref(false)
+
+/** Pasos a los que se les está cambiando el cobro. El resto solo enseña su precio. */
+const cobroDelPaso = ref<string[]>([])
+
+function alternarCobroDelPaso(taskId: string) {
+  cobroDelPaso.value = cobroDelPaso.value.includes(taskId)
+    ? cobroDelPaso.value.filter((id) => id !== taskId)
+    : [...cobroDelPaso.value, taskId]
+}
+
+const pasosHechos = computed(() => order.value?.tasks.filter((t) => t.isDone).length ?? 0)
+
 async function load() {
   try {
     order.value = await workOrdersApi.get(id.value)
@@ -542,8 +607,26 @@ async function borrarOrden() {
   }
 }
 
+/** Reenvía por WhatsApp la cotización que el cliente todavía no ha contestado. */
+async function reenviarCotizacion(quoteId: string) {
+  const tab = window.open('', '_blank')
+  error.value = ''
+
+  try {
+    const link = await quotesApi.whatsappLink(quoteId)
+    if (tab) tab.location.href = link.url
+    else window.location.href = link.url
+  } catch (e) {
+    tab?.close()
+    error.value = errorMessage(e, 'No se pudo armar el enlace.')
+  }
+}
+
 onMounted(async () => {
-  if (auth.isOwner) technicians.value = await usersApi.list('Technician').catch(() => [])
+  if (auth.isOwner) {
+    technicians.value = await usersApi.list('Technician').catch(() => [])
+    tasaImpuesto.value = (await tenantApi.get().catch(() => null))?.defaultTaxRate ?? 0
+  }
   if (canEdit.value) laborServices.value = await laborServicesApi.list().catch(() => [])
   if (canEdit.value) jobTemplates.value = await jobTemplatesApi.list().catch(() => [])
   await load()
@@ -557,11 +640,18 @@ onMounted(async () => {
          orden había que buscarla desplazando. -->
     <header class="fija">
       <div class="quien">
-        <h1>{{ order.number }}</h1>
+        <h1 class="num">{{ order.number }}</h1>
         <StatusBadge :status="order.status" />
+        <!-- Lo primero que hay que saber al abrir la orden: si el cliente ya tiene motivo
+             para llamar preguntando. -->
+        <span v-if="atraso" class="atrasada">
+          Atrasada {{ atraso }} {{ atraso === 1 ? 'día' : 'días' }}
+        </span>
         <p class="muted small">
-          {{ order.vehicleLabel }}<template v-if="order.plate"> · {{ order.plate }}</template>
+          {{ order.vehicleLabel }}
+          <span v-if="order.plate" class="plate">{{ order.plate }}</span>
           · {{ order.customerName }}
+          <template v-if="auth.isOwner"> · {{ order.customerPhone }}</template>
           <template v-if="order.promisedAt">
             · prometida {{ formatDateTime(order.promisedAt) }}
           </template>
@@ -581,9 +671,24 @@ onMounted(async () => {
           Pasar a {{ WORK_ORDER_STATUS_LABEL[siguienteNatural] }}
         </button>
 
+        <a v-if="canEdit" class="boton-suave" href="#avisar">Avisar al cliente</a>
+
+        <button
+          v-if="auth.isOwner && !sales.length && order.status !== WorkOrderStatus.Cancelled"
+          type="button"
+          class="boton-suave"
+          @click="abrirCobro"
+        >
+          Cerrar y facturar
+        </button>
+        <a v-else-if="auth.isOwner && sales.length" class="boton-suave" href="#cobrar-hecho">
+          Ver la venta
+        </a>
+
         <details v-if="canEdit && otrosEstados.length" class="otros">
-          <summary>Otro estado</summary>
+          <summary title="Otro estado">···</summary>
           <div class="menu">
+            <p class="menu-titulo">Pasar a otro estado</p>
             <button
               v-for="next in otrosEstados"
               :key="next"
@@ -597,22 +702,21 @@ onMounted(async () => {
             </button>
           </div>
         </details>
-
-        <a v-if="canEdit" class="boton-suave" href="#avisar">Avisar al cliente</a>
-        <a v-if="auth.isOwner" class="boton-suave" :href="sales.length ? '#cobrar-hecho' : '#cobrar'">
-          {{ sales.length ? 'Ver la venta' : 'Cobrar' }}
-        </a>
       </div>
     </header>
 
-    <!-- La nota del cambio de estado vive junto a los botones que la usan. -->
-    <div v-if="canEdit && order.allowedNextStatuses.length" class="nota-estado">
-      <input v-model="statusNote" placeholder="Nota para la línea de tiempo (opcional)" />
-      <label class="checkbox">
-        <input v-model="noteIsInternal" type="checkbox" />
-        Nota interna: el cliente no la ve
-      </label>
-    </div>
+    <!-- La nota del cambio de estado vive junto a los botones que la usan, pero plegada: casi
+         ningún cambio de estado lleva nota, y en la cabecera ocupaba una fila entera. -->
+    <details v-if="canEdit && order.allowedNextStatuses.length" class="nota-estado">
+      <summary>Nota para la línea de tiempo</summary>
+      <div class="nota-campos">
+        <input v-model="statusNote" placeholder="Qué pasó, para que quede escrito" />
+        <label class="checkbox">
+          <input v-model="noteIsInternal" type="checkbox" />
+          Nota interna: el cliente no la ve
+        </label>
+      </div>
+    </details>
 
     <p v-if="error" class="error">{{ error }}</p>
 
@@ -642,11 +746,26 @@ onMounted(async () => {
         </article>
 
         <article class="card">
-          <h2>Pasos de la reparación</h2>
+          <div class="titulo">
+            <h2>Pasos de la reparación</h2>
+            <div class="titulo-derecha">
+              <span v-if="order.tasks.length" class="cuenta num">
+                {{ pasosHechos }} de {{ order.tasks.length }}
+              </span>
+              <!-- Armar la orden de un toque es lo que hay que ofrecer con la orden vacía; con
+                   los pasos ya escritos es un botón que estorba, así que se guarda detrás. -->
+              <button
+                v-if="canEdit && jobTemplates.length"
+                type="button"
+                class="chico"
+                @click="plantillasAbiertas = !plantillasAbiertas"
+              >
+                Trabajo frecuente
+              </button>
+            </div>
+          </div>
 
-          <!-- Lo primero de la tarjeta a propósito: en una orden vacía, armarla de un toque es
-               justo lo que hay que ofrecer antes de que alguien empiece a teclear. -->
-          <div v-if="canEdit && jobTemplates.length" class="plantillas">
+          <div v-if="plantillasAbiertas && canEdit" class="plantillas">
             <select v-model="plantillaElegida" :disabled="busy">
               <option value="">Aplicar un trabajo frecuente…</option>
               <option v-for="t in jobTemplates" :key="t.id" :value="t.id">
@@ -687,37 +806,9 @@ onMounted(async () => {
             </ul>
           </div>
 
-          <fieldset v-if="auth.isOwner" class="labor-mode">
-            <legend>Cómo se cobra la mano de obra</legend>
-            <label>
-              <input
-                type="radio"
-                :checked="isCatalog"
-                :disabled="busy"
-                @change="setLaborMode(LaborMode.Catalog)"
-              />
-              Con el catálogo: cada paso lleva su servicio y su precio
-            </label>
-            <label>
-              <input
-                type="radio"
-                :checked="!isCatalog"
-                :disabled="busy"
-                @change="setLaborMode(LaborMode.Manual)"
-              />
-              A mano: los pasos van sueltos y se cobra un total
-            </label>
-          </fieldset>
-
-          <p v-if="canEdit" class="muted small">
-            <template v-if="isCatalog">
-              El paso que quede sin servicio del catálogo no entra en la factura.
-            </template>
-            <template v-else>
-              Los pasos quedan como registro de lo que se hizo; a la factura va el total.
-            </template>
-          </p>
-
+          <!-- Una fila por paso, con su precio a la derecha: lo que se lee de un vistazo es
+               qué falta y cuánto suma. El selector del catálogo aparece cuando el paso no
+               tiene precio, o cuando se pide cambiarlo. -->
           <ul class="tasks">
             <li v-for="task in order.tasks" :key="task.id">
               <div class="task-head">
@@ -728,15 +819,38 @@ onMounted(async () => {
                     :disabled="!canEdit || busy"
                     @change="toggleTask(task.id, ($event.target as HTMLInputElement).checked)"
                   />
-                  <span :class="{ done: task.isDone }">{{ task.title }}</span>
+                  <span class="task-texto">
+                    <span :class="{ done: task.isDone }">{{ task.title }}</span>
+                    <span class="muted small">
+                      <template v-if="task.laborServiceName">{{ task.laborServiceName }}</template>
+                      <template v-else-if="isCatalog">Sin cobro</template>
+                      <template v-if="task.actualHours"> · {{ task.actualHours }} h</template>
+                      · {{ task.assignedTechnicianName ?? 'Sin asignar' }}
+                    </span>
+                  </span>
                 </label>
-                <span class="muted small">
-                  {{ task.assignedTechnicianName ?? 'sin asignar' }}
-                  <template v-if="task.actualHours"> · {{ task.actualHours }} h</template>
+
+                <!-- El precio es el botón: tocarlo abre el catálogo. Un botón «Cobro» en cada
+                     fila era cinco veces la misma palabra en una tarjeta de cinco pasos. -->
+                <button
+                  v-if="canEdit && isCatalog"
+                  type="button"
+                  class="precio cambiar"
+                  :class="{ num: true, muted: !task.laborPrice }"
+                  :title="task.laborServiceId ? 'Cambiar el cobro' : 'Ponerle precio'"
+                  @click="alternarCobroDelPaso(task.id)"
+                >
+                  {{ task.laborPrice ? formatMoney(task.laborPrice) : '—' }}
+                </button>
+                <span v-else class="num precio" :class="{ muted: !task.laborPrice }">
+                  {{ task.laborPrice ? formatMoney(task.laborPrice) : '—' }}
                 </span>
               </div>
 
-              <div v-if="canEdit && isCatalog" class="task-labor">
+              <div
+                v-if="canEdit && isCatalog && (cobroDelPaso.includes(task.id) || !task.laborServiceId)"
+                class="task-labor"
+              >
                 <select
                   :value="task.laborServiceId ?? ''"
                   :disabled="busy"
@@ -747,7 +861,6 @@ onMounted(async () => {
                     {{ s.name }} · {{ formatMoney(s.price) }}
                   </option>
                 </select>
-                <strong v-if="task.laborPrice" class="num">{{ formatMoney(task.laborPrice) }}</strong>
               </div>
             </li>
           </ul>
@@ -842,6 +955,38 @@ onMounted(async () => {
             </button>
           </div>
 
+          <!-- Plegado y al final: es un ajuste de cómo se cobra la orden, no trabajo del día,
+               y arriba se llevaba el sitio que le toca a los pasos. -->
+          <details v-if="auth.isOwner" class="ajuste">
+            <summary>Cómo se cobra la mano de obra</summary>
+            <label>
+              <input
+                type="radio"
+                :checked="isCatalog"
+                :disabled="busy"
+                @change="setLaborMode(LaborMode.Catalog)"
+              />
+              Con el catálogo: cada paso lleva su servicio y su precio
+            </label>
+            <label>
+              <input
+                type="radio"
+                :checked="!isCatalog"
+                :disabled="busy"
+                @change="setLaborMode(LaborMode.Manual)"
+              />
+              A mano: los pasos van sueltos y se cobra un total
+            </label>
+            <p class="muted small">
+              <template v-if="isCatalog">
+                El paso que quede sin servicio del catálogo no entra en la factura.
+              </template>
+              <template v-else>
+                Los pasos quedan como registro de lo que se hizo; a la factura va el total.
+              </template>
+            </p>
+          </details>
+
           <p v-if="canEdit" class="labor-total">
             Mano de obra <strong>{{ formatMoney(order.laborTotal) }}</strong>
           </p>
@@ -883,52 +1028,39 @@ onMounted(async () => {
       <!-- La columna de consulta: quién es el cliente, qué se le cobra, y plegado lo que solo
            se mira cuando algo no cuadra. -->
       <div class="col consulta">
-        <article class="card">
-          <h2>Vehículo y cliente</h2>
-          <dl>
-            <dt>{{ VEHICLE_TYPE_LABEL[order.vehicleType] }}</dt>
-            <dd>{{ order.vehicleLabel }} <span v-if="order.plate" class="plate">{{ order.plate }}</span></dd>
-            <dt>Cliente</dt>
-            <dd>
-              {{ order.customerName }}
-              <a :href="whatsapp" target="_blank" rel="noopener" class="wa">WhatsApp</a>
-            </dd>
-            <dt>Kilometraje al ingreso</dt>
-            <dd>{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
-            <dt>Sucursal</dt>
-            <dd>{{ order.branchName }} · abierta el {{ formatDate(order.openedAt) }}</dd>
+        <!-- Por cuánto va la orden, sin abrir nada. Antes había que desplegar la tarjeta de
+             cierre —doce campos— para enterarse de cuánto se le iba a cobrar. -->
+        <article v-if="auth.isOwner" class="card">
+          <h2>Cobro</h2>
+          <dl class="cuentas">
+            <dt>Mano de obra</dt>
+            <dd class="num">{{ formatMoney(cobro.labor) }}</dd>
+            <dt>Repuestos</dt>
+            <dd class="num">{{ formatMoney(cobro.parts) }}</dd>
+            <template v-if="tasaImpuesto">
+              <dt>ISV {{ tasaImpuesto }}%</dt>
+              <dd class="num">{{ formatMoney(cobro.impuesto) }}</dd>
+            </template>
+            <dt class="fuerte">Total estimado</dt>
+            <dd class="fuerte num grande">{{ formatMoney(cobro.total) }}</dd>
           </dl>
-        </article>
-
-        <article id="avisar" class="card">
-          <h2>Avisar al cliente</h2>
-          <!-- El mismo enlace sirve toda la reparación: el cliente lo abre sin cuenta y ve en
-               qué va su vehículo. Se manda al recibir, otra vez cuando está listo, y al final
-               con la factura. -->
-          <p class="muted small">
-            Le llega un enlace donde ve el avance, las fotos y —al cerrar— su factura. No
-            necesita instalar nada.
+          <p v-if="!sales.length" class="muted small">Todavía no se ha facturado.</p>
+          <p v-else class="muted small">
+            Ya facturada: {{ sales.map((s) => s.number).join(', ') }}.
           </p>
-          <div class="avisos">
-            <button type="button" @click="mandarPorWhatsApp('received')">
-              Mandar el enlace
-            </button>
-            <button type="button" class="suave" @click="mandarPorWhatsApp('ready')">
-              Avisar que está listo
-            </button>
-            <button
-              v-if="sales.some((s) => !s.isVoided)"
-              type="button"
-              class="suave"
-              @click="mandarPorWhatsApp('invoice')"
-            >
-              Mandar la factura
-            </button>
-          </div>
         </article>
 
         <article id="cobrar" v-if="auth.isOwner && !sales.length && order.status !== WorkOrderStatus.Cancelled" class="card">
-          <h2>Cerrar y facturar</h2>
+          <details
+            class="plegable"
+            :open="cobroAbierto"
+            @toggle="cobroAbierto = ($event.target as HTMLDetailsElement).open"
+          >
+            <summary>
+              <h2>Cerrar y facturar</h2>
+              <span class="muted small">Cobrar, entregar y anotar el próximo servicio</span>
+            </summary>
+
           <p class="muted small">
             Cobra los repuestos ya cargados ({{ formatMoney(order.partsTotal) }}) más la mano
             de obra que se elija abajo, y entrega el vehículo.
@@ -1027,6 +1159,7 @@ onMounted(async () => {
               Facturar y entregar
             </button>
           </div>
+          </details>
         </article>
 
         <article id="cobrar-hecho" v-if="auth.isOwner && sales.length" class="card">
@@ -1095,33 +1228,122 @@ onMounted(async () => {
           </div>
         </article>
 
+        <!-- La cotización que el cliente tiene en la mano, con su estado: es lo que contesta
+             «¿ya nos dijo que sí?», que es lo que detiene la orden. -->
         <article v-if="auth.isOwner" class="card">
-          <h2>Cotizar</h2>
-          <p class="muted small">
-            Se arma con los repuestos ya cargados y los pasos que tengan servicio asignado.
-          </p>
-          <div class="actions">
-            <button type="button" :disabled="busy" @click="quoteThisOrder">
-              Crear cotización
-            </button>
-            <RouterLink :to="{ name: 'quotes', query: { workOrderId: order.id } }">
-              Ver cotizaciones
+          <div class="titulo">
+            <h2>Cotización</h2>
+            <RouterLink
+              v-if="quotes.length"
+              class="small"
+              :to="{ name: 'quotes', query: { workOrderId: order.id } }"
+            >
+              Ver
             </RouterLink>
           </div>
+
+          <template v-if="ultimaCotizacion">
+            <div class="cotizacion">
+              <span class="badge-cot">{{ QUOTE_STATUS_LABEL[ultimaCotizacion.status] }}</span>
+              <div>
+                <strong class="num">{{ ultimaCotizacion.number }}</strong>
+                <p class="muted small">
+                  {{ formatMoney(ultimaCotizacion.total) }}
+                  <template v-if="ultimaCotizacion.respondedAt">
+                    · contestada {{ formatDate(ultimaCotizacion.respondedAt) }}
+                  </template>
+                  <template v-else-if="ultimaCotizacion.sentAt">
+                    · enviada {{ formatDate(ultimaCotizacion.sentAt) }}, sin respuesta
+                  </template>
+                  <template v-else>· borrador, sin enviar</template>
+                </p>
+              </div>
+            </div>
+            <div class="actions">
+              <button
+                v-if="ultimaCotizacion.publicUrl"
+                type="button"
+                class="suave"
+                @click="reenviarCotizacion(ultimaCotizacion.id)"
+              >
+                Reenviar por WhatsApp
+              </button>
+              <button type="button" class="suave" :disabled="busy" @click="quoteThisOrder">
+                Otra cotización
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <p class="muted small">
+              Se arma con los repuestos ya cargados y los pasos que tengan servicio asignado.
+            </p>
+            <div class="actions">
+              <button type="button" :disabled="busy" @click="quoteThisOrder">
+                Crear cotización
+              </button>
+            </div>
+          </template>
         </article>
 
-        <article v-if="auth.isOwner" class="card">
-          <h2>Técnico responsable</h2>
-          <select
-            :value="order.assignedTechnicianId ?? ''"
-            :disabled="busy"
-            @change="assign(($event.target as HTMLSelectElement).value)"
-          >
-            <option value="">Sin asignar</option>
-            <option v-for="t in availableTechnicians" :key="t.id" :value="t.id">
-              {{ t.fullName }}
-            </option>
-          </select>
+        <!-- La ficha: los cuatro datos que se consultan y no se tocan, más el técnico, que se
+             cambia desde aquí. El vehículo y el cliente ya están en la cabecera. -->
+        <article class="card">
+          <h2>Ficha</h2>
+          <dl>
+            <dt>Técnico</dt>
+            <dd v-if="auth.isOwner">
+              <select
+                :value="order.assignedTechnicianId ?? ''"
+                :disabled="busy"
+                @change="assign(($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Sin asignar</option>
+                <option v-for="t in availableTechnicians" :key="t.id" :value="t.id">
+                  {{ t.fullName }}
+                </option>
+              </select>
+            </dd>
+            <dd v-else>{{ order.assignedTechnicianName ?? 'Sin asignar' }}</dd>
+            <dt>Vehículo</dt>
+            <dd>{{ VEHICLE_TYPE_LABEL[order.vehicleType] }} · {{ order.vehicleLabel }}</dd>
+            <dt>Sucursal</dt>
+            <dd>{{ order.branchName }}</dd>
+            <dt>Kilometraje</dt>
+            <dd class="num">{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
+            <dt>Abierta</dt>
+            <dd>{{ formatDateTime(order.openedAt) }}</dd>
+          </dl>
+        </article>
+
+        <article id="avisar" class="card">
+          <h2>Avisar al cliente</h2>
+          <!-- El mismo enlace sirve toda la reparación: el cliente lo abre sin cuenta y ve en
+               qué va su vehículo. Se manda al recibir, otra vez cuando está listo, y al final
+               con la factura. -->
+          <p class="muted small">
+            Le llega un enlace donde ve el avance, las fotos y —al cerrar— su factura. No
+            necesita instalar nada.
+          </p>
+          <div class="avisos">
+            <button type="button" @click="mandarPorWhatsApp('received')">
+              Mandar el enlace
+            </button>
+            <button type="button" class="suave" @click="mandarPorWhatsApp('ready')">
+              Avisar que está listo
+            </button>
+            <button
+              v-if="sales.some((s) => !s.isVoided)"
+              type="button"
+              class="suave"
+              @click="mandarPorWhatsApp('invoice')"
+            >
+              Mandar la factura
+            </button>
+            <a :href="whatsapp" target="_blank" rel="noopener" class="wa">
+              Escribirle sin enlace
+            </a>
+          </div>
         </article>
 
 
@@ -1131,7 +1353,7 @@ onMounted(async () => {
              detalle, no para enterarse. Sin `open` enlazado a propósito: lo maneja el navegador
              y así no se cierra solo cada vez que la orden se recarga. -->
         <article v-if="historial.length" class="card">
-          <details class="historial-plegable">
+          <details class="plegable">
             <summary>
               <h2>Historial del vehículo</h2>
               <span class="muted small">
@@ -1160,10 +1382,16 @@ onMounted(async () => {
              no en el trabajo del día. Sin `open` enlazado, igual que el historial: lo
              maneja el navegador y así no se cierra al recargar la orden. -->
         <article class="card">
-          <details>
+          <details class="plegable">
             <summary>
               <h2>Línea de tiempo</h2>
-              <span class="muted small">{{ order.timeline.length }} cambio(s) de estado</span>
+              <span class="muted small">
+                {{ order.timeline.length }} cambio(s) de estado
+                <template v-if="order.timeline.some((e) => !e.isVisibleToCustomer)">
+                  · {{ order.timeline.filter((e) => !e.isVisibleToCustomer).length }} nota(s)
+                  interna(s)
+                </template>
+              </span>
             </summary>
             <ol class="timeline">
               <li v-for="(entry, i) in order.timeline" :key="i">
@@ -1182,10 +1410,13 @@ onMounted(async () => {
         </article>
 
         <article v-if="auth.isOwner" class="card">
-          <details>
-            <summary><h2>Borrar la orden</h2></summary>
+          <details class="plegable">
+            <summary>
+              <h2>Borrar la orden</h2>
+              <span class="muted small">Solo si se abrió por error</span>
+            </summary>
             <p class="muted small">
-              Para la que se abrió por error. Una orden ya facturada no se borra: esa se anula.
+              Una orden ya facturada no se borra: esa se anula.
             </p>
             <button type="button" class="peligro" :disabled="busy" @click="borrarOrden">
               Borrar la orden {{ order.number }}
@@ -1256,6 +1487,142 @@ header p {
   flex-wrap: wrap;
 }
 
+.atrasada {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Título de tarjeta con algo a la derecha: el contador de pasos, el enlace a la cotización. */
+.titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.titulo h2 {
+  margin: 0;
+}
+
+.titulo-derecha {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.cuenta {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.chico {
+  padding: 0.3125rem 0.625rem;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+}
+
+.chico:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.task-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+}
+
+.precio {
+  margin-left: auto;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.cambiar {
+  padding: 0.125rem 0.25rem;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.cambiar:hover {
+  border-color: var(--border);
+  color: var(--accent);
+}
+
+/* Un ajuste, no trabajo del día: cerrado ocupa una línea. */
+.ajuste {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.ajuste summary {
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ajuste label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+.ajuste p {
+  margin-top: 0.375rem;
+}
+
+.cuentas {
+  grid-template-columns: 1fr auto;
+  gap: 0.375rem 1rem;
+}
+
+.cuentas dd {
+  text-align: right;
+}
+
+.cuentas .fuerte {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cuentas .grande {
+  font-size: 1.125rem;
+}
+
+.cotizacion {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.75rem;
+}
+
+.cotizacion p {
+  margin: 0;
+}
+
+.badge-cot {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 /* Los enlaces que llevan a una tarjeta se ven como botones secundarios: hacen lo mismo que
    desplazarse, pero sin buscar. */
 .boton-suave {
@@ -1281,7 +1648,8 @@ header p {
 }
 
 .otros summary {
-  padding: 0.5rem 0.875rem;
+  padding: 0.5rem 0.75rem;
+  line-height: 1;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -1295,8 +1663,13 @@ header p {
   display: none;
 }
 
-.otros summary::after {
-  content: ' ▾';
+.menu-titulo {
+  margin: 0 0 0.125rem;
+  padding: 0 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -1309,7 +1682,7 @@ header p {
   position: absolute;
   z-index: 5;
   top: calc(100% + 0.25rem);
-  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
@@ -1326,15 +1699,25 @@ header p {
 }
 
 .nota-estado {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.8125rem;
+}
+
+.nota-estado summary {
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.nota-campos {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin: -0.5rem 0 1rem;
+  margin-top: 0.5rem;
 }
 
-.nota-estado input[type='text'],
-.nota-estado input:not([type]) {
+.nota-campos input[type='text'],
+.nota-campos input:not([type]) {
   flex: 1;
   min-width: 14rem;
 }
@@ -1446,10 +1829,13 @@ dd {
 
 .task-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+}
+
+.task-head label {
+  flex: 1;
+  min-width: 0;
 }
 
 .task-labor {
@@ -1630,12 +2016,14 @@ dd {
 
 .inline {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
 
+/* En el teléfono el campo baja a su propia línea antes de quedarse en dos dedos de ancho. */
 .inline input {
-  flex: 1;
+  flex: 1 1 10rem;
   min-width: 0;
 }
 
@@ -1775,7 +2163,7 @@ dd {
   font-size: 0.875rem;
 }
 
-.historial-plegable summary {
+.plegable summary {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -1785,28 +2173,37 @@ dd {
 }
 
 /* El título no se parte a media frase: si no cabe con el resumen al lado, el resumen baja. */
-.historial-plegable summary h2 {
+.plegable summary h2 {
   white-space: nowrap;
 }
 
+/* El resumen se recorta antes de empujar el triángulo a una segunda línea. */
+.plegable summary > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* Safari sigue pintando su propio triángulo si no se le quita también por aquí. */
-.historial-plegable summary::-webkit-details-marker {
+.plegable summary::-webkit-details-marker {
   display: none;
 }
 
 /* El triángulo va al final y gira al abrir, para que se vea que hay algo debajo. */
-.historial-plegable summary::after {
+.plegable summary::after {
   content: '▾';
   margin-left: auto;
   color: var(--text-muted);
   font-size: 0.75rem;
 }
 
-.historial-plegable[open] summary::after {
+.plegable[open] summary::after {
   content: '▴';
 }
 
-.historial-plegable[open] summary {
+.plegable[open] summary {
   margin-bottom: 0.75rem;
 }
 
