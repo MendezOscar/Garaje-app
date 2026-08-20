@@ -1,15 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/media_repository.dart';
 import '../../core/models/media.dart';
 import '../../core/sync/upload_queue.dart';
+import 'photo_capture.dart';
 
 /// Fotos del proceso de una orden: lo que el técnico documenta y lo que el cliente mira.
 class PhotoGallery extends ConsumerStatefulWidget {
@@ -39,50 +36,14 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
   }
 
   Future<void> _takePhoto(ImageSource source) async {
-    final picked = await ImagePicker().pickImage(
-      source: source,
-      // El teléfono da 12 MP; para ver un rayón o una pieza rota sobra mucho menos, y con
-      // la señal del taller cada MB de más es medio minuto de espera.
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 85,
-    );
-
-    if (picked == null || !mounted) return;
-
     setState(() => _busy = true);
     try {
-      final compressed = await _compress(File(picked.path));
-
-      await ref.read(uploadQueueProvider.notifier).enqueue(
-            photo: compressed,
-            ownerType: MediaOwnerType.workOrder,
-            ownerId: widget.workOrderId,
-            takenAt: DateTime.now(),
-          );
-
-      ref.invalidate(workOrderMediaProvider(widget.workOrderId));
+      await capturarFoto(ref, workOrderId: widget.workOrderId, source: source);
     } catch (e) {
       _snack(apiErrorMessage(e, 'No se pudo guardar la foto.'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  /// Recomprime a JPEG. `image_picker` ya redimensiona, pero en iOS entrega HEIC y el
-  /// backend solo genera miniatura de lo que sabe decodificar.
-  Future<File> _compress(File original) async {
-    final directory = await getTemporaryDirectory();
-    final target = '${directory.path}/${DateTime.now().microsecondsSinceEpoch}.jpg';
-
-    final result = await FlutterImageCompress.compressAndGetFile(
-      original.absolute.path,
-      target,
-      quality: 80,
-      format: CompressFormat.jpeg,
-    );
-
-    return result == null ? original : File(result.path);
   }
 
   Future<void> _delete(MediaAttachment photo) async {

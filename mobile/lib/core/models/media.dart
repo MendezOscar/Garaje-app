@@ -3,7 +3,10 @@
 enum MediaOwnerType {
   serviceRequest(1),
   workOrder(2),
-  workOrderTask(3);
+  workOrderTask(3),
+
+  /// Fotos del daño que justifican el presupuesto. Las ve el cliente en su cotización.
+  quote(4);
 
   const MediaOwnerType(this.value);
 

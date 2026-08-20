@@ -121,3 +121,13 @@ final workOrderQuotesProvider =
 
   return Future.wait(list.map((q) => repository.get(q.id)));
 });
+
+/// Las cotizaciones del Cliente. El backend le devuelve solo las suyas; al Técnico, ninguna.
+/// Sin líneas: para el listado basta el total y si todavía puede responderla.
+final myQuotesProvider = FutureProvider.autoDispose<List<Quote>>(
+  (ref) => ref.watch(quoteRepositoryProvider).list(),
+);
+
+final quoteDetailProvider = FutureProvider.autoDispose.family<Quote, String>(
+  (ref, id) => ref.watch(quoteRepositoryProvider).get(id),
+);

@@ -170,8 +170,7 @@ Y las tres preguntas transversales:
 
 - **¿Se cifra en tránsito?** Sí, todo va por HTTPS.
 - **¿El usuario puede pedir que se borren sus datos?** Sí, y hay las dos vías que Google exige:
-  dentro de la app (**Más → Eliminar mi cuenta** el Dueño, menú **⋯** los otros dos perfiles)
-  y por web.
+  dentro de la app (**Más → Eliminar mi cuenta**, igual en los tres perfiles) y por web.
 - **URL para solicitar la eliminación:** `https://www.garajeapp.com/soporte#eliminar-mi-cuenta`
   — esa ancla existe a propósito para este campo.
 

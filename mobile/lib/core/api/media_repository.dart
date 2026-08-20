@@ -23,6 +23,18 @@ class MediaRepository {
         .toList();
   }
 
+  /// Las fotos de un dueño cualquiera: una cotización, un paso, una solicitud.
+  Future<List<MediaAttachment>> list(MediaOwnerType ownerType, String ownerId) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/media',
+      queryParameters: {'ownerType': ownerType.value, 'ownerId': ownerId},
+    );
+
+    return response.data!
+        .map((e) => MediaAttachment.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Sube el archivo en tres pasos: pedir URL, PUT directo al bucket y confirmar.
   ///
   /// El binario no pasa por la API. Importa aquí más que en el web: en el taller la subida
@@ -80,4 +92,12 @@ class MediaRepository {
 final workOrderMediaProvider =
     FutureProvider.autoDispose.family<List<MediaAttachment>, String>(
   (ref, workOrderId) => ref.watch(mediaRepositoryProvider).listForWorkOrder(workOrderId),
+);
+
+/// Las fotos del daño de una cotización. Las sube el taller desde el panel y las mira el
+/// cliente antes de aprobar: es lo que hace que un presupuesto se entienda sin ir al taller.
+final quoteMediaProvider =
+    FutureProvider.autoDispose.family<List<MediaAttachment>, String>(
+  (ref, quoteId) =>
+      ref.watch(mediaRepositoryProvider).list(MediaOwnerType.quote, quoteId),
 );
