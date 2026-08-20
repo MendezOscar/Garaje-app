@@ -209,11 +209,15 @@ class _AhoraCardState extends ConsumerState<_AhoraCard> {
           side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.45)),
           borderRadius: const BorderRadius.all(Radius.circular(10)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        // Toda la tarjeta abre la orden —el folio también—, y los dos botones de abajo siguen
+        // atendiendo lo suyo: adentro gana el más cercano al dedo.
+        child: InkWell(
+          onTap: () => context.push('/ordenes/${order.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Row(
                 children: [
                   Text(
@@ -228,10 +232,8 @@ class _AhoraCardState extends ConsumerState<_AhoraCard> {
                   Text(order.number, style: theme.textTheme.titleSmall),
                 ],
               ),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: () => context.push('/ordenes/${order.id}'),
-                child: Column(
+                const SizedBox(height: 6),
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -256,7 +258,6 @@ class _AhoraCardState extends ConsumerState<_AhoraCard> {
                     ),
                   ],
                 ),
-              ),
               if (order.taskCount > 0) ...[
                 const SizedBox(height: 10),
                 Row(
@@ -320,7 +321,8 @@ class _AhoraCardState extends ConsumerState<_AhoraCard> {
                   ),
                 ],
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
