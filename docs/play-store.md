@@ -111,7 +111,7 @@ adb exec-out screencap -p > captura.png
 | # | Pantalla | Por qué esa |
 | --- | --- | --- |
 | 1 | Hoy | Lo primero que abre el taller: lo cobrado, lo que urge y el patio |
-| 2 | Detalle de una orden | Los pasos, el técnico y el enlace para el cliente |
+| 2 | Detalle de una orden | Los pasos y el total; el resto de la orden, en renglones |
 | 3 | Reportes | La gráfica de ingresos: es lo que convence al dueño |
 | 4 | Inventario | Existencias por sucursal |
 | 5 | Cierre de caja | Lo cobrado en el día |

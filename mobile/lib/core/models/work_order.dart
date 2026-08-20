@@ -136,6 +136,7 @@ class WorkOrderTask {
     this.estimatedHours,
     this.actualHours,
     this.technicianNotes,
+    this.completedAt,
   });
 
   factory WorkOrderTask.fromJson(Map<String, dynamic> json) => WorkOrderTask(
@@ -151,6 +152,9 @@ class WorkOrderTask {
         estimatedHours: (json['estimatedHours'] as num?)?.toDouble(),
         actualHours: (json['actualHours'] as num?)?.toDouble(),
         technicianNotes: json['technicianNotes'] as String?,
+        completedAt: json['completedAt'] == null
+            ? null
+            : DateTime.parse(json['completedAt'] as String),
       );
 
   final String id;
@@ -167,6 +171,10 @@ class WorkOrderTask {
   final double? estimatedHours;
   final double? actualHours;
   final String? technicianNotes;
+
+  /// Cuándo se marcó hecho. Es lo que el paso terminado tiene que contar: la hora, no el
+  /// precio, que ya no está en discusión.
+  final DateTime? completedAt;
 }
 
 class WorkOrderStatusEntry {

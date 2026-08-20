@@ -94,14 +94,15 @@ Primera versión.
 En [`app-store/capturas-6.9/`](app-store/capturas-6.9/), tomadas del simulador de iPhone 16 Pro
 Max con la base de demostración (`docs/demo.md`), que es la que se ve vivida.
 
-> **Hay que rehacer la primera.** `1-bandeja.png` es de cuando el Dueño entraba a la bandeja con
-> los ingresos encima; ahora entra a **Hoy** y la barra de abajo tiene cuatro destinos. Las otras
-> cuatro siguen valiendo.
+> **Hay que rehacer dos.** `1-bandeja.png` es de cuando el Dueño entraba a la bandeja con los
+> ingresos encima; ahora entra a **Hoy** y la barra de abajo tiene cuatro destinos.
+> `2-orden.png` es de cuando la orden era una torre de doce secciones; ahora entra por los pasos
+> y el resto son renglones. Las otras tres siguen valiendo.
 
 | # | Pantalla | Por qué esa |
 | --- | --- | --- |
 | 1 | Hoy | Lo primero que abre el taller: lo cobrado, lo que urge y el patio |
-| 2 | Detalle de una orden | Los pasos, el técnico y el enlace para el cliente |
+| 2 | Detalle de una orden | Los pasos y el total; el resto de la orden, en renglones |
 | 3 | Reportes | La gráfica de ingresos: es lo que convence al dueño |
 | 4 | Inventario | Existencias por sucursal |
 | 5 | Cierre de caja | Lo cobrado en el día |
