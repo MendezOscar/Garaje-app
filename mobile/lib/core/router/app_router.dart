@@ -14,6 +14,7 @@ import '../../features/receivables/receivables_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
+import '../../features/shell/owner_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
@@ -35,13 +36,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/bienvenida', builder: (_, __) => const OnboardingScreen()),
-      GoRoute(
-        path: '/taller',
-        builder: (_, __) => const WorkOrderListScreen(
-          title: 'Taller',
-          emptyMessage: 'No hay órdenes abiertas en el taller.',
-        ),
-      ),
+      // El Dueño entra al armazón de cuatro destinos —Hoy, Órdenes, Caja, Más— y no a la
+      // bandeja pelada: lo primero que quiere saber al abrir la app es cómo va el día.
+      GoRoute(path: '/taller', builder: (_, __) => const OwnerShell()),
       GoRoute(
         path: '/mis-asignaciones',
         builder: (_, __) => const WorkOrderListScreen(

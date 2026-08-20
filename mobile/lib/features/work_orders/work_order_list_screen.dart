@@ -5,24 +5,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/api/dashboard_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
-import '../reports/reports_screen.dart' show money;
 import '../notifications/notifications_screen.dart';
+import '../shared/delete_account.dart';
 import '../shared/status_chip.dart';
+import '../shared/subscription_banner.dart';
 import '../shared/tenant_logo.dart';
 
 /// Bandeja de órdenes. La comparten el Técnico ("mis asignaciones"), el Dueño (las del
 /// taller) y el Cliente (las de sus vehículos): el backend ya filtra por perfil, así que
 /// solo cambia el título.
 class WorkOrderListScreen extends ConsumerWidget {
-  const WorkOrderListScreen({required this.title, required this.emptyMessage, super.key});
+  const WorkOrderListScreen({
+    required this.title,
+    required this.emptyMessage,
+    this.inShell = false,
+    super.key,
+  });
 
   final String title;
   final String emptyMessage;
+
+  /// Dentro del armazón del Dueño, que ya trae la barra de abajo con los cuatro destinos: el
+  /// menú «⋯», los atajos de la barra de arriba y el pie con el nombre viven allí y aquí
+  /// estorbarían repetidos.
+  final bool inShell;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,13 +51,13 @@ class WorkOrderListScreen extends ConsumerWidget {
           ],
         ),
         actions: [
-          if (auth is AuthSignedIn && auth.user.role == AppRole.owner)
+          if (!inShell && auth is AuthSignedIn && auth.user.role == AppRole.owner)
             IconButton(
               tooltip: 'Por cobrar',
               icon: const Icon(Icons.payments_outlined),
               onPressed: () => context.push('/por-cobrar'),
             ),
-          if (auth is AuthSignedIn && auth.user.role != AppRole.customer)
+          if (!inShell && auth is AuthSignedIn && auth.user.role != AppRole.customer)
             IconButton(
               tooltip: 'Requerimientos',
               icon: const Icon(Icons.inbox_outlined),
@@ -56,14 +66,14 @@ class WorkOrderListScreen extends ConsumerWidget {
           const NotificationBell(),
           // El resto del taller va en un menú y no en más iconos: la barra de un teléfono no
           // aguanta seis, y estas pantallas se abren de vez en cuando, no a cada rato.
-          if (auth is AuthSignedIn)
+          if (!inShell && auth is AuthSignedIn)
             PopupMenuButton<String>(
               tooltip: 'Más',
               onSelected: (value) {
                 if (value == 'salir') {
                   ref.read(authControllerProvider.notifier).logout();
                 } else if (value == 'eliminar-cuenta') {
-                  _confirmarEliminarCuenta(context, ref, auth.user.role);
+                  confirmarEliminarCuenta(context, ref, auth.user.role);
                 } else {
                   context.push(value);
                 }
@@ -156,10 +166,10 @@ class WorkOrderListScreen extends ConsumerWidget {
       // Solo llega con datos para el Dueño: al Técnico el backend le manda null.
       body: Column(children: [
         if (auth is AuthSignedIn && (auth.user.subscription?.shouldWarn ?? false))
-          _SubscriptionBanner(info: auth.user.subscription!),
+          SubscriptionBanner(info: auth.user.subscription!),
         Expanded(child: _OrdersList(orders: orders, emptyMessage: emptyMessage)),
       ]),
-      bottomNavigationBar: auth is AuthSignedIn
+      bottomNavigationBar: !inShell && auth is AuthSignedIn
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -171,62 +181,6 @@ class WorkOrderListScreen extends ConsumerWidget {
               ),
             )
           : null,
-    );
-  }
-}
-
-/// Borra la cuenta de quien está dentro, tras confirmarlo.
-///
-/// Un solo diálogo y dos toques: Apple exige que borrar la cuenta se pueda hacer desde la app y
-/// sin trámites, así que nada de escribir palabras ni de mandar correos. Lo que sí cambia es la
-/// advertencia, porque para el Dueño la consecuencia no es la misma.
-Future<void> _confirmarEliminarCuenta(
-  BuildContext context,
-  WidgetRef ref,
-  AppRole role,
-) async {
-  final aviso = switch (role) {
-    AppRole.owner =>
-      'Perderá el acceso al taller. Si es el único Dueño, nadie más podrá entrar a administrarlo '
-          'y habrá que comunicarse con GarajApp para recuperarlo.',
-    AppRole.technician =>
-      'Perderá el acceso. El trabajo que ya registró se queda en el taller, sin su nombre.',
-    AppRole.customer =>
-      'Perderá el acceso a la app. Su taller conserva sus vehículos y su historial de '
-          'reparaciones, y puede volver a darle acceso cuando quiera.',
-  };
-
-  final confirmado = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('¿Eliminar su cuenta?'),
-      content: Text(
-        '$aviso\n\nSe borran su nombre, su correo y su contraseña, y no se puede deshacer.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancelar'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: TextButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.error,
-          ),
-          child: const Text('Eliminar'),
-        ),
-      ],
-    ),
-  );
-
-  if (confirmado != true || !context.mounted) return;
-
-  try {
-    await ref.read(authControllerProvider.notifier).deleteAccount();
-  } catch (e) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(apiErrorMessage(e, 'No se pudo eliminar la cuenta.'))),
     );
   }
 }
@@ -271,56 +225,10 @@ class _OrdersList extends ConsumerWidget {
               )
             : ListView.separated(
                 padding: const EdgeInsets.all(12),
-                // Una fila más al principio para el resumen de ingresos del Dueño.
-                itemCount: items.length + 1,
+                itemCount: items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, i) => i == 0
-                    ? const _RevenueSummary()
-                    : _OrderCard(order: items[i - 1]),
+                itemBuilder: (context, i) => _OrderCard(order: items[i]),
               ),
-      ),
-    );
-  }
-}
-
-/// La franja del cobro. No tapa nada ni se puede cerrar: con la mensualidad vencida el taller
-/// tiene que enterarse, y estando al día no se pinta.
-class _SubscriptionBanner extends StatelessWidget {
-  const _SubscriptionBanner({required this.info});
-
-  final SubscriptionInfo info;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    // El acuerdo de pago se pinta en gris: es un recordatorio, no una alarma.
-    final color = info.agreementThrough != null
-        ? scheme.outline
-        : info.canWrite
-            ? const Color(0xFFB26A00)
-            : scheme.error;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      color: color.withValues(alpha: 0.10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(info.canWrite ? Icons.info_outline : Icons.lock_outline,
-              size: 18, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              info.message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: color,
-                    fontWeight: info.canWrite ? FontWeight.normal : FontWeight.w600,
-                  ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -526,101 +434,6 @@ class _ErrorState extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-
-/// Resumen de ingresos del Dueño. Los otros perfiles no lo ven —la API les respondería 403—
-/// y para ellos el widget desaparece sin dejar hueco.
-class _RevenueSummary extends ConsumerWidget {
-  const _RevenueSummary();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
-    if (auth is! AuthSignedIn || auth.user.role != AppRole.owner) {
-      return const SizedBox.shrink();
-    }
-
-    final theme = Theme.of(context);
-    final summary = ref.watch(dashboardProvider);
-
-    return summary.maybeWhen(
-      data: (d) => Card(
-        margin: const EdgeInsets.only(bottom: 4),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'INGRESOS',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  letterSpacing: 0.6,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _Figure(label: 'Hoy', value: _money(d.today, d.currency), emphasis: true),
-                  _Figure(label: 'Semana', value: _money(d.week, d.currency)),
-                  _Figure(label: 'Mes', value: _money(d.month, d.currency)),
-                ],
-              ),
-              if (d.lateWorkOrders > 0 || d.pendingRequests > 0 || d.partsBelowMinimum > 0) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [
-                    if (d.pendingRequests > 0)
-                      Text('${d.pendingRequests} por atender', style: theme.textTheme.bodySmall),
-                    if (d.lateWorkOrders > 0)
-                      Text(
-                        '${d.lateWorkOrders} atrasadas',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
-                      ),
-                    if (d.partsBelowMinimum > 0)
-                      Text('${d.partsBelowMinimum} repuestos bajo mínimo',
-                          style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-      orElse: () => const SizedBox.shrink(),
-    );
-  }
-
-  // El símbolo y con separador de miles, igual que los reportes: «L 4,890» y no «HNL 4890».
-  static String _money(double value, String currency) => money(value, currency);
-}
-
-class _Figure extends StatelessWidget {
-  const _Figure({required this.label, required this.value, this.emphasis = false});
-
-  final String label;
-  final String value;
-  final bool emphasis;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: theme.textTheme.bodySmall),
-        Text(
-          value,
-          style: emphasis ? theme.textTheme.titleLarge : theme.textTheme.titleMedium,
         ),
       ],
     );

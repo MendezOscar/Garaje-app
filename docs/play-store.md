@@ -110,7 +110,7 @@ adb exec-out screencap -p > captura.png
 
 | # | Pantalla | Por qué esa |
 | --- | --- | --- |
-| 1 | Bandeja de órdenes | Lo primero que abre el taller |
+| 1 | Hoy | Lo primero que abre el taller: lo cobrado, lo que urge y el patio |
 | 2 | Detalle de una orden | Los pasos, el técnico y el enlace para el cliente |
 | 3 | Reportes | La gráfica de ingresos: es lo que convence al dueño |
 | 4 | Inventario | Existencias por sucursal |
@@ -170,7 +170,8 @@ Y las tres preguntas transversales:
 
 - **¿Se cifra en tránsito?** Sí, todo va por HTTPS.
 - **¿El usuario puede pedir que se borren sus datos?** Sí, y hay las dos vías que Google exige:
-  dentro de la app (menú **⋯** → **Eliminar mi cuenta**) y por web.
+  dentro de la app (**Más → Eliminar mi cuenta** el Dueño, menú **⋯** los otros dos perfiles)
+  y por web.
 - **URL para solicitar la eliminación:** `https://www.garajeapp.com/soporte#eliminar-mi-cuenta`
   — esa ancla existe a propósito para este campo.
 

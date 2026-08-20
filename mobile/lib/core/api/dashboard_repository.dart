@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import '../models/work_order.dart';
 
 /// Resumen de ingresos del taller. Es lo que el Dueño quiere ver de un vistazo desde el
 /// teléfono, sin abrir el panel web.
@@ -15,6 +16,10 @@ class DashboardSummary {
     required this.lateWorkOrders,
     required this.pendingRequests,
     required this.partsBelowMinimum,
+    required this.quotesAwaitingResponse,
+    required this.receivables,
+    required this.overdueReceivables,
+    required this.byStatus,
   });
 
   factory DashboardSummary.fromJson(Map<String, dynamic> json) => DashboardSummary(
@@ -26,6 +31,14 @@ class DashboardSummary {
         lateWorkOrders: json['lateWorkOrders'] as int,
         pendingRequests: json['pendingRequests'] as int,
         partsBelowMinimum: json['partsBelowMinimum'] as int,
+        quotesAwaitingResponse: json['quotesAwaitingResponse'] as int? ?? 0,
+        receivables: (json['receivables'] as num?)?.toDouble() ?? 0,
+        overdueReceivables: (json['overdueReceivables'] as num?)?.toDouble() ?? 0,
+        byStatus: {
+          for (final e in (json['workOrdersByStatus'] as List<dynamic>? ?? const []))
+            WorkOrderStatus.fromValue((e as Map<String, dynamic>)['status'] as int):
+                e['count'] as int,
+        },
       );
 
   final String currency;
@@ -36,6 +49,21 @@ class DashboardSummary {
   final int lateWorkOrders;
   final int pendingRequests;
   final int partsBelowMinimum;
+
+  /// Cotizaciones mandadas que el cliente no ha contestado.
+  final int quotesAwaitingResponse;
+
+  /// Facturado y no cobrado, y cuánto de eso ya venció.
+  final double receivables;
+  final double overdueReceivables;
+
+  /// Cuántas órdenes vivas hay en cada estado: es el patio del taller de un vistazo. Viene en
+  /// la misma respuesta, así que la pantalla de inicio no pide nada más para pintarlo.
+  final Map<WorkOrderStatus, int> byStatus;
+
+  /// Suma de los estados que se piden, saltándose los que el taller no tiene ahora mismo.
+  int count(List<WorkOrderStatus> statuses) =>
+      statuses.fold(0, (sum, s) => sum + (byStatus[s] ?? 0));
 }
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>(
