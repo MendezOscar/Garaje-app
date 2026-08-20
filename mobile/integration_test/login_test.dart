@@ -215,9 +215,17 @@ void main() {
 
     // Y lo demás son renglones que llevan a su pantalla, con el resumen a la vista. Antes
     // eran secciones desplegadas y los pasos quedaban a tres pantallas de desplazamiento.
+    expect(find.text('Diagnóstico'), findsOneWidget);
     expect(find.text('Repuestos'), findsOneWidget);
     expect(find.text('Fotos'), findsOneWidget);
-    expect(find.text('Diagnóstico'), findsOneWidget);
+
+    // Lo que solo se consulta va al final, y hay que traerlo a la vista: el ListView no
+    // construye lo que no se ve.
+    await tester.scrollUntilVisible(
+      find.text('Línea de tiempo'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Línea de tiempo'), findsOneWidget);
 
     // El diagnóstico ya no es un cuadro de texto siempre abierto en la pantalla principal.
@@ -473,6 +481,18 @@ void main() {
     // Por cuánto va la orden, sin abrir nada y sin desplazar: antes había que bajar hasta la
     // tarjeta de cierre para enterarse.
     expect(find.text('TOTAL ESTIMADO'), findsOneWidget);
+
+    // De dónde sale el precio de la mano de obra se ve y se cambia en la tarjeta de pasos,
+    // que es donde se aplica.
+    expect(find.textContaining('Se cobra '), findsOneWidget);
+    expect(find.text('Cambiar'), findsOneWidget);
+
+    // Y los renglones van en el orden en que el trabajo los pide: primero el diagnóstico,
+    // después los repuestos.
+    expect(
+      tester.getTopLeft(find.text('Diagnóstico')).dy,
+      lessThan(tester.getTopLeft(find.text('Repuestos')).dy),
+    );
 
     // La parte comercial, que hasta ahora solo estaba en el web, cada una en su renglón. El
     // ListView no construye lo que no se ve, así que hay que traerlas a la vista.
