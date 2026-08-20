@@ -622,10 +622,6 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                           _detener(cargada);
                         case 'tecnico':
                           _asignarTecnico(cargada);
-                        case 'plantilla':
-                          _applyTemplate();
-                        case 'cobro':
-                          _comoSeCobra(cargada);
                         default:
                           _changeStatus(value as WorkOrderStatus);
                       }
@@ -645,20 +641,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 for (final next in siguientes)
                   if (next != natural && !next.isBlocked)
                     PopupMenuItem(value: next, child: Text('Pasar a ${next.label}')),
-                // Reparto del trabajo y ajustes de cobro: se hacen de vez en cuando y antes
-                // ocupaban dos secciones fijas arriba de los pasos.
+                // El reparto del trabajo se hace de vez en cuando y antes ocupaba una
+                // sección fija arriba de los pasos.
                 if (_isOwner)
                   const PopupMenuItem(value: 'tecnico', child: Text('Asignar técnico')),
-                if ((ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty)
-                  const PopupMenuItem(
-                    value: 'plantilla',
-                    child: Text('Aplicar trabajo frecuente'),
-                  ),
-                if (_isOwner)
-                  const PopupMenuItem(
-                    value: 'cobro',
-                    child: Text('Cómo se cobra la mano de obra'),
-                  ),
               ],
             ),
         ],
@@ -718,19 +704,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 onAdd: () => _addTask(order.isCatalogLabor),
                 mostrarManoDeObra: _canEdit && !_isOwner,
                 siguienteId: siguientePaso?.id,
+                hasTemplates:
+                    (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
+                onApplyTemplate: _applyTemplate,
+                onComoSeCobra: _isOwner ? () => _comoSeCobra(order) : null,
               ),
               const SizedBox(height: 12),
               if (_isOwner) _TotalCard(order: order),
-              // El Técnico también avisa: muchas veces es él quien entrega el vehículo. El
-              // Dueño además lo tiene en la barra fija, que es donde cae la mano después de
-              // mover el estado.
-              if (_canEdit)
-                _Fila(
-                  icono: Icons.chat_outlined,
-                  titulo: 'Avisar al cliente',
-                  detalle: 'Mandarle el enlace de seguimiento por WhatsApp',
-                  onTap: () => _avisar(order),
-                ),
+              // Los renglones van en el orden en que el trabajo los pide: se diagnostica,
+              // se arman los pasos —arriba—, se cargan los repuestos, se cotiza, se
+              // fotografía, se avisa y se cobra. Lo que solo se consulta va al final.
               if (_canEdit)
                 _FilaDiagnostico(
                   order: order,
@@ -783,12 +766,6 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                     ),
                   ),
                 ),
-              _FilaFotos(
-                workOrderId: order.id,
-                onTap: () => _abrirSeccion(
-                  (order) => PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
-                ),
-              ),
               if (!_isTechnician)
                 _FilaCotizaciones(
                   workOrderId: order.id,
@@ -796,6 +773,22 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   onTap: () => _abrirSeccion(
                     (order) => QuotesSection(workOrderId: order.id),
                   ),
+                ),
+              _FilaFotos(
+                workOrderId: order.id,
+                onTap: () => _abrirSeccion(
+                  (order) => PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
+                ),
+              ),
+              // El Técnico también avisa: muchas veces es él quien entrega el vehículo. El
+              // Dueño además lo tiene en la barra fija, que es donde cae la mano después de
+              // mover el estado.
+              if (_canEdit)
+                _Fila(
+                  icono: Icons.chat_outlined,
+                  titulo: 'Avisar al cliente',
+                  detalle: 'Mandarle el enlace de seguimiento por WhatsApp',
+                  onTap: () => _avisar(order),
                 ),
               // Cobrar es lo último del trabajo y pasa en el taller, con el cliente
               // enfrente: si solo estuviera en el web habría que subir a la computadora
@@ -1509,6 +1502,9 @@ class _TasksCard extends StatelessWidget {
     required this.onChangeLabor,
     required this.mostrarManoDeObra,
     required this.siguienteId,
+    required this.hasTemplates,
+    required this.onApplyTemplate,
+    required this.onComoSeCobra,
   });
 
   final WorkOrderDetail order;
@@ -1521,8 +1517,14 @@ class _TasksCard extends StatelessWidget {
 
   /// El paso que la barra fija ofrece marcar. Va en negrita: es el que toca ahora.
   final String? siguienteId;
+  final bool hasTemplates;
   final void Function(WorkOrderTask task, bool value) onToggle;
   final VoidCallback onAdd;
+  final VoidCallback onApplyTemplate;
+
+  /// Cambiar si la mano de obra sale del catálogo o de un total a mano. Null para quien no
+  /// puede: es del Dueño.
+  final VoidCallback? onComoSeCobra;
   final void Function(WorkOrderTask task) onChangeLabor;
 
   @override
@@ -1563,8 +1565,13 @@ class _TasksCard extends StatelessWidget {
           ),
           if (order.tasks.isEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: Text('Todavía no hay pasos.', style: theme.textTheme.bodySmall),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 2),
+              child: Text(
+                canEdit
+                    ? 'Todavía no hay pasos: agréguelos uno a uno o traiga un trabajo frecuente.'
+                    : 'Todavía no hay pasos.',
+                style: theme.textTheme.bodySmall,
+              ),
             ),
           for (final task in order.tasks)
             _FilaPaso(
@@ -1576,29 +1583,52 @@ class _TasksCard extends StatelessWidget {
               onToggle: (value) => onToggle(task, value),
               onChangeLabor: () => onChangeLabor(task),
             ),
-          if (canEdit || mostrarManoDeObra)
+          // Las dos maneras de armar la orden, donde se arman: uno a uno, o de golpe con un
+          // trabajo frecuente. Estaban en el menú y allí nadie las encontraba.
+          if (canEdit)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+              padding: const EdgeInsets.fromLTRB(6, 2, 6, 2),
+              child: Wrap(
+                children: [
+                  TextButton.icon(
+                    onPressed: busy ? null : onAdd,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Agregar paso'),
+                  ),
+                  if (hasTemplates)
+                    TextButton.icon(
+                      onPressed: busy ? null : onApplyTemplate,
+                      icon: const Icon(Icons.bolt_outlined, size: 18),
+                      label: const Text('Trabajo frecuente'),
+                    ),
+                ],
+              ),
+            ),
+          if (mostrarManoDeObra || onComoSeCobra != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Row(
                 children: [
-                  if (canEdit)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: busy ? null : onAdd,
-                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Agregar paso'),
+                  Expanded(
+                    child: Text(
+                      // Al Dueño el monto ya se lo dice el total de abajo; lo que aquí hace
+                      // falta es de dónde sale el precio, que es lo que se puede cambiar.
+                      onComoSeCobra != null
+                          ? 'Se cobra ${catalogo ? 'con el catálogo' : 'a mano'}'
+                          : 'Mano de obra ${_money(order.laborTotal)}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  if (onComoSeCobra != null)
+                    InkWell(
+                      onTap: busy ? null : onComoSeCobra,
+                      child: Text(
+                        'Cambiar',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                  else
-                    const Spacer(),
-                  if (mostrarManoDeObra)
-                    Text(
-                      'Mano de obra ${_money(order.laborTotal)}',
-                      style: theme.textTheme.bodySmall,
                     ),
                 ],
               ),
