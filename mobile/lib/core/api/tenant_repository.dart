@@ -45,6 +45,13 @@ class TenantRepository {
 
   final Dio _dio;
 
+  /// El ISV que el taller aplica al facturar. Sin él no se puede decir cuánto va a pagar el
+  /// cliente: el total de la orden sin impuesto no es lo que sale en la factura.
+  Future<double> defaultTaxRate() async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/tenant');
+    return ((response.data ?? const {})['defaultTaxRate'] as num?)?.toDouble() ?? 0;
+  }
+
   Future<List<FiscalRange>> fiscalRanges() async {
     final response = await _dio.get<List<dynamic>>('/api/tenant/fiscal-ranges');
 
@@ -57,6 +64,16 @@ class TenantRepository {
 final tenantRepositoryProvider = Provider<TenantRepository>(
   (ref) => TenantRepository(ref.watch(apiClientProvider).dio),
 );
+
+/// El ISV del taller. Solo el Dueño lo puede consultar —la ficha del taller es suya—, así que
+/// el error se traga y devuelve cero: para el Técnico no hay total con impuesto que enseñar.
+final taxRateProvider = FutureProvider<double>((ref) async {
+  try {
+    return await ref.watch(tenantRepositoryProvider).defaultTaxRate();
+  } catch (_) {
+    return 0;
+  }
+});
 
 /// El rango vigente de una sucursal, o null si no tiene. Solo el Dueño puede consultarlo, así
 /// que el error se traga: para el Técnico simplemente no hay casilla de CAI.

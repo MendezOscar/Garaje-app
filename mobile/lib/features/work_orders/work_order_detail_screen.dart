@@ -6,12 +6,18 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/job_template_repository.dart';
+import '../../core/api/media_repository.dart';
+import '../../core/api/quote_repository.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/staff_repository.dart';
+import '../../core/api/tenant_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
+import '../../core/models/quote.dart';
+import '../../core/sync/upload_queue.dart';
 import '../../core/models/work_order.dart';
+import '../../core/theme/garaj_brand.dart';
 import '../shared/status_chip.dart';
 import 'invoice_section.dart';
 import 'photo_capture.dart';
@@ -42,6 +48,143 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     return auth is AuthSignedIn && auth.user.role == AppRole.owner;
   }
 
+  bool get _isTechnician {
+    final auth = ref.read(authControllerProvider);
+    return auth is AuthSignedIn && auth.user.role == AppRole.technician;
+  }
+
+  /// Días de atraso sobre la fecha prometida, o null si no hay promesa, todavía no vence o ya
+  /// se entregó. Es lo primero que hay que saber al abrir la orden: si el cliente ya tiene
+  /// motivo para llamar.
+  static int? _atraso(WorkOrderDetail order) {
+    final prometida = order.promisedAt;
+    if (prometida == null) return null;
+    if (order.status == WorkOrderStatus.delivered ||
+        order.status == WorkOrderStatus.cancelled) {
+      return null;
+    }
+
+    final dias = DateTime.now().difference(prometida).inDays;
+    return dias >= 1 ? dias : null;
+  }
+
+  /// Abre una sección en su propia pantalla, con los datos vivos de la orden.
+  ///
+  /// El teléfono no da para doce secciones desplegadas: la de arriba se lee y las demás se
+  /// visitan. La página vuelve a leer la orden del provider, así que lo que se cambia dentro
+  /// —cargar un repuesto, guardar el diagnóstico— se ve sin volver atrás.
+  void _abrirSeccion(Widget Function(WorkOrderDetail order) contenido) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _SeccionPagina(id: widget.id, contenido: contenido)),
+    );
+  }
+
+  /// Quién responde por la orden. Se decide en el patio —llega una moto urgente y hay que
+  /// mover a alguien—, así que se cambia desde el teléfono y no desde la computadora.
+  Future<void> _asignarTecnico(WorkOrderDetail order) async {
+    final tecnicos = (ref.read(technicianOptionsProvider).value ?? const <TechnicianOption>[])
+        .where((t) => t.worksAt(order.branchId))
+        .toList();
+
+    final elegido = await showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: Text(
+                'Técnico responsable',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              title: const Text('Sin asignar'),
+              trailing: order.assignedTechnicianId == null ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.pop(context, ''),
+            ),
+            for (final tecnico in tecnicos)
+              ListTile(
+                title: Text(tecnico.name),
+                trailing:
+                    order.assignedTechnicianId == tecnico.id ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, tecnico.id),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (elegido == null) return;
+    // Cadena vacía es «sin asignar»: null significaría que la hoja se cerró sin elegir.
+    await _run(() => ref
+        .read(workOrderRepositoryProvider)
+        .assign(widget.id, elegido.isEmpty ? null : elegido));
+  }
+
+  /// Las dos formas de cobrar la mano de obra son excluyentes: o cada paso lleva su servicio
+  /// del catálogo, o los pasos van sueltos y se cobra un total por toda la orden.
+  Future<void> _comoSeCobra(WorkOrderDetail order) async {
+    final modo = await showModalBottomSheet<LaborMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                'Cómo se cobra la mano de obra',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              title: const Text('Con el catálogo'),
+              subtitle: const Text('Cada paso lleva su servicio y su precio'),
+              trailing: order.isCatalogLabor ? const Icon(Icons.check) : null,
+              onTap: () => Navigator.pop(context, LaborMode.catalog),
+            ),
+            ListTile(
+              title: const Text('A mano'),
+              subtitle: const Text('Los pasos van sueltos y se cobra un total'),
+              trailing: order.isCatalogLabor ? null : const Icon(Icons.check),
+              onTap: () => Navigator.pop(context, LaborMode.manual),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (modo == null) return;
+
+    // Pasar a «a mano» pide el total en el mismo gesto: un total en cero no es un cobro, es
+    // una factura corta esperando a que alguien se acuerde.
+    if (modo == LaborMode.manual) {
+      final total = await _askTotal(order);
+      if (total == null) return;
+      await _run(() => ref
+          .read(workOrderRepositoryProvider)
+          .setLaborMode(widget.id, LaborMode.manual, total: total));
+      return;
+    }
+
+    if (order.laborMode != modo) await _changeLaborMode(order, modo);
+  }
+
+  /// Los tres mensajes de WhatsApp, en una hoja. Es el botón de la derecha de la barra fija:
+  /// avisar es lo que se hace justo después de mover el estado, con el cliente esperando.
+  void _avisar(WorkOrderDetail order) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: _NotifySection(order: order, isOwner: _isOwner),
+      ),
+    );
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
     try {
@@ -50,31 +193,6 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
       // La lista muestra el estado y el avance de pasos: si no se invalida, al volver
       // atrás el técnico vería datos viejos de lo que él mismo acaba de cambiar.
       ref.invalidate(myWorkOrdersProvider);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiErrorMessage(e))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  /// El enlace de seguimiento por WhatsApp, el mismo de «Avisar al cliente». Está también en
-  /// la barra fija porque es lo que se hace justo después de mover el estado, y bajar a
-  /// buscarlo con el cliente esperando no lo hace nadie.
-  Future<void> _mandarEnlace() async {
-    setState(() => _busy = true);
-    try {
-      final url =
-          await ref.read(workOrderRepositoryProvider).trackingLink(widget.id, 'received');
-      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo abrir WhatsApp.')),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -493,16 +611,23 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         actions: [
           // El estado siguiente está fijo abajo; los otros caminos —devolverla a diagnóstico,
           // cancelarla, detenerla— son de vez en cuando y caben en el menú.
-          if (cargada != null && _canEdit && siguientes.isNotEmpty)
+          if (cargada != null && _canEdit)
             PopupMenuButton<Object>(
               tooltip: 'Más acciones',
               onSelected: _busy
                   ? null
                   : (value) {
-                      if (value == 'detener') {
-                        _detener(cargada);
-                      } else {
-                        _changeStatus(value as WorkOrderStatus);
+                      switch (value) {
+                        case 'detener':
+                          _detener(cargada);
+                        case 'tecnico':
+                          _asignarTecnico(cargada);
+                        case 'plantilla':
+                          _applyTemplate();
+                        case 'cobro':
+                          _comoSeCobra(cargada);
+                        default:
+                          _changeStatus(value as WorkOrderStatus);
                       }
                     },
               itemBuilder: (context) => [
@@ -512,6 +637,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   const PopupMenuItem(
                     value: 'detener',
                     child: ListTile(
+                      contentPadding: EdgeInsets.zero,
                       leading: Icon(Icons.pause_circle_outline),
                       title: Text('Detener el trabajo'),
                     ),
@@ -519,6 +645,20 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 for (final next in siguientes)
                   if (next != natural && !next.isBlocked)
                     PopupMenuItem(value: next, child: Text('Pasar a ${next.label}')),
+                // Reparto del trabajo y ajustes de cobro: se hacen de vez en cuando y antes
+                // ocupaban dos secciones fijas arriba de los pasos.
+                if (_isOwner)
+                  const PopupMenuItem(value: 'tecnico', child: Text('Asignar técnico')),
+                if ((ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty)
+                  const PopupMenuItem(
+                    value: 'plantilla',
+                    child: Text('Aplicar trabajo frecuente'),
+                  ),
+                if (_isOwner)
+                  const PopupMenuItem(
+                    value: 'cobro',
+                    child: Text('Cómo se cobra la mano de obra'),
+                  ),
               ],
             ),
         ],
@@ -538,7 +678,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               onMain: siguientePaso != null
                   ? () => _completeTask(siguientePaso)
                   : () => _changeStatus(natural!),
-              onSecondary: _isOwner ? _mandarEnlace : _tomarFoto,
+              onSecondary: _isOwner ? () => _avisar(cargada!) : _tomarFoto,
             ),
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -550,50 +690,20 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ),
         data: (order) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(workOrderDetailProvider(widget.id)),
+          // Lo de arriba es el trabajo: en qué va la orden y qué pasos faltan. Lo demás
+          // —repuestos, fotos, cobro, historial— son renglones que llevan a su pantalla.
+          // Antes eran doce secciones desplegadas una debajo de otra, y los pasos, que es lo
+          // que se viene a ver, quedaban a tres pantallas de desplazamiento.
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              _Header(order: order),
-              const SizedBox(height: 16),
-              _Section(
-                title: 'Motivo de ingreso',
-                child: Text(order.description),
-              ),
-              // Va arriba porque el primer mensaje se manda al recibir el vehículo, con el
-              // cliente todavía en el mostrador.
-              if (_canEdit) _NotifySection(order: order, isOwner: _isOwner),
-              _DiagnosisSection(
+              _Header(
                 order: order,
-                canEdit: _canEdit,
-                busy: _busy,
-                onSave: (text) => _run(() async {
-                  await ref.read(workOrderRepositoryProvider).saveDiagnosis(
-                        widget.id,
-                        description: order.description,
-                        diagnosis: text.isEmpty ? null : text,
-                        promisedAt: order.promisedAt,
-                      );
-                }),
+                atraso: _atraso(order),
+                mostrarTecnico: !_isTechnician,
               ),
-              if (_isOwner)
-                _AssignSection(
-                  order: order,
-                  busy: _busy,
-                  technicians: ref.watch(technicianOptionsProvider).value ?? const [],
-                  onAssign: (technicianId) => _run(() async {
-                    await ref
-                        .read(workOrderRepositoryProvider)
-                        .assign(widget.id, technicianId);
-                  }),
-                )
-              // Al Cliente le interesa saber quién tiene su moto; al Técnico no, que solo
-              // ve las suyas y leería su propio nombre en cada orden.
-              else if (!_canEdit && order.assignedTechnicianName != null)
-                _Section(
-                  title: 'Técnico responsable',
-                  child: Text(order.assignedTechnicianName!),
-                ),
-              _TasksSection(
+              const SizedBox(height: 14),
+              _TasksCard(
                 order: order,
                 canEdit: _canEdit,
                 busy: _busy,
@@ -605,36 +715,111 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                         isDone: value,
                       );
                 }),
-                isOwner: _isOwner,
-                hasTemplates: (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
-                onApplyTemplate: _applyTemplate,
                 onAdd: () => _addTask(order.isCatalogLabor),
-                onChangeMode: (mode) => _changeLaborMode(order, mode),
-                onEditTotal: () async {
-                  final total = await _askTotal(order);
-                  if (total == null) return;
-                  await _run(() => ref
-                      .read(workOrderRepositoryProvider)
-                      .setLaborMode(widget.id, LaborMode.manual, total: total));
-                },
+                mostrarManoDeObra: _canEdit && !_isOwner,
+                siguienteId: siguientePaso?.id,
               ),
-              PartsSection(
-                order: order,
-                canEdit: _canEdit,
-                busy: _busy,
-                onChanged: () async {
-                  ref.invalidate(workOrderDetailProvider(widget.id));
-                },
+              const SizedBox(height: 12),
+              if (_isOwner) _TotalCard(order: order),
+              // El Técnico también avisa: muchas veces es él quien entrega el vehículo. El
+              // Dueño además lo tiene en la barra fija, que es donde cae la mano después de
+              // mover el estado.
+              if (_canEdit)
+                _Fila(
+                  icono: Icons.chat_outlined,
+                  titulo: 'Avisar al cliente',
+                  detalle: 'Mandarle el enlace de seguimiento por WhatsApp',
+                  onTap: () => _avisar(order),
+                ),
+              if (_canEdit)
+                _FilaDiagnostico(
+                  order: order,
+                  onTap: () => _abrirSeccion(
+                    (order) => _DiagnosisSection(
+                      order: order,
+                      canEdit: _canEdit,
+                      busy: _busy,
+                      onSave: (text) => _run(() async {
+                        await ref.read(workOrderRepositoryProvider).saveDiagnosis(
+                              widget.id,
+                              description: order.description,
+                              diagnosis: text.isEmpty ? null : text,
+                              promisedAt: order.promisedAt,
+                            );
+                      }),
+                    ),
+                  ),
+                )
+              else if (order.diagnosis != null)
+                _Fila(
+                  icono: Icons.assignment_outlined,
+                  titulo: 'Diagnóstico',
+                  detalle: order.diagnosis!,
+                  onTap: () => _abrirSeccion(
+                    (order) => _DiagnosisSection(
+                      order: order,
+                      canEdit: false,
+                      busy: false,
+                      onSave: (_) async {},
+                    ),
+                  ),
+                ),
+              if (_canEdit || order.parts.isNotEmpty)
+                _Fila(
+                  icono: Icons.inventory_2_outlined,
+                  titulo: 'Repuestos',
+                  detalle: order.parts.isEmpty
+                      ? 'Sin repuestos cargados'
+                      : '${order.parts.length} '
+                          '${order.parts.length == 1 ? 'línea' : 'líneas'}'
+                          ' · ${_money(order.partsTotal)}',
+                  onTap: () => _abrirSeccion(
+                    (order) => PartsSection(
+                      order: order,
+                      canEdit: _canEdit,
+                      busy: _busy,
+                      onChanged: () async =>
+                          ref.invalidate(workOrderDetailProvider(widget.id)),
+                    ),
+                  ),
+                ),
+              _FilaFotos(
+                workOrderId: order.id,
+                onTap: () => _abrirSeccion(
+                  (order) => PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
+                ),
               ),
-              PhotoGallery(workOrderId: order.id, canEdit: _canEdit),
-              QuotesSection(workOrderId: order.id),
+              if (!_isTechnician)
+                _FilaCotizaciones(
+                  workOrderId: order.id,
+                  isOwner: _isOwner,
+                  onTap: () => _abrirSeccion(
+                    (order) => QuotesSection(workOrderId: order.id),
+                  ),
+                ),
               // Cobrar es lo último del trabajo y pasa en el taller, con el cliente
               // enfrente: si solo estuviera en el web habría que subir a la computadora
               // con el vehículo ya entregado.
-              if (_isOwner) InvoiceSection(order: order),
-              _VehicleHistorySection(order: order),
-              _TimelineSection(entries: order.timeline),
-              const SizedBox(height: 32),
+              if (_isOwner)
+                _FilaCobro(
+                  workOrderId: order.id,
+                  onTap: () => _abrirSeccion((order) => InvoiceSection(order: order)),
+                ),
+              _FilaHistorial(
+                order: order,
+                onTap: () => _abrirSeccion(
+                  (order) => _VehicleHistorySection(order: order, siempreAbierto: true),
+                ),
+              ),
+              _Fila(
+                icono: Icons.history_outlined,
+                titulo: 'Línea de tiempo',
+                detalle: '${order.timeline.length} '
+                    '${order.timeline.length == 1 ? 'cambio de estado' : 'cambios de estado'}',
+                onTap: () => _abrirSeccion(
+                  (order) => _TimelineSection(entries: order.timeline),
+                ),
+              ),
             ],
           ),
         ),
@@ -788,10 +973,20 @@ class _NotifySectionState extends ConsumerState<_NotifySection> {
   }
 }
 
+/// El encabezado: en qué estado va, si está atrasada, de quién es y por qué entró.
+///
+/// El estado y el atraso van juntos y arriba porque son la pregunta con la que se abre la
+/// orden. El motivo de ingreso va sin rótulo: es la primera frase de la pantalla y no
+/// necesita que nadie le explique qué es.
 class _Header extends StatelessWidget {
-  const _Header({required this.order});
+  const _Header({required this.order, required this.atraso, required this.mostrarTecnico});
 
   final WorkOrderDetail order;
+  final int? atraso;
+
+  /// Quién tiene el vehículo. Al Cliente le importa —es lo que preguntaría por teléfono— y al
+  /// Dueño también; al Técnico no, que leería su propio nombre en cada orden.
+  final bool mostrarTecnico;
 
   @override
   Widget build(BuildContext context) {
@@ -800,30 +995,121 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            StatusChip(status: order.status),
+            if (atraso != null)
+              _ChipAtraso(dias: atraso!),
+          ],
+        ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Icon(
               order.vehicleType == VehicleType.motorcycle
                   ? Icons.two_wheeler
                   : Icons.directions_car,
+              size: 20,
               color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
-            Expanded(child: Text(order.vehicleLabel, style: theme.textTheme.titleMedium)),
-            StatusChip(status: order.status),
+            Flexible(
+              child: Text(
+                order.vehicleLabel,
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (order.plate != null) ...[
+              const SizedBox(width: 8),
+              _Placa(order.plate!),
+            ],
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Text(
           [
-            if (order.plate != null) order.plate!,
             order.customerName,
-            order.branchName,
-            if (order.mileageIn != null) '${order.mileageIn} km',
+            order.customerPhone,
+            if (order.promisedAt != null) 'prometida ${_fechaCorta(order.promisedAt!)}',
           ].join(' · '),
           style: theme.textTheme.bodySmall,
         ),
+        Text(
+          [
+            order.branchName,
+            if (mostrarTecnico)
+              'técnico ${order.assignedTechnicianName ?? 'sin asignar'}',
+            if (order.mileageIn != null) '${order.mileageIn} km',
+            'abierta el ${_fechaCorta(order.openedAt)}',
+          ].join(' · '),
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        Text(order.description, style: theme.textTheme.bodyMedium),
       ],
+    );
+  }
+
+  static String _fechaCorta(DateTime value) {
+    final d = value.toLocal();
+    final dia = d.day.toString().padLeft(2, '0');
+    final mes = d.month.toString().padLeft(2, '0');
+    final hora = d.hour.toString().padLeft(2, '0');
+    final min = d.minute.toString().padLeft(2, '0');
+    return '$dia/$mes $hora:$min';
+  }
+}
+
+/// La placa, en monoespaciada y con borde: es un dato que se compara con el vehículo que está
+/// enfrente, letra por letra.
+class _Placa extends StatelessWidget {
+  const _Placa(this.plate);
+
+  final String plate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        plate,
+        style: theme.textTheme.labelSmall?.merge(monoStyle),
+      ),
+    );
+  }
+}
+
+class _ChipAtraso extends StatelessWidget {
+  const _ChipAtraso({required this.dias});
+
+  final int dias;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rojo = theme.colorScheme.error;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: rojo.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'Atrasada $dias ${dias == 1 ? 'día' : 'días'}',
+        style: theme.textTheme.labelSmall?.copyWith(color: rojo),
+      ),
     );
   }
 }
@@ -836,9 +1122,12 @@ class _Header extends StatelessWidget {
 /// de la pantalla. Cerrado ya contesta lo que casi siempre se pregunta —cuántas veces vino y
 /// cuándo la última—, así que abrirlo es para leer el detalle, no para enterarse.
 class _VehicleHistorySection extends ConsumerStatefulWidget {
-  const _VehicleHistorySection({required this.order});
+  const _VehicleHistorySection({required this.order, this.siempreAbierto = false});
 
   final WorkOrderDetail order;
+
+  /// En su propia pantalla no hay nada que plegar: se entró a leer las visitas.
+  final bool siempreAbierto;
 
   @override
   ConsumerState<_VehicleHistorySection> createState() => _VehicleHistorySectionState();
@@ -858,30 +1147,33 @@ class _VehicleHistorySectionState extends ConsumerState<_VehicleHistorySection> 
         final otras = items.where((o) => o.id != order.id).toList();
         if (otras.isEmpty) return const SizedBox.shrink();
 
+        final abierto = widget.siempreAbierto || _abierto;
+
         return _Section(
           title: 'Historial del vehículo',
           child: Column(
             children: [
-              InkWell(
-                onTap: () => setState(() => _abierto = !_abierto),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${otras.length} '
-                          '${otras.length == 1 ? 'visita antes' : 'visitas antes'}, '
-                          'la última el ${_fecha(otras.first.openedAt)}',
-                          style: theme.textTheme.bodyMedium,
+              if (!widget.siempreAbierto)
+                InkWell(
+                  onTap: () => setState(() => _abierto = !_abierto),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${otras.length} '
+                            '${otras.length == 1 ? 'visita antes' : 'visitas antes'}, '
+                            'la última el ${_fecha(otras.first.openedAt)}',
+                            style: theme.textTheme.bodyMedium,
+                          ),
                         ),
-                      ),
-                      Icon(_abierto ? Icons.expand_less : Icons.expand_more),
-                    ],
+                        Icon(_abierto ? Icons.expand_less : Icons.expand_more),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (_abierto)
+              if (abierto)
                 for (final previa in otras)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -1022,187 +1314,6 @@ class _DiagnosisSectionState extends State<_DiagnosisSection> {
                 : () => widget.onSave(_controller.text.trim()),
             child: const Text('Guardar diagnóstico'),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Quién responde por la orden. Lo cambia solo el Dueño, y desde el teléfono porque el
-/// reparto del trabajo se decide en el patio: llega una moto urgente y hay que mover a
-/// alguien, y nadie va a subir a la oficina a hacerlo en la computadora.
-class _AssignSection extends StatelessWidget {
-  const _AssignSection({
-    required this.order,
-    required this.technicians,
-    required this.busy,
-    required this.onAssign,
-  });
-
-  final WorkOrderDetail order;
-  final List<TechnicianOption> technicians;
-  final bool busy;
-  final void Function(String? technicianId) onAssign;
-
-  @override
-  Widget build(BuildContext context) {
-    // Solo los de la sucursal de la orden: la API rechaza a los demás con un 400, y
-    // ofrecerlos sería enseñar opciones que solo pueden dar error.
-    final available = technicians.where((t) => t.worksAt(order.branchId)).toList();
-
-    return _Section(
-      title: 'Técnico responsable',
-      child: DropdownButtonFormField<String?>(
-        initialValue: available.any((t) => t.id == order.assignedTechnicianId)
-            ? order.assignedTechnicianId
-            : null,
-        isExpanded: true,
-        decoration: const InputDecoration(isDense: true),
-        items: [
-          const DropdownMenuItem(value: null, child: Text('Sin asignar')),
-          for (final technician in available)
-            DropdownMenuItem(value: technician.id, child: Text(technician.name)),
-        ],
-        onChanged: busy ? null : onAssign,
-      ),
-    );
-  }
-}
-
-class _TasksSection extends StatelessWidget {
-  const _TasksSection({
-    required this.order,
-    required this.canEdit,
-    required this.isOwner,
-    required this.busy,
-    required this.onToggle,
-    required this.onAdd,
-    required this.onChangeLabor,
-    required this.onChangeMode,
-    required this.onEditTotal,
-    required this.hasTemplates,
-    required this.onApplyTemplate,
-  });
-
-  final WorkOrderDetail order;
-  final bool canEdit;
-  final bool isOwner;
-  final bool busy;
-  final bool hasTemplates;
-  final VoidCallback onApplyTemplate;
-  final void Function(WorkOrderTask task, bool value) onToggle;
-  final VoidCallback onAdd;
-  final void Function(WorkOrderTask task) onChangeLabor;
-  final void Function(LaborMode mode) onChangeMode;
-  final VoidCallback onEditTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final catalog = order.isCatalogLabor;
-
-    return _Section(
-      title: 'Pasos de la reparación',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Las dos formas de cobrar la mano de obra son excluyentes: o cada paso lleva su
-          // servicio del catálogo, o se cobra un total por toda la orden.
-          if (isOwner)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SegmentedButton<LaborMode>(
-                segments: const [
-                  ButtonSegment(value: LaborMode.catalog, label: Text('Catálogo')),
-                  ButtonSegment(value: LaborMode.manual, label: Text('A mano')),
-                ],
-                selected: {order.laborMode},
-                showSelectedIcon: false,
-                onSelectionChanged: busy ? null : (s) => onChangeMode(s.first),
-              ),
-            ),
-          // Antes de la lista: en una orden vacía, armarla de un toque es lo que hay que
-          // ofrecer antes de que nadie empiece a teclear de pie y con las manos sucias.
-          if (canEdit && hasTemplates)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: busy ? null : onApplyTemplate,
-                icon: const Icon(Icons.bolt_outlined, size: 18),
-                label: const Text('Aplicar trabajo frecuente'),
-              ),
-            ),
-          if (order.tasks.isEmpty)
-            Text('Todavía no hay pasos.', style: theme.textTheme.bodySmall),
-          for (final task in order.tasks) ...[
-            CheckboxListTile(
-              value: task.isDone,
-              onChanged: canEdit && !busy ? (v) => onToggle(task, v ?? false) : null,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              dense: true,
-              title: Text(
-                task.title,
-                style: task.isDone
-                    ? const TextStyle(decoration: TextDecoration.lineThrough)
-                    : null,
-              ),
-              subtitle: task.technicianNotes != null || task.actualHours != null
-                  ? Text([
-                      if (task.actualHours != null) '${task.actualHours} h',
-                      if (task.technicianNotes != null) task.technicianNotes!,
-                    ].join(' · '))
-                  : null,
-              // Lo que se va a cobrar por el paso, a la vista: es la parte que más se olvida
-              // y la razón más común de que la factura salga corta.
-              secondary: canEdit && catalog
-                  ? TextButton(
-                      onPressed: busy ? null : () => onChangeLabor(task),
-                      child: Text(
-                        task.laborPrice != null ? _money(task.laborPrice!) : 'Sin cobro',
-                        style: task.laborPrice == null
-                            ? TextStyle(color: theme.colorScheme.onSurfaceVariant)
-                            : null,
-                      ),
-                    )
-                  : null,
-            ),
-            if (canEdit && catalog && task.laborServiceName != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 48, bottom: 4),
-                child: Text(task.laborServiceName!, style: theme.textTheme.bodySmall),
-              ),
-          ],
-          if (canEdit)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    catalog ? 'Mano de obra' : 'Mano de obra (total)',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  Row(
-                    children: [
-                      Text(_money(order.laborTotal), style: theme.textTheme.titleSmall),
-                      if (isOwner && !catalog)
-                        IconButton(
-                          tooltip: 'Cambiar el total',
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          onPressed: busy ? null : onEditTotal,
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          if (canEdit)
-            TextButton.icon(
-              onPressed: busy ? null : onAdd,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Agregar paso'),
-            ),
         ],
       ),
     );
@@ -1381,4 +1492,557 @@ class _TimelineSection extends StatelessWidget {
     final min = local.minute.toString().padLeft(2, '0');
     return '$d/$m $h:$min';
   }
+}
+
+/// Los pasos, que es lo que se viene a ver: qué falta y cuánto lleva cada uno.
+///
+/// Antes esta tarjeta empezaba con el interruptor de cómo se cobra la mano de obra y el botón
+/// de trabajos frecuentes, y los pasos —lo único que el técnico toca con el vehículo
+/// enfrente— arrancaban a media pantalla. Los dos ajustes se fueron al menú.
+class _TasksCard extends StatelessWidget {
+  const _TasksCard({
+    required this.order,
+    required this.canEdit,
+    required this.busy,
+    required this.onToggle,
+    required this.onAdd,
+    required this.onChangeLabor,
+    required this.mostrarManoDeObra,
+    required this.siguienteId,
+  });
+
+  final WorkOrderDetail order;
+  final bool canEdit;
+  final bool busy;
+
+  /// El Dueño ve el total abajo, con el ISV y los repuestos: repetir aquí la mano de obra
+  /// serían dos cifras distintas de lo mismo en la misma pantalla.
+  final bool mostrarManoDeObra;
+
+  /// El paso que la barra fija ofrece marcar. Va en negrita: es el que toca ahora.
+  final String? siguienteId;
+  final void Function(WorkOrderTask task, bool value) onToggle;
+  final VoidCallback onAdd;
+  final void Function(WorkOrderTask task) onChangeLabor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final catalogo = order.isCatalogLabor;
+    final hechos = order.tasks.where((t) => t.isDone).length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'PASOS',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+                if (order.tasks.isNotEmpty)
+                  Text(
+                    '$hechos de ${order.tasks.length}',
+                    style: theme.textTheme.bodySmall?.merge(monoStyle),
+                  ),
+              ],
+            ),
+          ),
+          if (order.tasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: Text('Todavía no hay pasos.', style: theme.textTheme.bodySmall),
+            ),
+          for (final task in order.tasks)
+            _FilaPaso(
+              task: task,
+              catalogo: catalogo,
+              canEdit: canEdit,
+              busy: busy,
+              tocaAhora: task.id == siguienteId,
+              onToggle: (value) => onToggle(task, value),
+              onChangeLabor: () => onChangeLabor(task),
+            ),
+          if (canEdit || mostrarManoDeObra)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+              child: Row(
+                children: [
+                  if (canEdit)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: busy ? null : onAdd,
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Agregar paso'),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (mostrarManoDeObra)
+                    Text(
+                      'Mano de obra ${_money(order.laborTotal)}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Un paso: 52 px de alto para que el dedo lo acierte, la casilla a la izquierda y debajo del
+/// título quién lo hace y cuánto se cobra. El precio se toca para cambiarlo.
+class _FilaPaso extends StatelessWidget {
+  const _FilaPaso({
+    required this.task,
+    required this.catalogo,
+    required this.canEdit,
+    required this.busy,
+    required this.tocaAhora,
+    required this.onToggle,
+    required this.onChangeLabor,
+  });
+
+  final WorkOrderTask task;
+  final bool catalogo;
+  final bool canEdit;
+  final bool busy;
+  final bool tocaAhora;
+  final void Function(bool value) onToggle;
+  final VoidCallback onChangeLabor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final precio = task.laborPrice != null ? _money(task.laborPrice!) : 'Sin cobro';
+
+    return InkWell(
+      onTap: canEdit && !busy ? () => onToggle(!task.isDone) : null,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: theme.dividerColor)),
+        ),
+        child: Row(
+          children: [
+            _Casilla(marcada: task.isDone),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    task.title,
+                    style: task.isDone
+                        ? theme.textTheme.bodyLarge?.copyWith(
+                            color: muted,
+                            decoration: TextDecoration.lineThrough,
+                          )
+                        : theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: tocaAhora ? FontWeight.w600 : null,
+                          ),
+                  ),
+                  const SizedBox(height: 1),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          // El paso hecho cuenta cuándo se hizo; el que falta, quién lo tiene.
+                          task.isDone && task.completedAt != null
+                              ? 'hecho a las ${_hora(task.completedAt!)}'
+                              : tocaAhora
+                                  ? 'toca ahora'
+                                  : task.assignedTechnicianName ?? 'Sin asignar',
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // El precio del paso es del taller: al Cliente se le cobra con la
+                      // cotización y con la factura, no con un borrador que todavía se mueve.
+                      if (canEdit) Text(' · ', style: theme.textTheme.bodySmall),
+                      // Azul y tocable cuando se puede cambiar: es el dato que más se olvida
+                      // y la razón más común de que la factura salga corta.
+                      if (canEdit && catalogo)
+                        InkWell(
+                          onTap: busy ? null : onChangeLabor,
+                          child: Text(
+                            precio,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      else if (canEdit)
+                        Text(precio, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Casilla extends StatelessWidget {
+  const _Casilla({required this.marcada});
+
+  final bool marcada;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: marcada ? theme.colorScheme.primary : null,
+        border: marcada ? null : Border.all(color: theme.dividerColor, width: 1.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: marcada
+          ? Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)
+          : null,
+    );
+  }
+}
+
+/// Por cuánto va la orden, con el ISV que se le va a aplicar al cerrar, y en qué quedó la
+/// cotización. Antes había que bajar hasta la tarjeta de cierre para saberlo.
+class _TotalCard extends ConsumerWidget {
+  const _TotalCard({required this.order});
+
+  final WorkOrderDetail order;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final tasa = ref.watch(taxRateProvider).value ?? 0;
+    final base = order.laborTotal + order.partsTotal;
+    final impuesto = base * tasa / 100;
+
+    final cotizaciones = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
+    final ultima = cotizaciones.isEmpty ? null : cotizaciones.first;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TOTAL ESTIMADO',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _money(base + impuesto),
+                  style: theme.textTheme.titleLarge?.merge(monoStyle),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Trabajo ${_money(order.laborTotal)} · '
+                  'Repuestos ${_money(order.partsTotal)}'
+                  '${tasa > 0 ? ' · ISV ${tasa.toStringAsFixed(0)}%' : ''}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          if (ultima != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 2),
+              child: _Etiqueta('Cotización ${ultima.status.label.toLowerCase()}'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Etiqueta extends StatelessWidget {
+  const _Etiqueta(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        texto,
+        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+/// Un renglón que lleva a su pantalla, con el resumen que casi siempre contesta la pregunta
+/// sin necesidad de entrar: cuántos repuestos, cuántas fotos, cuántas visitas antes.
+class _Fila extends StatelessWidget {
+  const _Fila({
+    required this.icono,
+    required this.titulo,
+    required this.detalle,
+    required this.onTap,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final String detalle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icono, size: 20, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(titulo, style: theme.textTheme.bodyLarge),
+                    Text(
+                      detalle,
+                      style: theme.textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilaDiagnostico extends StatelessWidget {
+  const _FilaDiagnostico({required this.order, required this.onTap});
+
+  final WorkOrderDetail order;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final escrito = order.diagnosis?.trim();
+
+    return _Fila(
+      icono: Icons.assignment_outlined,
+      titulo: 'Diagnóstico',
+      detalle: escrito == null || escrito.isEmpty
+          ? 'Sin escribir: qué se encontró al revisar'
+          : escrito,
+      onTap: onTap,
+    );
+  }
+}
+
+class _FilaFotos extends ConsumerWidget {
+  const _FilaFotos({required this.workOrderId, required this.onTap});
+
+  final String workOrderId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fotos = ref.watch(workOrderMediaProvider(workOrderId)).value?.length;
+    final pendientes = ref.watch(pendingUploadsForProvider(workOrderId)).length;
+
+    return _Fila(
+      icono: Icons.photo_camera_outlined,
+      titulo: 'Fotos',
+      detalle: switch (fotos) {
+        null => 'del proceso',
+        0 => pendientes > 0 ? '$pendientes por subir' : 'Todavía no hay fotos',
+        final n => '$n del proceso'
+            '${pendientes > 0 ? ' · $pendientes por subir' : ''}',
+      },
+      onTap: onTap,
+    );
+  }
+}
+
+class _FilaCotizaciones extends ConsumerWidget {
+  const _FilaCotizaciones({
+    required this.workOrderId,
+    required this.isOwner,
+    required this.onTap,
+  });
+
+  final String workOrderId;
+  final bool isOwner;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cotizaciones = ref.watch(workOrderQuotesProvider(workOrderId)).value;
+
+    // Al Cliente no se le enseña un renglón vacío: si no hay nada que aprobar, no hay nada
+    // que contarle.
+    if (!isOwner && (cotizaciones == null || cotizaciones.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+
+    final ultima = (cotizaciones ?? const <Quote>[]).firstOrNull;
+
+    return _Fila(
+      icono: Icons.request_quote_outlined,
+      titulo: 'Cotizaciones',
+      detalle: ultima == null
+          ? 'Ninguna todavía'
+          : '${ultima.number} · ${ultima.status.label} · ${_money(ultima.total)}',
+      onTap: onTap,
+    );
+  }
+}
+
+class _FilaCobro extends ConsumerWidget {
+  const _FilaCobro({required this.workOrderId, required this.onTap});
+
+  final String workOrderId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ventas = ref.watch(workOrderSalesProvider(workOrderId)).value ?? const <Sale>[];
+    final vigentes = ventas.where((v) => !v.isVoided).toList();
+    final deuda = vigentes.fold<double>(0, (suma, v) => suma + v.balance);
+
+    return _Fila(
+      icono: Icons.point_of_sale_outlined,
+      titulo: vigentes.isEmpty ? 'Cerrar y facturar' : 'Venta',
+      detalle: vigentes.isEmpty
+          ? 'Cobrar, entregar y anotar el próximo servicio'
+          : '${vigentes.first.number} · ${_money(vigentes.first.total)}'
+              '${deuda > 0 ? ' · debe ${_money(deuda)}' : ' · pagada'}',
+      onTap: onTap,
+    );
+  }
+}
+
+class _FilaHistorial extends ConsumerWidget {
+  const _FilaHistorial({required this.order, required this.onTap});
+
+  final WorkOrderDetail order;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historial = ref.watch(vehicleHistoryProvider(order.vehicleId)).value;
+    final otras = (historial ?? const []).where((o) => o.id != order.id).toList();
+
+    // Mientras carga, o si falla, no se dibuja: es información de apoyo y no puede ensuciar
+    // la pantalla de la orden que se está atendiendo.
+    if (otras.isEmpty) return const SizedBox.shrink();
+
+    return _Fila(
+      icono: Icons.history_edu_outlined,
+      titulo: 'Historial del vehículo',
+      detalle: '${otras.length} ${otras.length == 1 ? 'visita antes' : 'visitas antes'}',
+      onTap: onTap,
+    );
+  }
+}
+
+/// La pantalla de una sección, con la orden viva: lo que se cambia dentro —cargar un
+/// repuesto, guardar el diagnóstico— se ve sin volver atrás.
+class _SeccionPagina extends ConsumerWidget {
+  const _SeccionPagina({required this.id, required this.contenido});
+
+  final String id;
+  final Widget Function(WorkOrderDetail order) contenido;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detail = ref.watch(workOrderDetailProvider(id));
+
+    return Scaffold(
+      appBar: AppBar(title: Text(detail.value?.number ?? 'Orden')),
+      body: detail.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(apiErrorMessage(e, 'No se pudo cargar la orden.')),
+          ),
+        ),
+        data: (order) => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [contenido(order)],
+        ),
+      ),
+    );
+  }
+}
+
+String _hora(DateTime value) {
+  final local = value.toLocal();
+  return '${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
 }

@@ -203,45 +203,69 @@ void main() {
     expect(find.byTooltip('Buscar una orden'), findsOneWidget);
   });
 
-  testWidgets('el Técnico abre la orden y tiene la acción fija abajo', (tester) async {
+  testWidgets('la orden entra por los pasos, no por una torre de secciones', (tester) async {
     await signIn(tester, 'tecnico1@garaj.test');
 
     await tester.tap(find.textContaining('MTZ-').first);
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
-    expect(find.text('MOTIVO DE INGRESO'), findsOneWidget);
-    expect(find.text('DIAGNÓSTICO'), findsOneWidget);
-    expect(find.text('PASOS DE LA REPARACIÓN'), findsOneWidget);
+    // Arriba, el trabajo: en qué va la orden y qué pasos faltan.
+    expect(find.text('PASOS'), findsOneWidget);
 
-    // El Técnico también manda el enlace de seguimiento: muchas veces es él quien entrega el
-    // carro. La factura no: las ventas son del Dueño.
-    expect(find.text('AVISAR AL CLIENTE'), findsOneWidget);
-    expect(find.text('Mandar el enlace'), findsOneWidget);
-    expect(find.text('Mandar la factura'), findsNothing);
+    // Y lo demás son renglones que llevan a su pantalla, con el resumen a la vista. Antes
+    // eran secciones desplegadas y los pasos quedaban a tres pantallas de desplazamiento.
+    expect(find.text('Repuestos'), findsOneWidget);
+    expect(find.text('Fotos'), findsOneWidget);
+    expect(find.text('Diagnóstico'), findsOneWidget);
+    expect(find.text('Línea de tiempo'), findsOneWidget);
+
+    // El diagnóstico ya no es un cuadro de texto siempre abierto en la pantalla principal.
+    expect(find.text('Guardar diagnóstico'), findsNothing);
+    // Ni el interruptor de cómo se cobra la mano de obra, que es un ajuste y está en el menú.
+    expect(find.text('Catálogo'), findsNothing);
 
     // La acción del día está fija abajo, sin desplazar: marcar el paso que sigue o, si ya no
     // queda ninguno, mover el estado. Cuál de las dos depende de por dónde vaya la orden.
     final marcar = find.textContaining('Marcar «').evaluate().isNotEmpty;
     final pasar = find.textContaining('Pasar a ').evaluate().isNotEmpty;
     expect(marcar || pasar, isTrue);
+  });
 
-    // Y ya no hay una sección «Cambiar estado» al final de la torre.
-    expect(find.text('CAMBIAR ESTADO'), findsNothing);
+  testWidgets('el Técnico avisa al cliente y documenta desde la orden', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
 
-    // Lo de más abajo hay que traerlo a la vista: el ListView no construye lo que no se ve.
-    // Y hay que decirle por cuál desplazarse: el cuadro del diagnóstico también es
-    // desplazable, así que el buscador encontraría dos y no sabría por cuál decidirse.
-    final page = find.byType(Scrollable).first;
+    await tester.tap(find.textContaining('MTZ-').first);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('FOTOS DEL PROCESO'), 300, scrollable: page);
-    // Puede documentar y consumir: cámara, galería y catálogo.
-    expect(find.text('Cargar repuesto'), findsOneWidget);
+    // El Técnico también manda el enlace de seguimiento: muchas veces es él quien entrega el
+    // carro. La factura no: las ventas son del Dueño.
+    await tester.tap(find.text('Avisar al cliente'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mandar el enlace'), findsOneWidget);
+    expect(find.text('Mandar la factura'), findsNothing);
+
+    await tester.tapAt(const Offset(200, 60));
+    await tester.pumpAndSettle();
+
+    // Las fotos y los repuestos son su propia pantalla, con la cámara y el catálogo dentro.
+    await tester.ensureVisible(find.text('Fotos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fotos'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Tomar foto'), findsOneWidget);
     expect(find.byTooltip('Elegir de la galería'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300, scrollable: page);
-    expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Repuestos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Repuestos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cargar repuesto'), findsOneWidget);
   });
 
   testWidgets('el Técnico puede detener el trabajo diciendo qué falta', (tester) async {
@@ -311,25 +335,29 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
-    // Ve lo que le hicieron, pero ninguna de las acciones del taller.
-    expect(find.text('REPUESTOS'), findsOneWidget);
-    expect(find.text('Cargar repuesto'), findsNothing);
+    // Ve en qué va y quién tiene su vehículo, que es lo que preguntaría por teléfono.
+    expect(find.text('PASOS'), findsOneWidget);
+    expect(find.textContaining('técnico '), findsOneWidget);
+
+    // Pero ninguna de las acciones del taller.
     expect(find.text('Agregar paso'), findsNothing);
+    expect(find.text('Cargar repuesto'), findsNothing);
+    // Ni el dinero: el total con ISV y el cierre son del Dueño.
+    expect(find.text('TOTAL ESTIMADO'), findsNothing);
+    expect(find.text('Cerrar y facturar'), findsNothing);
     // El enlace de seguimiento lo manda el taller: a él ya le llegó por WhatsApp.
-    expect(find.text('AVISAR AL CLIENTE'), findsNothing);
-    // Ve quién tiene su vehículo, que es lo que preguntaría por teléfono.
-    expect(find.text('TÉCNICO RESPONSABLE'), findsOneWidget);
+    expect(find.text('Avisar al cliente'), findsNothing);
     // Y no tiene barra de acciones: no mueve estados ni marca pasos.
     expect(find.textContaining('Pasar a '), findsNothing);
     expect(find.textContaining('Marcar «'), findsNothing);
 
-    final page = find.byType(Scrollable).first;
-    await tester.scrollUntilVisible(find.text('FOTOS DEL PROCESO'), 300, scrollable: page);
+    // Las fotos son suyas de ver, no de tomar.
+    await tester.ensureVisible(find.text('Fotos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fotos'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Tomar foto'), findsNothing);
-
-    await tester.scrollUntilVisible(find.text('LÍNEA DE TIEMPO'), 300, scrollable: page);
-    expect(find.text('LÍNEA DE TIEMPO'), findsOneWidget);
-    expect(find.text('CAMBIAR ESTADO'), findsNothing);
+    expect(find.text('FOTOS DEL PROCESO'), findsOneWidget);
   });
 
   testWidgets('el Cliente tiene el historial de su vehículo', (tester) async {
@@ -442,15 +470,37 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
-    final page = find.byType(Scrollable).first;
+    // Por cuánto va la orden, sin abrir nada y sin desplazar: antes había que bajar hasta la
+    // tarjeta de cierre para enterarse.
+    expect(find.text('TOTAL ESTIMADO'), findsOneWidget);
 
-    // La parte comercial de la orden, que hasta ahora solo estaba en el web.
-    await tester.scrollUntilVisible(find.text('COTIZACIONES'), 300, scrollable: page);
+    // La parte comercial, que hasta ahora solo estaba en el web, cada una en su renglón. El
+    // ListView no construye lo que no se ve, así que hay que traerlas a la vista.
+    final page = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(find.text('Cotizaciones'), 300, scrollable: page);
+
+    await tester.tap(find.text('Cotizaciones'));
+    await tester.pumpAndSettle();
     expect(find.text('COTIZACIONES'), findsOneWidget);
 
-    // «Cerrar y facturar» mientras no se ha cobrado; «Factura» después. Se comprueba lo
-    // común a los dos: qué de estos dos estados toca depende de por dónde vayan los humos.
-    await tester.scrollUntilVisible(find.textContaining('FACTURA'), 300, scrollable: page);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // «Cerrar y facturar» mientras no se ha cobrado; «Venta» después. Cuál toca depende de
+    // por dónde vayan los humos, así que se prueba lo común a los dos.
+    await tester.scrollUntilVisible(
+      find.text('Línea de tiempo'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final cobro = find.text('Cerrar y facturar').evaluate().isNotEmpty
+        ? 'Cerrar y facturar'
+        : 'Venta';
+
+    await tester.ensureVisible(find.text(cobro));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(cobro));
+    await tester.pumpAndSettle();
     expect(find.textContaining('FACTURA'), findsWidgets);
   });
 
