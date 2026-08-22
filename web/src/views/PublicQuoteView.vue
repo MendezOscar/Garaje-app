@@ -154,6 +154,14 @@ onMounted(load)
       </div>
 
       <!--
+        Pegado al total y no en letra chica al final: el cliente que después pide factura con
+        CAI tiene que ver desde hoy que el impuesto se le suma, no enterarse al pagar.
+      -->
+      <p v-if="quote.taxRate === 0" class="sin-isv">
+        No incluye ISV. Si necesita factura con CAI, se le suma el impuesto.
+      </p>
+
+      <!--
         Las fotos van entre el precio y el botón de aprobar: es donde el cliente se pregunta
         por qué cuesta eso, y donde verlo le contesta sin tener que llamar al taller.
       -->
@@ -434,6 +442,14 @@ th {
   border-top: 1px solid var(--border);
   font-size: 1.125rem;
   font-weight: 600;
+}
+
+.sin-isv {
+  margin: 0.5rem 0 0;
+  margin-left: auto;
+  width: min(18rem, 100%);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
 }
 
 .respond {

@@ -165,6 +165,9 @@ print("\n[facturar]")
 status, sin_cai = venta(fiscal=False)
 check("una venta sin CAI se emite igual que antes", status in (200, 201), str(status))
 check("y no trae número fiscal", sin_cai["fiscalNumber"] is None, str(sin_cai.get("fiscalNumber")))
+# El ISV se traslada al SAR con la factura que lo respalda. Un comprobante sin CAI no es esa
+# factura, así que ahí no hay impuesto que cobrar.
+check("y no le cobra ISV", sin_cai["taxTotal"] == 0, str(sin_cai.get("taxTotal")))
 
 _, despues = api("GET", "/api/tenant/fiscal-ranges", token=owner)
 activo = next(r for r in despues if r["isActive"])
@@ -175,6 +178,7 @@ check("la venta con CAI se emite", status in (200, 201), f"{status} {primera}")
 check("con el primer número del rango", primera["fiscalNumber"] == "000-001-01-00000101",
       str(primera.get("fiscalNumber")))
 check("guarda el CAI", bool(primera["fiscalCai"]), str(primera.get("fiscalCai")))
+check("y esa sí lleva el ISV del taller", primera["taxTotal"] > 0, str(primera.get("taxTotal")))
 check("y el rango autorizado impreso",
       primera["fiscalRangeText"] == "000-001-01-00000101 a 000-001-01-00000102",
       str(primera.get("fiscalRangeText")))

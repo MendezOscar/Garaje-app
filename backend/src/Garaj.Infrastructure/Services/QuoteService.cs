@@ -102,8 +102,6 @@ public class QuoteService(
             ?? throw new NotFoundException("El cliente no existe.");
 
         var branchId = await ResolveBranchAsync(request.BranchId, request.WorkOrderId, ct);
-        var tenant = await CurrentTenantAsync(ct);
-
         var quote = new Quote
         {
             CustomerId = customer.Id,
@@ -115,7 +113,7 @@ public class QuoteService(
             Status = QuoteStatus.Draft,
             ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim(),
-            TaxRate = request.TaxRate ?? tenant.DefaultTaxRate
+            TaxRate = request.TaxRate ?? SinImpuesto
         };
 
         db.Quotes.Add(quote);
@@ -123,6 +121,14 @@ public class QuoteService(
 
         return await GetAsync(quote.Id, ct);
     }
+
+    /// <summary>
+    /// La cotización nace sin ISV. Al cotizar nadie sabe todavía si el cliente va a pedir
+    /// factura con CAI, y el impuesto solo lo lleva esa factura: cargarlo por adelantado
+    /// infla el presupuesto un 15% frente a lo que la mayoría termina pagando. Cuando sí se
+    /// va a facturar, se le pone la tasa a esa cotización (<c>PUT /api/quotes/{id}</c>).
+    /// </summary>
+    private const decimal SinImpuesto = 0m;
 
     public async Task<QuoteDetailDto> CreateFromWorkOrderAsync(
         QuoteFromWorkOrderRequest request, CancellationToken ct = default)
@@ -136,8 +142,6 @@ public class QuoteService(
             .FirstOrDefaultAsync(w => w.Id == request.WorkOrderId, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
 
-        var tenant = await CurrentTenantAsync(ct);
-
         var quote = new Quote
         {
             CustomerId = order.Vehicle.CustomerId,
@@ -149,7 +153,7 @@ public class QuoteService(
             Status = QuoteStatus.Draft,
             ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim() ?? order.Description,
-            TaxRate = tenant.DefaultTaxRate
+            TaxRate = SinImpuesto
         };
 
         db.Quotes.Add(quote);

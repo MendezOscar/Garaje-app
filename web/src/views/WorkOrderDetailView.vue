@@ -176,21 +176,24 @@ const atraso = computed(() => {
   return dias >= 1 ? dias : null
 })
 
-/** El ISV que se le va a aplicar al cerrar. Sale de la ficha del taller. */
+/** El ISV del taller, que solo se cobra si la factura sale con CAI. Sale de la ficha. */
 const tasaImpuesto = ref(0)
 
 /**
  * Lo que se cobraría hoy, con el mismo cálculo que hace el servidor al cerrar: los pasos (o el
- * total escrito a mano) más los repuestos cargados, y el ISV sobre la suma.
+ * total escrito a mano) más los repuestos cargados, y el ISV **solo** si se factura con CAI.
  *
  * Es un estimado a la vista, no una factura: antes había que abrir la tarjeta de cierre para
- * enterarse de por cuánto iba la orden.
+ * enterarse de por cuánto iba la orden. `conIsv` es el otro número —lo que pagaría el cliente
+ * que sí pide factura— para que la decisión no obligue a hacer la cuenta a mano.
  */
 const cobro = computed(() => {
   const labor = order.value?.laborTotal ?? 0
   const parts = order.value?.partsTotal ?? 0
-  const impuesto = Math.round(((labor + parts) * tasaImpuesto.value) / 100 * 100) / 100
-  return { labor, parts, impuesto, total: labor + parts + impuesto }
+  const base = labor + parts
+  const isv = Math.round((base * tasaImpuesto.value) / 100 * 100) / 100
+  const impuesto = conCai.value ? isv : 0
+  return { labor, parts, impuesto, total: base + impuesto, conIsv: base + isv }
 })
 
 /** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
@@ -1037,13 +1040,19 @@ onMounted(async () => {
             <dd class="num">{{ formatMoney(cobro.labor) }}</dd>
             <dt>Repuestos</dt>
             <dd class="num">{{ formatMoney(cobro.parts) }}</dd>
-            <template v-if="tasaImpuesto">
+            <template v-if="tasaImpuesto && conCai">
               <dt>ISV {{ tasaImpuesto }}%</dt>
               <dd class="num">{{ formatMoney(cobro.impuesto) }}</dd>
             </template>
             <dt class="fuerte">Total estimado</dt>
             <dd class="fuerte num grande">{{ formatMoney(cobro.total) }}</dd>
           </dl>
+          <!-- El ISV solo lo lleva la factura con CAI, así que el estimado va sin él. El otro
+               número queda a la vista para no tener que hacer la cuenta a mano cuando el
+               cliente pregunta cuánto le sale con factura. -->
+          <p v-if="tasaImpuesto && !conCai && !sales.length" class="muted small">
+            Sin CAI no lleva ISV. Con factura: {{ formatMoney(cobro.conIsv) }}.
+          </p>
           <p v-if="!sales.length" class="muted small">Todavía no se ha facturado.</p>
           <p v-else class="muted small">
             Ya facturada: {{ sales.map((s) => s.number).join(', ') }}.
@@ -1093,7 +1102,8 @@ onMounted(async () => {
             <input v-model="conCai" type="checkbox" :disabled="!!impedimentoCai" />
             Factura con CAI
             <span v-if="rangoFiscal && !impedimentoCai" class="muted small">
-              · siguiente {{ rangoFiscal.nextFiscalNumber }}
+              · siguiente {{ rangoFiscal.nextFiscalNumber }}<template v-if="tasaImpuesto">
+              · le suma el ISV {{ tasaImpuesto }}%</template>
             </span>
           </label>
           <p v-if="impedimentoCai" class="muted small">{{ impedimentoCai }}</p>
