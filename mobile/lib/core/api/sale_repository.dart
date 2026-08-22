@@ -72,6 +72,85 @@ class Receivable {
       isOverdue && dueDate != null ? DateTime.now().difference(dueDate!).inDays : 0;
 }
 
+/// Un renglón del registro de ventas: lo justo para la lista, sin los abonos.
+///
+/// Es otra cosa que [Receivable], que solo existe para lo que tiene saldo: aquí entran
+/// también las de contado y —si se piden— las anuladas, porque el registro es el histórico
+/// de lo facturado y no la cobranza.
+class SaleListItem {
+  const SaleListItem({
+    required this.id,
+    required this.number,
+    required this.branchName,
+    required this.saleDate,
+    required this.total,
+    required this.balance,
+    required this.isVoided,
+    required this.isOverdue,
+    this.customerName,
+    this.workOrderId,
+    this.workOrderNumber,
+  });
+
+  factory SaleListItem.fromJson(Map<String, dynamic> json) => SaleListItem(
+        id: json['id'] as String,
+        number: json['number'] as String,
+        branchName: json['branchName'] as String,
+        saleDate: DateTime.parse(json['saleDate'] as String),
+        total: (json['total'] as num).toDouble(),
+        balance: (json['balance'] as num?)?.toDouble() ?? 0,
+        isVoided: json['isVoided'] as bool? ?? false,
+        isOverdue: json['isOverdue'] as bool? ?? false,
+        customerName: json['customerName'] as String?,
+        workOrderId: json['workOrderId'] as String?,
+        workOrderNumber: json['workOrderNumber'] as String?,
+      );
+
+  final String id;
+  final String number;
+  final String branchName;
+  final DateTime saleDate;
+  final double total;
+
+  /// Lo que falta por cobrar. Cero en una venta de contado.
+  final double balance;
+
+  final bool isVoided;
+  final bool isOverdue;
+  final String? customerName;
+
+  /// La orden que la originó. Null en una venta de mostrador, que es la distinción que
+  /// interesa al final del mes.
+  final String? workOrderId;
+  final String? workOrderNumber;
+
+  bool get deMostrador => workOrderId == null;
+}
+
+/// Una página del registro, con el total de coincidencias para poder decir cuántas hay.
+class SalesPage {
+  const SalesPage({required this.items, required this.total});
+
+  final List<SaleListItem> items;
+  final int total;
+}
+
+/// Una línea de una venta de mostrador. Solo repuestos: la mano de obra sin vehículo no es
+/// una venta de mostrador, es un trabajo, y ese va por su orden.
+class CounterSaleLine {
+  const CounterSaleLine({
+    required this.partId,
+    required this.quantity,
+    required this.unitPrice,
+    this.discount = 0,
+  });
+
+  final String partId;
+  final double quantity;
+  final double unitPrice;
+  final double discount;
+}
+
 /// Un abono a una venta. Lo cobrado sale de sumarlos, no de un campo aparte.
 class SalePayment {
   const SalePayment({
@@ -290,6 +369,85 @@ class SaleRepository {
     return response.data!['url'] as String;
   }
 
+  /// El registro de ventas: lo facturado en un rango, venga de una orden o del mostrador.
+  ///
+  /// Los límites del día se mandan con el desplazamiento del taller y no en UTC: una venta de
+  /// las seis de la tarde en Honduras es del mismo día, y en UTC ya sería del siguiente.
+  Future<SalesPage> list({
+    DateTime? from,
+    DateTime? to,
+    String? search,
+    String? branchId,
+    bool includeVoided = false,
+    int pageSize = 100,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/sales',
+      queryParameters: {
+        if (from != null) 'from': from.toIso8601String(),
+        if (to != null) 'to': to.toIso8601String(),
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        if (branchId != null) 'branchId': branchId,
+        'includeVoided': includeVoided,
+        'pageSize': pageSize,
+      },
+    );
+
+    return SalesPage(
+      items: (response.data!['items'] as List<dynamic>)
+          .map((e) => SaleListItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      total: response.data!['total'] as int? ?? 0,
+    );
+  }
+
+  /// Venta directa de mostrador: alguien entra, compra un repuesto y se va. Descuenta la
+  /// existencia de la sucursal, que es la diferencia con facturar una orden —esos repuestos
+  /// ya salieron al consumirlos—.
+  Future<Sale> createCounterSale({
+    required String branchId,
+    required PaymentMethod paymentMethod,
+    required List<CounterSaleLine> lines,
+    String? customerId,
+    String? notes,
+    bool fiscal = false,
+    String? customerTaxId,
+    String? customerName,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/sales',
+      data: {
+        'branchId': branchId,
+        'customerId': customerId,
+        'paymentMethod': paymentMethod.value,
+        'notes': notes,
+        'lines': [
+          for (final line in lines)
+            {
+              // 1 es repuesto: lo único que se vende en el mostrador.
+              'lineType': 1,
+              'partId': line.partId,
+              'quantity': line.quantity,
+              'unitPrice': line.unitPrice,
+              'discount': line.discount,
+            },
+        ],
+        'fiscal': fiscal,
+        'customerTaxId': customerTaxId,
+        'customerName': customerName,
+      },
+    );
+
+    return Sale.fromJson(response.data!);
+  }
+
+  /// Anula una venta con su motivo. No borra: conserva el número —el correlativo fiscal no
+  /// vuelve al rango— y devuelve los repuestos a la bodega.
+  Future<void> annul(String saleId, String reason) => _dio.post<Map<String, dynamic>>(
+        '/api/sales/$saleId/void',
+        data: {'reason': reason},
+      );
+
   /// El PDF de la factura. Se baja con la sesión puesta —el endpoint pide `Authorization`,
   /// que el navegador del sistema no manda— y se devuelven los bytes para compartirlos.
   Future<List<int>> invoicePdf(String saleId) async {
@@ -360,5 +518,62 @@ final filteredReceivablesProvider =
         branchId: filter.branchId,
         search: filter.search,
         overdue: filter.overdue,
+      ),
+);
+
+/// Lo que busca y filtra la pantalla de Ventas.
+class SalesFilter {
+  const SalesFilter({
+    required this.from,
+    required this.to,
+    this.search,
+    this.branchId,
+    this.includeVoided = false,
+  });
+
+  final DateTime from;
+  final DateTime to;
+  final String? search;
+  final String? branchId;
+  final bool includeVoided;
+
+  SalesFilter copyWith({
+    DateTime? from,
+    DateTime? to,
+    String? search,
+    String? branchId,
+    bool? includeVoided,
+    bool limpiarSucursal = false,
+  }) =>
+      SalesFilter(
+        from: from ?? this.from,
+        to: to ?? this.to,
+        search: search ?? this.search,
+        branchId: limpiarSucursal ? null : branchId ?? this.branchId,
+        includeVoided: includeVoided ?? this.includeVoided,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is SalesFilter &&
+      other.from == from &&
+      other.to == to &&
+      other.search == search &&
+      other.branchId == branchId &&
+      other.includeVoided == includeVoided;
+
+  @override
+  int get hashCode => Object.hash(from, to, search, branchId, includeVoided);
+}
+
+/// El registro de ventas filtrado. Solo el Dueño: a los demás la API responde 403.
+final salesRegistryProvider =
+    FutureProvider.autoDispose.family<SalesPage, SalesFilter>(
+  (ref, filter) => ref.watch(saleRepositoryProvider).list(
+        from: filter.from,
+        to: filter.to,
+        search: filter.search,
+        branchId: filter.branchId,
+        includeVoided: filter.includeVoided,
       ),
 );

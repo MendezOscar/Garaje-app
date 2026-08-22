@@ -559,6 +559,101 @@ void main() {
     expect(find.text('Kardex'), findsOneWidget);
   });
 
+  testWidgets('el Dueño vende un repuesto y la venta queda en el registro', (tester) async {
+    await signIn(tester, 'owner@garaj.test');
+
+    await openFromMore(tester, 'Ventas');
+
+    expect(find.text('Ventas'), findsWidgets);
+    expect(find.text('Vender repuesto'), findsOneWidget);
+    // El registro es de lo facturado, así que trae también las de contado y las anuladas si
+    // se piden: son filtros, no una lista de cobranza.
+    expect(find.text('Con anuladas'), findsOneWidget);
+
+    await tester.tap(find.text('Vender repuesto'));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buscar el repuesto'), findsOneWidget);
+    // Sin nada en la venta no se puede registrar: el botón está, apagado.
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Registrar la venta'))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.text('Buscar el repuesto'));
+    await tester.pumpAndSettle();
+
+    // Dentro de la hoja, no en la pantalla de atrás: ahí también hay campos de texto y un
+    // SwitchListTile —el de la factura con CAI— que se lleva el primer `ListTile` del árbol.
+    final hoja = find.byType(BottomSheet);
+    await tester.enterText(
+      find.descendant(of: hoja, matching: find.byType(TextField)),
+      'aceite',
+    );
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    // El primer resultado de la bodega de esa sucursal, con su precio.
+    await tester.tap(
+      find.descendant(of: hoja, matching: find.byType(ListTile)).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cantidad'), findsOneWidget);
+    expect(find.text('Agregar otro'), findsOneWidget);
+    // Sin CAI no se cobra ISV, y la pantalla lo dice antes de registrar.
+    expect(
+      find.textContaining('Sin ISV: solo la factura con CAI lo lleva'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Registrar la venta'));
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+
+    // Queda la venta con su número y dicho que el repuesto ya salió de la bodega.
+    expect(find.textContaining('Venta VTA-'), findsOneWidget);
+    expect(
+      find.text('Comprobante de entrega, sin CAI: no lleva ISV.'),
+      findsOneWidget,
+    );
+    expect(find.text('Los repuestos ya salieron de la bodega.'), findsOneWidget);
+
+    // Y se puede anular desde el registro, que es lo que salva un cobro mal digitado: la
+    // prueba lo hace para no dejar una venta inventada en la caja del día.
+    await tester.tap(find.text('Volver a Ventas'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anular'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)),
+      'Prueba de integración',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Anular'));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('anulada'), findsWidgets);
+  });
+
+  testWidgets('el Técnico no entra al registro de ventas', (tester) async {
+    await signIn(tester, 'tecnico1@garaj.test');
+
+    await goTo(tester, 'Más');
+
+    // Las ventas son del negocio: el técnico no las ve ni tiene por dónde llegar.
+    expect(find.text('Ventas'), findsNothing);
+    expect(find.text('Vender repuesto'), findsNothing);
+  });
+
   testWidgets('la campana abre los avisos del usuario', (tester) async {
     await signIn(tester, 'owner@garaj.test');
 

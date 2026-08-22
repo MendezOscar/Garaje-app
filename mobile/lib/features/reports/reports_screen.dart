@@ -264,6 +264,16 @@ class _Report extends StatelessWidget {
                     _Figure(label: 'Ventas', value: '${report.saleCount}'),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _Figure(
+                      label: 'Solo venta de repuestos',
+                      value: '${money(report.counterPartsRevenue, report.currency)}'
+                          ' · ${report.counterSaleCount} de mostrador',
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
