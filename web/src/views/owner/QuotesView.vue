@@ -299,6 +299,11 @@ onMounted(async () => {
           <div class="grand"><span>Total</span><span>{{ formatMoney(selected.total) }}</span></div>
         </div>
 
+        <!-- Que se vea también de este lado: es lo que el cliente está leyendo. -->
+        <p v-if="selected.taxRate === 0" class="sin-isv muted small">
+          Sin ISV. El impuesto se suma solo si la factura sale con CAI.
+        </p>
+
         <form v-if="selected.isEditable" class="add" @submit.prevent="addLine">
           <div class="row gap">
             <select v-model.number="newLine.lineType" @change="newLine.catalogId = ''">
@@ -540,6 +545,12 @@ td {
   border-top: 1px solid var(--border);
   font-size: 1rem;
   font-weight: 600;
+}
+
+.sin-isv {
+  margin: 0.375rem 0 0;
+  margin-left: auto;
+  width: min(16rem, 100%);
 }
 
 .add {

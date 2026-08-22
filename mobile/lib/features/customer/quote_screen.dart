@@ -195,11 +195,16 @@ class _QuoteScreenState extends ConsumerState<QuoteScreen> {
                       ].join(' · '),
                       style: theme.textTheme.bodySmall,
                     ),
-                    if (q.taxTotal > 0)
-                      Text(
-                        'Incluye ${money(q.taxTotal, q.currency)} de impuesto.',
-                        style: theme.textTheme.bodySmall,
-                      ),
+                    // Debajo del total y no en letra chica al final: el cliente que después
+                    // pide factura con CAI tiene que ver desde hoy que el impuesto se le
+                    // suma, y no enterarse cuando va a pagar.
+                    Text(
+                      q.taxTotal > 0
+                          ? 'Incluye ${money(q.taxTotal, q.currency)} de impuesto.'
+                          : 'No incluye ISV. Si necesita factura con CAI, se le suma '
+                              'el impuesto.',
+                      style: theme.textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),

@@ -857,7 +857,9 @@ public class DemoSeeder(
                 < 9 => PaymentMethod.Card,
                 _ => PaymentMethod.Transfer
             },
-            TaxRate = world.Tenant.DefaultTaxRate,
+            // Sin CAI no hay ISV, igual que en el sistema de verdad: estas ventas de la
+            // demostración son comprobantes de entrega, no facturas fiscales.
+            TaxRate = 0m,
             CreatedAt = when,
             CreatedByUserId = world.Staff.Owner.Id
         };

@@ -1776,7 +1776,10 @@ class _TotalCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final tasa = ref.watch(taxRateProvider).value ?? 0;
     final base = order.laborTotal + order.partsTotal;
-    final impuesto = base * tasa / 100;
+    // El ISV solo lo lleva la factura con CAI, así que el estimado va sin él y el otro número
+    // queda abajo: es la pregunta del mostrador —«¿y con factura?»— y hacerla a mano con el
+    // cliente enfrente es donde se equivoca uno.
+    final conFactura = base + base * tasa / 100;
 
     final cotizaciones = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
     final ultima = cotizaciones.isEmpty ? null : cotizaciones.first;
@@ -1805,16 +1808,23 @@ class _TotalCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _money(base + impuesto),
+                  _money(base),
                   style: theme.textTheme.titleLarge?.merge(monoStyle),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Trabajo ${_money(order.laborTotal)} · '
-                  'Repuestos ${_money(order.partsTotal)}'
-                  '${tasa > 0 ? ' · ISV ${tasa.toStringAsFixed(0)}%' : ''}',
+                  'Repuestos ${_money(order.partsTotal)}',
                   style: theme.textTheme.bodySmall,
                 ),
+                if (tasa > 0)
+                  Text(
+                    'Con factura CAI ${_money(conFactura)} '
+                    '(ISV ${tasa.toStringAsFixed(0)}%)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
               ],
             ),
           ),

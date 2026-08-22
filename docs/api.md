@@ -455,6 +455,10 @@ Decisiones que conviene conocer:
   puede emitir sin CAI mientras consigue el nuevo.
 - **`fiscal` es falso por defecto** porque cada factura fiscal quema un número, y en un taller
   la mayoría de los clientes no la pide.
+- **El ISV lo lleva solo la factura con CAI.** Con `fiscal: false` la venta se guarda con
+  `taxRate` en cero, aunque el taller tenga ISV en su ficha y aunque se mande `taxRate` en el
+  cuerpo. El impuesto se traslada al SAR con la factura que lo respalda: sin CAI no hay esa
+  factura, y cobrarlo igual sería cobrarle al cliente un impuesto que nadie va a declarar.
 - El RTN sale del que se mande, y si no del de la ficha del cliente; sin ninguno, la factura
   va a **consumidor final**.
 - **A nombre de quién sale** es lo mismo: `customerName` manda, y si va vacío se usa el

@@ -158,7 +158,7 @@ public class SaleService(
             Number = await NextNumberAsync(request.BranchId, ct),
             SaleDate = request.SaleDate ?? clock.UtcNow,
             PaymentMethod = request.PaymentMethod,
-            TaxRate = request.TaxRate ?? tenant.DefaultTaxRate,
+            TaxRate = TaxRateFor(request.Fiscal, request.TaxRate, tenant),
             DueDate = request.DueDate,
             Notes = Truncate(request.Notes, 2000)
         };
@@ -211,7 +211,7 @@ public class SaleService(
             Number = await NextNumberAsync(order.BranchId, ct),
             SaleDate = clock.UtcNow,
             PaymentMethod = request.PaymentMethod,
-            TaxRate = request.TaxRate ?? tenant.DefaultTaxRate,
+            TaxRate = TaxRateFor(request.Fiscal, request.TaxRate, tenant),
             DueDate = request.DueDate,
             Notes = Truncate(request.Notes, 2000)
         };
@@ -766,6 +766,17 @@ public class SaleService(
         given?.Trim() is { Length: > 0 } text
             ? text[..Math.Min(text.Length, 500)]
             : fromCatalog ?? throw new AppException("La línea necesita una descripción.");
+
+    /// <summary>
+    /// El ISV que lleva la venta: el del taller cuando se factura con CAI, y cero cuando no.
+    /// </summary>
+    /// <remarks>
+    /// El impuesto se traslada al SAR con la factura que lo respalda. Un comprobante sin CAI
+    /// no es esa factura, así que cobrar ISV ahí sería cobrarle al cliente un impuesto que
+    /// nadie va a declarar. Por eso la tasa pedida tampoco manda: sin CAI no hay impuesto.
+    /// </remarks>
+    private static decimal TaxRateFor(bool fiscal, decimal? requested, Tenant tenant) =>
+        fiscal ? requested ?? tenant.DefaultTaxRate : 0m;
 
     /// <summary>
     /// Los importes se calculan aquí y nunca se aceptan del cliente: es lo que se cobra y lo

@@ -407,7 +407,7 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
   }
 }
 
-class _CloseCard extends StatelessWidget {
+class _CloseCard extends ConsumerWidget {
   const _CloseCard({
     required this.order,
     required this.quotes,
@@ -476,9 +476,14 @@ class _CloseCard extends StatelessWidget {
       };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final total = order.partsTotal + _labor;
+    final tasa = ref.watch(taxRateProvider).value ?? 0;
+    final base = order.partsTotal + _labor;
+    // El ISV solo entra si la factura sale con CAI: sin rango autorizado no hay factura que
+    // respalde ese impuesto, y cobrarlo igual sería cobrar algo que nadie va a declarar.
+    final impuesto = fiscal ? base * tasa / 100 : 0.0;
+    final total = base + impuesto;
 
     return _Section(
       title: 'Cerrar y facturar',
@@ -495,13 +500,18 @@ class _CloseCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text('Total ${_money(total, 'L')}', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text(
-                'Sin impuesto; el ISV lo calcula la factura.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (tasa > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  fiscal
+                      ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% '
+                          '(${_money(impuesto, 'L')}).'
+                      : 'Sin ISV: solo la factura con CAI lo lleva.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 12),
               Text('MANO DE OBRA', style: _labelStyle(theme)),
@@ -546,7 +556,9 @@ class _CloseCard extends StatelessWidget {
                 title: const Text('Factura con CAI'),
                 subtitle: Text(
                   _impedimento ??
-                      'Consume el número ${fiscalRange!.nextFiscalNumber} del rango autorizado.',
+                      'Consume el número ${fiscalRange!.nextFiscalNumber} del rango '
+                          'autorizado${tasa > 0 ? ' y le suma el ISV '
+                              '${tasa.toStringAsFixed(0)}%' : ''}.',
                 ),
               ),
 
