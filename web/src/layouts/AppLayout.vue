@@ -35,6 +35,7 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
               { to: { name: 'home' }, label: 'Inicio' },
               { to: { name: 'work-orders' }, label: 'Órdenes' },
               { to: { name: 'receive-vehicle' }, label: 'Recibir vehículo' },
+              { to: { name: 'counter-sale' }, label: 'Vender repuesto' },
               { to: { name: 'service-requests' }, label: 'Requerimientos' },
               { to: { name: 'service-reminders' }, label: 'Recordatorios' },
             ],

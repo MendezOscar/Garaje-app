@@ -746,6 +746,12 @@ export const salesApi = {
       unitPrice?: number
       discount?: number
     }[]
+    /** Consume un número del rango autorizado por el SAR. Sin CAI la venta no lleva ISV. */
+    fiscal?: boolean
+    /** RTN para esta factura. Vacío = el de la ficha del cliente. */
+    customerTaxId?: string
+    /** A nombre de quién sale. Vacío = el de la ficha, o el nombre del cliente. */
+    customerName?: string
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales', body)
     return data
