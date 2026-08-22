@@ -769,6 +769,9 @@ export interface RevenueReport {
   margin: number
   marginPercent: number
   saleCount: number
+  /** Repuestos vendidos en mostrador, sin pasar por una orden de trabajo. */
+  counterPartsRevenue: number
+  counterSaleCount: number
   points: RevenuePoint[]
   branches: {
     branchId: string

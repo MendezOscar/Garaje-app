@@ -44,6 +44,7 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
             title: 'Dinero',
             items: [
               { to: { name: 'quotes' }, label: 'Cotizaciones' },
+              { to: { name: 'sales' }, label: 'Ventas' },
               { to: { name: 'receivables' }, label: 'Por cobrar' },
               // Se abre todos los días al cerrar, así que va en el menú y no dentro de Reportes.
               { to: { name: 'cash-close' }, label: 'Caja' },

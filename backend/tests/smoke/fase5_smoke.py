@@ -123,8 +123,10 @@ check("factura la mano de obra del paso",
 expected_subtotal = sum(l["quantity"] * l["unitPrice"] for l in sale["lines"])
 check("el subtotal suma las líneas", abs(sale["subtotal"] - expected_subtotal) < 0.01,
       f"{sale['subtotal']} vs {expected_subtotal}")
-check("el total incluye el ISV",
+check("el total cuadra con las líneas",
       abs(sale["total"] - (sale["subtotal"] - sale["discountTotal"] + sale["taxTotal"])) < 0.02)
+# Se cerró sin CAI, así que no lleva ISV: el impuesto solo lo cobra la factura fiscal.
+check("y sin CAI no lleva ISV", sale["taxTotal"] == 0, str(sale.get("taxTotal")))
 check("el margen descuenta el costo",
       abs(sale["margin"] - (sale["total"] - sale["costTotal"])) < 0.01,
       f"{sale.get('margin')} vs {sale['total']} - {sale['costTotal']}")

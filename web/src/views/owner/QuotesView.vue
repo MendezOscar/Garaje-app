@@ -301,7 +301,7 @@ onMounted(async () => {
 
         <!-- Que se vea también de este lado: es lo que el cliente está leyendo. -->
         <p v-if="selected.taxRate === 0" class="sin-isv muted small">
-          Sin ISV. El impuesto se suma solo si la factura sale con CAI.
+          No incluye ISV.
         </p>
 
         <form v-if="selected.isEditable" class="add" @submit.prevent="addLine">

@@ -210,6 +210,14 @@ onMounted(async () => {
             <span>Repuestos</span>
             <strong>{{ formatMoney(report.partsRevenue) }}</strong>
           </div>
+          <!-- Cuánto de esos repuestos se vendió sin trabajo de por medio. En el total de
+               repuestos no se distingue del que se le montó a un vehículo, y es otra pregunta:
+               qué deja el mostrador por sí solo. -->
+          <div>
+            <span>Solo venta</span>
+            <strong>{{ formatMoney(report.counterPartsRevenue) }}</strong>
+            <small class="muted">{{ report.counterSaleCount }} venta(s) de mostrador</small>
+          </div>
           <div>
             <span>Mano de obra</span>
             <strong>{{ formatMoney(report.laborRevenue) }}</strong>

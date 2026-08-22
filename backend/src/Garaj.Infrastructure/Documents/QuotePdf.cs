@@ -176,11 +176,10 @@ public static class QuotePdf
                             .Text(Money(quote.Total, quote.Currency)).Bold().FontSize(13);
                     });
 
-                // Sin ISV y dicho aquí, pegado al total: el cliente que después pide factura
-                // con CAI ve que el impuesto se le suma, y no que el taller le subió el precio.
+                // Dicho aquí, pegado al total, y no en letra chica al final: es donde el
+                // cliente mira el precio y donde no se puede alegar que no lo vio.
                 if (quote.TaxRate == 0)
-                    totals.Item().PaddingTop(4).Text(
-                            "No incluye ISV. Si necesita factura con CAI, se le suma el impuesto.")
+                    totals.Item().PaddingTop(4).Text("No incluye ISV.")
                         .FontSize(8).FontColor(Colors.Grey.Darken2);
             });
 

@@ -265,6 +265,10 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 | POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
 | GET | `/api/sales/{id}/pdf` | Owner o Cliente | La factura en PDF |
 | GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=&technicianId=` | Owner | Ingresos, con reparto por sucursal y por técnico |
+
+`revenue` trae aparte `counterPartsRevenue` y `counterSaleCount`: los repuestos vendidos en
+**mostrador**, sin orden de trabajo de por medio. En `partsRevenue` no se distinguen de los que
+se le montaron a un vehículo, y son otra pregunta —qué deja solo vender—.
 | GET | `/api/reports/revenue.csv?…` | Owner | Lo mismo, para Excel |
 | GET | `/api/reports/dashboard?branchId=` | Owner | Tablero del día |
 

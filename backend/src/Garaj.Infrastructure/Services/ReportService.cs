@@ -56,6 +56,7 @@ public class ReportService(
                         sale.Id,
                         sale.SaleDate,
                         sale.BranchId,
+                        sale.WorkOrderId,
                         TechnicianId = order == null ? null : order.AssignedTechnicianId,
                         line.LineType,
                         line.Total,
@@ -145,6 +146,13 @@ public class ReportService(
 
         var partsRevenue = rows.Where(r => r.LineType == LineType.Part).Sum(r => r.Total);
         var laborRevenue = rows.Where(r => r.LineType == LineType.Labor).Sum(r => r.Total);
+
+        // Sin orden de trabajo es una venta de mostrador: alguien entró, compró un repuesto
+        // y se fue. Es la pregunta de «cuánto deja solo vender», que en el total de repuestos
+        // no se distingue de los que se le montaron a un vehículo.
+        var counter = rows.Where(r => r.WorkOrderId == null).ToList();
+        var counterPartsRevenue = counter.Where(r => r.LineType == LineType.Part).Sum(r => r.Total);
+        var counterSaleCount = counter.Select(r => r.Id).Distinct().Count();
         var total = partsRevenue + laborRevenue;
         var cost = rows.Sum(r => r.Quantity * r.UnitCost);
 
@@ -160,6 +168,8 @@ public class ReportService(
             total - cost,
             total == 0 ? 0 : Math.Round((total - cost) / total * 100m, 1),
             rows.Select(r => r.Id).Distinct().Count(),
+            counterPartsRevenue,
+            counterSaleCount,
             points,
             branches,
             technicians,
@@ -305,6 +315,16 @@ public class ReportService(
         }
 
         csv.AppendLine();
+        csv.AppendLine(string.Join(';', [
+            "Solo venta de repuestos",
+            Number(report.CounterPartsRevenue),
+            Number(0),
+            Number(report.CounterPartsRevenue),
+            "",
+            "",
+            report.CounterSaleCount.ToString(Culture)
+        ]));
+
         csv.AppendLine(string.Join(';', [
             "TOTAL",
             Number(report.PartsRevenue),

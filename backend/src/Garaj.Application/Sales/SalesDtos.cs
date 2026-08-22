@@ -226,6 +226,11 @@ public record RevenueReportDto(
     // Margen sobre el total, en porcentaje. 0 si no hubo ventas.
     decimal MarginPercent,
     int SaleCount,
+    // Lo vendido en mostrador: repuestos que salieron sin pasar por una orden de trabajo.
+    // Va aparte porque responde a otra pregunta —cuánto deja el negocio de solo vender— y
+    // en el total se mezcla con los repuestos que se le pusieron a un vehículo.
+    decimal CounterPartsRevenue,
+    int CounterSaleCount,
     IReadOnlyList<RevenuePointDto> Points,
     IReadOnlyList<BranchRevenueDto> Branches,
     IReadOnlyList<TechnicianRevenueDto> Technicians,
