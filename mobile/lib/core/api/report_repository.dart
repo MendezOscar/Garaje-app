@@ -107,6 +107,8 @@ class RevenueReport {
     required this.margin,
     required this.marginPercent,
     required this.saleCount,
+    required this.counterPartsRevenue,
+    required this.counterSaleCount,
     required this.points,
     required this.branches,
     required this.technicians,
@@ -121,6 +123,8 @@ class RevenueReport {
         margin: (json['margin'] as num).toDouble(),
         marginPercent: (json['marginPercent'] as num).toDouble(),
         saleCount: json['saleCount'] as int,
+        counterPartsRevenue: (json['counterPartsRevenue'] as num?)?.toDouble() ?? 0,
+        counterSaleCount: json['counterSaleCount'] as int? ?? 0,
         points: ((json['points'] as List<dynamic>?) ?? [])
             .map((e) => RevenuePoint.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -142,6 +146,12 @@ class RevenueReport {
   final double margin;
   final double marginPercent;
   final int saleCount;
+
+  /// Repuestos vendidos en mostrador, sin orden de trabajo de por medio, y en cuántas ventas.
+  /// En [partsRevenue] no se distinguen de los que se le montaron a un vehículo, y es otra
+  /// pregunta: si el mostrador se sostiene solo.
+  final double counterPartsRevenue;
+  final int counterSaleCount;
   final List<RevenuePoint> points;
   final List<RevenueSlice> branches;
   final List<RevenueSlice> technicians;

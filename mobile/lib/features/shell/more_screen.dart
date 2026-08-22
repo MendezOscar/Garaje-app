@@ -98,6 +98,12 @@ class MoreScreen extends ConsumerWidget {
                           : money(d.receivables, d.currency),
                   route: '/por-cobrar',
                 ),
+                _Row(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Ventas',
+                  foot: 'lo facturado, y vender un repuesto',
+                  route: '/ventas',
+                ),
                 _Row(icon: Icons.insights_outlined, label: 'Reportes', route: '/reportes'),
               ],
             ),

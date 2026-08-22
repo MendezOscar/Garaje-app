@@ -19,6 +19,27 @@ const MENSAJE = encodeURIComponent(
 const whatsapp = `https://wa.me/${WHATSAPP}?text=${MENSAJE}`
 const correo = `mailto:${CORREO}?subject=${encodeURIComponent('GarajApp para mi taller')}`
 
+/**
+ * Talleres que ya trabajan con GarajApp. Es la parte de la página que no se puede escribir:
+ * un dueño de taller no le cree a la lista de funciones, le cree al taller de al lado.
+ *
+ * `fondo` va por logo y no por diseño: el de RVM es negro sobre blanco y el de El Ártico
+ * viene con su fondo oscuro incrustado, así que cada uno se pinta sobre el suyo o uno de los
+ * dos desaparece.
+ */
+const talleres = [
+  {
+    nombre: 'Motorepuestos y Taller RVM',
+    logo: '/talleres/rvm.png',
+    fondo: 'claro',
+  },
+  {
+    nombre: 'Frío Automotriz El Ártico',
+    logo: '/talleres/artico.png',
+    fondo: 'oscuro',
+  },
+]
+
 /** Lo que el dueño ya vive. Nombrarlo es la mitad de la venta. */
 const problemas = [
   {
@@ -95,10 +116,24 @@ const incluye = [
       'que falta por cobrar, con lo vencido aparte.',
   },
   {
+    titulo: 'Vende repuestos sin recibir el vehículo',
+    texto:
+      'La venta de mostrador: alguien entra por un filtro y se va. Sale de la bodega de esa ' +
+      'sucursal y entra a la caja del día, con cliente o sin él.',
+  },
+  {
+    titulo: 'El registro de ventas',
+    texto:
+      'Todo lo facturado, factura por factura, diciendo si salió de una orden o del ' +
+      'mostrador. Con su comprobante para volver a mandarlo, y anulación con motivo cuando ' +
+      'algo se digitó mal —el número no se reutiliza y los repuestos regresan—.',
+  },
+  {
     titulo: 'Factura con CAI',
     texto:
       'Registra el CAI de cada sucursal y la factura sale con número autorizado, rango, fecha ' +
-      'límite, RTN del cliente y valor en letras. Le avisa cuando el rango se está acabando.',
+      'límite, RTN del cliente y valor en letras. El ISV lo lleva solo la factura con CAI, ' +
+      'como manda el régimen. Le avisa cuando el rango se está acabando.',
   },
   {
     titulo: 'Reportes del día',
@@ -149,6 +184,28 @@ const incluye = [
           height="848"
           alt="La bandeja del taller en el teléfono, con los ingresos del día y las órdenes abiertas"
         />
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------------ quiénes la usan -->
+    <!--
+      Va pegado a la portada: es lo primero que pregunta un dueño de taller —«¿quién más la
+      usa?»— y ninguna lista de funciones le contesta eso.
+    -->
+    <section class="seccion talleres-seccion">
+      <h2>Talleres que ya trabajan con GarajApp</h2>
+      <div class="talleres">
+        <figure v-for="taller in talleres" :key="taller.nombre" class="taller">
+          <div class="marco" :class="taller.fondo">
+            <img
+              :src="taller.logo"
+              :alt="`Logo de ${taller.nombre}`"
+              loading="lazy"
+              @error="($event.target as HTMLImageElement).style.display = 'none'"
+            />
+          </div>
+          <figcaption>{{ taller.nombre }}</figcaption>
+        </figure>
       </div>
     </section>
 
@@ -513,6 +570,65 @@ h1 {
   margin: 0;
   color: var(--text-muted);
   line-height: 1.55;
+}
+
+/* ------------------------------------------------------- talleres que ya la usan */
+
+/* Menos aire que una sección normal: es una franja de confianza, no un capítulo. */
+.talleres-seccion {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.talleres {
+  width: var(--ancho);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem;
+  justify-items: center;
+}
+
+.taller {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: 18rem;
+}
+
+/* Cada logo sobre el fondo que le corresponde: uno es negro sobre blanco y el otro trae el
+   suyo oscuro incrustado, así que un fondo común borraría a uno de los dos. */
+.marco {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 7.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.marco.claro {
+  background: #ffffff;
+}
+
+.marco.oscuro {
+  background: #0d1117;
+}
+
+.marco img {
+  max-width: 100%;
+  max-height: 6.5rem;
+  object-fit: contain;
+}
+
+.taller figcaption {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  text-align: center;
 }
 
 /* ------------------------------------------------------------------ pasos */

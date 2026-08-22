@@ -11,6 +11,8 @@ import '../../features/reminders/service_reminders_screen.dart';
 import '../../features/reports/cash_close_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/receivables/receivables_screen.dart';
+import '../../features/sales/counter_sale_screen.dart';
+import '../../features/sales/sales_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
@@ -69,6 +71,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
       GoRoute(path: '/recordatorios', builder: (_, __) => const ServiceRemindersScreen()),
       GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
+      // El registro de ventas y la venta de mostrador. Pasa con el cliente enfrente, que es
+      // donde está el teléfono y no la computadora.
+      GoRoute(path: '/ventas', builder: (_, __) => const SalesScreen()),
+      GoRoute(path: '/mostrador', builder: (_, __) => const CounterSaleScreen()),
       GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
       GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
       GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
@@ -114,6 +120,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/caja' ||
           location == '/recordatorios' ||
           location == '/por-cobrar' ||
+          location == '/ventas' ||
+          location == '/mostrador' ||
           location == '/usuarios' ||
           location == '/clientes') {
         return (auth as AuthSignedIn).user.role == AppRole.owner
