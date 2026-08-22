@@ -73,6 +73,15 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // Vender un repuesto sin recibir el vehículo: la venta de mostrador. Antes había que
+        // abrirle una orden a una moto que nunca entró, o no registrarla —y entonces el
+        // repuesto salía de la bodega sin que la caja lo supiera—.
+        path: 'mostrador',
+        name: 'counter-sale',
+        component: () => import('@/views/owner/CounterSaleView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         path: 'ordenes',
         name: 'work-orders',
         component: () => import('@/views/owner/WorkOrderBoardView.vue'),
