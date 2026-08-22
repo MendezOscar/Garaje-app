@@ -532,10 +532,10 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
               ],
             ),
 
-            // Lo mismo que está leyendo el cliente en su copia: sin CAI no hay ISV.
+            // Lo mismo que está leyendo el cliente en su copia.
             if (quote.taxRate == 0)
               Text(
-                'Sin ISV. El impuesto se suma solo si la factura sale con CAI.',
+                'No incluye ISV.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

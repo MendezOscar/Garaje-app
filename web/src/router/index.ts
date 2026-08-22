@@ -157,6 +157,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // El registro de ventas: lo facturado, factura por factura. Una venta de mostrador no
+        // tiene orden donde verse, y Caja es lo cobrado de un día, no lo facturado.
+        path: 'ventas',
+        name: 'sales',
+        component: () => import('@/views/owner/SalesView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         path: 'cotizaciones',
         name: 'quotes',
         component: () => import('@/views/owner/QuotesView.vue'),

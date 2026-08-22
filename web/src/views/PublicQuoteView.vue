@@ -158,7 +158,7 @@ onMounted(load)
         CAI tiene que ver desde hoy que el impuesto se le suma, no enterarse al pagar.
       -->
       <p v-if="quote.taxRate === 0" class="sin-isv">
-        No incluye ISV. Si necesita factura con CAI, se le suma el impuesto.
+        No incluye ISV.
       </p>
 
       <!--

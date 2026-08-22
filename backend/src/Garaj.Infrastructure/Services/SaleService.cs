@@ -44,8 +44,20 @@ public class SaleService(
                              && s.Total > (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0));
         if (query.CustomerId is { } customerId) q = q.Where(s => s.CustomerId == customerId);
         if (query.WorkOrderId is { } workOrderId) q = q.Where(s => s.WorkOrderId == workOrderId);
-        if (query.From is { } from) q = q.Where(s => s.SaleDate >= from);
-        if (query.To is { } to) q = q.Where(s => s.SaleDate <= to);
+        // Npgsql solo escribe `timestamptz` en UTC. Una fecha con el desplazamiento del taller
+        // —o sin ninguno, que el servidor interpreta en el suyo— hacía estallar la consulta:
+        // se normaliza aquí, que es el único punto donde toca la base.
+        if (query.From is { } from)
+        {
+            var utcFrom = from.ToUniversalTime();
+            q = q.Where(s => s.SaleDate >= utcFrom);
+        }
+
+        if (query.To is { } to)
+        {
+            var utcTo = to.ToUniversalTime();
+            q = q.Where(s => s.SaleDate <= utcTo);
+        }
 
         if (query.BranchId is { } branchId)
         {
