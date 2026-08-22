@@ -30,12 +30,12 @@ const correo = `mailto:${CORREO}?subject=${encodeURIComponent('GarajApp para mi 
 const talleres = [
   {
     nombre: 'Motorepuestos y Taller RVM',
-    logo: '/talleres/rvm.png',
+    logo: '/talleres/rvm.jpg',
     fondo: 'claro',
   },
   {
     nombre: 'Frío Automotriz El Ártico',
-    logo: '/talleres/artico.png',
+    logo: '/talleres/artico.jpg',
     fondo: 'oscuro',
   },
 ]
@@ -595,7 +595,8 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.625rem;
-  max-width: 18rem;
+  width: 100%;
+  max-width: 16rem;
 }
 
 /* Cada logo sobre el fondo que le corresponde: uno es negro sobre blanco y el otro trae el
@@ -605,7 +606,7 @@ h1 {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 7.5rem;
+  min-height: 8rem;
   padding: 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -621,7 +622,7 @@ h1 {
 
 .marco img {
   max-width: 100%;
-  max-height: 6.5rem;
+  max-height: 6rem;
   object-fit: contain;
 }
 
