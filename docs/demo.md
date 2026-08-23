@@ -87,6 +87,11 @@ se crea con `provision-tenant` (ver [deployment.md](deployment.md)).
   solo día y el reporte no mostraría nada.
 - **El día en curso va a medias**, con las entregas de la mañana: si no, la tarjeta de "hoy"
   del tablero abre en cero, que es justo lo que no se quiere enseñar.
+- **Los domingos el taller no abre**, menos el día en curso: si la presentación cae domingo,
+  «Hoy» tiene que enseñar algo igual.
+- **Cada día se venden de cero a tres repuestos de mostrador**, sin orden de trabajo detrás y
+  sin ISV —el ISV solo lo lleva la factura con CAI—. Sin ellos el dato de «solo venta» del
+  reporte de ingresos aparecía en cero, que es como decir que no existe.
 - **Hay compras de reposición cada diez días.** Sin ellas, seis semanas de consumo dejan media
   bodega bajo mínimo y la alerta deja de significar algo. Al final quedan dos repuestos bajo
   el umbral, que es lo que hace creíble la advertencia.
