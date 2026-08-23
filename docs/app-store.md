@@ -94,11 +94,6 @@ Primera versión.
 En [`app-store/capturas-6.9/`](app-store/capturas-6.9/), tomadas del simulador de iPhone 16 Pro
 Max con la base de demostración (`docs/demo.md`), que es la que se ve vivida.
 
-> **Hay que rehacer dos.** `1-bandeja.png` es de cuando el Dueño entraba a la bandeja con los
-> ingresos encima; ahora entra a **Hoy** y la barra de abajo tiene cuatro destinos.
-> `2-orden.png` es de cuando la orden era una torre de doce secciones; ahora entra por los pasos
-> y el resto son renglones. Las otras tres siguen valiendo.
-
 | # | Pantalla | Por qué esa |
 | --- | --- | --- |
 | 1 | Hoy | Lo primero que abre el taller: lo cobrado, lo que urge y el patio |
@@ -121,7 +116,9 @@ xcrun simctl io booted screenshot captura.png
 
 > El diálogo de permiso de notificaciones se planta encima y sale en la captura. En el recorrido
 > se anula reemplazando `pushMessagingProvider`; y si quedó uno pendiente de una corrida
-> anterior, hay que borrar el simulador (`xcrun simctl erase`) antes de repetir.
+> anterior sigue ahí aunque se cierre la app —hasta se queda sobre el escritorio del simulador—,
+> así que antes de repetir hay que quitar la app:
+> `xcrun simctl uninstall <simulador> com.garaj.garajApp`.
 
 ## Información para el revisor
 

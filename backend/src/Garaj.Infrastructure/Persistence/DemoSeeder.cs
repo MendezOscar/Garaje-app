@@ -102,9 +102,11 @@ public class DemoSeeder(
     // ------------------------------------------------------------------ borrado
 
     /// <summary>
-    /// Vacía la base en orden de dependencia. Las fotos que ya estén en el bucket quedan
-    /// huérfanas: borrarlas exigiría recorrer el almacenamiento y no vale la pena en una
-    /// base de demostración, donde de todos modos se van a pisar.
+    /// Vacía la base entera, hijos antes que padres: el orden es el que exigen las llaves
+    /// foráneas y no es decorativo —al agregar una tabla nueva hay que agregarla aquí, o la
+    /// siembra estalla en cuanto alguien haya usado esa parte del sistema—. Las fotos que ya
+    /// estén en el bucket quedan huérfanas: borrarlas exigiría recorrer el almacenamiento y no
+    /// vale la pena en una base de demostración, donde de todos modos se van a pisar.
     /// </summary>
     private async Task WipeAsync(CancellationToken ct)
     {
@@ -125,12 +127,17 @@ public class DemoSeeder(
         await db.WorkOrders.ExecuteDeleteAsync(ct);
         await db.Vehicles.ExecuteDeleteAsync(ct);
         await db.Customers.ExecuteDeleteAsync(ct);
+        await db.JobTemplateParts.ExecuteDeleteAsync(ct);
+        await db.JobTemplateTasks.ExecuteDeleteAsync(ct);
+        await db.JobTemplates.ExecuteDeleteAsync(ct);
         await db.Parts.ExecuteDeleteAsync(ct);
         await db.LaborServices.ExecuteDeleteAsync(ct);
         await db.RefreshTokens.ExecuteDeleteAsync(ct);
         await db.UserBranches.ExecuteDeleteAsync(ct);
         await db.Users.ExecuteDeleteAsync(ct);
+        await db.FiscalRanges.ExecuteDeleteAsync(ct);
         await db.Branches.ExecuteDeleteAsync(ct);
+        await db.SubscriptionPayments.ExecuteDeleteAsync(ct);
         await db.Tenants.ExecuteDeleteAsync(ct);
     }
 
@@ -521,6 +528,9 @@ public class DemoSeeder(
     /// <summary>
     /// Recorre el calendario día por día. El sábado se trabaja medio día y el domingo el
     /// taller cierra: sin esa forma, la gráfica de ingresos sale plana y no se parece a nada.
+    ///
+    /// El día en curso siempre trabaja, aunque caiga domingo: la demostración se abre el día
+    /// que se abre, y enseñarla con todo en cero no le sirve a nadie.
     /// </summary>
     private async Task<int> SeedHistoryAsync(
         World world, DateTimeOffset start, DateTimeOffset today, CancellationToken ct)
@@ -532,7 +542,7 @@ public class DemoSeeder(
         {
             var local = day.ToOffset(LocalOffset);
 
-            if (local.DayOfWeek == DayOfWeek.Sunday) continue;
+            if (local.DayOfWeek == DayOfWeek.Sunday && day.Date != today.Date) continue;
 
             // Una moto entra y sale el mismo día casi siempre, así que el volumen diario es
             // bastante mayor que el de un taller de autos.
@@ -546,6 +556,12 @@ public class DemoSeeder(
             {
                 if (CloseOneJob(world, local, i)) closed++;
             }
+
+            // Y las ventas de mostrador: gente que entra por un filtro o un litro de aceite y
+            // se va sin dejar la moto. En un taller de barrio son pan de cada día, y sin ellas
+            // la cifra de «solo venta» del reporte sale en cero y parece que la función no
+            // sirve para nada.
+            for (var i = 0; i < _rnd.Next(0, 4); i++) SellOverTheCounter(world, local, i);
 
             // Compra de reposición cada diez días, como haría cualquier taller. Sin ella, seis
             // semanas de consumo dejan media bodega bajo mínimo y la alerta pierde sentido.
@@ -774,7 +790,9 @@ public class DemoSeeder(
             Status = status,
             ValidUntil = when.AddDays(15),
             SentAt = status == QuoteStatus.Draft ? null : when.AddHours(2),
-            TaxRate = world.Tenant.DefaultTaxRate,
+            // Sin ISV, como nace una cotización de verdad: al cotizar nadie sabe todavía si el
+            // cliente va a pedir factura con CAI, y el impuesto solo lo lleva esa factura.
+            TaxRate = 0m,
             CreatedAt = when,
             CreatedByUserId = world.Staff.Owner.Id
         };
@@ -951,6 +969,90 @@ public class DemoSeeder(
 
         db.Sales.Add(sale);
         order.SaleId = sale.Id;
+    }
+
+    /// <summary>
+    /// Una venta de mostrador: uno o dos repuestos, pagados de contado y sin orden de trabajo.
+    /// </summary>
+    /// <remarks>
+    /// Va sin CAI —como la mayoría en un taller— y por eso sin ISV, igual que en el sistema.
+    /// La mitad quedan a nombre de un cliente del padrón y la otra mitad a nombre de nadie,
+    /// que es lo que pasa de verdad: al que compra un empaque no se le abre ficha.
+    /// </remarks>
+    private void SellOverTheCounter(World world, DateTimeOffset localDay, int index)
+    {
+        var branch = PickBranch(world);
+
+        var when = new DateTimeOffset(
+            localDay.Date.AddHours(9).AddMinutes(index * 97 + _rnd.Next(0, 40)),
+            LocalOffset).ToUniversalTime();
+
+        branch.SaleSequence++;
+        var sale = new Sale
+        {
+            BranchId = branch.Id,
+            // La mitad sin cliente: el que compra de paso no está en el padrón.
+            CustomerId = _rnd.Next(2) == 0
+                ? world.Vehicles[_rnd.Next(world.Vehicles.Count)].CustomerId
+                : null,
+            Number = $"VTA-{branch.Code}-{branch.SaleSequence:D6}",
+            SaleDate = when,
+            PaymentMethod = _rnd.Next(10) < 8 ? PaymentMethod.Cash : PaymentMethod.Transfer,
+            // Sin CAI no hay ISV, igual que en el sistema de verdad.
+            TaxRate = 0m,
+            CreatedAt = when,
+            CreatedByUserId = world.Staff.Owner.Id
+        };
+
+        var sequence = 1;
+        decimal subtotal = 0, cost = 0;
+
+        foreach (var part in Enumerable.Range(0, _rnd.Next(1, 3))
+                     .Select(_ => world.Parts[_rnd.Next(world.Parts.Count)])
+                     .Distinct())
+        {
+            var quantity = _rnd.Next(1, 3);
+
+            // Si no alcanza, no se inventa: la venta se queda con lo que sí había.
+            if (!Consume(world, branch.Id, part, quantity, Guid.Empty, when, world.Staff.Owner.Id))
+                continue;
+
+            var total = Math.Round(quantity * part.SalePrice, 2);
+            subtotal += total;
+            cost += quantity * part.CostPrice;
+
+            sale.Lines.Add(new SaleLine
+            {
+                LineType = LineType.Part,
+                PartId = part.Id,
+                Description = part.Name,
+                Sequence = sequence++,
+                Quantity = quantity,
+                UnitPrice = part.SalePrice,
+                UnitCost = part.CostPrice,
+                Total = total,
+                CreatedAt = when,
+                CreatedByUserId = world.Staff.Owner.Id
+            });
+        }
+
+        if (sale.Lines.Count == 0) return;
+
+        sale.Subtotal = subtotal;
+        sale.CostTotal = Math.Round(cost, 2);
+        sale.Total = subtotal;
+
+        // De contado, que es como se paga en el mostrador.
+        sale.Payments.Add(new SalePayment
+        {
+            Amount = sale.Total,
+            Method = sale.PaymentMethod,
+            PaidAt = when,
+            CreatedAt = when,
+            CreatedByUserId = world.Staff.Owner.Id
+        });
+
+        db.Sales.Add(sale);
     }
 
     // ------------------------------------------------------------------ el día de hoy

@@ -182,7 +182,7 @@ const incluye = [
           src="/capturas/telefono-taller.png"
           width="390"
           height="848"
-          alt="La bandeja del taller en el teléfono, con los ingresos del día y las órdenes abiertas"
+          alt="La pantalla de Hoy en el teléfono: lo cobrado del día, lo que urge atender y el patio por estado"
         />
       </div>
     </section>
@@ -252,7 +252,7 @@ const incluye = [
         class="captura-telefono"
         src="/capturas/cotizacion-cliente.png"
         width="390"
-        height="614"
+        height="820"
         alt="La cotización tal como la abre el cliente desde WhatsApp, con el detalle y el total"
         loading="lazy"
       />
@@ -274,7 +274,8 @@ const incluye = [
       <h2>Todo desde el teléfono, incluso cobrar</h2>
       <p class="centrado">
         El técnico marca los pasos y toma las fotos donde está el vehículo. Usted arma la
-        cotización y factura con el cliente enfrente, sin subir a la oficina.
+        cotización y factura con el cliente enfrente, sin subir a la oficina. Y al que solo
+        llega por un repuesto, se le vende desde el mostrador.
       </p>
       <div class="galeria">
         <img
@@ -288,7 +289,14 @@ const incluye = [
           src="/capturas/telefono-facturar.png"
           width="390"
           height="848"
-          alt="La sección de cerrar y facturar en el teléfono, con el total y la forma de pago"
+          alt="Cerrar y facturar en el teléfono: el total sin ISV, la forma de pago y el aviso del próximo servicio"
+          loading="lazy"
+        />
+        <img
+          src="/capturas/telefono-mostrador.png"
+          width="390"
+          height="848"
+          alt="Vender un repuesto de mostrador desde el teléfono, con el precio de la bodega y el total de la venta"
           loading="lazy"
         />
       </div>
@@ -305,8 +313,8 @@ const incluye = [
         class="captura-panel"
         src="/capturas/panel-indicadores.png"
         width="1440"
-        height="330"
-        alt="Los indicadores del día: facturado de hoy, de la semana y del mes, órdenes abiertas y cuentas por cobrar"
+        height="400"
+        alt="El reporte de ingresos: repuestos, lo vendido en mostrador, mano de obra, total y margen, con la gráfica de cada día"
         loading="lazy"
       />
       <img
@@ -315,6 +323,14 @@ const incluye = [
         width="1440"
         height="900"
         alt="El tablero de órdenes de trabajo en el navegador, con las órdenes agrupadas por estado"
+        loading="lazy"
+      />
+      <img
+        class="captura-panel"
+        src="/capturas/panel-ventas.png"
+        width="1440"
+        height="1000"
+        alt="El registro de ventas en el navegador: lo facturado del mes, cuántas fueron de mostrador y el comprobante de cada una"
         loading="lazy"
       />
       <img

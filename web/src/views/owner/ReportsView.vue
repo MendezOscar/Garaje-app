@@ -549,6 +549,24 @@ h1 {
   gap: 1.5rem;
 }
 
+/*
+  Sin esto la columna no puede encogerse por debajo del ancho mínimo de su tabla —los importes
+  van en una sola línea— y la tabla se sale a pintar encima de la de al lado: los montos por
+  técnico caían sobre los repuestos más vendidos.
+*/
+.tables > div {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/*
+  Y el desglose «repuestos + mano de obra» sí puede partirse en dos líneas: es el dato de
+  apoyo. El total no, que es el que se lee de un vistazo.
+*/
+.tables td.num.small {
+  white-space: normal;
+}
+
 h3 {
   margin: 0 0 0.375rem;
   font-size: 0.8125rem;
