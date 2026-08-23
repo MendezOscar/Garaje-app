@@ -179,7 +179,7 @@ const incluye = [
 
       <div class="telefono">
         <img
-          src="/capturas/telefono-taller.png"
+          src="/capturas/telefono-taller.png?v=2026-08"
           width="390"
           height="848"
           alt="La pantalla de Hoy en el teléfono: lo cobrado del día, lo que urge atender y el patio por estado"
@@ -250,7 +250,7 @@ const incluye = [
       </div>
       <img
         class="captura-telefono"
-        src="/capturas/cotizacion-cliente.png"
+        src="/capturas/cotizacion-cliente.png?v=2026-08"
         width="390"
         height="820"
         alt="La cotización tal como la abre el cliente desde WhatsApp, con el detalle y el total"
@@ -279,21 +279,21 @@ const incluye = [
       </p>
       <div class="galeria">
         <img
-          src="/capturas/telefono-orden.png"
+          src="/capturas/telefono-orden.png?v=2026-08"
           width="390"
           height="848"
           alt="El detalle de una orden en el teléfono, con el diagnóstico y los pasos de la reparación"
           loading="lazy"
         />
         <img
-          src="/capturas/telefono-facturar.png"
+          src="/capturas/telefono-facturar.png?v=2026-08"
           width="390"
           height="848"
           alt="Cerrar y facturar en el teléfono: el total sin ISV, la forma de pago y el aviso del próximo servicio"
           loading="lazy"
         />
         <img
-          src="/capturas/telefono-mostrador.png"
+          src="/capturas/telefono-mostrador.png?v=2026-08"
           width="390"
           height="848"
           alt="Vender un repuesto de mostrador desde el teléfono, con el precio de la bodega y el total de la venta"
@@ -302,6 +302,12 @@ const incluye = [
       </div>
     </section>
 
+    <!--
+      Las capturas llevan `?v=` con el mes en que se tomaron. Los archivos de `public/` no
+      llevan hash en el nombre, así que al rehacer una captura el navegador de quien ya
+      entró sigue enseñando la vieja; la marca cambia la dirección y lo obliga a bajarla.
+      Al rehacerlas hay que subir la marca, aquí y en `public/manual.html`.
+    -->
     <!-- ------------------------------------------------------------------ panel -->
     <section class="seccion">
       <h2>Y en la computadora, lo mismo con más sitio</h2>
@@ -311,7 +317,7 @@ const incluye = [
       </p>
       <img
         class="captura-panel"
-        src="/capturas/panel-indicadores.png"
+        src="/capturas/panel-indicadores.png?v=2026-08"
         width="1440"
         height="400"
         alt="El reporte de ingresos: repuestos, lo vendido en mostrador, mano de obra, total y margen, con la gráfica de cada día"
@@ -319,7 +325,7 @@ const incluye = [
       />
       <img
         class="captura-panel"
-        src="/capturas/panel-ordenes.png"
+        src="/capturas/panel-ordenes.png?v=2026-08"
         width="1440"
         height="900"
         alt="El tablero de órdenes de trabajo en el navegador, con las órdenes agrupadas por estado"
@@ -327,7 +333,7 @@ const incluye = [
       />
       <img
         class="captura-panel"
-        src="/capturas/panel-ventas.png"
+        src="/capturas/panel-ventas.png?v=2026-08"
         width="1440"
         height="1000"
         alt="El registro de ventas en el navegador: lo facturado del mes, cuántas fueron de mostrador y el comprobante de cada una"
@@ -335,7 +341,7 @@ const incluye = [
       />
       <img
         class="captura-panel"
-        src="/capturas/panel-inventario.png"
+        src="/capturas/panel-inventario.png?v=2026-08"
         width="1440"
         height="900"
         alt="El inventario en el navegador, con la existencia de cada repuesto por sucursal y su ubicación"
