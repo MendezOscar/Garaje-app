@@ -65,5 +65,18 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<!--
+			Solo para depurar en un teléfono de verdad: desde iOS 14, el aparato le pregunta al
+			depurador por la red local para hablar con la máquina donde corre `flutter run`, y
+			sin estas dos claves la instalación falla antes de abrir. En una compilación de
+			publicación no hay servicio de depuración, así que nunca se le pide el permiso al
+			cliente.
+		-->
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>Permite conectar el teléfono con la computadora mientras se desarrolla la app.</string>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_dartVmService._tcp</string>
+		</array>
 	</dict>
 </plist>
