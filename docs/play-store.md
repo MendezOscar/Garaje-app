@@ -93,7 +93,7 @@ Play pide dos piezas que Apple no:
 
 | Pieza | Medida | Notas |
 | --- | --- | --- |
-| Icono | **512 × 512** PNG de 32 bits | El mismo isotipo de la marca, sin texto alrededor |
+| Icono | **512 × 512** PNG de 32 bits | Ya está: [`marca-garajapp/icono/garajapp-icono-512.png`](../marca-garajapp/icono/garajapp-icono-512.png) |
 | Gráfico destacado | **1024 × 500** | Sale arriba de la ficha. Sin transparencia y sin texto pegado al borde: Play lo recorta en algunos tamaños |
 | Capturas de teléfono | mínimo 2, hasta 8 | 1080 × 2400 del emulador |
 
@@ -220,7 +220,8 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
 - [ ] Cuenta de Play Console pagada y con la identidad verificada.
 - [ ] Si es cuenta personal: prueba cerrada con 12 probadores, 14 días corridos, y acceso a
       producción concedido.
-- [ ] Icono 512 × 512 y gráfico destacado 1024 × 500.
+- [x] Icono 512 × 512 (`marca-garajapp/icono/garajapp-icono-512.png`).
+- [ ] Gráfico destacado 1024 × 500.
 - [x] Las seis capturas, del emulador Android (`play-store/capturas/`).
 - [ ] Descripción corta y completa pegadas.
 - [ ] Clasificación de contenido respondida.
