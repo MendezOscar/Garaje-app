@@ -97,16 +97,9 @@ Play pide dos piezas que Apple no:
 | Gráfico destacado | **1024 × 500** | Sale arriba de la ficha. Sin transparencia y sin texto pegado al borde: Play lo recorta en algunos tamaños |
 | Capturas de teléfono | mínimo 2, hasta 8 | 1080 × 2400 del emulador |
 
-Las cinco capturas de [`app-store/capturas-6.9/`](app-store/capturas-6.9/) **no sirven**: son de
-iPhone y se nota. Hay que rehacerlas en un emulador Android, con las mismas cinco pantallas y
-contra la misma base de demostración, que es la que se ve vivida:
-
-```bash
-flutter emulators --launch <id-del-emulador>
-cd mobile && flutter test integration_test/<recorrido>.dart \
-  -d emulator-5554 --dart-define=API_URL=http://localhost:5080
-adb exec-out screencap -p > captura.png
-```
+Están en [`play-store/capturas/`](play-store/capturas/), a **1080 × 2400**, tomadas del emulador
+«Medium Phone API 36» con la base de demostración (`demo.md`), que es la que se ve vivida. Las
+de iPhone no sirven aquí: se nota que son de iPhone.
 
 | # | Pantalla | Por qué esa |
 | --- | --- | --- |
@@ -114,7 +107,23 @@ adb exec-out screencap -p > captura.png
 | 2 | Detalle de una orden | Los pasos y el total; el resto de la orden, en renglones |
 | 3 | Reportes | La gráfica de ingresos: es lo que convence al dueño |
 | 4 | Inventario | Existencias por sucursal |
-| 5 | Cierre de caja | Lo cobrado en el día |
+| 5 | Ventas | Lo facturado del mes y cuánto salió de mostrador |
+| 6 | Cierre de caja | Lo cobrado en el día |
+
+Para rehacerlas: un recorrido de captura que entre con `dueno@tallerdemo.hn`, se pare en cada
+pantalla y avise por consola, mientras desde la terminal se dispara
+`adb exec-out screencap -p > captura.png`. Tres cosas que cuestan una tarde si no se saben:
+
+- **Las seis paradas van en una sola corrida.** Cada instalación deja en el emulador unos
+  340 MB que no se liberan hasta reiniciarlo; seis instalaciones seguidas lo dejan sin espacio
+  a la mitad, con `INSTALL_FAILED_INSUFFICIENT_STORAGE`.
+- **Los diálogos del sistema salen en la foto.** El emulador saca «System UI isn't responding»
+  encima de la pantalla; se apagan con
+  `adb shell settings put global hide_error_dialogs 1`.
+- **La demostración se siembra el mismo día.** Si se sembró otro día, «Hoy» abre en cero y la
+  primera captura —la que más se mira— no enseña nada.
+
+Y el permiso de notificaciones se anula reemplazando `pushMessagingProvider`, igual que en iOS.
 
 ## Acceso a la app (las credenciales del revisor)
 
@@ -212,7 +221,7 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
 - [ ] Si es cuenta personal: prueba cerrada con 12 probadores, 14 días corridos, y acceso a
       producción concedido.
 - [ ] Icono 512 × 512 y gráfico destacado 1024 × 500.
-- [ ] Las cinco capturas, del emulador Android.
+- [x] Las seis capturas, del emulador Android (`play-store/capturas/`).
 - [ ] Descripción corta y completa pegadas.
 - [ ] Clasificación de contenido respondida.
 - [ ] Seguridad de los datos, con la URL de eliminación.
