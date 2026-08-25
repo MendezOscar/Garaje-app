@@ -93,8 +93,8 @@ Play pide dos piezas que Apple no:
 
 | Pieza | Medida | Notas |
 | --- | --- | --- |
-| Icono | **512 × 512** PNG de 32 bits | Ya está: [`marca-garajapp/icono/garajapp-icono-512.png`](../marca-garajapp/icono/garajapp-icono-512.png) |
-| Gráfico destacado | **1024 × 500** | Sale arriba de la ficha. Sin transparencia y sin texto pegado al borde: Play lo recorta en algunos tamaños |
+| Icono | **512 × 512** PNG de 32 bits | [`marca-garajapp/icono/garajapp-icono-512-play.png`](../marca-garajapp/icono/garajapp-icono-512-play.png), a sangre |
+| Gráfico destacado | **1024 × 500** | [`play-store/destacado-1024x500.png`](play-store/destacado-1024x500.png) |
 | Capturas de teléfono | mínimo 2, hasta 8 | 1080 × 2400 del emulador |
 
 Están en [`play-store/capturas/`](play-store/capturas/), a **1080 × 2400**, tomadas del emulador
@@ -124,6 +124,14 @@ pantalla y avise por consola, mientras desde la terminal se dispara
   primera captura —la que más se mira— no enseña nada.
 
 Y el permiso de notificaciones se anula reemplazando `pushMessagingProvider`, igual que en iOS.
+
+El icono va **a sangre**, con las esquinas rellenas del azul de la marca: Play le pone su propia
+máscara redondeada encima, y el `garajapp-icono-512.png` de siempre —que ya viene redondeado—
+saldría con la esquina mordida dos veces. El de la app y el de la web siguen siendo ese; el
+`-play` es solo para la ficha.
+
+El gráfico destacado no lleva transparencia y todo el contenido vive en el centro, porque Play
+recorta los bordes en algunos tamaños de pantalla.
 
 ## Acceso a la app (las credenciales del revisor)
 
@@ -220,8 +228,8 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
 - [ ] Cuenta de Play Console pagada y con la identidad verificada.
 - [ ] Si es cuenta personal: prueba cerrada con 12 probadores, 14 días corridos, y acceso a
       producción concedido.
-- [x] Icono 512 × 512 (`marca-garajapp/icono/garajapp-icono-512.png`).
-- [ ] Gráfico destacado 1024 × 500.
+- [x] Icono 512 × 512 (`marca-garajapp/icono/garajapp-icono-512-play.png`).
+- [x] Gráfico destacado 1024 × 500 (`play-store/destacado-1024x500.png`).
 - [x] Las seis capturas, del emulador Android (`play-store/capturas/`).
 - [ ] Descripción corta y completa pegadas.
 - [ ] Clasificación de contenido respondida.
