@@ -239,18 +239,41 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
   *llave de subida*. Resguárdela igual —si se pierde, hay que pedirle a Google que la reemplace,
   y eso son días de correos—.
 
+## Dónde va esto (26 de agosto de 2026)
+
+| Paso | Estado |
+| --- | --- |
+| App creada, `com.garaj.garaj_app` | Hecho |
+| Ficha, clasificación, seguridad de los datos y acceso a la app | Hecho |
+| Gráficos y las seis capturas | Hecho |
+| Prueba interna, versión 1 (1.0.0) | Publicada |
+| Prueba cerrada, versión 1 promovida | Publicada |
+| 12 probadores aceptados | **Pendiente** |
+| Acceso a producción | Se puede pedir 14 días después de que el probador número 12 acepte |
+
+Los 14 días cuentan desde que hay **12 probadores aceptados y se mantienen**, no desde que se
+publicó la versión: el último en aceptar es el que fija la fecha. Y hasta que Google libera la
+revisión, el enlace de la prueba cerrada le dice «App not available» al probador y **no registra
+la aceptación**, así que no vale la pena repartirlo antes.
+
+Los probadores usan un taller aparte, aprovisionado con `provision-tenant`, no el de
+demostración que se le declaró al revisor: doce personas dejan desorden y ese es justo el taller
+que el revisor abre. Las credenciales de ese taller no van en el repositorio, que es público.
+
 ## Lista antes de mandar
 
-- [ ] Cuenta de Play Console pagada y con la identidad verificada.
+- [x] Cuenta de Play Console pagada, identidad verificada y acceso a un aparato Android
+      comprobado (esa comprobación pide la app de Play Console en un teléfono de verdad: en
+      emulador no pasa, la rechaza la comprobación de integridad).
 - [ ] Si es cuenta personal: prueba cerrada con 12 probadores, 14 días corridos, y acceso a
       producción concedido.
 - [x] Icono 512 × 512 (`marca-garajapp/icono/garajapp-icono-512-play.png`).
 - [x] Gráfico destacado 1024 × 500 (`play-store/destacado-1024x500.png`).
 - [x] Las seis capturas, del emulador Android (`play-store/capturas/`).
-- [ ] Descripción corta y completa pegadas.
-- [ ] Clasificación de contenido respondida.
-- [ ] Seguridad de los datos, con la URL de eliminación.
-- [ ] App access con las credenciales del revisor.
+- [x] Descripción corta y completa pegadas.
+- [x] Clasificación de contenido respondida.
+- [x] Seguridad de los datos, con la URL de eliminación.
+- [x] App access con las credenciales del revisor.
 - [x] Política de privacidad y soporte responden.
 - [x] La cuenta del revisor entra en producción.
 - [ ] `.aab` firmado con llave propia, apuntando a la API de producción, con `versionCode` nuevo.
