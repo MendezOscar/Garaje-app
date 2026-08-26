@@ -12,11 +12,11 @@ Firebase configurado, el envío queda apagado y nada más falla.
 | Registro y baja de dispositivos (`/api/notifications/devices`) | Listo y verificado (humo de la Fase 6) |
 | Recepción en la app Flutter | Escrita; compila en iOS y Android |
 | Proyecto de Firebase (`garajapp-e5a7d`) y sus dos archivos | Listos, en el repositorio |
-| Clave de APNs, clave de la cuenta de servicio y capacidad en Xcode | **Pendientes** |
-| Envío por FCM de punta a punta | **Sin probar**: depende de lo anterior |
+| Clave de APNs, clave de la cuenta de servicio y capacidad en Xcode | Listos |
+| Envío por FCM de punta a punta | **Probado en iPhone el 26 de agosto de 2026** |
 
-**Aparcado a propósito**, no olvidado: la clave de APNs sale de una cuenta de Apple Developer
-pagada, y hasta que exista el push no llega a ningún iPhone por bien que esté todo lo demás.
+La clave de APNs salió con la cuenta de Apple Developer pagada; hasta entonces el push no
+llegaba a ningún iPhone por bien que estuviera todo lo demás.
 Mientras tanto la API no envía nada —le faltan las dos variables— y la app se limita a
 registrar el aparato. Nadie se queda sin avisos por esto: se guardan siempre y se ven en la
 campana, que es el canal principal.
@@ -123,6 +123,23 @@ Dos decisiones que conviene conocer:
 - No hay manejador de mensajes en segundo plano (`onBackgroundMessage`). No hace falta: la
   API manda `notification` además de `data`, así que el sistema muestra el aviso con la app
   cerrada sin que corra código nuestro.
+
+### A quién le llega cada aviso
+
+Esto es lo que hace perder una tarde: **«orden lista» le avisa al Cliente del vehículo, no al
+Dueño**. Si el teléfono tiene la cuenta del Dueño y se cambia el estado de una orden, no llega
+nada y todo parece roto, cuando el sistema está haciendo justo lo que debe.
+
+| Aviso | Le llega a |
+| --- | --- |
+| Requerimiento nuevo | El taller (Dueño) |
+| Orden asignada | El técnico asignado |
+| Cambio de estado de la orden | El **Cliente** del vehículo |
+| Cotización enviada | El **Cliente** |
+| Cotización respondida | El taller (Dueño) |
+
+Para probar con la cuenta del Dueño, lo más corto es responder una cotización desde su enlace
+público: eso dispara «cotización respondida» sin necesidad de una segunda cuenta.
 
 ## Cómo comprobar que funciona
 
