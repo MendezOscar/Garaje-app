@@ -16,7 +16,7 @@ inventar textos con prisa.
 | Categoría | Negocios · secundaria: Productividad |
 | Clasificación por edad | 4+ |
 | Idioma principal | Español (México) — es-MX es el que más se acerca a Honduras |
-| Derechos de autor | `2026 Óscar Armando Cruz Méndez` |
+| Derechos de autor | `2026 Óscar Armando Cruz Méndez` — año y titular, sin el símbolo © |
 | URL de soporte | `https://www.garajeapp.com/soporte` |
 | URL de política de privacidad | `https://www.garajeapp.com/privacidad` |
 
@@ -90,14 +90,6 @@ GarajApp es para talleres. Cada taller ve solo sus datos.
 
 ```
 Primera versión.
-```
-
-### Copyright
-
-Año y titular de los derechos, sin el símbolo © (Apple lo pone solo):
-
-```
-2026 Oscar Armando Cruz Mendez
 ```
 
 ### Publicación
