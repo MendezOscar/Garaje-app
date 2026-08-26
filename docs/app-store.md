@@ -37,12 +37,15 @@ taller,mecanico,motos,ordenes,servicio,repuestos,inventario,cotizacion,factura,h
 Sin acentos y sin repetir palabras que ya están en el nombre o el subtítulo: Apple las indexa
 igual y repetirlas desperdicia caracteres.
 
-### Texto promocional (170)
+### Texto promocional (menos de 170)
 
 ```
-Lleve el taller desde el teléfono: reciba el vehículo, arme la reparación, cobre y avísele al
+El taller desde el teléfono: reciba el vehículo, arme la reparación, cobre y avísele al
 cliente por WhatsApp. Sin papeles sueltos y sin perder de vista lo que se debe.
 ```
+
+Son 167 caracteres. El límite es «menos de 170», así que 170 exactos también se rechazan.
+Este campo se puede cambiar sin mandar la app a revisión de nuevo.
 
 ### Descripción
 
@@ -88,6 +91,20 @@ GarajApp es para talleres. Cada taller ve solo sus datos.
 ```
 Primera versión.
 ```
+
+### Copyright
+
+Año y titular de los derechos, sin el símbolo © (Apple lo pone solo):
+
+```
+2026 Oscar Armando Cruz Mendez
+```
+
+### Publicación
+
+**Publicar esta versión automáticamente**: en cuanto Apple aprueba, la app sale a la tienda.
+La alternativa —publicación manual— sirve si se quiere revisar la ficha ya aprobada antes de
+que salga; para la primera versión no hace falta.
 
 ## Capturas
 
