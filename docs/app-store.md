@@ -179,16 +179,45 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
 
 ## Lista antes de mandar
 
-- [ ] Membresía del Apple Developer Program activa, a nombre de Óscar Armando Cruz Méndez.
-- [ ] App ID `com.garaj.garajApp` registrado y la app creada en App Store Connect.
-- [ ] `flutter build ipa --dart-define=API_URL=https://<api de producción>` — que **no** apunte a
+- [x] Membresía del Apple Developer Program activa, a nombre de Óscar Armando Cruz Méndez.
+- [x] App ID `com.garaj.garajApp` registrado y la app creada en App Store Connect.
+- [x] `flutter build ipa --dart-define=API_URL=https://<api de producción>` — que **no** apunte a
       localhost ni a pruebas.
-- [ ] `--build-name` y `--build-number` puestos al compilar; el número no se puede repetir.
+- [x] `--build-name` y `--build-number` puestos al compilar; el número no se puede repetir.
 - [x] Las dos URL (soporte y privacidad) responden.
 - [x] La cuenta del revisor entra **en producción**: `Taller Demo`, tres sucursales y meses de
       historia. Quedó **sin fecha de pago**, así que la suscripción nunca lo deja en solo lectura
       a media revisión.
-- [ ] Cumplimiento de exportación: usa HTTPS estándar → exento.
+- [x] Cumplimiento de exportación: usa HTTPS estándar → exento.
 - [x] **Borrar la cuenta desde la app**: hecho, como **Eliminar mi cuenta**, en la pestaña
       **Más → Cuenta** de los tres perfiles: un diálogo y dos toques, sin trámites ni correos.
       Ver [api.md](api.md#borrar-la-propia-cuenta).
+
+## Estado (26 de agosto de 2026)
+
+| Paso | Estado |
+| --- | --- |
+| Membresía (equipo `3B4RXN8W7G`) | Aprobada |
+| Avisos push (clave APNs, entitlement) | Probados en un iPhone de verdad |
+| Compilación 1.0.0 (2) subida | Sí |
+| Ficha, capturas 6.9", información del revisor | Completas |
+| Clasificación por edades | 4+ |
+| Privacidad de la app | Publicada |
+| Precio | Gratis, país base Honduras |
+| **Envío** | **Pendiente de revisión desde el 26 de agosto de 2026, 16:39** |
+
+Apple suele contestar en 24–48 horas. La versión quedó en **publicación automática**: si aprueban,
+sale a la tienda sin volver a tocar nada.
+
+### Lo que faltó y frenó el envío
+
+Dos cosas que App Store Connect no pide en la página de la versión, sino en **Información de la
+app**, y sin las cuales el botón de enviar se niega:
+
+- **Derechos sobre el contenido**: pregunta si la app muestra contenido de terceros. Va **No**.
+- **Privacidad de la app**: llenar el cuestionario no basta, hay que pulsar **Publicar**. Y la
+  primera pregunta —«¿recopilas datos?»— va **Sí**: mandar nombres, teléfonos y fotos al servidor
+  propio cuenta como recopilación.
+
+La **declaración de comerciante de la UE** no bloquea nada: si no se contesta, lo único que pasa
+es que la app no se muestra en las tiendas europeas.
