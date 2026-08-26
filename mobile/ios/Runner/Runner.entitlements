@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Notificaciones. En «development» a propósito: es lo que vale para depurar y para
+		TestFlight desde Xcode; al archivar para el App Store, la firma automática lo cambia
+		a «production» sola. Sin esta capacidad, el perfil sale sin `aps-environment` y el
+		aparato nunca se registra en APNs, aunque Firebase esté bien configurado.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
