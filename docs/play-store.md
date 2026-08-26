@@ -133,6 +133,22 @@ saldría con la esquina mordida dos veces. El de la app y el de la web siguen si
 El gráfico destacado no lleva transparencia y todo el contenido vive en el centro, porque Play
 recorta los bordes en algunos tamaños de pantalla.
 
+### Al subir el código de versión
+
+Después de tocar `version:` en `pubspec.yaml` hay que compilar con `flutter clean` primero:
+
+```bash
+cd mobile && flutter clean && flutter pub get && flutter build appbundle --release
+```
+
+Sin eso, el `pub get` regenera `GeneratedPluginRegistrant.java` con los plugins de desarrollo
+—`integration_test` entre ellos— y la compilación de publicación falla porque esos paquetes no
+están en el classpath de release. El error habla de `package dev.flutter.plugins.integration_test
+does not exist` y no tiene nada que ver con el código de la app.
+
+Y el código de versión se consume al subir: si el 1 ya se subió a prueba interna, ese paquete no
+se puede volver a subir a otro canal —solo promoverse—, y cualquier subida nueva necesita 2.
+
 ## Acceso a la app (las credenciales del revisor)
 
 Play tiene una sección propia para esto —**App access**—, y sin ella el revisor se queda en la
