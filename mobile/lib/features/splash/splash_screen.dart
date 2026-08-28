@@ -30,7 +30,8 @@ class SplashScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const BrandLockup(inverted: true),
-              const SizedBox(height: 40),
+              // Pegado al logotipo: a 40 px se veía flotando solo, como un elemento suelto.
+              const SizedBox(height: 24),
               if (auth is AuthUnreachable)
                 _SinConexion(auth.message)
               else

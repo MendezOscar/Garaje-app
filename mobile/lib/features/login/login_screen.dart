@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_controller.dart';
@@ -18,6 +19,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _loading = false;
+  bool _verContrasena = false;
   String? _error;
 
   @override
@@ -88,11 +90,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Contraseña',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        // En el taller se escribe con las manos ocupadas y con una contraseña que
+                        // le dictó el dueño: sin poder verla es donde la gente se traba.
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _verContrasena = !_verContrasena),
+                          icon: Icon(_verContrasena ? Icons.visibility_off : Icons.visibility),
+                          tooltip: _verContrasena ? 'Ocultar contraseña' : 'Ver contraseña',
+                        ),
                       ),
-                      obscureText: true,
+                      obscureText: !_verContrasena,
                       autofillHints: const [AutofillHints.password],
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
@@ -113,6 +122,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Ingresar'),
+                    ),
+                    const SizedBox(height: 16),
+                    // Todavía no hay recuperación por correo —falta proveedor—, pero la salida
+                    // existe: el Dueño le pone una contraseña nueva a su gente desde Usuarios.
+                    // Sin esta línea, quien la olvida se queda mirando la pantalla.
+                    Text(
+                      '¿Olvidó su contraseña? Pídasela al dueño de su taller.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://www.garajeapp.com/soporte'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text('Ayuda'),
                     ),
                   ],
                 ),
