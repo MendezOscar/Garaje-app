@@ -204,10 +204,51 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
 | Clasificación por edades | 4+ |
 | Privacidad de la app | Publicada |
 | Precio | Gratis, país base Honduras |
-| **Envío** | **Pendiente de revisión desde el 26 de agosto de 2026, 16:39** |
+| **Envío** | Rechazado el 27 de agosto por falta de información (2.1); **respondido el 28 de agosto** con notas y video |
 
 Apple suele contestar en 24–48 horas. La versión quedó en **publicación automática**: si aprueban,
 sale a la tienda sin volver a tocar nada.
+
+### Rechazo del 27 de agosto: directriz 2.1, «información necesaria»
+
+No encontraron un defecto: el campo **Notas** iba vacío y pidieron un video. Se responde sin
+subir compilación nueva, desde **Revisión de apps → Ver envío → Responder al equipo de revisión
+de apps**, y el mismo texto se deja en *Información de revisión de la app → Notas* al final de la
+página de la versión, que es donde lo van a buscar en los envíos siguientes.
+
+Los siete puntos que piden, y lo que se les contestó:
+
+| Lo que piden | Respuesta |
+| --- | --- |
+| Grabación en un aparato físico | Video de la app en el iPhone, desde abrirla hasta eliminar la cuenta |
+| Modelos y versiones probadas | El iPhone donde se probó, con su versión de iOS |
+| Funciones, público y problema que resuelve | Herramienta de trabajo para talleres, sin registro público |
+| Cómo entrar y configurar | Credenciales de los **tres perfiles** y qué mirar en cada pestaña |
+| Servicios externos | Render, Supabase, Cloudflare R2, Firebase/APNs y los enlaces salientes a WhatsApp |
+| Diferencias regionales | Ninguna; solo español y lempiras porque el producto es para Honduras |
+| Industria regulada o material de terceros | No aplica; el correlativo de factura lo escribe el propio taller |
+
+Dos cosas que hay que dejar en su lugar antes de responder:
+
+- **Credenciales de cada tipo de cuenta.** Apple las pide para los tres perfiles, no solo el
+  Dueño: `dueno@`, `tecnico1@` y `cliente1@tallerdemo.hn`. Hay que confirmar que las tres entran
+  **en producción**; si alguna no, el Dueño le cambia la contraseña desde **Usuarios**.
+- **Las cadenas de propósito.** Citan la 5.1.1 en el correo estándar. La de red local hablaba de
+  «mientras se desarrolla la app», que es una frase de desarrollo en una app de tienda.
+
+### Grabar el video: lo que costó tiempo
+
+- **No hay que narrarlo.** Se revisa sin sonido; lo que explica va en las Notas.
+- **La sesión sobrevive a borrar la app**: el token vive en el llavero de iOS, que no se borra al
+  eliminarla. Para que se vea el inicio de sesión, primero **Más → Cerrar sesión**.
+- **El permiso de cámara tampoco se reinicia siempre.** El camino que funciona es
+  **Ajustes → General → Transferir o restablecer iPhone → Restablecer → Restablecer ubicación y
+  privacidad**. Apagar la cámara en Ajustes no sirve: el permiso queda denegado y la app deja de
+  preguntar.
+- **Repase las contraseñas del técnico y del cliente antes de grabar.** Una que no entra obliga a
+  repetir el video entero.
+- Instale la compilación desde **TestFlight → Pruebas internas** (no pasan por revisión, aparece
+  en minutos), no desde Xcode: así prueba lo mismo que verá el revisor.
 
 ### Lo que faltó y frenó el envío
 
