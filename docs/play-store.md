@@ -256,6 +256,10 @@ publicó la versión: el último en aceptar es el que fija la fecha. Y hasta que
 revisión, el enlace de la prueba cerrada le dice «App not available» al probador y **no registra
 la aceptación**, así que no vale la pena repartirlo antes.
 
+Lo que reportan los probadores día a día se recoge en
+[pruebas-cerradas.md](pruebas-cerradas.md): de ahí salen las respuestas del cuestionario de acceso
+a producción, que pregunta qué cambió en la app por lo que ellos dijeron.
+
 Los probadores usan un taller aparte, aprovisionado con `provision-tenant`, no el de
 demostración que se le declaró al revisor: doce personas dejan desorden y ese es justo el taller
 que el revisor abre. Las credenciales de ese taller no van en el repositorio, que es público.
