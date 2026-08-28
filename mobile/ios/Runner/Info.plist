@@ -66,17 +66,21 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<!--
-			Solo para depurar en un teléfono de verdad: desde iOS 14, el aparato le pregunta al
-			depurador por la red local para hablar con la máquina donde corre `flutter run`, y
-			sin estas dos claves la instalación falla antes de abrir. En una compilación de
-			publicación no hay servicio de depuración, así que nunca se le pide el permiso al
-			cliente.
+			Aquí iban `NSLocalNetworkUsageDescription` y `NSBonjourServices`, que desde iOS 14
+			hacen falta para depurar en un teléfono de verdad: el aparato pregunta por la red
+			local para hablar con la máquina donde corre `flutter run`. Se quitaron porque la
+			compilación de publicación no tiene servicio de depuración —nunca pide ese permiso—
+			y el texto hablaba de «mientras se desarrolla la app», que es una cadena de
+			desarrollo en una app de tienda: justo lo que la directriz 5.1.1 de Apple mira.
+
+			Para depurar en un iPhone conectado, vuelva a ponerlas mientras dure el trabajo:
+
+				<key>NSLocalNetworkUsageDescription</key>
+				<string>Permite conectar el teléfono con la computadora mientras se desarrolla la app.</string>
+				<key>NSBonjourServices</key>
+				<array><string>_dartVmService._tcp</string></array>
+
+			Y quítelas antes de compilar para subir.
 		-->
-		<key>NSLocalNetworkUsageDescription</key>
-		<string>Permite conectar el teléfono con la computadora mientras se desarrolla la app.</string>
-		<key>NSBonjourServices</key>
-		<array>
-			<string>_dartVmService._tcp</string>
-		</array>
 	</dict>
 </plist>

@@ -234,7 +234,12 @@ Dos cosas que hay que dejar en su lugar antes de responder:
   Dueño: `dueno@`, `tecnico1@` y `cliente1@tallerdemo.hn`. Hay que confirmar que las tres entran
   **en producción**; si alguna no, el Dueño le cambia la contraseña desde **Usuarios**.
 - **Las cadenas de propósito.** Citan la 5.1.1 en el correo estándar. La de red local hablaba de
-  «mientras se desarrolla la app», que es una frase de desarrollo en una app de tienda.
+  «mientras se desarrolla la app», que es una frase de desarrollo en una app de tienda: se
+  quitaron `NSLocalNetworkUsageDescription` y `NSBonjourServices` del
+  [Info.plist](../mobile/ios/Runner/Info.plist), donde quedó un comentario con las dos claves
+  para volver a ponerlas cuando haya que depurar en un iPhone conectado. Solo afecta a
+  `flutter run` sobre el aparato; la compilación de publicación nunca pide ese permiso. Aplica
+  desde la próxima compilación, no a la 1.0.0 (2) que ya está en revisión.
 
 ### Grabar el video: lo que costó tiempo
 
