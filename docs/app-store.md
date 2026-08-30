@@ -204,7 +204,7 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
 | Clasificación por edades | 4+ |
 | Privacidad de la app | Publicada |
 | Precio | Gratis, país base Honduras |
-| **Envío** | Rechazado el 27 de agosto por falta de información (2.1); **respondido el 28 de agosto** con notas y video |
+| **Envío** | Rechazado el 27 de agosto por falta de información (2.1); respondido el 28 con notas y video; **reenviado el 30 de agosto** |
 
 Apple suele contestar en 24–48 horas. La versión quedó en **publicación automática**: si aprueban,
 sale a la tienda sin volver a tocar nada.
@@ -215,6 +215,11 @@ No encontraron un defecto: el campo **Notas** iba vacío y pidieron un video. Se
 subir compilación nueva, desde **Revisión de apps → Ver envío → Responder al equipo de revisión
 de apps**, y el mismo texto se deja en *Información de revisión de la app → Notas* al final de la
 página de la versión, que es donde lo van a buscar en los envíos siguientes.
+
+**Responder no lo devuelve a la cola.** El envío se queda en «Problemas sin resolver» y el
+elemento en «Listo para revisión» hasta que se pulsa **«Volver a enviar a revisión de apps»**, en
+la página del envío. Conviene dar un día o dos por si el revisor retoma el caso con la respuesta, y
+si no se mueve, pulsarlo.
 
 Los siete puntos que piden, y lo que se les contestó:
 
