@@ -20,10 +20,10 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 7 | 28 ago 2026 | Eiborth Gómez | El permiso de avisos se pide sin explicar para qué | Mejora real | **Hecho**: diálogo propio antes del del sistema, y aviso en Avisos si quedó apagado |
 | 8 | 28 ago 2026 | Eiborth Gómez | «Marcar todo» sigue visible sin avisos | Falta real | **Hecho**: solo aparece si hay avisos |
 | 9 | 28 ago 2026 | Eiborth Gómez | Revisar contraste AA en modo oscuro | Comprobado | El oscuro pasa; el claro no llegaba y **se corrigió**: `#6B7480` → `#646E7A` |
-| 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | Taller recién creado; se le siembran datos |
+| 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | Taller recién creado: es cosa de datos, no de la app |
 | 11 | 28 ago 2026 | Eiborth Gómez | Que permisos, política y Data safety concuerden | Comprobado | Concuerdan |
 | 12 | 29 ago 2026 | Eiborth Gómez | «Elija el vehículo y la sucursal» con ambos ya elegidos | **Defecto real** | **Hecho**: el error se borra al elegir, en el teléfono y en el panel |
-| 13 | 29 ago 2026 | Eiborth Gómez | Buscar «aveo» no encuentra el vehículo Aveo | No reproducido | Falta el paso exacto; de paso, ahora busca mientras se escribe |
+| 13 | 29 ago 2026 | Eiborth Gómez | Buscar «aveo» no encuentra el vehículo Aveo | **Descartado** | No se reproduce, ni leyendo el código ni probándolo |
 | 14 | 29 ago 2026 | Eiborth Gómez | El botón se puede pulsar sin vehículo elegido | Falta real | **Hecho**: apagado hasta que haya vehículo y sucursal |
 | 15 | 29 ago 2026 | Eiborth Gómez | El kilometraje admite cualquier cosa | Falta real | **Hecho**: solo dígitos, hasta siete |
 | 16 | 29 ago 2026 | Eiborth Gómez | Revisar consistencia claro/oscuro | Comprobado | La app sigue el tema del sistema |
@@ -202,8 +202,10 @@ modelo «Aveo».
 
 La explicación que mejor encaja con su propio reporte es que **el vehículo todavía no existía**
 cuando buscó: lo creó enseguida con «Cliente nuevo» —el nombre «pdjcb» tiene toda la pinta de un
-registro de prueba— y por eso apareció seleccionado después. Para cerrarlo hace falta que diga si
-el vehículo ya estaba antes de buscarlo.
+registro de prueba— y por eso apareció seleccionado después.
+
+**Descartado el 29 de agosto**: se probó a mano y la búsqueda encuentra el vehículo por su modelo.
+Queda anotado por si reaparece con un paso a paso que lo repita.
 
 Lo que sí es una fricción real en el camino: en el teléfono la búsqueda **solo corre al pulsar la
 tecla de buscar** del teclado
@@ -235,3 +237,29 @@ Comprobado. La app no tiene interruptor propio: sigue el tema del sistema, y las
 salen de los mismos tokens
 ([garaj_brand.dart](../mobile/lib/core/theme/garaj_brand.dart)). Ninguna pantalla fija colores a
 mano. El contraste ya se midió el día 2 y el claro se corrigió.
+
+## Para el cuestionario de acceso a producción
+
+Google no pide la lista de errores; pregunta cómo fue la prueba. Lo de arriba responde la pregunta
+que más pesa —qué cambió la app por lo que dijeron los verificadores—; esto responde las otras.
+
+**Cómo se reclutó a los verificadores.** Un equipo de QA, que probó la app a diario durante los 14
+días y entregó un reporte escrito por jornada: no fueron doce cuentas puestas para cumplir el
+requisito.
+
+**Qué se aprendió.** Los reportes fueron entrando por capas —primero la puerta de entrada, después
+el arranque de sesión, después el flujo de recibir un vehículo—, y los hallazgos con valor
+aparecieron en el tercero, cuando se tocó el trabajo de verdad. De ahí salieron un mensaje de error
+que se quedaba en pantalla contradiciendo lo que el usuario veía, un botón que se podía pulsar sin
+tener los datos, un campo que perdía el kilometraje en silencio y un permiso de avisos que se pedía
+sin explicar para qué. Los cuatro están corregidos.
+
+**Qué no se aplicó, y por qué.** Registro público de talleres —GarajApp no lo tiene a propósito: las
+cuentas las crea el dueño para su personal, y así se le declaró también a Apple—; el cambio de tema
+entre pantallas, que no es un defecto sino la app siguiendo la apariencia del teléfono; y un
+hallazgo de búsqueda que no se reprodujo ni leyendo el código ni probándolo.
+
+**A quién va dirigida y cómo se van a conseguir usuarios.** Talleres mecánicos de autos y motos en
+Honduras, de uno a diez trabajadores. La venta es directa: visita al taller y WhatsApp, con la
+página garajeapp.com como puerta de entrada, y referidos de los talleres que ya la usan. No hay
+compras dentro de la app: la mensualidad se cobra fuera, por transferencia.
