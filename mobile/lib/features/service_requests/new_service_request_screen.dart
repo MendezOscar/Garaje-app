@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,7 +49,12 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
 
   /// Búsqueda de vehículo del mostrador. Vacía para el Cliente: sus vehículos son pocos y
   /// ya vienen filtrados por la API.
+  ///
+  /// El controlador es propio para que lo escrito sobreviva a los redibujados: mientras la
+  /// lista se recarga, el cuerpo del formulario se reemplaza por el indicador de carga.
+  final _searchController = TextEditingController();
   String _search = '';
+  Timer? _searchDebounce;
 
   bool _saving = false;
   String? _error;
@@ -59,6 +66,8 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _description.dispose();
     _symptoms.dispose();
     _mileage.dispose();
@@ -73,7 +82,11 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
 
     return Scaffold(
       appBar: AppBar(title: Text(staff ? 'Recibir vehículo' : 'Pedir cita')),
-      body: vehicles.when(
+      body: Column(
+        children: [
+          if (staff) _buscador(),
+          Expanded(
+            child: vehicles.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(apiErrorMessage(e, 'No se pudo cargar la información.'))),
         data: (vehicleList) {
@@ -102,33 +115,11 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (staff) ...[
-                  TextFormField(
-                    initialValue: _search,
-                    decoration: const InputDecoration(
-                      labelText: 'Buscar vehículo',
-                      hintText: 'Placa, marca o nombre del dueño',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    textInputAction: TextInputAction.search,
-                    onFieldSubmitted: (value) => setState(() => _search = value),
+                if (staff && vehicleList.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Ningún vehículo coincide con la búsqueda.'),
                   ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: _registerNewCustomer,
-                      icon: const Icon(Icons.person_add_alt, size: 18),
-                      label: const Text('Cliente nuevo'),
-                    ),
-                  ),
-                  if (vehicleList.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('Ningún vehículo coincide con la búsqueda.'),
-                    ),
-                  const SizedBox(height: 4),
-                ],
 
                 if (vehicleList.isNotEmpty)
                   DropdownButtonFormField<String>(
@@ -147,7 +138,12 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                           ),
                         ),
                     ],
-                    onChanged: (value) => setState(() => _vehicleId = value),
+                    // Se limpia el error al elegir: si no, el rojo de un intento anterior se
+                    // queda contradiciendo lo que la pantalla muestra.
+                    onChanged: (value) => setState(() {
+                      _vehicleId = value;
+                      _error = null;
+                    }),
                   ),
                 const SizedBox(height: 12),
 
@@ -158,7 +154,10 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                     for (final branch in branches.value ?? <BranchOption>[])
                       DropdownMenuItem(value: branch.id, child: Text(branch.name)),
                   ],
-                  onChanged: (value) => setState(() => _branchId = value),
+                  onChanged: (value) => setState(() {
+                    _branchId = value;
+                    _error = null;
+                  }),
                 ),
                 const SizedBox(height: 12),
 
@@ -189,8 +188,16 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
 
                 TextFormField(
                   controller: _mileage,
-                  decoration: const InputDecoration(labelText: 'Kilometraje (opcional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Kilometraje (opcional)',
+                    counterText: '',
+                  ),
                   keyboardType: TextInputType.number,
+                  // El teclado numérico no impide pegar letras, y al enviar `int.tryParse`
+                  // devolvía `null` sin decir nada: el kilometraje mal escrito se perdía en
+                  // silencio. Siete cifras cubren cualquier vehículo.
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 7,
                 ),
                 const SizedBox(height: 12),
 
@@ -252,7 +259,9 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
 
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _saving ? null : _submit,
+                  // Apagado mientras falte vehículo o sucursal: así el mensaje de arriba no
+                  // llega a aparecer, en vez de aparecer y quedarse.
+                  onPressed: _saving || _vehicleId == null || _branchId == null ? null : _submit,
                   child: Text(
                     _saving
                         ? 'Guardando…'
@@ -265,9 +274,53 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
             ),
           );
         },
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  /// El buscador va fijo arriba y fuera de la lista: mientras se recarga, el cuerpo del
+  /// formulario se reemplaza por el indicador de carga, y con el campo dentro lo escrito
+  /// desaparecía en cada tecla.
+  ///
+  /// Busca solo mientras se escribe, con un respiro de por medio. Antes solo corría al pulsar
+  /// la tecla de buscar del teclado: quien escribía y tocaba fuera no veía cambiar nada y
+  /// concluía que el buscador no servía.
+  Widget _buscador() => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                labelText: 'Buscar vehículo',
+                hintText: 'Placa, marca, modelo o nombre del dueño',
+                prefixIcon: Icon(Icons.search),
+              ),
+              textInputAction: TextInputAction.search,
+              onChanged: (value) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(
+                  const Duration(milliseconds: 400),
+                  () => setState(() => _search = value.trim()),
+                );
+              },
+              onSubmitted: (value) {
+                _searchDebounce?.cancel();
+                setState(() => _search = value.trim());
+              },
+            ),
+            TextButton.icon(
+              onPressed: _registerNewCustomer,
+              icon: const Icon(Icons.person_add_alt, size: 18),
+              label: const Text('Cliente nuevo'),
+            ),
+          ],
+        ),
+      );
 
   /// Alta exprés desde el mostrador: nombre, teléfono y los datos de la moto, nada más.
   /// El resto de la ficha —correo, dirección, RTN— lo completa el Dueño después desde el
@@ -283,8 +336,10 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
 
     setState(() {
       // Se busca por la placa para que la lista quede mostrando justo lo recién creado.
+      _searchController.text = created.searchTerm;
       _search = created.searchTerm;
       _vehicleId = created.id;
+      _error = null;
     });
     ref.invalidate(vehicleOptionsProvider(created.searchTerm));
   }

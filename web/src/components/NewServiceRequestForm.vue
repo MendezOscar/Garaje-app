@@ -104,6 +104,12 @@ const kmConocido = computed(() =>
   vehiculoElegido.value?.mileage ? vehiculoElegido.value.mileage.toLocaleString('es-HN') : '0',
 )
 
+// El mismo mensaje de «elija el vehículo y la sucursal» se quedaba en pantalla después de
+// elegirlos, contradiciendo lo que se veía: se borra en cuanto uno de los dos cambia.
+watch([() => form.value.vehicleId, () => form.value.branchId], () => {
+  error.value = ''
+})
+
 watch(
   [vehiculoElegido, () => form.value.technicianId],
   ([vehiculo, tecnicoId]) => {
