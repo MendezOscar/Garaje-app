@@ -17,9 +17,9 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 4 | 27 ago 2026 | Eiborth Gómez | No hay registro para talleres nuevos | Por diseño | No se aplica |
 | 5 | 27 ago 2026 | Eiborth Gómez | El login sale oscuro después del onboarding azul | No es defecto | Se deja: la app sigue el tema del teléfono |
 | 6 | 27 ago 2026 | Eiborth Gómez | El indicador de carga del splash se ve huérfano | Cosmético | **Hecho**: 40 px → 24 px |
-| 7 | 28 ago 2026 | Eiborth Gómez | El permiso de avisos se pide sin explicar para qué | Mejora real | Pendiente |
-| 8 | 28 ago 2026 | Eiborth Gómez | «Marcar todo» sigue visible sin avisos | Falta real | Pendiente |
-| 9 | 28 ago 2026 | Eiborth Gómez | Revisar contraste AA en modo oscuro | Comprobado | El oscuro pasa; **el claro no**, por poco |
+| 7 | 28 ago 2026 | Eiborth Gómez | El permiso de avisos se pide sin explicar para qué | Mejora real | **Hecho**: diálogo propio antes del del sistema, y aviso en Avisos si quedó apagado |
+| 8 | 28 ago 2026 | Eiborth Gómez | «Marcar todo» sigue visible sin avisos | Falta real | **Hecho**: solo aparece si hay avisos |
+| 9 | 28 ago 2026 | Eiborth Gómez | Revisar contraste AA en modo oscuro | Comprobado | El oscuro pasa; el claro no llegaba y **se corrigió**: `#6B7480` → `#646E7A` |
 | 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | Taller recién creado; se le siembran datos |
 | 11 | 28 ago 2026 | Eiborth Gómez | Que permisos, política y Data safety concuerden | Comprobado | Concuerdan |
 

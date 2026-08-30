@@ -3,8 +3,9 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/notification_repository.dart';
 import '../router/app_router.dart';
@@ -20,6 +21,10 @@ class PushMessaging {
   PushMessaging(this._ref);
 
   final Ref _ref;
+
+  /// En las preferencias del sistema, no en el almacén seguro: no es un secreto y debe irse
+  /// al desinstalar, como la marca de la bienvenida.
+  static const _yaSePregunto = 'avisos_preguntado_v1';
 
   bool _firebaseReady = false;
   String? _token;
@@ -43,10 +48,7 @@ class PushMessaging {
 
     final messaging = FirebaseMessaging.instance;
 
-    // En Android 13+ esto abre el diálogo del sistema; en iOS, el de siempre. Denegarlo no
-    // rompe nada: el usuario sigue viendo sus avisos en la campana.
-    final settings = await messaging.requestPermission();
-    if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+    if (!await _pedirPermisoSiHaceFalta(messaging)) return;
 
     // Sin esto, en iOS un aviso que llega con la app abierta no se ve por ninguna parte.
     await messaging.setForegroundNotificationPresentationOptions(
@@ -92,6 +94,81 @@ class PushMessaging {
       debugPrint('No se pudo dar de baja el aparato: $error');
     }
   }
+
+  /// ¿Deja el sistema que el teléfono suene? La campana funciona igual, pero Avisos lo dice.
+  Future<bool> avisosDelSistemaActivos() async {
+    if (!await _initializeFirebase()) return false;
+
+    try {
+      return _concedido(await FirebaseMessaging.instance.getNotificationSettings());
+    } catch (error) {
+      debugPrint('No se pudo leer el permiso de avisos: $error');
+      return false;
+    }
+  }
+
+  /// Volver a pedirlo desde Avisos, para quien dijo «ahora no» la primera vez.
+  Future<bool> pedirPermisoOtraVez() async {
+    if (!await _initializeFirebase()) return false;
+
+    final messaging = FirebaseMessaging.instance;
+    if (!_concedido(await messaging.requestPermission())) return false;
+
+    await _register(await messaging.getToken());
+    return true;
+  }
+
+  /// El diálogo del sistema se pide **después** de explicar para qué sirve, no encima de la
+  /// pantalla de inicio nada más entrar: quien no entendió qué gana, dice que no, y en Android
+  /// el sistema no vuelve a preguntar nunca más.
+  ///
+  /// Quien dice «ahora no» no vuelve a ver esto en cada arranque —para eso está la marca en
+  /// las preferencias—; lo reactiva desde Avisos cuando quiera.
+  Future<bool> _pedirPermisoSiHaceFalta(FirebaseMessaging messaging) async {
+    if (_concedido(await messaging.getNotificationSettings())) return true;
+
+    final preferencias = await SharedPreferences.getInstance();
+    if (preferencias.getBool(_yaSePregunto) ?? false) return false;
+    await preferencias.setBool(_yaSePregunto, true);
+
+    if (!await _explicarAntesDePedir()) return false;
+
+    return _concedido(await messaging.requestPermission());
+  }
+
+  Future<bool> _explicarAntesDePedir() async {
+    final context =
+        _ref.read(appRouterProvider).routerDelegate.navigatorKey.currentContext;
+    if (context == null) return false;
+
+    final quiere = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Le avisamos?'),
+        content: const Text(
+          'Le suena el teléfono cuando le asignen una orden, cuando un cliente responda una '
+          'cotización o cuando un vehículo quede listo.\n\n'
+          'Si no lo activa, los avisos igual le llegan: los ve al abrir la campana.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Ahora no'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Activar avisos'),
+          ),
+        ],
+      ),
+    );
+
+    return quiere ?? false;
+  }
+
+  bool _concedido(NotificationSettings settings) =>
+      settings.authorizationStatus == AuthorizationStatus.authorized ||
+      settings.authorizationStatus == AuthorizationStatus.provisional;
 
   Future<bool> _initializeFirebase() async {
     if (_firebaseReady) return true;
@@ -141,3 +218,8 @@ class PushMessaging {
 /// Se crea una vez y se mantiene viva mientras la app lo esté. Quien la enciende y la apaga
 /// es la sesión, desde [GarajApp].
 final pushMessagingProvider = Provider<PushMessaging>((ref) => PushMessaging(ref));
+
+/// Para que Avisos pueda decir que el teléfono no va a sonar, y ofrecer encenderlo.
+final avisosDelSistemaProvider = FutureProvider<bool>(
+  (ref) => ref.read(pushMessagingProvider).avisosDelSistemaActivos(),
+);

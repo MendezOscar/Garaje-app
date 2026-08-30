@@ -16,7 +16,9 @@ class GarajColors {
   static const surface = Color(0xFFFFFFFF);
   static const surfaceAlt = Color(0xFFEEF0F4);
   static const border = Color(0xFFD9DDE4);
-  static const textMuted = Color(0xFF6B7480);
+  // 4,88:1 sobre el fondo claro y 4,54:1 sobre `surfaceAlt`. El #6B7480 anterior daba 4,46:1,
+  // por debajo del 4,5:1 que pide la AA para texto de 15 px.
+  static const textMuted = Color(0xFF646E7A);
 
   // Colores de estado, y solo de estado: nunca como fondo decorativo. Si todo lleva color,
   // el color deja de avisar de nada.
