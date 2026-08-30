@@ -22,10 +22,10 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 9 | 28 ago 2026 | Eiborth Gómez | Revisar contraste AA en modo oscuro | Comprobado | El oscuro pasa; el claro no llegaba y **se corrigió**: `#6B7480` → `#646E7A` |
 | 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | Taller recién creado; se le siembran datos |
 | 11 | 28 ago 2026 | Eiborth Gómez | Que permisos, política y Data safety concuerden | Comprobado | Concuerdan |
-| 12 | 29 ago 2026 | Eiborth Gómez | «Elija el vehículo y la sucursal» con ambos ya elegidos | **Defecto real** | Pendiente |
-| 13 | 29 ago 2026 | Eiborth Gómez | Buscar «aveo» no encuentra el vehículo Aveo | No reproducido | Falta el paso exacto |
-| 14 | 29 ago 2026 | Eiborth Gómez | El botón se puede pulsar sin vehículo elegido | Falta real | Pendiente |
-| 15 | 29 ago 2026 | Eiborth Gómez | El kilometraje admite cualquier cosa | Falta real | Pendiente |
+| 12 | 29 ago 2026 | Eiborth Gómez | «Elija el vehículo y la sucursal» con ambos ya elegidos | **Defecto real** | **Hecho**: el error se borra al elegir, en el teléfono y en el panel |
+| 13 | 29 ago 2026 | Eiborth Gómez | Buscar «aveo» no encuentra el vehículo Aveo | No reproducido | Falta el paso exacto; de paso, ahora busca mientras se escribe |
+| 14 | 29 ago 2026 | Eiborth Gómez | El botón se puede pulsar sin vehículo elegido | Falta real | **Hecho**: apagado hasta que haya vehículo y sucursal |
+| 15 | 29 ago 2026 | Eiborth Gómez | El kilometraje admite cualquier cosa | Falta real | **Hecho**: solo dígitos, hasta siete |
 | 16 | 29 ago 2026 | Eiborth Gómez | Revisar consistencia claro/oscuro | Comprobado | La app sigue el tema del sistema |
 
 ## Día 1 — 27 de agosto de 2026
