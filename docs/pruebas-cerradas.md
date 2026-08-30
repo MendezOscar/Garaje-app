@@ -22,6 +22,11 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 9 | 28 ago 2026 | Eiborth Gómez | Revisar contraste AA en modo oscuro | Comprobado | El oscuro pasa; el claro no llegaba y **se corrigió**: `#6B7480` → `#646E7A` |
 | 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | Taller recién creado; se le siembran datos |
 | 11 | 28 ago 2026 | Eiborth Gómez | Que permisos, política y Data safety concuerden | Comprobado | Concuerdan |
+| 12 | 29 ago 2026 | Eiborth Gómez | «Elija el vehículo y la sucursal» con ambos ya elegidos | **Defecto real** | Pendiente |
+| 13 | 29 ago 2026 | Eiborth Gómez | Buscar «aveo» no encuentra el vehículo Aveo | No reproducido | Falta el paso exacto |
+| 14 | 29 ago 2026 | Eiborth Gómez | El botón se puede pulsar sin vehículo elegido | Falta real | Pendiente |
+| 15 | 29 ago 2026 | Eiborth Gómez | El kilometraje admite cualquier cosa | Falta real | Pendiente |
+| 16 | 29 ago 2026 | Eiborth Gómez | Revisar consistencia claro/oscuro | Comprobado | La app sigue el tema del sistema |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -156,3 +161,77 @@ los datos declara nombre, correo, ID de usuario, teléfono, fotos e ID de dispos
 recopilado y nada compartido; y la política de privacidad dice lo mismo. La app no trae Crashlytics
 ni Analytics, así que no hay diagnósticos que declarar. Ver
 [play-store.md](play-store.md#seguridad-de-los-datos-el-formulario-que-más-cuesta).
+
+## Día 3 — 29 de agosto de 2026
+
+El flujo de **Recibir vehículo**. Su veredicto: «no recomendado para producción hasta corregir el
+bloqueo crítico». El hallazgo crítico es real y tiene una causa exacta; el alto, tal como está
+descrito, no se reproduce leyendo el código.
+
+### 12. «Elija el vehículo y la sucursal» con ambos ya elegidos
+
+**Confirmado, y la causa es más simple de lo que parece.** El mensaje no lo pinta la validación de
+cada campo: es la variable `_error`, que se fija al pulsar el botón sin vehículo o sin sucursal
+([new_service_request_screen.dart:337](../mobile/lib/features/service_requests/new_service_request_screen.dart#L337))
+y **no se limpia nunca al corregir**. Solo desaparece cuando un envío llega a hacerse.
+
+O sea: el verificador pulsó el botón con el formulario a medias, salió el rojo, después eligió el
+vehículo y la sucursal, y el rojo se quedó ahí contradiciendo lo que la pantalla mostraba. No es
+que la validación no vea la selección; es un mensaje viejo que nadie borró.
+
+Que el flujo esté o no bloqueado no se puede saber por el reporte. Si vehículo y sucursal están de
+verdad elegidos, el envío procede: el mensaje engaña, pero no traba. Vale confirmarlo con él.
+
+Dos arreglos, los dos baratos, y van juntos:
+
+- Limpiar `_error` en cuanto cambie el vehículo o la sucursal.
+- Dejar el botón apagado mientras falte uno de los dos, que es lo que pide el punto 14: así el
+  mensaje no llega a aparecer.
+
+El panel web tiene el mismo patrón
+([NewServiceRequestForm.vue:221](../web/src/components/NewServiceRequestForm.vue#L221)): el error
+se fija al enviar y solo se limpia en el envío siguiente.
+
+### 13. Buscar «aveo» no encuentra el vehículo Aveo
+
+**No se reproduce leyendo el código.** La búsqueda del servidor mira placa, marca, **modelo** y
+nombre del dueño, y las tres últimas con `ILIKE`, que ignora mayúsculas
+([VehicleService.cs:28](../backend/src/Garaj.Infrastructure/Services/VehicleService.cs#L28)); la
+placa se compara normalizada, sin guiones ni espacios y en mayúsculas. «aveo» debería encontrar un
+modelo «Aveo».
+
+La explicación que mejor encaja con su propio reporte es que **el vehículo todavía no existía**
+cuando buscó: lo creó enseguida con «Cliente nuevo» —el nombre «pdjcb» tiene toda la pinta de un
+registro de prueba— y por eso apareció seleccionado después. Para cerrarlo hace falta que diga si
+el vehículo ya estaba antes de buscarlo.
+
+Lo que sí es una fricción real en el camino: en el teléfono la búsqueda **solo corre al pulsar la
+tecla de buscar** del teclado
+([new_service_request_screen.dart:113](../mobile/lib/features/service_requests/new_service_request_screen.dart#L113)).
+Quien escribe y toca fuera del campo no ve cambiar nada, y concluye que el buscador no sirve.
+
+### 14. El botón se puede pulsar sin vehículo elegido
+
+Cierto: el botón solo se apaga mientras guarda
+([new_service_request_screen.dart:255](../mobile/lib/features/service_requests/new_service_request_screen.dart#L255)).
+Se arregla con el 12.
+
+Lo de marcar los campos obligatorios también es cierto —solo «Kilometraje» dice que es opcional—,
+pero conviene al revés: marcar los pocos opcionales, que es lo que ya se hace, y no llenar la
+pantalla de asteriscos.
+
+### 15. El kilometraje admite cualquier cosa
+
+Cierto y es el que más callado hace daño. El campo abre el teclado numérico pero no filtra lo que
+entra, y al enviar `int.tryParse` devuelve `null` sin decir nada
+([new_service_request_screen.dart:353](../mobile/lib/features/service_requests/new_service_request_screen.dart#L353)):
+un kilometraje mal escrito no da error, simplemente se pierde.
+
+Con un filtro de solo dígitos y un largo máximo se acaba: siete cifras cubren cualquier vehículo.
+
+### 16. Consistencia claro/oscuro
+
+Comprobado. La app no tiene interruptor propio: sigue el tema del sistema, y las dos apariencias
+salen de los mismos tokens
+([garaj_brand.dart](../mobile/lib/core/theme/garaj_brand.dart)). Ninguna pantalla fija colores a
+mano. El contraste ya se midió el día 2 y el claro se corrigió.
