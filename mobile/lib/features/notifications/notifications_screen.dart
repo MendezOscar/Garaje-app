@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/notification_repository.dart';
 import '../../core/models/notification.dart';
+import '../../core/push/push_messaging.dart';
 
 /// Los avisos del usuario. Tocar uno lo marca leído y lleva a la orden, que es donde está
 /// todo lo demás: el vehículo, los pasos, las fotos y la cotización.
@@ -15,24 +16,32 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifications = ref.watch(notificationsProvider);
 
+    // Un botón que no puede hacer nada se lee como función a medio terminar.
+    final hayAvisos = notifications.asData?.value.isNotEmpty ?? false;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Avisos'),
         actions: [
-          TextButton(
-            onPressed: () async {
-              await ref.read(notificationRepositoryProvider).markAllRead();
-              ref
-                ..invalidate(notificationsProvider)
-                ..invalidate(unreadCountProvider);
-            },
-            child: const Text('Marcar todo'),
-          ),
+          if (hayAvisos)
+            TextButton(
+              onPressed: () async {
+                await ref.read(notificationRepositoryProvider).markAllRead();
+                ref
+                  ..invalidate(notificationsProvider)
+                  ..invalidate(unreadCountProvider);
+              },
+              child: const Text('Marcar todo'),
+            ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(notificationsProvider),
-        child: notifications.when(
+        child: Column(
+          children: [
+            const _AvisosApagados(),
+            Expanded(
+              child: notifications.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(
             children: [
@@ -52,7 +61,47 @@ class NotificationsScreen extends ConsumerWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, i) => _NotificationTile(notification: items[i]),
                 ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Si el teléfono tiene los avisos apagados, los de la campana siguen llegando pero no suenan.
+/// Sin decirlo, quien dijo «ahora no» al entrar cree que la aplicación está rota.
+class _AvisosApagados extends ConsumerWidget {
+  const _AvisosApagados();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activos = ref.watch(avisosDelSistemaProvider);
+    if (activos.asData?.value ?? true) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Su teléfono no va a sonar con los avisos. Aquí los sigue viendo.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await ref.read(pushMessagingProvider).pedirPermisoOtraVez();
+              ref.invalidate(avisosDelSistemaProvider);
+            },
+            child: const Text('Activar'),
+          ),
+        ],
       ),
     );
   }

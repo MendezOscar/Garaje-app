@@ -11,7 +11,7 @@
   --surface-alt: #EEF0F4;
   --border: #D9DDE4;
   --text: #14171C;
-  --text-muted: #6B7480;
+  --text-muted: #646E7A;
 
   /* estado (solo estado, nunca fondo de marca) */
   --accent: var(--brand);

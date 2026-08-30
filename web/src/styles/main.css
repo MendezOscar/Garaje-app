@@ -14,7 +14,9 @@
   --surface-alt: #eef0f4;
   --border: #d9dde4;
   --text: #14171c;
-  --text-muted: #6b7480;
+  /* 4,88:1 sobre --bg y 4,54:1 sobre --surface-alt. El #6b7480 anterior daba 4,46:1, por
+     debajo del 4,5:1 que pide la AA. */
+  --text-muted: #646e7a;
 
   /* Estado, y solo estado: el ámbar y el verde nunca se usan como fondo de marca. Si todo
      lleva color, el color deja de avisar de nada. */
