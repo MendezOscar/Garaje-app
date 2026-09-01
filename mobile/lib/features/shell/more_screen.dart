@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/dashboard_repository.dart';
 import '../../core/api/work_order_repository.dart';
@@ -167,6 +168,18 @@ class MoreScreen extends ConsumerWidget {
           _Group(
             title: 'Cuenta',
             rows: [
+              // Las dos páginas viven en el sitio y no dentro de la app: así se corrigen sin
+              // publicar una versión nueva, y siguen abriendo aunque la API esté caída.
+              _Row(
+                icon: Icons.help_outline,
+                label: 'Ayuda y soporte',
+                onTap: () => _abrir('https://www.garajeapp.com/soporte'),
+              ),
+              _Row(
+                icon: Icons.privacy_tip_outlined,
+                label: 'Política de privacidad',
+                onTap: () => _abrir('https://www.garajeapp.com/privacidad'),
+              ),
               _Row(
                 icon: Icons.logout,
                 label: 'Salir',
@@ -187,6 +200,9 @@ class MoreScreen extends ConsumerWidget {
     );
   }
 }
+
+Future<void> _abrir(String url) =>
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
 String _perfil(AppRole role) => switch (role) {
       AppRole.owner => 'Dueño',
