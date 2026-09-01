@@ -31,6 +31,11 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 18 | 30 ago 2026 | Eiborth Gómez | Que anulaciones y abonos cuadren con el cierre | Comprobado | Las anuladas se apartan y se informan aparte |
 | 19 | 30 ago 2026 | Eiborth Gómez | Zona horaria y límites del día | Comprobado | El día es el del taller, a −06:00 |
 | 20 | 30 ago 2026 | Eiborth Gómez | Conservación y exportación de registros | Fuera del código | Ya se exporta; el plazo legal lo define un contador |
+| 21 | 31 ago 2026 | Eiborth Gómez | Falta ruta para eliminar la cuenta | Ya existía | **Más → Cuenta → Eliminar mi cuenta**, en los tres perfiles |
+| 22 | 31 ago 2026 | Eiborth Gómez | La política de privacidad no está dentro de la app | **Cierto** | Pendiente: falta el enlace en la app |
+| 23 | 31 ago 2026 | Eiborth Gómez | «Contraseña» podría exponer la actual | Comprobado | Solo fija una nueva; la actual no existe en claro |
+| 24 | 31 ago 2026 | Eiborth Gómez | Roles y permisos reales | Comprobado | El servidor los exige, no la pantalla |
+| 25 | 31 ago 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | Decisión suya |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -285,6 +290,54 @@ No es cosa del código y el propio reporte lo dice: depende del país donde oper
 define un contador. Lo que la app ya da: el **libro de ventas en CSV** por mes —incluidas las
 anuladas, que el régimen exige reportar y no esconder—, el cierre de caja en PDF y los correlativos
 fiscales con su CAI. Nada se borra: una venta se anula, no se elimina.
+
+## Día 5 — 31 de agosto de 2026
+
+La pantalla de **Usuarios**, mirada como auditoría de acceso y cumplimiento. Su veredicto:
+«requiere correcciones antes de producción». De las cuatro cosas que marca, **tres ya estaban
+resueltas** y no se ven desde esa pantalla; la cuarta es cierta y es barata.
+
+Conviene leer este corte con cuidado: el propio reporte avisa que juzga «con la evidencia de las
+capturas». Que algo no salga en una captura de la pantalla de Usuarios no significa que no exista
+en la app.
+
+### 21. «Falta una ruta para eliminar la cuenta»
+
+Ya existe, y en los tres perfiles: **Más → Cuenta → Eliminar mi cuenta**
+([more_screen.dart:179](../mobile/lib/features/shell/more_screen.dart#L179)), con su diálogo de
+confirmación. Y el recurso web que Google pide también:
+`https://www.garajeapp.com/soporte#eliminar-mi-cuenta`, que es la URL declarada en el formulario de
+seguridad de los datos. No está en Usuarios porque Usuarios es para dar de alta al personal, no
+para la cuenta propia.
+
+### 22. La política de privacidad no está dentro de la app
+
+**Cierto.** Está en Play Console y en la ficha de Apple, y las páginas responden, pero desde la app
+no hay cómo abrirlas: ni privacidad, ni soporte. Es lo único de este corte que hay que hacer, y son
+dos filas en **Más → Cuenta**.
+
+### 23. «Contraseña» podría exponer la credencial actual
+
+No la expone, y no podría: el diálogo solo pide una **nueva**
+([users_screen.dart:112](../mobile/lib/features/users/users_screen.dart#L112)), y en el servidor las
+contraseñas se guardan con hash, así que la actual no existe en ninguna parte para poder mostrarse.
+Es el Dueño reponiéndole la contraseña a su técnico —el caso de siempre en un taller: se le olvidó y
+está frente al mostrador—, no un usuario cambiando la suya.
+
+### 24. Roles y permisos reales
+
+Comprobado, y donde importa: **en el servidor**, no en la pantalla. `/api/users` entero es del
+Dueño ([CatalogControllers.cs:39](../backend/src/Garaj.Api/Controllers/CatalogControllers.cs#L39)) y
+el cierre de caja exige perfil Dueño antes de tocar la base
+([ReportService.cs:438](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L438)). Un
+técnico que llame la API a mano no pasa. Además, lo ajeno responde **404 y no 403**, para no
+confirmarle a nadie que el recurso existe, y hay pruebas de humo que lo comprueban
+([fase2_smoke.py:204](../backend/tests/smoke/fase2_smoke.py#L204)).
+
+### 25. Términos y condiciones
+
+El propio reporte lo pone como aclaración: no son una regla de rechazo de Google Play. Con el enlace
+del punto 22 se puede sumar el de términos el día que existan; hoy no hay documento que enlazar.
 
 ## Para el cuestionario de acceso a producción
 
