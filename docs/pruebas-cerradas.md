@@ -32,7 +32,7 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 19 | 30 ago 2026 | Eiborth Gómez | Zona horaria y límites del día | Comprobado | El día es el del taller, a −06:00 |
 | 20 | 30 ago 2026 | Eiborth Gómez | Conservación y exportación de registros | Fuera del código | Ya se exporta; el plazo legal lo define un contador |
 | 21 | 31 ago 2026 | Eiborth Gómez | Falta ruta para eliminar la cuenta | Ya existía | **Más → Cuenta → Eliminar mi cuenta**, en los tres perfiles |
-| 22 | 31 ago 2026 | Eiborth Gómez | La política de privacidad no está dentro de la app | **Cierto** | Pendiente: falta el enlace en la app |
+| 22 | 31 ago 2026 | Eiborth Gómez | La política de privacidad no está dentro de la app | **Cierto** | **Hecho**: privacidad y soporte en Más → Cuenta |
 | 23 | 31 ago 2026 | Eiborth Gómez | «Contraseña» podría exponer la actual | Comprobado | Solo fija una nueva; la actual no existe en claro |
 | 24 | 31 ago 2026 | Eiborth Gómez | Roles y permisos reales | Comprobado | El servidor los exige, no la pantalla |
 | 25 | 31 ago 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | Decisión suya |
@@ -312,9 +312,13 @@ para la cuenta propia.
 
 ### 22. La política de privacidad no está dentro de la app
 
-**Cierto.** Está en Play Console y en la ficha de Apple, y las páginas responden, pero desde la app
-no hay cómo abrirlas: ni privacidad, ni soporte. Es lo único de este corte que hay que hacer, y son
-dos filas en **Más → Cuenta**.
+**Cierto.** Estaba en Play Console y en la ficha de Apple, y las páginas responden, pero desde la
+app no había cómo abrirlas: ni privacidad, ni soporte.
+
+Resuelto con dos filas en **Más → Cuenta**
+([more_screen.dart:167](../mobile/lib/features/shell/more_screen.dart#L167)), que abren el sitio en
+el navegador. Van al sitio y no dentro de la app a propósito: así el texto se corrige sin publicar
+una versión nueva, y sigue abriendo aunque la API esté caída.
 
 ### 23. «Contraseña» podría exponer la credencial actual
 
