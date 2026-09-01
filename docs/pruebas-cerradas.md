@@ -27,6 +27,10 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 14 | 29 ago 2026 | Eiborth Gómez | El botón se puede pulsar sin vehículo elegido | Falta real | **Hecho**: apagado hasta que haya vehículo y sucursal |
 | 15 | 29 ago 2026 | Eiborth Gómez | El kilometraje admite cualquier cosa | Falta real | **Hecho**: solo dígitos, hasta siete |
 | 16 | 29 ago 2026 | Eiborth Gómez | Revisar consistencia claro/oscuro | Comprobado | La app sigue el tema del sistema |
+| 17 | 30 ago 2026 | Eiborth Gómez | El cierre de caja muestra el 11 de agosto a fin de mes | No reproducido | Sin día elegido, la fecha la pone el servidor |
+| 18 | 30 ago 2026 | Eiborth Gómez | Que anulaciones y abonos cuadren con el cierre | Comprobado | Las anuladas se apartan y se informan aparte |
+| 19 | 30 ago 2026 | Eiborth Gómez | Zona horaria y límites del día | Comprobado | El día es el del taller, a −06:00 |
+| 20 | 30 ago 2026 | Eiborth Gómez | Conservación y exportación de registros | Fuera del código | Ya se exporta; el plazo legal lo define un contador |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -237,6 +241,50 @@ Comprobado. La app no tiene interruptor propio: sigue el tema del sistema, y las
 salen de los mismos tokens
 ([garaj_brand.dart](../mobile/lib/core/theme/garaj_brand.dart)). Ninguna pantalla fija colores a
 mano. El contraste ya se midió el día 2 y el claro se corrigió.
+
+## Día 4 — 30 de agosto de 2026
+
+Primer corte funcional, sobre el **cierre de caja**. Su veredicto: «aprobado con observaciones».
+Casi todo son cosas a comprobar, no defectos vistos, y las tres que se podían comprobar leyendo el
+código salen bien.
+
+### 17. El cierre muestra «martes 11 de agosto» a fin de mes
+
+No se reproduce. La pantalla abre **sin día elegido**
+([cash_close_screen.dart:26](../mobile/lib/features/reports/cash_close_screen.dart#L26)), y en ese
+caso la fecha y su rótulo los pone el servidor con su propio reloj, no el teléfono: aunque el
+aparato tuviera la fecha corrida, el cierre seguiría mostrando el día de verdad.
+
+Para que aparezca el 11 de agosto hay que haberlo elegido en el calendario. Vale preguntarle si lo
+eligió o si la captura es de otra sesión —el 11 de agosto de 2026 sí cae martes, así que el rótulo
+es coherente con la fecha, no está mal armado—.
+
+### 18. Que las anulaciones cuadren con el cierre
+
+Comprobado, y está resuelto con cuidado: los abonos de una venta anulada **no suman al total**,
+pero tampoco desaparecen —se apartan y se informan aparte, con su cantidad y su monto
+([ReportService.cs:471](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L471))—.
+Hacerlos desaparecer sin explicación es justo lo que deja a un dueño sin poder cuadrar.
+
+### 19. Zona horaria y límites del día
+
+Comprobado. El día contable es el del taller y no el UTC: las fronteras se calculan a −06:00 y
+recién entonces se convierten a UTC para consultar
+([ReportService.cs:601](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L601)). Un
+abono de las siete de la noche cae en la caja de ese día, que agrupando por fecha UTC caería en la
+del siguiente. Honduras no tiene horario de verano, así que el desplazamiento fijo alcanza y evita
+depender de la base de zonas horarias del contenedor.
+
+El teléfono, cuando se elige un día, manda **el mediodía** de esa fecha
+([report_repository.dart:355](../mobile/lib/core/api/report_repository.dart#L355)) precisamente
+para que ningún desplazamiento lo empuje al día anterior.
+
+### 20. Conservación y exportación de registros
+
+No es cosa del código y el propio reporte lo dice: depende del país donde opere el taller y lo
+define un contador. Lo que la app ya da: el **libro de ventas en CSV** por mes —incluidas las
+anuladas, que el régimen exige reportar y no esconder—, el cierre de caja en PDF y los correlativos
+fiscales con su CAI. Nada se borra: una venta se anula, no se elimina.
 
 ## Para el cuestionario de acceso a producción
 
