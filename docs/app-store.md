@@ -204,10 +204,14 @@ Nada se usa para publicidad ni para seguimiento entre apps: la respuesta a «Tra
 | Clasificación por edades | 4+ |
 | Privacidad de la app | Publicada |
 | Precio | Gratis, país base Honduras |
-| **Envío** | Rechazado el 27 de agosto por falta de información (2.1); respondido el 28 con notas y video; **reenviado el 30 de agosto** |
+| **Envío** | Rechazado el 27 de agosto (2.1) y otra vez el 1 de septiembre, las dos por información; **aprobada el 2 de septiembre de 2026** |
 
-Apple suele contestar en 24–48 horas. La versión quedó en **publicación automática**: si aprueban,
-sale a la tienda sin volver a tocar nada.
+La versión quedó en **publicación automática**, así que al aprobarla sale sola: puede tardar hasta
+24 horas en aparecer.
+
+> **Los contratos tienen que estar en efecto** o la app no se distribuye, aunque esté aprobada. Para
+> una app gratuita es el acuerdo de apps gratuitas, en **Business → Acuerdos, impuestos y
+> operaciones bancarias**.
 
 ### Rechazo del 27 de agosto: directriz 2.1, «información necesaria»
 
@@ -245,6 +249,25 @@ Dos cosas que hay que dejar en su lugar antes de responder:
   para volver a ponerlas cuando haya que depurar en un iPhone conectado. Solo afecta a
   `flutter run` sobre el aparato; la compilación de publicación nunca pide ese permiso. Aplica
   desde la próxima compilación, no a la 1.0.0 (2) que ya está en revisión.
+
+### Segunda vuelta: «¿accede la app a contenido o servicios pagados?»
+
+El 1 de septiembre volvieron a preguntar, esta vez por la regla 3.1, y revisando **en un iPad**.
+Querían saber si hay algo pagado detrás de la app. La respuesta que se dio, y que sirve para
+cualquier versión futura:
+
+- **En la app no se compra nada**: no hay compras dentro de la app en el binario, ni muro de pago,
+  ni prueba que después se cobre, ni pantalla o enlace desde donde comprar.
+- **La mensualidad la paga el taller como empresa**, directamente a nosotros y fuera de la app, por
+  transferencia bancaria. Es el caso de *Enterprise Services* de la directriz 3.1.3(c): la
+  organización compra y su personal usa.
+- **Las reparaciones son servicios físicos** que se consumen en el mundo real, del tipo de 3.1.3(e).
+  La app los anota y los cobra en papel; no mueve dinero ni tiene pasarela.
+- Ninguno de los servicios externos que usa —Render, Supabase, Cloudflare R2, Firebase/APNs— es
+  procesador de pagos.
+
+Con eso aprobaron. Nota: revisan en iPad, así que la app se abre ahí aunque esté pensada para
+teléfono; conviene mirarla en un iPad antes de cada envío o limitarla a iPhone.
 
 ### Grabar el video: lo que costó tiempo
 
