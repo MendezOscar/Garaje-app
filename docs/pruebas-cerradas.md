@@ -49,7 +49,7 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 36 | 2 sep 2026 | Eiborth Gómez | La búsqueda no ignora acentos | **Cierto** | Pendiente; pide `unaccent` en la base |
 | 37 | 3 sep 2026 | Eiborth Gómez | Falta la política de privacidad en la app | Ya resuelto | Se hizo el 31 de agosto, punto 22 |
 | 38 | 3 sep 2026 | Eiborth Gómez | Falta «Eliminar cuenta» localizable | Ya existía | Más → Cuenta, punto 21 |
-| 39 | 3 sep 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | Decisión suya, como el punto 25 |
+| 39 | 3 sep 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | **Borrador escrito**, pendiente de revisión legal |
 | 40 | 3 sep 2026 | Eiborth Gómez | Falta la versión de la app y quién la hace | **Cierto** | **Hecho**: al pie de «Más» |
 | 41 | 3 sep 2026 | Eiborth Gómez | Los permisos no pueden ser solo ocultar opciones | Comprobado | El servidor autoriza, punto 24 |
 
@@ -499,8 +499,19 @@ Play Console también está declarada.
 
 ### 39. Términos y condiciones
 
-El mismo punto 25. Sigue siendo decisión suya y no es regla de rechazo; el día que exista el
-documento, el enlace se agrega junto a los otros dos.
+El mismo punto 25 y no es regla de rechazo de ninguna tienda: Play los recomienda y Apple aplica su
+licencia estándar a las apps gratuitas cuando el desarrollador no pone la suya.
+
+Lo que faltaba no era el enlace sino el documento, así que se escribió un borrador:
+[`web/public/terminos.html`](../web/public/terminos.html). Describe la mecánica de cobro **tal como
+el sistema la aplica** —aviso 7 días antes, días de tolerancia por taller, solo lectura y
+suspensión manual, sin borrar datos—, de quién son los datos del taller y cómo los saca, el límite
+de responsabilidad y la ley hondureña.
+
+Queda **sin entrar en vigor y sin que nada lo enlace**, con un aviso de borrador a la vista y
+`noindex`: es el documento con el que se le cobra a un cliente y tiene que verlo un abogado antes.
+Cuando esté revisado, se le quita el aviso y se agrega el enlace en «Más», junto a privacidad y
+soporte.
 
 ### 40. La versión de la app y quién la hace
 

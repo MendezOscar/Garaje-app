@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<!--
+  Términos y condiciones del servicio. Archivo estático en `web/public`, servido en
+  /terminos.html.
+
+  BORRADOR: se escribió a pedido del 3 de septiembre de 2026, todavía sin revisión legal. Por eso
+  lleva el aviso de arriba y NADA lo enlaza —ni la app, ni el pie de la landing—. Cuando un
+  abogado lo revise: quitar el bloque `.borrador`, poner la fecha de entrada en vigor y agregar el
+  enlace en `mobile/lib/features/shell/more_screen.dart`, junto a privacidad y soporte, y en el
+  pie de las páginas estáticas.
+
+  Lo que dice sobre cobros describe lo que el sistema hace de verdad —ver
+  `backend/src/Garaj.Domain/Rules/SubscriptionRules.cs`—: aviso 7 días antes, días de tolerancia
+  por taller, solo lectura y suspensión manual. Si esa mecánica cambia, este texto cambia con
+  ella; es el documento con el que se le cobra a un cliente.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Términos y condiciones — GarajApp</title>
+  <meta name="description" content="Condiciones del servicio GarajApp: qué incluye, cuánto cuesta, qué pasa si no se paga, de quién son los datos del taller y hasta dónde responde cada parte." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="robots" content="noindex" />
+  <style>
+    :root {
+      --brand: #1f6feb; --brand-deep: #124293; --brand-light: #e8f0fe;
+      --ink: #14171c; --muted: #646e7a; --bg: #f7f8fa; --card: #fff; --border: #d9dde4;
+      --warn: #f2a31a; --warn-light: #fff6e3;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); background: var(--bg); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header { border-bottom: 1px solid var(--border); background: #fff; }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; max-width: 780px; margin: 0 auto; padding: 0 24px; }
+    .nav img { height: 26px; width: auto; display: block; }
+    .nav a.home { color: var(--muted); font-weight: 600; font-size: 15px; }
+    main { max-width: 780px; margin: 0 auto; padding: 32px 24px 80px; }
+    h1 { font-size: clamp(28px, 5vw, 38px); font-weight: 800; letter-spacing: -.02em; }
+    .fecha { color: var(--muted); font-size: 15px; margin: 6px 0 24px; }
+    h2 { font-size: 21px; font-weight: 800; margin: 34px 0 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 20px 0 6px; }
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 8px 22px; }
+    li { margin: 5px 0; }
+    code { background: var(--brand-light); color: var(--brand-deep); padding: 1px 6px; border-radius: 5px; font-size: 13.5px; font-family: ui-monospace, Menlo, monospace; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14.5px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
+    .tbl-wrap { overflow-x: auto; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin: 16px 0; }
+    .note { border-left: 4px solid var(--brand); background: var(--brand-light); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14.5px; }
+    .borrador { border-left: 4px solid var(--warn); background: var(--warn-light); border-radius: 0 10px 10px 0; padding: 14px 16px; margin: 0 0 22px; font-size: 15px; }
+    footer { border-top: 1px solid var(--border); padding: 24px; color: var(--muted); font-size: 14px; text-align: center; }
+    @media print { header { display: none; } body { background: #fff; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <a href="/"><img src="/brand/garajapp-horizontal.svg" alt="GarajApp" /></a>
+      <a href="/" class="home">← Volver al inicio</a>
+    </div>
+  </header>
+
+  <main>
+    <h1>Términos y condiciones</h1>
+    <p class="fecha">Borrador del 4 de septiembre de 2026 · sin entrar en vigor</p>
+
+    <div class="borrador"><strong>Este documento es un borrador.</strong> Está pendiente de
+    revisión legal y todavía no rige ninguna relación con ningún taller. Mientras no se publique la
+    versión definitiva, lo que se acordó con cada taller es lo que valga por escrito o de palabra
+    con él.</div>
+
+    <p>Estas condiciones explican qué es GarajApp, qué incluye el servicio, cuánto cuesta, qué pasa
+    si no se paga, de quién son los datos del taller y hasta dónde responde cada parte. Están
+    escritas para que las entienda quien las firma, no para esconderse detrás de ellas.</p>
+
+    <h2>1. Quién presta el servicio</h2>
+    <p>GarajApp lo desarrolla y opera <strong>Óscar Armando Cruz Méndez</strong>, en Honduras
+    —«nosotros» en este documento—. Contacto:
+    <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a> o WhatsApp
+    <a href="https://wa.me/50498242108">+504 9824 2108</a>.</p>
+    <p>«El taller» es el negocio que contrata el servicio. Es quien acepta estas condiciones, quien
+    paga y quien decide a qué personas de su equipo les da acceso.</p>
+
+    <h2>2. Qué es el servicio</h2>
+    <p>GarajApp es un sistema para administrar un taller mecánico: recibir vehículos, llevar
+    órdenes de trabajo con sus pasos y fotos, controlar el inventario de repuestos, cotizar,
+    facturar, registrar cobros y ver reportes. Se usa desde una app móvil y desde un panel web, y
+    los datos viven en un servidor en internet.</p>
+    <p>No hay registro público: las cuentas del personal las crea el dueño del taller. La app no
+    vende nada dentro de sí misma y no procesa pagos de nadie —cuando se registra que un cliente
+    pagó con tarjeta o transferencia, la app solo lo anota; el dinero no pasa por aquí—.</p>
+
+    <h2>3. Las cuentas y quién las usa</h2>
+    <ul>
+      <li>El dueño del taller crea las cuentas de su personal y decide qué perfil le da a cada uno:
+      Dueño, Mecánico o Cliente. Cada perfil ve y hace cosas distintas.</li>
+      <li>El taller es responsable de a quién le entrega una cuenta y de lo que esa persona haga
+      con ella. Si alguien deja de trabajar ahí, dele de baja el mismo día.</li>
+      <li>Las contraseñas se guardan cifradas y nadie —tampoco nosotros— puede leerlas. Si un
+      empleado la olvida, el dueño le pone una nueva desde la app.</li>
+      <li>Cada cuenta es de una persona. Compartir una cuenta entre varios hace imposible saber
+      quién hizo qué, que es justamente lo que el sistema sirve para saber.</li>
+    </ul>
+
+    <h2>4. Precio y forma de pago</h2>
+    <p>El servicio se cobra por <strong>mensualidad, por taller</strong>, en la moneda y el monto
+    acordados al contratar. El pago se hace <strong>fuera de la aplicación</strong>, por
+    transferencia o depósito bancario, y se factura cada mes.</p>
+    <p>No hay compras dentro de la app ni suscripciones de las tiendas: ni Google Play ni la App
+    Store intervienen en este cobro.</p>
+    <p>Si el precio va a cambiar, se le avisa al taller con al menos <strong>30 días</strong> de
+    anticipación. Si no está de acuerdo, puede cancelar antes de que el nuevo precio entre en
+    vigor.</p>
+
+    <h2>5. Qué pasa si no se paga</h2>
+    <p>El sistema no corta de golpe. La secuencia es esta, y es la que el propio sistema
+    aplica:</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Momento</th><th>Qué pasa</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>7 días antes de vencer</td>
+          <td>El dueño empieza a ver un aviso al entrar. Todo funciona igual.</td>
+        </tr>
+        <tr>
+          <td>Después de la fecha pagada, durante los días de tolerancia acordados</td>
+          <td>El taller sigue trabajando con normalidad, con el aviso a la vista.</td>
+        </tr>
+        <tr>
+          <td>Vencida la tolerancia</td>
+          <td><strong>Solo lectura</strong>: se puede entrar, consultar todo el historial y
+          exportar la información, pero no crear ni modificar órdenes, ventas ni facturas.</td>
+        </tr>
+        <tr>
+          <td>Falta de pago prolongada</td>
+          <td>Suspensión del acceso, que es una decisión que se toma y se comunica, no algo que
+          ocurra solo por una fecha.</td>
+        </tr>
+      </tbody>
+    </table></div>
+    <p>Si hay un acuerdo de pago, se registra y el taller sigue trabajando hasta la fecha
+    acordada.</p>
+    <div class="note"><strong>Sus datos no se borran por no pagar.</strong> Ni en solo lectura, ni
+    suspendido. Se conservan al menos <strong>90 días</strong> después de terminar la relación, para
+    que pueda pedir una copia o retomar el servicio.</div>
+
+    <h2>6. De quién son los datos</h2>
+    <p>La información que el taller carga —sus clientes, sus vehículos, su inventario, sus órdenes y
+    sus facturas— <strong>es del taller</strong>. Nosotros la guardamos y la procesamos por su
+    encargo, con las medidas que describe la
+    <a href="/privacidad">política de privacidad</a>, y no la usamos para nada más: no se vende, no
+    se comparte con otros talleres ni se usa para publicidad.</p>
+    <p>El taller puede sacar su información en cualquier momento: el libro de ventas del mes en
+    formato CSV, las facturas y el cierre de caja en PDF, todo desde la aplicación. Si necesita algo
+    que la app todavía no exporta, pídalo y se le entrega.</p>
+
+    <h2>7. Uso correcto</h2>
+    <p>El taller se compromete a no usar el servicio para actividades ilegales, a no intentar
+    acceder a la información de otro taller, a no interferir con el funcionamiento del sistema y a
+    no cargar contenido del que no tenga derecho a disponer. Cada taller solo ve lo suyo, y esa
+    separación se hace cumplir en el servidor.</p>
+
+    <h2>8. Disponibilidad, respaldos y soporte</h2>
+    <p>Nos esforzamos por tener el servicio disponible todo el tiempo, pero es un servicio en
+    internet y <strong>no garantizamos que nunca se caiga</strong>: puede haber cortes por fallas,
+    por el proveedor de servidores o por mantenimiento. Cuando el mantenimiento sea programado, se
+    avisa antes y se busca la hora de menos trabajo.</p>
+    <p>Se hacen respaldos de la base de datos con regularidad. El soporte se atiende por WhatsApp y
+    por correo en horario laboral hondureño; una falla que impida trabajar se atiende con
+    prioridad.</p>
+
+    <h2>9. Facturación fiscal</h2>
+    <p>GarajApp permite emitir documentos con los rangos autorizados por el SAR que el propio taller
+    configura, y lleva el correlativo y el CAI que el taller ingresa.</p>
+    <p><strong>El cumplimiento fiscal es del taller</strong>: sus rangos, sus declaraciones y la
+    veracidad de lo que factura. GarajApp es la herramienta con la que lo lleva; no es un agente
+    fiscal, no representa al SAR ni certifica documentos ante ninguna autoridad.</p>
+
+    <h2>10. Hasta dónde respondemos</h2>
+    <p>Respondemos por que el servicio funcione como se describe y por cuidar la información del
+    taller. Dentro de lo que la ley permite pactar:</p>
+    <ul>
+      <li>No respondemos por decisiones del taller ni por lo que su personal registre en el
+      sistema: si un precio se tecleó mal o una factura se emitió a nombre equivocado, la corrección
+      es del taller.</li>
+      <li>No respondemos por lucro cesante ni por pérdidas indirectas.</li>
+      <li>Si algo tuviera que compensarse, el límite es lo que el taller haya pagado por el
+      servicio en los <strong>últimos tres meses</strong>.</li>
+    </ul>
+    <p>Nada de esto limita la responsabilidad por dolo ni la que la ley no permite excluir.</p>
+
+    <h2>11. Cancelar el servicio</h2>
+    <p>El taller puede cancelar cuando quiera, avisando por escrito —correo o WhatsApp basta—. Se
+    cobra hasta el final del mes en curso y no hay penalidad.</p>
+    <p>Nosotros podemos terminar la relación avisando con <strong>30 días</strong>, o de inmediato
+    si hay uso ilegal o falta de pago prolongada. En cualquier caso, el taller tiene al menos
+    <strong>90 días</strong> para pedir una copia de su información.</p>
+
+    <h2>12. Cambios a estas condiciones</h2>
+    <p>Si estas condiciones cambian, se actualiza esta página y su fecha, y se avisa al taller por
+    correo o WhatsApp antes de que el cambio entre en vigor. Si el cambio le afecta y no lo acepta,
+    puede cancelar sin penalidad.</p>
+
+    <h2>13. Ley aplicable</h2>
+    <p>Estas condiciones se rigen por las leyes de la <strong>República de Honduras</strong>.
+    Cualquier diferencia se intentará resolver hablando; si no, corresponde a los tribunales
+    competentes de San Pedro Sula, Cortés.</p>
+
+    <h2>14. Contacto</h2>
+    <p>📧 <a href="mailto:mendez01developer@gmail.com">mendez01developer@gmail.com</a><br />
+    💬 WhatsApp <a href="https://wa.me/50498242108">+504 9824 2108</a></p>
+  </main>
+
+  <footer>© GarajApp · <a href="/privacidad">Privacidad</a> ·
+  <a href="/soporte">Soporte</a> · <a href="/">garajeapp.com</a></footer>
+</body>
+</html>
