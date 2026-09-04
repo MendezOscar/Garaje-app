@@ -20,7 +20,7 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 7 | 28 ago 2026 | Eiborth Gómez | El permiso de avisos se pide sin explicar para qué | Mejora real | **Hecho**: diálogo propio antes del del sistema, y aviso en Avisos si quedó apagado |
 | 8 | 28 ago 2026 | Eiborth Gómez | «Marcar todo» sigue visible sin avisos | Falta real | **Hecho**: solo aparece si hay avisos |
 | 9 | 28 ago 2026 | Eiborth Gómez | Revisar contraste AA en modo oscuro | Comprobado | El oscuro pasa; el claro no llegaba y **se corrigió**: `#6B7480` → `#646E7A` |
-| 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | Taller recién creado: es cosa de datos, no de la app |
+| 10 | 28 ago 2026 | Eiborth Gómez | La pantalla Hoy está llena de ceros | No es defecto | **Resuelto con datos**: `backend/tools/poblar-taller.py` |
 | 11 | 28 ago 2026 | Eiborth Gómez | Que permisos, política y Data safety concuerden | Comprobado | Concuerdan |
 | 12 | 29 ago 2026 | Eiborth Gómez | «Elija el vehículo y la sucursal» con ambos ya elegidos | **Defecto real** | **Hecho**: el error se borra al elegir, en el teléfono y en el panel |
 | 13 | 29 ago 2026 | Eiborth Gómez | Buscar «aveo» no encuentra el vehículo Aveo | **Descartado** | No se reproduce, ni leyendo el código ni probándolo |
@@ -165,8 +165,16 @@ heredan. El mismo token existe en el panel web, que tendría que moverse igual.
 
 No es un defecto de la app: el taller que se les dio a los verificadores se creó vacío. Pero el
 verificador tiene razón en el fondo —así no se puede probar con importes largos ni ver si algo se
-desborda—, y eso se arregla sin tocar código: cargarle órdenes, repuestos y cobros a ese taller,
-con cifras grandes a propósito.
+desborda—, y eso se arregla sin tocar código.
+
+Para eso está [`backend/tools/poblar-taller.py`](../backend/tools/poblar-taller.py): entra por la
+API con la sesión del Dueño y da de alta catálogo, clientes, seis órdenes en distintos estados
+—tres facturadas, una con saldo pendiente— y unas ventas de mostrador del mes en curso. Nada de
+histórico: lo justo para que las pantallas tengan qué enseñar.
+
+> **No confundirlo con `POST /api/demo/seed`**, que borra la base entera y no se corre en
+> producción jamás. Este solo hace altas, con el mismo alcance que tendría una persona en el
+> mostrador, y se planta si el taller ya tiene órdenes para no dejar todo por duplicado.
 
 ### 11. Que permisos, política y Data safety concuerden
 
