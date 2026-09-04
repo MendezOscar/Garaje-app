@@ -248,6 +248,7 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
 | Gráficos y las seis capturas | Hecho |
 | Prueba interna, versión 1 (1.0.0) | Publicada |
 | Prueba cerrada, versión 1 promovida | Publicada |
+| Prueba cerrada, **1.0.1 (3)** con los arreglos de los verificadores | Subida el 4 de septiembre de 2026 |
 | 12 probadores aceptados | **Pendiente** |
 | Acceso a producción | Se puede pedir 14 días después de que el probador número 12 acepte |
 
@@ -259,6 +260,11 @@ la aceptación**, así que no vale la pena repartirlo antes.
 Lo que reportan los probadores día a día se recoge en
 [pruebas-cerradas.md](pruebas-cerradas.md): de ahí salen las respuestas del cuestionario de acceso
 a producción, que pregunta qué cambió en la app por lo que ellos dijeron.
+
+> Subir compilaciones nuevas al canal cerrado **no reinicia** los 14 días —solo los reinicia perder
+> verificadores—, y a Google le sirve ver que la app se corrigió con lo que reportaron. Lo que sí
+> conviene vigilar es la columna **«Usuarios con la app instalada»** del panel: doce aceptaciones con
+> dos instalaciones se ve mal cuando pidan cuentas de cómo fue la prueba.
 
 Los probadores usan un taller aparte, aprovisionado con `provision-tenant`, no el de
 demostración que se le declaró al revisor: doce personas dejan desorden y ese es justo el taller
