@@ -23,9 +23,9 @@ Carga un mes corriente, no un histórico: seis órdenes en distintos estados, tr
 cobradas, y unas ventas de mostrador repartidas en los días que van del mes. Lo justo para que
 las pantallas tengan algo que enseñar.
 
-Se puede volver a correr: el catálogo, los clientes y los vehículos que ya existan se reusan.
-Lo que no se repite son las órdenes —si el taller ya tiene alguna, se planta— para no dejar el
-taller con el doble de trabajo inventado.
+Se puede volver a correr: lo que ya exista se reusa —catálogo por SKU, servicios por código,
+vehículos por placa y órdenes por su motivo—, así que una corrida cortada a medias continúa
+donde iba y no deja el taller con el doble de trabajo inventado.
 """
 import json
 import os
@@ -65,7 +65,15 @@ def call(method, path, body=None):
 
 
 def post(path, body, que):
-    status, data = call("POST", path, body)
+    return _mandar("POST", path, body, que)
+
+
+def put(path, body, que):
+    return _mandar("PUT", path, body, que)
+
+
+def _mandar(metodo, path, body, que):
+    status, data = call(metodo, path, body)
     if status not in (200, 201):
         sys.exit(f"FALLA al {que}: {status} {data}")
     return data
@@ -84,14 +92,15 @@ def dia_del_mes(dia, hora=10):
 
 
 REPUESTOS = [
-    # sku, nombre, marca, unidad, costo, precio, existencia inicial
-    ("ACE-20W50", "Aceite 20W-50 mineral", "Castrol", "litro", 95, 165, 24),
-    ("FIL-ACE-01", "Filtro de aceite", "Bosch", "unidad", 70, 140, 12),
-    ("PAS-DEL-CB", "Pastillas de freno delanteras", "Brembo", "juego", 320, 580, 6),
-    ("BUJ-NGK-01", "Bujía NGK", "NGK", "unidad", 55, 110, 20),
-    ("BAT-12V", "Batería 12V", "Bosch", "unidad", 1450, 2200, 3),
-    # Este entra bajo el mínimo a propósito: sin uno así, la alerta de inventario no se ve.
-    ("CAD-428", "Cadena 428H", "DID", "unidad", 380, 690, 1),
+    # sku, nombre, marca, unidad, costo, precio, existencia inicial, mínimo de reposición
+    ("ACE-20W50", "Aceite 20W-50 mineral", "Castrol", "litro", 95, 165, 24, 6),
+    ("FIL-ACE-01", "Filtro de aceite", "Bosch", "unidad", 70, 140, 12, 4),
+    ("PAS-DEL-CB", "Pastillas de freno delanteras", "Brembo", "juego", 320, 580, 6, 2),
+    ("BUJ-NGK-01", "Bujía NGK", "NGK", "unidad", 55, 110, 20, 8),
+    ("BAT-12V", "Batería 12V", "Bosch", "unidad", 1450, 2200, 3, 2),
+    # Entra por debajo de su mínimo a propósito: sin uno así, la alerta de inventario no se ve
+    # y no hay forma de saber si se dibuja.
+    ("CAD-428", "Cadena 428H", "DID", "unidad", 380, 690, 1, 3),
 ]
 
 SERVICIOS = [
@@ -141,15 +150,6 @@ def main():
     branch = branches[0]["id"]
     print(f"Sucursal: {branches[0]['name']}")
 
-    # Si ya hay órdenes, no se vuelve a cargar: correrlo dos veces deja el taller con el doble
-    # de todo y nadie sabe qué es de verdad y qué es de relleno.
-    status, ordenes = call("GET", "/api/work-orders?pageSize=1")
-    if status == 200 and ordenes.get("total", 0) > 0 and not os.environ.get("GARAJ_IGUAL"):
-        sys.exit(
-            f"El taller ya tiene {ordenes['total']} orden(es). No se toca nada.\n"
-            "Si una corrida anterior se cortó a medias y quiere seguir igual, "
-            "vuelva a correrlo con GARAJ_IGUAL=1."
-        )
 
     # Todo lo que sigue reusa lo que ya esté: si una corrida se cortó a medias, volver a
     # correrlo continúa donde iba en vez de chocar con lo que él mismo creó.
@@ -157,8 +157,12 @@ def main():
     _, listado = call("GET", "/api/parts?pageSize=200")
     partes = {p["sku"]: p["id"] for p in listado.get("items", [])}
 
-    for sku, nombre, marca, unidad, costo, precio, existencia in REPUESTOS:
+    for sku, nombre, marca, unidad, costo, precio, existencia, minimo in REPUESTOS:
         if sku in partes:
+            call("PUT", "/api/stock/settings", {
+                "branchId": branch, "partId": partes[sku],
+                "minQuantity": minimo, "location": None,
+            })
             print(f"  {sku}: ya estaba")
             continue
         parte = post("/api/parts", {
@@ -171,7 +175,12 @@ def main():
             "branchId": branch, "partId": parte["id"], "quantity": existencia,
             "unitCost": costo, "reference": "Carga inicial", "notes": None,
         }, f"recibir existencias de {sku}")
-        print(f"  {sku}: {existencia} en bodega")
+        # El mínimo va aparte de la entrada: es un ajuste de la ficha, no un movimiento.
+        put("/api/stock/settings", {
+            "branchId": branch, "partId": parte["id"],
+            "minQuantity": minimo, "location": None,
+        }, f"poner el mínimo de {sku}")
+        print(f"  {sku}: {existencia} en bodega, mínimo {minimo}")
 
     _, catalogo = call("GET", "/api/labor-services")
     servicios = {s["code"]: s["id"] for s in (catalogo or [])}
@@ -213,7 +222,16 @@ def main():
         print(f"  {nombre} · {marca} {modelo} {placa}")
 
     print("\nÓrdenes")
+    # Se salta las que ya existen por su motivo: correrlo dos veces no deja el taller con el
+    # doble de trabajo inventado, y una corrida cortada a medias se puede continuar.
+    _, abiertas = call("GET", "/api/work-orders?pageSize=200")
+    yaEstan = {o.get("description") for o in abiertas.get("items", [])}
+
     for i, (motivo, hasta, repuestos, pasos) in enumerate(ORDENES):
+        if motivo in yaEstan:
+            print(f"  «{motivo[:38]}…»: ya estaba")
+            continue
+
         cliente_id, vehiculo_id, placa = vehiculos[i % len(vehiculos)]
         orden = post("/api/work-orders", {
             "branchId": branch, "vehicleId": vehiculo_id, "description": motivo,
@@ -247,29 +265,39 @@ def main():
             call("POST", f"/api/work-orders/{oid}/status", {"status": estado, "note": None})
 
         if hasta == 8:
+            # Cerrar la orden ya cobra: sin `initialPayment` la venta queda pagada del todo,
+            # así que registrar un abono aparte sería cobrarla dos veces.
+            #
+            # La tercera se deja a crédito a propósito: sin una venta con saldo, la pantalla
+            # de cuentas por cobrar también sale vacía.
+            aCredito = i == 2
             venta = post("/api/sales/close-work-order", {
-                "workOrderId": oid, "paymentMethod": 1, "notes": None, "taxRate": 0,
-                "includeLabor": True, "markAsDelivered": True,
+                "workOrderId": oid, "paymentMethod": 3 if i % 2 else 1, "notes": None,
+                "taxRate": 0, "includeLabor": True, "markAsDelivered": True,
+                "initialPayment": 1000 if aCredito else None,
+                "dueDate": dia_del_mes(28, 17) if aCredito else None,
             }, "facturar la orden")
             total = venta.get("total", 0)
-            # Una queda con saldo: sin cuentas por cobrar, esa pantalla también sale vacía.
-            monto = total if i != 2 else round(total / 2, 2)
-            if monto:
-                post(f"/api/sales/{venta['id']}/payments", {
-                    "amount": monto, "method": 1 if i % 2 == 0 else 3,
-                    "paidAt": None, "reference": None, "notes": None,
-                }, "registrar el abono")
-            print(f"  {placa}: facturada L {total} · cobrado L {monto}")
+            print(f"  {placa}: facturada L {total}"
+                  + (" · abonó L 1000, queda a crédito" if aCredito else " · pagada"))
         else:
             print(f"  {placa}: {motivo[:40]}…")
 
     print("\nVentas de mostrador")
+    _, ventas = call("GET", "/api/sales?pageSize=200")
+    conMostrador = {v["saleDate"][:10] for v in ventas.get("items", [])
+                    if not v.get("workOrderId")}
+
     hoy = datetime.now(HONDURAS).day
-    for dia in {1, max(1, hoy - 2), max(1, hoy - 1), hoy}:
+    for dia in sorted({1, max(1, hoy - 2), max(1, hoy - 1), hoy}):
+        fecha = dia_del_mes(dia, 11)
+        if fecha[:10] in conMostrador:
+            print(f"  día {dia}: ya estaba")
+            continue
         sku, cantidad = random.choice([("ACE-20W50", 2), ("BUJ-NGK-01", 1), ("FIL-ACE-01", 1)])
         venta = post("/api/sales", {
             "branchId": branch, "customerId": None, "paymentMethod": 1,
-            "saleDate": dia_del_mes(dia, 11), "notes": None, "taxRate": 0,
+            "saleDate": fecha, "notes": None, "taxRate": 0,
             "lines": [{"partId": partes[sku], "quantity": cantidad, "unitPrice": None,
                        "description": None, "lineType": 1}],
         }, f"vender {sku} en mostrador")
