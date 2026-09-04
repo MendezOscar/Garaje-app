@@ -41,11 +41,11 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 28 | 1 sep 2026 | Eiborth Gómez | Que la exportación responda | Comprobado | Genera el CSV, lo comparte y avisa si falla |
 | 29 | 1 sep 2026 | Eiborth Gómez | Funcionalidad estable (política) | Sin acción | — |
 | 30 | 1 sep 2026 | Eiborth Gómez | Declarar SDK que transmiten datos | Comprobado | No hay analítica ni informes de fallos |
-| 31 | 2 sep 2026 | Eiborth Gómez | «Tarjeta» y «Transferencia» pueden leerse como cobro integrado | Justo | Pendiente: una línea que lo aclare |
+| 31 | 2 sep 2026 | Eiborth Gómez | «Tarjeta» y «Transferencia» pueden leerse como cobro integrado | Justo | **Hecho**: lo dice bajo el campo |
 | 32 | 2 sep 2026 | Eiborth Gómez | Validar total, ISV, CAI, anulaciones y ventas duplicadas | Comprobado | Cubierto por las pruebas de humo |
 | 33 | 2 sep 2026 | Eiborth Gómez | No vender sin repuesto, ni cobrar doble por doble toque | Comprobado | El botón se apaga solo |
 | 34 | 2 sep 2026 | Eiborth Gómez | Buscar «amortiguador» no encuentra nada | No es defecto | Ese repuesto no existe en el taller |
-| 35 | 2 sep 2026 | Eiborth Gómez | Distinguir «no existe» de «sin existencia aquí» | **Cierto** | Pendiente |
+| 35 | 2 sep 2026 | Eiborth Gómez | Distinguir «no existe» de «sin existencia aquí» | **Cierto** | **Hecho**: el buscador consulta el catálogo |
 | 36 | 2 sep 2026 | Eiborth Gómez | La búsqueda no ignora acentos | **Cierto** | Pendiente; pide `unaccent` en la base |
 
 ## Día 1 — 27 de agosto de 2026
@@ -425,8 +425,9 @@ campo se llama «Forma de pago»
 ([counter_sale_screen.dart:270](../mobile/lib/features/sales/counter_sale_screen.dart#L270)), que
 es correcto, pero no lo dice explícitamente.
 
-Conviene una línea bajo el campo —«solo se anota cómo pagó; la app no procesa cobros»—. Cuesta
-nada y le habla al revisor de la tienda tanto como al usuario.
+Resuelto con una línea bajo el campo: «aquí solo se anota cómo pagó el cliente; la app no procesa
+cobros ni pide datos de tarjeta». Cuesta nada y le habla al revisor de la tienda tanto como al
+usuario.
 
 ### 32. Total, ISV, CAI, anulaciones y ventas duplicadas
 
@@ -457,10 +458,15 @@ distinguir mayúsculas ([StockService.cs:44](../backend/src/Garaj.Infrastructure
 ### 35. Distinguir «no existe» de «no hay en esta sucursal»
 
 **Cierto, y es el hallazgo útil del día.** El buscador del mostrador lista existencias, no el
-catálogo: un repuesto que existe pero que nunca entró a esa sucursal es invisible, y el mensaje
-—«nada con ese nombre en esta sucursal»— deja pensando si el repuesto no existe o si es que no
+catálogo: un repuesto que existe pero que nunca entró a esa sucursal era invisible, y el mensaje
+—«nada con ese nombre en esta sucursal»— dejaba pensando si el repuesto no existe o si es que no
 hay. Son dos cosas distintas y se actúa distinto: una se resuelve dándolo de alta, la otra
 recibiendo mercadería.
+
+Resuelto: cuando la bodega no devuelve nada, el buscador consulta el catálogo y dice cuál de las
+dos cosas pasó —«está en el catálogo pero sin existencia en esta sucursal; recíbalo en bodega y
+podrá venderlo», o que no existe ni en el catálogo—. La consulta extra solo ocurre cuando no hay
+resultados, así que la búsqueda normal no se hace más lenta.
 
 ### 36. La búsqueda no ignora acentos
 

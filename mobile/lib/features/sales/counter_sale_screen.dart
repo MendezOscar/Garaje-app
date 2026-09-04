@@ -277,6 +277,16 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                   ],
                   onChanged: _busy ? null : (value) => setState(() => _metodo = value ?? _metodo),
                 ),
+                const SizedBox(height: 6),
+                // Se dice explícitamente porque «Tarjeta» y «Transferencia» se pueden leer como
+                // que la app cobra. No cobra: anota cómo pagó el cliente en el mostrador, que es
+                // lo mismo que se le declaró a Apple por la regla 3.1.
+                Text(
+                  'Aquí solo se anota cómo pagó el cliente. La app no procesa cobros ni pide '
+                  'datos de tarjeta.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
 
                 SwitchListTile(
                   value: _fiscal,
@@ -564,7 +574,6 @@ class _BuscarRepuestoState extends ConsumerState<_BuscarRepuesto> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final existencias = ref.watch(
       stockProvider(StockFilter(branchId: widget.branchId, search: _texto)),
     );
@@ -598,12 +607,7 @@ class _BuscarRepuestoState extends ConsumerState<_BuscarRepuesto> {
                 child: Text(apiErrorMessage(e, 'No se pudo buscar en la bodega.')),
               ),
               data: (items) => items.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Nada con ese nombre en esta sucursal.',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    )
+                  ? Center(child: _SinResultados(texto: _texto))
                   : ListView.builder(
                       itemCount: items.length,
                       itemBuilder: (_, i) {
@@ -747,6 +751,65 @@ class _Hecha extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Qué decir cuando la bodega no devuelve nada.
+///
+/// «No existe» y «no hay en esta sucursal» son dos cosas distintas y se resuelven distinto: una
+/// dándolo de alta en el catálogo, la otra recibiendo mercadería. El buscador del mostrador
+/// lista existencias, así que sin esta consulta al catálogo las dos se veían igual y quien está
+/// en el mostrador no sabía cuál de las dos le pasó.
+class _SinResultados extends ConsumerWidget {
+  const _SinResultados({required this.texto});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final estilo = theme.textTheme.bodySmall;
+
+    if (texto.trim().isEmpty) {
+      return Text('Escriba el nombre o el código del repuesto.', style: estilo);
+    }
+
+    final enCatalogo = ref.watch(partSearchProvider(texto.trim()));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: enCatalogo.when(
+        // Mientras se consulta se dice lo que ya se sabe con seguridad, sin adelantarse.
+        loading: () => Text('Sin existencia en esta sucursal.', style: estilo),
+        error: (_, __) => Text('Sin existencia en esta sucursal.', style: estilo),
+        data: (partes) => partes.isEmpty
+            ? Text(
+                'No hay ningún repuesto con ese nombre ni en el catálogo del taller.',
+                textAlign: TextAlign.center,
+                style: estilo,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    partes.length == 1
+                        ? '«${partes.first.name}» está en el catálogo, pero no hay existencia '
+                            'en esta sucursal.'
+                        : 'Hay ${partes.length} repuestos con ese nombre en el catálogo, pero '
+                            'sin existencia en esta sucursal.',
+                    textAlign: TextAlign.center,
+                    style: estilo,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Recíbalo en bodega desde Inventario y podrá venderlo.',
+                    textAlign: TextAlign.center,
+                    style: estilo?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
