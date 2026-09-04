@@ -329,7 +329,15 @@ class ReportRepository {
   Future<RevenueReport> revenue(ReportFilter filter) async {
     // El rango se manda en UTC, que es lo único que acepta la API; el corte por día del
     // taller lo hace ella, que conoce la hora de Honduras.
-    final from = DateTime.now().toUtc().subtract(Duration(days: filter.days));
+    //
+    // Arranca al **comienzo del día** y no en el instante en que se abrió la pantalla: el
+    // gráfico agrupa por día, así que con la hora suelta la barra más vieja salía siempre a
+    // medias y el total se movía a lo largo de la jornada. «7 días» son hoy y los seis
+    // anteriores.
+    final hoy = DateTime.now();
+    final from = DateTime(hoy.year, hoy.month, hoy.day)
+        .subtract(Duration(days: filter.days - 1))
+        .toUtc();
 
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/reports/revenue',
