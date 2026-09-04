@@ -41,6 +41,12 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 28 | 1 sep 2026 | Eiborth Gómez | Que la exportación responda | Comprobado | Genera el CSV, lo comparte y avisa si falla |
 | 29 | 1 sep 2026 | Eiborth Gómez | Funcionalidad estable (política) | Sin acción | — |
 | 30 | 1 sep 2026 | Eiborth Gómez | Declarar SDK que transmiten datos | Comprobado | No hay analítica ni informes de fallos |
+| 31 | 2 sep 2026 | Eiborth Gómez | «Tarjeta» y «Transferencia» pueden leerse como cobro integrado | Justo | Pendiente: una línea que lo aclare |
+| 32 | 2 sep 2026 | Eiborth Gómez | Validar total, ISV, CAI, anulaciones y ventas duplicadas | Comprobado | Cubierto por las pruebas de humo |
+| 33 | 2 sep 2026 | Eiborth Gómez | No vender sin repuesto, ni cobrar doble por doble toque | Comprobado | El botón se apaga solo |
+| 34 | 2 sep 2026 | Eiborth Gómez | Buscar «amortiguador» no encuentra nada | No es defecto | Ese repuesto no existe en el taller |
+| 35 | 2 sep 2026 | Eiborth Gómez | Distinguir «no existe» de «sin existencia aquí» | **Cierto** | Pendiente |
+| 36 | 2 sep 2026 | Eiborth Gómez | La búsqueda no ignora acentos | **Cierto** | Pendiente; pide `unaccent` en la base |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -404,6 +410,64 @@ sin eso revienta.
 Sin acción. Lo de declarar la analítica ya se comprobó el día 2: el proyecto solo trae
 `firebase_core` y `firebase_messaging`, sin Crashlytics ni Analytics, así que no hay diagnósticos
 que declarar en el formulario de seguridad de los datos.
+
+## Día 7 — 2 de septiembre de 2026
+
+**Vender repuesto**, la venta de mostrador. Marca «requiere correcciones antes de producción»,
+pero de lo crítico que señala, dos cosas ya están resueltas y una es una aclaración de texto, no
+un defecto.
+
+### 31. «Tarjeta» y «Transferencia» pueden leerse como cobro integrado
+
+El señalamiento es justo, y es el mismo que Apple preguntó por la regla 3.1. La app **solo anota
+cómo pagó el cliente**: no hay pasarela, no se piden datos de tarjeta y no se mueve dinero. El
+campo se llama «Forma de pago»
+([counter_sale_screen.dart:270](../mobile/lib/features/sales/counter_sale_screen.dart#L270)), que
+es correcto, pero no lo dice explícitamente.
+
+Conviene una línea bajo el campo —«solo se anota cómo pagó; la app no procesa cobros»—. Cuesta
+nada y le habla al revisor de la tienda tanto como al usuario.
+
+### 32. Total, ISV, CAI, anulaciones y ventas duplicadas
+
+Comprobado, y no de palabra: hay pruebas de humo que lo cubren. El subtotal suma las líneas y el
+total cierra con descuentos, el ISV nace en cero y solo cobra si se pone a mano
+([fase4_smoke.py:181](../backend/tests/smoke/fase4_smoke.py#L181)); los rangos del SAR se validan
+—CAI con forma de CAI, fecha límite vigente, rango al revés rechazado— y una venta sin CAI se
+emite igual sin número fiscal ([fase12_smoke.py:141](../backend/tests/smoke/fase12_smoke.py#L141));
+y una venta anulada no suma en la caja pero se informa aparte con su monto
+([fase8_smoke.py:378](../backend/tests/smoke/fase8_smoke.py#L378)).
+
+### 33. Vender sin repuesto, o cobrar doble por doble toque
+
+Las dos cosas ya están cerradas en la misma línea: el botón de registrar está apagado si no hay
+líneas, si algo se quedó sin existencia o si ya se está guardando
+([counter_sale_screen.dart:362](../mobile/lib/features/sales/counter_sale_screen.dart#L362)), y la
+marca de «ocupado» se pone **antes** de llamar a la API
+([counter_sale_screen.dart:114](../mobile/lib/features/sales/counter_sale_screen.dart#L114)), que
+es lo que evita el segundo toque. El cliente, en cambio, es opcional a propósito: en el mostrador
+se vende un filtro a quien pasa, sin pedirle el nombre.
+
+### 34. Buscar «amortiguador» no encuentra nada
+
+No es defecto: ese repuesto no existe en el taller de pruebas. El catálogo que se le cargó tiene
+aceite, filtro, pastillas, bujía, batería y cadena. La búsqueda mira código, nombre y marca, sin
+distinguir mayúsculas ([StockService.cs:44](../backend/src/Garaj.Infrastructure/Services/StockService.cs#L44)).
+
+### 35. Distinguir «no existe» de «no hay en esta sucursal»
+
+**Cierto, y es el hallazgo útil del día.** El buscador del mostrador lista existencias, no el
+catálogo: un repuesto que existe pero que nunca entró a esa sucursal es invisible, y el mensaje
+—«nada con ese nombre en esta sucursal»— deja pensando si el repuesto no existe o si es que no
+hay. Son dos cosas distintas y se actúa distinto: una se resuelve dándolo de alta, la otra
+recibiendo mercadería.
+
+### 36. La búsqueda no ignora acentos
+
+**Cierto.** `ILIKE` de PostgreSQL ignora mayúsculas pero no acentos, así que «bateria» no
+encuentra «Batería», y en el mostrador nadie escribe con acentos. Se arregla con la extensión
+`unaccent` en la base y una comparación sobre el texto normalizado; hay que habilitarla en
+Supabase, así que no es de una línea.
 
 ## Para el cuestionario de acceso a producción
 
