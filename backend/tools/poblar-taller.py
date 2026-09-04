@@ -68,9 +68,15 @@ def post(path, body, que):
 
 
 def dia_del_mes(dia, hora=10):
-    """Un instante del mes en curso, en hora de Honduras."""
+    """Un instante del mes en curso, escrito en UTC.
+
+    La hora se piensa en Honduras —«las cinco de la tarde»— y se manda convertida, que es lo
+    que hacen la app y el panel. La API ya acepta las dos formas, pero mandar UTC evita
+    depender de que el servidor esté al día.
+    """
     hoy = datetime.now(HONDURAS)
-    return datetime(hoy.year, hoy.month, dia, hora, 0, tzinfo=HONDURAS).isoformat()
+    local = datetime(hoy.year, hoy.month, dia, hora, 0, tzinfo=HONDURAS)
+    return local.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 REPUESTOS = [

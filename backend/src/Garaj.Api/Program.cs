@@ -23,7 +23,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IHttpContextAccessorAdapter, HttpRequestInfo>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    // Sin esto, una fecha con desplazamiento —«las cinco de la tarde en Honduras»— hace
+    // reventar a Npgsql al guardarla y el cliente solo ve un 500.
+    options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
