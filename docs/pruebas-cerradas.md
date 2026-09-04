@@ -36,6 +36,11 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 23 | 31 ago 2026 | Eiborth Gómez | «Contraseña» podría exponer la actual | Comprobado | Solo fija una nueva; la actual no existe en claro |
 | 24 | 31 ago 2026 | Eiborth Gómez | Roles y permisos reales | Comprobado | El servidor los exige, no la pantalla |
 | 25 | 31 ago 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | Decisión suya |
+| 26 | 1 sep 2026 | Eiborth Gómez | Rangos 7/30/90 y límites de fecha | **Cierto, menor** | La ventana empieza a media jornada; pendiente |
+| 27 | 1 sep 2026 | Eiborth Gómez | Margen con NaN o división por cero | Comprobado | El único porcentaje está protegido |
+| 28 | 1 sep 2026 | Eiborth Gómez | Que la exportación responda | Comprobado | Genera el CSV, lo comparte y avisa si falla |
+| 29 | 1 sep 2026 | Eiborth Gómez | Funcionalidad estable (política) | Sin acción | — |
+| 30 | 1 sep 2026 | Eiborth Gómez | Declarar SDK que transmiten datos | Comprobado | No hay analítica ni informes de fallos |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -342,6 +347,53 @@ confirmarle a nadie que el recurso existe, y hay pruebas de humo que lo comprueb
 
 El propio reporte lo pone como aclaración: no son una regla de rechazo de Google Play. Con el enlace
 del punto 22 se puede sumar el de términos el día que existan; hoy no hay documento que enlazar.
+
+## Día 6 — 1 de septiembre de 2026
+
+**Reportes.** Otra vez casi todo son cosas a comprobar. Tres salen bien y una es cierta, aunque
+menor.
+
+### 26. Los rangos de 7, 30 y 90 días
+
+Aquí sí hay algo. El teléfono pide el rango como **«ahora menos N días»**
+([report_repository.dart:332](../mobile/lib/core/api/report_repository.dart#L332)), o sea las
+últimas 168 horas y no los últimos siete días del taller. Como las barras del gráfico se agrupan
+**por día**, la primera barra siempre sale a medias: empieza a la hora en que el dueño abrió la
+pantalla, siete días atrás.
+
+No falsea el total —lo cobrado en esa ventana es lo que dice—, pero hace que la barra más vieja se
+vea más baja de lo que fue y que el número cambie a lo largo del día. Se arregla mandando el
+**comienzo del día** en vez del instante: una línea.
+
+Lo demás del punto está en orden: si la fecha inicial es posterior a la final, la API responde con
+un mensaje claro ([ReportService.cs:594](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L594)),
+y el mes por defecto se calcula con el mes del taller a −06:00, igual que el cierre de caja.
+
+### 27. Margen, NaN y división por cero
+
+Comprobado. En todo el reporte hay **un solo porcentaje**, el del margen, y está protegido:
+`total == 0 ? 0 : …`
+([ReportService.cs:169](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L169)). Los
+demás márgenes son cantidades de dinero, restas sin división. Y son `decimal`, no coma flotante:
+en C# una división de `decimal` por cero lanza excepción, nunca produce `NaN`, así que ese valor no
+puede aparecer en pantalla.
+
+Un margen negativo sí puede salir, y no es un error: significa que se vendió por debajo del costo.
+Es justo lo que el dueño necesita ver.
+
+### 28. Que la exportación responda
+
+Comprobado. El ícono de documento pide el libro de ventas del mes a la API, escribe el CSV y abre
+la hoja de compartir del sistema
+([reports_screen.dart:37](../mobile/lib/features/reports/reports_screen.dart#L37)). Si algo falla,
+sale un mensaje en vez de quedarse mudo. Incluso está resuelto el anclaje de la hoja en iPad, que
+sin eso revienta.
+
+### 29 y 30. Política y SDK
+
+Sin acción. Lo de declarar la analítica ya se comprobó el día 2: el proyecto solo trae
+`firebase_core` y `firebase_messaging`, sin Crashlytics ni Analytics, así que no hay diagnósticos
+que declarar en el formulario de seguridad de los datos.
 
 ## Para el cuestionario de acceso a producción
 
