@@ -47,6 +47,11 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 34 | 2 sep 2026 | Eiborth Gómez | Buscar «amortiguador» no encuentra nada | No es defecto | Ese repuesto no existe en el taller |
 | 35 | 2 sep 2026 | Eiborth Gómez | Distinguir «no existe» de «sin existencia aquí» | **Cierto** | **Hecho**: el buscador consulta el catálogo |
 | 36 | 2 sep 2026 | Eiborth Gómez | La búsqueda no ignora acentos | **Cierto** | Pendiente; pide `unaccent` en la base |
+| 37 | 3 sep 2026 | Eiborth Gómez | Falta la política de privacidad en la app | Ya resuelto | Se hizo el 31 de agosto, punto 22 |
+| 38 | 3 sep 2026 | Eiborth Gómez | Falta «Eliminar cuenta» localizable | Ya existía | Más → Cuenta, punto 21 |
+| 39 | 3 sep 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | Decisión suya, como el punto 25 |
+| 40 | 3 sep 2026 | Eiborth Gómez | Falta la versión de la app y quién la hace | **Cierto** | **Hecho**: al pie de «Más» |
+| 41 | 3 sep 2026 | Eiborth Gómez | Los permisos no pueden ser solo ocultar opciones | Comprobado | El servidor autoriza, punto 24 |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -474,6 +479,45 @@ resultados, así que la búsqueda normal no se hace más lenta.
 encuentra «Batería», y en el mostrador nadie escribe con acentos. Se arregla con la extensión
 `unaccent` en la base y una comparación sobre el texto normalizado; hay que habilitarla en
 Supabase, así que no es de una línea.
+
+## Día 8 — 3 de septiembre de 2026
+
+El menú **Más**. Cuatro de los cinco puntos son repeticiones de días anteriores, tres de ellas ya
+resueltas antes de este corte; el quinto es cierto y es útil.
+
+Vale decirlo una vez y con calma: **este corte juzga otra vez sobre una captura**. La política de
+privacidad y el borrado de cuenta están en ese mismo menú, en el grupo **Cuenta**, al final de la
+lista —hay que bajar—. Los reportes ganarían mucho si el recorrido incluyera desplazarse por la
+pantalla antes de concluir que algo falta.
+
+### 37 y 38. Privacidad y eliminación de cuenta
+
+Ya estaban. El borrado de cuenta existe desde antes de la prueba cerrada y los enlaces de
+privacidad y soporte se agregaron el 31 de agosto por su propio hallazgo del punto 22
+([more_screen.dart:167](../mobile/lib/features/shell/more_screen.dart#L167)). La URL pública en
+Play Console también está declarada.
+
+### 39. Términos y condiciones
+
+El mismo punto 25. Sigue siendo decisión suya y no es regla de rechazo; el día que exista el
+documento, el enlace se agrega junto a los otros dos.
+
+### 40. La versión de la app y quién la hace
+
+**Cierto, y es el que valía la pena.** Parece un detalle de vitrina y no lo es: cuando alguien
+reporta que algo no funciona, lo primero que hay que saber es qué versión tiene en la mano —justo
+lo que faltó estos días, con arreglos saliendo mientras el equipo probaba—.
+
+Resuelto: al pie de **Más** aparece «GarajApp 1.0.1 (3)» con el nombre del responsable y el sitio.
+Sale del paquete instalado y no de una constante, así que no se queda vieja el día que alguien
+suba la versión y se olvide.
+
+### 41. Los permisos no pueden ser solo ocultar opciones
+
+Comprobado el día 5, punto 24, y sigue igual: el servidor autoriza cada operación —`/api/users`
+entero es del Dueño, el cierre de caja exige perfil antes de tocar la base—, lo ajeno responde 404
+y no 403, y hay pruebas de humo que lo verifican. Ocultar la opción en el menú es cosmética; la
+puerta está en la API.
 
 ## Para el cuestionario de acceso a producción
 
