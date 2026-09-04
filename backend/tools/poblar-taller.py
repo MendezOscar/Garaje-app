@@ -22,6 +22,10 @@ Las credenciales van por variables de entorno a propósito: este repositorio es 
 Carga un mes corriente, no un histórico: seis órdenes en distintos estados, tres facturadas y
 cobradas, y unas ventas de mostrador repartidas en los días que van del mes. Lo justo para que
 las pantallas tengan algo que enseñar.
+
+Se puede volver a correr: el catálogo, los clientes y los vehículos que ya existan se reusan.
+Lo que no se repite son las órdenes —si el taller ya tiene alguna, se planta— para no dejar el
+taller con el doble de trabajo inventado.
 """
 import json
 import os
@@ -147,9 +151,16 @@ def main():
             "vuelva a correrlo con GARAJ_IGUAL=1."
         )
 
+    # Todo lo que sigue reusa lo que ya esté: si una corrida se cortó a medias, volver a
+    # correrlo continúa donde iba en vez de chocar con lo que él mismo creó.
     print("\nCatálogo")
-    partes = {}
+    _, listado = call("GET", "/api/parts?pageSize=200")
+    partes = {p["sku"]: p["id"] for p in listado.get("items", [])}
+
     for sku, nombre, marca, unidad, costo, precio, existencia in REPUESTOS:
+        if sku in partes:
+            print(f"  {sku}: ya estaba")
+            continue
         parte = post("/api/parts", {
             "sku": sku, "name": nombre, "description": None, "brand": marca,
             "category": "Repuestos", "unit": unidad,
@@ -162,8 +173,13 @@ def main():
         }, f"recibir existencias de {sku}")
         print(f"  {sku}: {existencia} en bodega")
 
-    servicios = {}
+    _, catalogo = call("GET", "/api/labor-services")
+    servicios = {s["code"]: s["id"] for s in (catalogo or [])}
+
     for codigo, nombre, horas, precio in SERVICIOS:
+        if codigo in servicios:
+            print(f"  {codigo}: ya estaba")
+            continue
         servicio = post("/api/labor-services", {
             "code": codigo, "name": nombre, "description": None, "category": "Taller",
             "standardHours": horas, "hourlyRate": 0, "isFixedPrice": True,
@@ -173,8 +189,17 @@ def main():
         print(f"  {codigo}: L {precio}")
 
     print("\nClientes y vehículos")
+    _, flota = call("GET", "/api/vehicles?pageSize=200")
+    porPlaca = {v["plate"]: (v["customerId"], v["id"]) for v in flota.get("items", [])
+                if v.get("plate")}
+
     vehiculos = []
     for nombre, telefono, marca, modelo, anio, placa, tipo in CLIENTES:
+        if placa in porPlaca:
+            cliente_id, vehiculo_id = porPlaca[placa]
+            vehiculos.append((cliente_id, vehiculo_id, placa))
+            print(f"  {placa}: ya estaba")
+            continue
         cliente = post("/api/customers", {
             "fullName": nombre, "phone": telefono, "email": None, "documentId": None,
             "address": None, "notes": None,
