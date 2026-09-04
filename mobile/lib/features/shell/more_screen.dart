@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/dashboard_repository.dart';
@@ -195,11 +196,47 @@ class MoreScreen extends ConsumerWidget {
               ),
             ],
           ),
+
+          const _PieDeVersion(),
         ],
       ),
     );
   }
 }
+
+/// La versión instalada, al pie de la pantalla.
+///
+/// Parece un detalle y no lo es: cuando alguien reporta que algo no funciona, lo primero que hay
+/// que saber es qué versión tiene en la mano. Sale del paquete instalado, así que no se queda
+/// vieja cuando se sube la versión en el pubspec.
+class _PieDeVersion extends ConsumerWidget {
+  const _PieDeVersion();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final info = ref.watch(_versionProvider).asData?.value;
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Center(
+        child: Text(
+          info == null
+              ? 'GarajApp'
+              : 'GarajApp ${info.version} (${info.buildNumber})\n'
+                  'Óscar Armando Cruz Méndez · garajeapp.com',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final _versionProvider =
+    FutureProvider<PackageInfo>((ref) => PackageInfo.fromPlatform());
 
 Future<void> _abrir(String url) =>
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
