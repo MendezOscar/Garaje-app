@@ -36,7 +36,7 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 23 | 31 ago 2026 | Eiborth Gómez | «Contraseña» podría exponer la actual | Comprobado | Solo fija una nueva; la actual no existe en claro |
 | 24 | 31 ago 2026 | Eiborth Gómez | Roles y permisos reales | Comprobado | El servidor los exige, no la pantalla |
 | 25 | 31 ago 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | Decisión suya |
-| 26 | 1 sep 2026 | Eiborth Gómez | Rangos 7/30/90 y límites de fecha | **Cierto, menor** | La ventana empieza a media jornada; pendiente |
+| 26 | 1 sep 2026 | Eiborth Gómez | Rangos 7/30/90 y límites de fecha | **Cierto, menor** | **Hecho**: la ventana arranca al comienzo del día |
 | 27 | 1 sep 2026 | Eiborth Gómez | Margen con NaN o división por cero | Comprobado | El único porcentaje está protegido |
 | 28 | 1 sep 2026 | Eiborth Gómez | Que la exportación responda | Comprobado | Genera el CSV, lo comparte y avisa si falla |
 | 29 | 1 sep 2026 | Eiborth Gómez | Funcionalidad estable (política) | Sin acción | — |
@@ -362,8 +362,10 @@ Aquí sí hay algo. El teléfono pide el rango como **«ahora menos N días»**
 pantalla, siete días atrás.
 
 No falsea el total —lo cobrado en esa ventana es lo que dice—, pero hace que la barra más vieja se
-vea más baja de lo que fue y que el número cambie a lo largo del día. Se arregla mandando el
-**comienzo del día** en vez del instante: una línea.
+vea más baja de lo que fue y que el número cambie a lo largo del día.
+
+Resuelto: el rango arranca al **comienzo del día**, y «7 días» pasa a ser hoy más los seis
+anteriores.
 
 Lo demás del punto está en orden: si la fecha inicial es posterior a la final, la API responde con
 un mensaje claro ([ReportService.cs:594](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L594)),
