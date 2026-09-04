@@ -39,3 +39,7 @@ logs/
 
 ## Paquetes de marca comprimidos: el contenido vive descomprimido en marca-garajapp/
 *.zip
+
+# Lo que deja python al importar los scripts de backend/tools.
+__pycache__/
+*.pyc
