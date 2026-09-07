@@ -1,6 +1,7 @@
 using System.Net;
 using Garaj.Application.Common;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Garaj.Api.Middleware;
 
@@ -21,6 +22,15 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             logger.LogInformation(ex, "Error de negocio en {Path}: {Message}", context.Request.Path, ex.Message);
             await WriteProblemAsync(context, ex.StatusCode, ex.Message);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Dos operaciones tocaron la misma fila a la vez —las existencias del último
+            // repuesto, típicamente—. No es un fallo del servidor: el segundo tiene que volver
+            // a intentarlo con el dato fresco, y se le dice en esos términos.
+            logger.LogWarning(ex, "Choque de concurrencia en {Path}", context.Request.Path);
+            await WriteProblemAsync(context, HttpStatusCode.Conflict,
+                "Alguien más cambió esto mientras usted trabajaba. Vuelva a intentarlo.");
         }
         catch (Exception ex)
         {

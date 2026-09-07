@@ -31,6 +31,12 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
 
         // Una sola fila de existencia por repuesto y sucursal.
         b.HasIndex(x => new { x.BranchId, x.PartId }).IsUnique();
+
+        // Dos personas vendiendo la última unidad al mismo tiempo leían «queda 1» las dos y
+        // descontaban las dos, dejando la existencia en negativo. Con `xmin` —la columna de
+        // sistema que PostgreSQL ya mantiene en cada fila— la segunda escritura falla en vez de
+        // pisar a la primera. No cambia el esquema: la columna ya está ahí.
+        b.UseXminAsConcurrencyToken();
     }
 }
 

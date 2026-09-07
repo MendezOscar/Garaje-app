@@ -1,7 +1,9 @@
+using Garaj.Api.Services;
 using Garaj.Application.Common;
 using Garaj.Application.Quotes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Garaj.Api.Controllers;
 
@@ -125,6 +127,7 @@ public class QuotesController(IQuoteService service) : ControllerBase
 /// </summary>
 [ApiController]
 [AllowAnonymous]
+[EnableRateLimiting(RateLimits.Publico)]
 [Route("public/quotes")]
 public class PublicQuotesController(IQuoteService service) : ControllerBase
 {

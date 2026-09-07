@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Garaj.Application.Auth;
+using Garaj.Api.Services;
 using Garaj.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Garaj.Api.Controllers;
 
@@ -13,6 +15,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     /// <summary>Inicia sesión y devuelve el access token, el refresh token y el perfil del usuario.</summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimits.Login)]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken ct)
@@ -20,6 +23,7 @@ public class AuthController(IAuthService authService) : ControllerBase
 
     /// <summary>Rota el refresh token y emite un nuevo par de tokens.</summary>
     [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimits.Login)]
     [AllowAnonymous]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
