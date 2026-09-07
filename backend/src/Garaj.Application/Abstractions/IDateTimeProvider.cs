@@ -27,16 +27,21 @@ public static class DateTimeProviderExtensions
         DateOnly.FromDateTime(clock.UtcNow.UtcDateTime.AddHours(HondurasOffsetHours));
 
     /// <summary>
-    /// La medianoche de hoy en Honduras, como instante.
+    /// La medianoche de hoy en Honduras, como instante y <b>en UTC</b>.
     ///
     /// Es contra esto —y no contra la hora actual— que se compara una fecha acordada de pago: un
     /// vencimiento es un día, y el cliente no está atrasado hasta que ese día termina. Comparando
     /// contra el instante, una venta acordada para hoy aparecía vencida desde la mañana.
+    ///
+    /// Sale en UTC porque este valor va a parar a un `WHERE` contra una columna `timestamptz`, y
+    /// Npgsql se niega a mandar un <see cref="DateTimeOffset"/> con desplazamiento distinto de
+    /// cero: la consulta entera revienta con un 500. El instante es el mismo.
     /// </summary>
     public static DateTimeOffset StartOfToday(this IDateTimeProvider clock)
     {
         var hoy = clock.Today();
         return new DateTimeOffset(
-            hoy.Year, hoy.Month, hoy.Day, 0, 0, 0, TimeSpan.FromHours(HondurasOffsetHours));
+                hoy.Year, hoy.Month, hoy.Day, 0, 0, 0, TimeSpan.FromHours(HondurasOffsetHours))
+            .ToUniversalTime();
     }
 }
