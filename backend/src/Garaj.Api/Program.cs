@@ -1,5 +1,6 @@
 using System.Text;
 using Garaj.Api.Middleware;
+using Microsoft.AspNetCore.RateLimiting;
 using Garaj.Api.Services;
 using Garaj.Application.Common;
 using Garaj.Infrastructure;
@@ -22,6 +23,32 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IHttpContextAccessorAdapter, HttpRequestInfo>();
+
+// Las dos puertas que se abren sin sesión —el login y el enlace público de cotizaciones— son
+// las únicas que un desconocido puede golpear, así que son las que llevan límite. Sin esto,
+// probar contraseñas contra el correo de un dueño no cuesta nada.
+//
+// Se cuenta por dirección IP y por ventana fija: el que se pasa recibe 429 y espera. Los
+// números son holgados a propósito —un taller entero detrás de una sola IP no debe chocar
+// con esto— y solo estorban al que insiste de forma anormal.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddFixedWindowLimiter(RateLimits.Login, limiter =>
+    {
+        limiter.PermitLimit = 20;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+    });
+
+    options.AddFixedWindowLimiter(RateLimits.Publico, limiter =>
+    {
+        limiter.PermitLimit = 60;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+    });
+});
 
 builder.Services.AddControllers().AddJsonOptions(options =>
     // Sin esto, una fecha con desplazamiento —«las cinco de la tarde en Honduras»— hace
@@ -136,6 +163,7 @@ app.UseAuthentication();
 app.UseMiddleware<TenantContextMiddleware>();
 // Después del anterior: necesita saber de qué taller es la petición para mirar su mensualidad.
 app.UseMiddleware<SubscriptionGuardMiddleware>();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

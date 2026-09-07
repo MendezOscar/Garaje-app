@@ -66,10 +66,10 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 53 | 6 sep 2026 | Eiborth Gómez | Sesiones, tokens y contraseñas | Comprobado | Cambiar la contraseña cierra las sesiones |
 | 54 | 6 sep 2026 | Eiborth Gómez | Fotos: tipo, tamaño y acceso | Comprobado | Lista blanca de tipos, tope de peso y URL firmada |
 | 55 | 6 sep 2026 | Eiborth Gómez | Errores, logs y auditoría | Comprobado | Mensaje genérico afuera; quién y cuándo, adentro |
-| 56 | 6 sep 2026 | Eiborth Gómez | **La bienvenida promete subir fotos sin señal** | **Cierto y grave** | Pendiente: eso no existe |
-| 57 | 6 sep 2026 | Eiborth Gómez | Operaciones repetidas por reintento | **Cierto** | Sin idempotencia; pendiente |
-| 58 | 6 sep 2026 | Eiborth Gómez | Dos ventas de la última unidad | **Cierto** | Sin bloqueo de fila; pendiente |
-| 59 | 6 sep 2026 | Eiborth Gómez | Límites de intentos (rate limiting) | **Cierto** | No hay; pendiente |
+| 56 | 6 sep 2026 | Eiborth Gómez | Subir fotos sin señal | Existía, incompleto | **Hecho**: ahora se reintenta al volver a la app |
+| 57 | 6 sep 2026 | Eiborth Gómez | Operaciones repetidas por reintento | **Cierto** | Sin idempotencia; queda como trabajo aparte |
+| 58 | 6 sep 2026 | Eiborth Gómez | Dos ventas de la última unidad | **Cierto** | **Hecho**: token de concurrencia en las existencias |
+| 59 | 6 sep 2026 | Eiborth Gómez | Límites de intentos (rate limiting) | **Cierto** | **Hecho**: login y enlace público |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -643,8 +643,12 @@ que el código no dice.
 ## Día 11 — 6 de septiembre de 2026: lógica y seguridad
 
 El mejor corte de la serie, y el más honesto: son **diecisiete controles a verificar**, no
-vulnerabilidades encontradas, y el propio reporte lo dice. Verificados uno por uno contra el
-código, once salen bien y **cuatro son ciertos**.
+vulnerabilidades encontradas, y el propio reporte lo dice. Verificados uno por uno contra el código,
+doce salen bien y **tres eran ciertos**; el cuarto —las fotos sin señal— existía a medias.
+
+> Anotado para no repetirlo: al revisar esto se dio por inexistente la cola de subida porque no hay
+> base de datos local. Está hecha con archivos, en `core/sync`. Buscar por tecnología en vez de por
+> comportamiento se equivoca en las dos direcciones.
 
 ### Los que salen bien
 
@@ -663,24 +667,21 @@ código, once salen bien y **cuatro son ciertos**.
 | Errores y logs | Afuera sale «Ocurrió un error inesperado» sin rastro ni consulta ni endpoint interno |
 | Auditoría | Cada entidad guarda quién la creó y quién la modificó, la orden lleva su línea de tiempo con autor, el abono guarda quién lo recibió y la anulación su motivo |
 
-### 56. La bienvenida promete algo que la app no hace
+### 56. Subir fotos sin señal: existía, pero no se reintentaba solo
 
-**Este es el hallazgo grave del día, y no lo dice el reporte: sale de mirar su control de
-«offline/sincronización».**
+La bienvenida promete que las fotos «se suben solas al recuperar la red», así que había que
+comprobar si es verdad. **La cola existe** y está bien hecha:
+[`upload_queue.dart`](../mobile/lib/core/sync/upload_queue.dart) guarda la foto en el teléfono con
+un manifiesto en disco, reintenta hasta cinco veces, muestra cuántas quedan pendientes y deja
+reintentar o descartar a mano. Sobrevive a cerrar la app.
 
-La segunda pantalla de bienvenida dice, textual: «El técnico documenta lo que encuentra y lo que
-cambia, **incluso sin señal: las fotos se suben solas al recuperar la red**»
-([onboarding_screen.dart:34](../mobile/lib/features/onboarding/onboarding_screen.dart#L34)).
+Lo que faltaba era el disparador: `flush()` solo se llamaba al encolar y **al abrir la galería de
+esa orden**. Una foto tomada sin señal podía quedarse días esperando aunque el teléfono ya tuviera
+internet, si nadie volvía a abrir esa orden — y entonces la promesa era falsa en la práctica.
 
-Eso no existe. No hay base local, ni cola de pendientes, ni reintento al volver la red: si la foto
-no sube, la app avisa que no se pudo subir y ahí termina. El propio verificador elogió esa promesa
-el primer día, que es la prueba de que se le cree.
-
-Son dos problemas en uno: le mentimos al usuario, y es exactamente el tipo de afirmación por la que
-Google Play sanciona —funcionalidad anunciada que no opera—.
-
-Lo correcto ahora es **corregir el texto**, no inventar la función a las apuradas. Subir fotos sin
-señal es una función de verdad —cola local, reintento, conflictos— y merece hacerse bien y aparte.
+Resuelto en [main.dart](../mobile/lib/main.dart): la cola se vacía **al volver a la app** —con
+`AppLifecycleListener`— y **al iniciar sesión**. Sin dependencias nuevas: volver a la app es un buen
+indicio de que hay red, y es el momento en que el técnico está mirando.
 
 ### 57. Repetir una operación por reintento
 
@@ -701,9 +702,13 @@ toca ventas, abonos y consumo de repuestos.
 hay bloqueo de fila ni token de concurrencia: dos transacciones simultáneas pueden leer «queda 1» y
 descontar las dos, dejando la existencia en negativo.
 
-En un taller con dos personas en el mostrador es improbable, pero el arreglo es corto: marcar la
-fila de existencias con el token de concurrencia de PostgreSQL, y quien pierda la carrera recibe un
-conflicto en vez de sobrevender. No pide cambiar el esquema.
+En un taller con dos personas en el mostrador es improbable, pero el arreglo es corto y ya está
+hecho: la fila de existencias usa **`xmin`**, la columna de sistema que PostgreSQL ya mantiene, como
+token de concurrencia
+([InventoryConfigurations.cs:33](../backend/src/Garaj.Infrastructure/Persistence/Configurations/InventoryConfigurations.cs#L33)).
+La segunda escritura falla en vez de pisar a la primera, y el middleware la traduce a un **409** con
+un mensaje que se entiende —«alguien más cambió esto mientras usted trabajaba»— en lugar del 500
+que saldría si no. No hubo que cambiar el esquema ni migrar nada.
 
 ### 59. Límites de intentos
 
@@ -711,8 +716,15 @@ conflicto en vez de sobrevender. No pide cambiar el esquema.
 recursos. Alguien con el correo de un dueño puede probar contraseñas todo lo que quiera, y la API
 está abierta al internet.
 
-Es el más fácil de los cuatro: ASP.NET trae limitador de tasa incorporado y basta aplicarlo al login
-y al enlace público de cotizaciones, que son las dos puertas sin sesión.
+Resuelto con el limitador que ASP.NET ya trae, en las dos únicas puertas que un desconocido puede
+golpear: **20 intentos por minuto** en el login y el refresco, **60 por minuto** en el enlace
+público de cotizaciones, contados por IP y respondiendo **429** al que se pasa
+([Program.cs](../backend/src/Garaj.Api/Program.cs)). Los números son holgados a propósito: un taller
+entero detrás de una sola IP no debe chocar con esto, y solo estorban a quien insiste de forma
+anormal.
+
+Lo que sigue **sin** límite es todo lo que va con sesión. Ahí el abuso es de alguien que ya entró,
+que es otro problema y se ve en la auditoría.
 
 ### Lo que queda para el siguiente ciclo, de su lista P0
 
