@@ -56,6 +56,11 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 43 | 4 sep 2026 | Eiborth Gómez | Mínimo privilegio en la cartera | Comprobado | El técnico no ve ventas; el cliente solo las suyas |
 | 44 | 4 sep 2026 | Eiborth Gómez | Retención y qué se conserva tras pedir borrado | Comprobado | Está en la política de privacidad |
 | 45 | 4 sep 2026 | Eiborth Gómez | Vencimiento por zona horaria | **Defecto real** | **Hecho**: vence al terminar el día acordado |
+| 46 | 5 sep 2026 | Eiborth Gómez | Falta la prueba end-to-end completa | No es defecto | El taller ya tiene datos en todos los estados |
+| 47 | 5 sep 2026 | Eiborth Gómez | Checklist de Play Console | Comprobado | Completa desde el 31 de agosto |
+| 48 | 5 sep 2026 | Eiborth Gómez | Nivel de API objetivo de Google | Comprobado | `targetSdk 36`, sobre el mínimo exigido |
+| 49 | 5 sep 2026 | Eiborth Gómez | Permisos solo cuando hacen falta | Comprobado | Cámara al tomar la foto; avisos con contexto |
+| 50 | 5 sep 2026 | Eiborth Gómez | Caídas, red lenta, doble toque, reinstalación | Parcial | Falta que lo prueben en el aparato |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -579,6 +584,52 @@ Lo bueno: el tablero y la lista usan **la misma regla y el mismo reloj**
 ([ReportService.cs:271](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L271)), así
 que no hay inconsistencia entre pantallas; están las dos corridas por igual, y las dos se arreglan
 con lo de arriba.
+
+## Día 10 — 5 de septiembre de 2026
+
+El **tablero** y el estado general de cara a Google. Marca un hallazgo «bloqueante» que en realidad
+es de datos, no de la app, y una pregunta técnica que valía la pena verificar.
+
+### 46. «El tablero está en ceros, falta el ciclo completo»
+
+No es defecto: la captura es anterior a que el taller de los verificadores tuviera datos. Se pobló
+la noche del 3 de septiembre con
+[`poblar-taller.py`](../backend/tools/poblar-taller.py) y hoy tiene una orden **entrando**, una
+**detenida**, una **en trabajo** y tres **entregadas**, con sus facturas, un saldo por cobrar y
+ventas de mostrador.
+
+Su recomendación de fondo sí es la correcta, y conviene pedírsela al equipo: que hagan el ciclo
+completo —recibir, trabajar, cotizar, cobrar, cerrar, ver el reporte— sobre esos datos. Es lo que
+Google pregunta en el cuestionario de acceso a producción, y del lado del servidor ese recorrido ya
+lo cubren las trece suites de humo.
+
+### 47. Checklist de Play Console
+
+Completa desde el 31 de agosto: política de privacidad con URL pública, formulario de seguridad de
+los datos publicado, borrado de cuenta dentro de la app y por web, credenciales del revisor y
+declaraciones de permisos. Ver [play-store.md](play-store.md).
+
+### 48. El nivel de API objetivo
+
+**Comprobado, y era la pregunta más concreta del corte.** Google exige un nivel mínimo desde el 31
+de agosto de 2026; la app compila con el que trae Flutter 3.35, que es **`targetSdk` 36** —Android
+16—, por encima del mínimo. Además Play no habría aceptado la subida de la 1.0.1 si no cumpliera:
+ese requisito lo valida al recibir el paquete, no al publicar.
+
+### 49. Permisos solo cuando hacen falta
+
+La cámara se pide cuando se va a tomar la primera foto, no al entrar. Los avisos se piden después de
+una pantalla que explica para qué sirven, que salió justamente del punto 7 de estos reportes. No se
+pide ningún otro permiso: ni ubicación, ni contactos, ni archivos.
+
+### 50. Caídas, red lenta, doble toque, reinstalación
+
+Parcialmente cubierto y honestamente: el doble toque está resuelto en las pantallas que cobran
+(punto 33), la sesión sobrevive a cerrar y reabrir la app —y a reinstalarla, porque el token vive en
+el llavero—, y el arranque sin red se queda en la pantalla de carga con un botón de reintentar en
+vez de mandar al login. Lo demás —ANR, red lenta, restauración— no se puede afirmar leyendo código:
+eso lo tiene que probar el equipo en el teléfono, y es justo lo que un equipo de QA puede aportar
+que el código no dice.
 
 ## Para el cuestionario de acceso a producción
 
