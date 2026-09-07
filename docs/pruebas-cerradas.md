@@ -55,7 +55,7 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 42 | 4 sep 2026 | Eiborth Gómez | Mapear qué datos personales salen del dispositivo | Comprobado | Ya declarados, punto 11 |
 | 43 | 4 sep 2026 | Eiborth Gómez | Mínimo privilegio en la cartera | Comprobado | El técnico no ve ventas; el cliente solo las suyas |
 | 44 | 4 sep 2026 | Eiborth Gómez | Retención y qué se conserva tras pedir borrado | Comprobado | Está en la política de privacidad |
-| 45 | 4 sep 2026 | Eiborth Gómez | Vencimiento por zona horaria | **Defecto real** | Marca vencido un día antes; pendiente |
+| 45 | 4 sep 2026 | Eiborth Gómez | Vencimiento por zona horaria | **Defecto real** | **Hecho**: vence al terminar el día acordado |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -561,15 +561,19 @@ como vencido se calcula comparando ese instante contra el reloj
 ([SaleService.cs:74](../backend/src/Garaj.Infrastructure/Services/SaleService.cs#L74)), la venta
 aparece en rojo desde la tarde del día anterior al acordado.
 
-Son dos arreglos y los dos hacen falta:
+Resuelto en los dos lados, porque los dos hacían falta:
 
-- **El panel** debe mandar una hora estable del día acordado —el mediodía, como ya se hace con el
-  cierre de caja— para que el instante caiga en el día correcto.
-- **El servidor** debe comparar contra el **comienzo del día del taller** y no contra el instante:
-  una fecha de pago es un día, no una hora, y el cliente no está atrasado hasta que ese día
-  termina. La pieza ya existe —`clock.Today()`, con esta misma explicación escrita para el
-  vencimiento de la suscripción
-  ([IDateTimeProvider.cs](../backend/src/Garaj.Application/Abstractions/IDateTimeProvider.cs))—.
+- **El panel** manda el **mediodía** del día acordado, como ya se hacía con el cierre de caja, para
+  que el instante caiga en el día correcto.
+- **El servidor** compara contra el **comienzo del día del taller** y no contra el instante: una
+  fecha de pago es un día, y el cliente no está atrasado hasta que ese día termina. Se agregó
+  `clock.StartOfToday()` junto al `clock.Today()` que ya existía para la suscripción
+  ([IDateTimeProvider.cs](../backend/src/Garaj.Application/Abstractions/IDateTimeProvider.cs)), y
+  lo usan los tres lugares que decidían el vencimiento: la lista de cuentas por cobrar, el estado
+  de cuenta del cliente y el indicador del tablero.
+
+Las ventas viejas, guardadas con la medianoche UTC, siguen corridas un día —no hay migración—,
+pero ahora vencen el día acordado en vez de la tarde anterior.
 
 Lo bueno: el tablero y la lista usan **la misma regla y el mismo reloj**
 ([ReportService.cs:271](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L271)), así

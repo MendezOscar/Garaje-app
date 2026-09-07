@@ -25,4 +25,18 @@ public static class DateTimeProviderExtensions
     /// </summary>
     public static DateOnly Today(this IDateTimeProvider clock) =>
         DateOnly.FromDateTime(clock.UtcNow.UtcDateTime.AddHours(HondurasOffsetHours));
+
+    /// <summary>
+    /// La medianoche de hoy en Honduras, como instante.
+    ///
+    /// Es contra esto —y no contra la hora actual— que se compara una fecha acordada de pago: un
+    /// vencimiento es un día, y el cliente no está atrasado hasta que ese día termina. Comparando
+    /// contra el instante, una venta acordada para hoy aparecía vencida desde la mañana.
+    /// </summary>
+    public static DateTimeOffset StartOfToday(this IDateTimeProvider clock)
+    {
+        var hoy = clock.Today();
+        return new DateTimeOffset(
+            hoy.Year, hoy.Month, hoy.Day, 0, 0, 0, TimeSpan.FromHours(HondurasOffsetHours));
+    }
 }

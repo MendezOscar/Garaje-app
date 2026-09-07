@@ -318,7 +318,12 @@ function closeAndInvoice() {
       laborFromQuoteId: fromQuote ? laborSource.value : undefined,
       // Sin crédito no se manda nada y el backend cobra el total, que es el caso normal.
       initialPayment: onCredit.value ? Number(initialPayment.value) || 0 : undefined,
-      dueDate: onCredit.value && dueDate.value ? new Date(dueDate.value).toISOString() : undefined,
+      // Mediodía del día acordado: `new Date('2026-09-28')` es medianoche UTC, que en Honduras
+      // es la tarde del 27, y la venta salía vencida un día antes de lo pactado.
+      dueDate:
+        onCredit.value && dueDate.value
+          ? new Date(`${dueDate.value}T12:00:00`).toISOString()
+          : undefined,
       fiscal: conCai.value,
       customerTaxId: conCai.value ? rtnFactura.value.trim() || undefined : undefined,
       customerName: conCai.value ? nombreFactura.value.trim() || undefined : undefined,

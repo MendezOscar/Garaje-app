@@ -65,14 +65,16 @@ public class SaleService(
             q = q.Where(s => s.BranchId == branchId);
         }
 
-        var ahora = clock.UtcNow;
+        // Se compara contra la medianoche de hoy y no contra la hora: el que acordó pagar hoy
+        // no está atrasado hasta mañana.
+        var vencidoAntesDe = clock.StartOfToday();
 
         // Vencida es la que tenía fecha acordada y ya pasó. Sin fecha acordada no vence: el
         // taller la entregó sin plazo, así que no se puede decir que el cliente se atrasó.
         if (query.Overdue is { } overdue)
             q = overdue
-                ? q.Where(s => s.DueDate != null && s.DueDate < ahora)
-                : q.Where(s => s.DueDate == null || s.DueDate >= ahora);
+                ? q.Where(s => s.DueDate != null && s.DueDate < vencidoAntesDe)
+                : q.Where(s => s.DueDate == null || s.DueDate >= vencidoAntesDe);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -93,7 +95,7 @@ public class SaleService(
         }
 
         var total = await q.CountAsync(ct);
-        var now = ahora;
+        var now = vencidoAntesDe;
 
         // En cuentas por cobrar manda el vencimiento —es el orden en que hay que cobrar— y las
         // que no tienen fecha acordada van al final. En el resto, la venta más reciente arriba.
@@ -648,6 +650,7 @@ public class SaleService(
         Customer customer, Tenant tenant, CancellationToken ct)
     {
         var ahora = clock.UtcNow;
+        var vencidoAntesDe = clock.StartOfToday();
 
         var sales = await db.Sales.AsNoTracking().IgnoreQueryFilters()
             .Where(s => s.TenantId == customer.TenantId
@@ -664,7 +667,7 @@ public class SaleService(
                 s.Branch.Name,
                 s.SaleDate,
                 s.DueDate,
-                s.DueDate != null && s.DueDate < ahora,
+                s.DueDate != null && s.DueDate < vencidoAntesDe,
                 s.Total,
                 s.Payments.Sum(p => (decimal?)p.Amount) ?? 0,
                 s.Total - (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
