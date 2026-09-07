@@ -52,6 +52,10 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 39 | 3 sep 2026 | Eiborth Gómez | Términos y condiciones | Recomendación | **Borrador escrito**, pendiente de revisión legal |
 | 40 | 3 sep 2026 | Eiborth Gómez | Falta la versión de la app y quién la hace | **Cierto** | **Hecho**: al pie de «Más» |
 | 41 | 3 sep 2026 | Eiborth Gómez | Los permisos no pueden ser solo ocultar opciones | Comprobado | El servidor autoriza, punto 24 |
+| 42 | 4 sep 2026 | Eiborth Gómez | Mapear qué datos personales salen del dispositivo | Comprobado | Ya declarados, punto 11 |
+| 43 | 4 sep 2026 | Eiborth Gómez | Mínimo privilegio en la cartera | Comprobado | El técnico no ve ventas; el cliente solo las suyas |
+| 44 | 4 sep 2026 | Eiborth Gómez | Retención y qué se conserva tras pedir borrado | Comprobado | Está en la política de privacidad |
+| 45 | 4 sep 2026 | Eiborth Gómez | Vencimiento por zona horaria | **Defecto real** | Marca vencido un día antes; pendiente |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -529,6 +533,48 @@ Comprobado el día 5, punto 24, y sigue igual: el servidor autoriza cada operaci
 entero es del Dueño, el cierre de caja exige perfil antes de tocar la base—, lo ajeno responde 404
 y no 403, y hay pruebas de humo que lo verifican. Ocultar la opción en el menú es cosmética; la
 puerta está en la API.
+
+## Día 9 — 4 de septiembre de 2026
+
+**Por cobrar.** Tres de los cuatro puntos ya estaban resueltos; el cuarto —el que pedía probar el
+vencimiento contra la zona horaria— destapó un defecto de verdad.
+
+### 42, 43 y 44. Datos, privilegios y retención
+
+- **Qué datos salen del dispositivo**: ya declarados y coherentes entre el formulario de seguridad
+  de los datos y la política de privacidad. Comprobado el día 2, punto 11.
+- **Mínimo privilegio en la cartera**: lo hace cumplir el servidor, no la pantalla. El técnico
+  recibe 403 en cualquier venta y el cliente solo ve las suyas
+  ([SaleService.cs:715](../backend/src/Garaj.Infrastructure/Services/SaleService.cs#L715)), sobre
+  el filtro por taller que ya aplica a todo.
+- **Retención tras pedir el borrado**: la política de privacidad ya lo explica —la información se
+  conserva 90 días después de dejar el servicio, y los datos que van en un documento de venta
+  permanecen porque el taller está obligado a conservarlos por ley—.
+
+### 45. Una cuenta se marca vencida un día antes
+
+**Defecto real, y de los que enojan a un cliente.** El panel manda la fecha acordada con
+`new Date(valor).toISOString()` sobre un campo `type="date"`
+([WorkOrderDetailView.vue:321](../web/src/views/WorkOrderDetailView.vue#L321)): «28 de septiembre»
+se convierte en la medianoche **UTC** del 28, que en Honduras son las **6 de la tarde del 27**. Y
+como vencido se calcula comparando ese instante contra el reloj
+([SaleService.cs:74](../backend/src/Garaj.Infrastructure/Services/SaleService.cs#L74)), la venta
+aparece en rojo desde la tarde del día anterior al acordado.
+
+Son dos arreglos y los dos hacen falta:
+
+- **El panel** debe mandar una hora estable del día acordado —el mediodía, como ya se hace con el
+  cierre de caja— para que el instante caiga en el día correcto.
+- **El servidor** debe comparar contra el **comienzo del día del taller** y no contra el instante:
+  una fecha de pago es un día, no una hora, y el cliente no está atrasado hasta que ese día
+  termina. La pieza ya existe —`clock.Today()`, con esta misma explicación escrita para el
+  vencimiento de la suscripción
+  ([IDateTimeProvider.cs](../backend/src/Garaj.Application/Abstractions/IDateTimeProvider.cs))—.
+
+Lo bueno: el tablero y la lista usan **la misma regla y el mismo reloj**
+([ReportService.cs:271](../backend/src/Garaj.Infrastructure/Services/ReportService.cs#L271)), así
+que no hay inconsistencia entre pantallas; están las dos corridas por igual, y las dos se arreglan
+con lo de arriba.
 
 ## Para el cuestionario de acceso a producción
 
