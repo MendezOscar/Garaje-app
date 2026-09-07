@@ -268,7 +268,7 @@ public class ReportService(
             awaitingQuotes,
             belowMinimum,
             pending.Sum(x => x.Balance),
-            pending.Where(x => x.DueDate != null && x.DueDate < now).Sum(x => x.Balance),
+            pending.Where(x => x.DueDate != null && x.DueDate < todayStart).Sum(x => x.Balance),
             byStatus.OrderBy(s => s.Status).ToList(),
             lastDays);
     }
