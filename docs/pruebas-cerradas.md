@@ -61,6 +61,15 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 48 | 5 sep 2026 | Eiborth Gómez | Nivel de API objetivo de Google | Comprobado | `targetSdk 36`, sobre el mínimo exigido |
 | 49 | 5 sep 2026 | Eiborth Gómez | Permisos solo cuando hacen falta | Comprobado | Cámara al tomar la foto; avisos con contexto |
 | 50 | 5 sep 2026 | Eiborth Gómez | Caídas, red lenta, doble toque, reinstalación | Parcial | Falta que lo prueben en el aparato |
+| 51 | 6 sep 2026 | Eiborth Gómez | Autorización, IDOR y datos entre sucursales | Comprobado | Lo exige el servidor, con pruebas de humo |
+| 52 | 6 sep 2026 | Eiborth Gómez | Integridad de ventas y abonos | Comprobado | Cantidades y abonos validados en el servidor |
+| 53 | 6 sep 2026 | Eiborth Gómez | Sesiones, tokens y contraseñas | Comprobado | Cambiar la contraseña cierra las sesiones |
+| 54 | 6 sep 2026 | Eiborth Gómez | Fotos: tipo, tamaño y acceso | Comprobado | Lista blanca de tipos, tope de peso y URL firmada |
+| 55 | 6 sep 2026 | Eiborth Gómez | Errores, logs y auditoría | Comprobado | Mensaje genérico afuera; quién y cuándo, adentro |
+| 56 | 6 sep 2026 | Eiborth Gómez | **La bienvenida promete subir fotos sin señal** | **Cierto y grave** | Pendiente: eso no existe |
+| 57 | 6 sep 2026 | Eiborth Gómez | Operaciones repetidas por reintento | **Cierto** | Sin idempotencia; pendiente |
+| 58 | 6 sep 2026 | Eiborth Gómez | Dos ventas de la última unidad | **Cierto** | Sin bloqueo de fila; pendiente |
+| 59 | 6 sep 2026 | Eiborth Gómez | Límites de intentos (rate limiting) | **Cierto** | No hay; pendiente |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -630,6 +639,86 @@ el llavero—, y el arranque sin red se queda en la pantalla de carga con un bot
 vez de mandar al login. Lo demás —ANR, red lenta, restauración— no se puede afirmar leyendo código:
 eso lo tiene que probar el equipo en el teléfono, y es justo lo que un equipo de QA puede aportar
 que el código no dice.
+
+## Día 11 — 6 de septiembre de 2026: lógica y seguridad
+
+El mejor corte de la serie, y el más honesto: son **diecisiete controles a verificar**, no
+vulnerabilidades encontradas, y el propio reporte lo dice. Verificados uno por uno contra el
+código, once salen bien y **cuatro son ciertos**.
+
+### Los que salen bien
+
+| Control | Con qué evidencia |
+| --- | --- |
+| Autorización por rol | Cada endpoint con su policy; las ventas rechazan al técnico y acotan al cliente a las suyas ([SaleService.cs:715](../backend/src/Garaj.Infrastructure/Services/SaleService.cs#L715)) |
+| IDOR / acceso horizontal | Filtro global por taller en el contexto; lo ajeno responde **404 y no 403** para no confirmar que existe, con pruebas de humo ([fase2_smoke.py:204](../backend/tests/smoke/fase2_smoke.py#L204)) |
+| Datos entre sucursales | `scope.EnsureBranchAllowed(branchId)` en cada consulta que recibe sucursal |
+| Integridad de ventas | La cantidad tiene que ser mayor que cero, el total lo arma el servidor con sus líneas y el ISV se aplica en el servidor; hay pruebas de que el total cierra ([fase4_smoke.py:181](../backend/tests/smoke/fase4_smoke.py#L181)) |
+| Abono mayor que el saldo | Rechazado con el saldo en el mensaje ([SaleService.cs:457](../backend/src/Garaj.Infrastructure/Services/SaleService.cs#L457)); una venta pagada no acepta otro abono |
+| Ventas inmutables | No se editan importes: se **anula** con motivo y se hace otra, y la anulación devuelve los repuestos a bodega |
+| Elevación de rol | El alta de usuarios es del Dueño entero, así que un técnico no puede llamarla ni cambiando el cuerpo de la petición |
+| Sesiones y contraseñas | Cambiar la contraseña **revoca los tokens de refresco** ([UserService.cs:147](../backend/src/Garaj.Infrastructure/Services/UserService.cs#L147)); el de acceso dura 30 minutos. El botón «Contraseña» solo fija una nueva: la actual va con hash y no existe en claro |
+| Fotos | Lista blanca de tipos —jpeg, png, webp, heic—, tope de peso, y se sirven por **URL firmada** desde un bucket privado, nunca por ruta predecible |
+| Inyección | No hay una sola consulta en SQL crudo; todo va por EF, que parametriza, y las columnas tienen largo máximo declarado (96 en las configuraciones) |
+| Errores y logs | Afuera sale «Ocurrió un error inesperado» sin rastro ni consulta ni endpoint interno |
+| Auditoría | Cada entidad guarda quién la creó y quién la modificó, la orden lleva su línea de tiempo con autor, el abono guarda quién lo recibió y la anulación su motivo |
+
+### 56. La bienvenida promete algo que la app no hace
+
+**Este es el hallazgo grave del día, y no lo dice el reporte: sale de mirar su control de
+«offline/sincronización».**
+
+La segunda pantalla de bienvenida dice, textual: «El técnico documenta lo que encuentra y lo que
+cambia, **incluso sin señal: las fotos se suben solas al recuperar la red**»
+([onboarding_screen.dart:34](../mobile/lib/features/onboarding/onboarding_screen.dart#L34)).
+
+Eso no existe. No hay base local, ni cola de pendientes, ni reintento al volver la red: si la foto
+no sube, la app avisa que no se pudo subir y ahí termina. El propio verificador elogió esa promesa
+el primer día, que es la prueba de que se le cree.
+
+Son dos problemas en uno: le mentimos al usuario, y es exactamente el tipo de afirmación por la que
+Google Play sanciona —funcionalidad anunciada que no opera—.
+
+Lo correcto ahora es **corregir el texto**, no inventar la función a las apuradas. Subir fotos sin
+señal es una función de verdad —cola local, reintento, conflictos— y merece hacerse bien y aparte.
+
+### 57. Repetir una operación por reintento
+
+**Cierto.** No hay idempotencia: si el teléfono manda una venta, se corta la red antes de recibir la
+respuesta y el usuario reintenta, se registran dos.
+
+Lo que sí está resuelto es el **doble toque**, que es el caso común: el botón se apaga mientras
+guarda (punto 33). El reintento tras un tiempo de espera agotado no está cubierto.
+
+El arreglo de fondo es una **clave de idempotencia** por operación —el cliente manda un
+identificador propio, el servidor recuerda la respuesta de ese identificador—. No es de una tarde y
+toca ventas, abonos y consumo de repuestos.
+
+### 58. Dos personas vendiendo la última unidad
+
+**Cierto, en principio.** El descuento comprueba que alcance y ocurre dentro de una transacción
+([StockService.cs:266](../backend/src/Garaj.Infrastructure/Services/StockService.cs#L266)), pero no
+hay bloqueo de fila ni token de concurrencia: dos transacciones simultáneas pueden leer «queda 1» y
+descontar las dos, dejando la existencia en negativo.
+
+En un taller con dos personas en el mostrador es improbable, pero el arreglo es corto: marcar la
+fila de existencias con el token de concurrencia de PostgreSQL, y quien pierda la carrera recibe un
+conflicto en vez de sobrevender. No pide cambiar el esquema.
+
+### 59. Límites de intentos
+
+**Cierto: no hay ninguno.** Ni en el inicio de sesión, ni en las búsquedas, ni en la creación de
+recursos. Alguien con el correo de un dueño puede probar contraseñas todo lo que quiera, y la API
+está abierta al internet.
+
+Es el más fácil de los cuatro: ASP.NET trae limitador de tasa incorporado y basta aplicarlo al login
+y al enlace público de cotizaciones, que son las dos puertas sin sesión.
+
+### Lo que queda para el siguiente ciclo, de su lista P0
+
+Los casos que piden capturar una petición y alterarla —precio, total, sucursal, identificadores—
+valen la pena y **no los puedo hacer yo leyendo código**: se hacen con la app en la mano y un proxy.
+Que los corran; el terreno está preparado para que fallen del lado correcto.
 
 ## Para el cuestionario de acceso a producción
 
