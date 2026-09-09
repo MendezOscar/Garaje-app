@@ -60,4 +60,6 @@ export interface ProblemDetails {
   title: string
   detail: string
   instance?: string
+  /** Solo en los 500: la misma traza que quedó en el log del servidor. */
+  traceId?: string
 }

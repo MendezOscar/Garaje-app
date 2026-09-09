@@ -136,7 +136,17 @@ if (args.FirstOrDefault() == "create-platform-user")
 // Serilog va por fuera del manejo de errores a propósito. Al revés, el middleware de
 // request logging ve la excepción antes de que se traduzca y registra un 500 aunque al
 // cliente le llegue un 401 o un 404: los logs de producción mentirían.
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    // La versión del cliente va en la plantilla y no como propiedad enriquecida: la consola
+    // imprime el mensaje y nada más, así que una propiedad suelta no se vería en Render.
+    options.MessageTemplate =
+        "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms · {Cliente}";
+    options.EnrichDiagnosticContext = (diagnostics, http) =>
+        diagnostics.Set(
+            "Cliente",
+            http.Request.Headers["X-Garaj-Cliente"].FirstOrDefault() ?? "sin versión (panel web)");
+});
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())

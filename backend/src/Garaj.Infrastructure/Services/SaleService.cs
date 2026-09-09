@@ -583,7 +583,9 @@ public class SaleService(
         var statement = await BuildStatementAsync(customer, tenant, ct);
 
         if (statement.Sales.Count == 0)
-            throw new AppException($"{customer.FullName} no tiene saldo pendiente.");
+            // Sin el nombre a propósito: este mensaje se registra en el log, y el usuario
+            // acaba de elegir al cliente, así que ya sabe de quién se le habla.
+            throw new AppException("Este cliente no tiene saldo pendiente.");
 
         var url = StatementUrlFor(customer.PublicToken);
 

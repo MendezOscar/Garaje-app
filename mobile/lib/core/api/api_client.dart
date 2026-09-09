@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/token_store.dart';
 
@@ -61,7 +62,28 @@ class ApiClient {
       path.contains('/api/auth/refresh') ||
       path.contains('/api/auth/logout');
 
+  /// La versión instalada, para mandarla en cada petición. Se lee una sola vez: preguntarle
+  /// al sistema en cada llamada sería trabajo repetido para un dato que no cambia mientras la
+  /// app está abierta.
+  static String? _version;
+
+  /// Con tres versiones a la vez en la calle —la de iOS, la de Play y la nueva—, un 500 en el
+  /// log del servidor no dice de cuál vino. Esto lo dice. No identifica a nadie: es la misma
+  /// versión que se lee al pie de «Más».
+  static Future<String> _versionInstalada() async {
+    if (_version != null) return _version!;
+
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return _version = 'GarajApp/${info.version}+${info.buildNumber}';
+    } catch (_) {
+      return _version = 'GarajApp/desconocida';
+    }
+  }
+
   Future<void> _attachToken(RequestOptions options, RequestInterceptorHandler handler) async {
+    options.headers['X-Garaj-Cliente'] = await _versionInstalada();
+
     if (!_isSessionEndpoint(options.path)) {
       final token = await _tokenStore.readAccessToken();
       if (token != null) options.headers['Authorization'] = 'Bearer $token';
@@ -136,7 +158,14 @@ String apiErrorMessage(Object error, [String fallback = 'Ocurrió un error inesp
   if (error is DioException) {
     final data = error.response?.data;
     if (data is Map<String, dynamic> && data['detail'] is String) {
-      return data['detail'] as String;
+      final detalle = data['detail'] as String;
+      // El servidor manda la traza solo cuando falló él. Mostrarla es lo único que le permite
+      // a un mecánico decir por WhatsApp *cuál* de todos los errores del día fue el suyo.
+      final traza = data['traceId'];
+      if (traza is String && (error.response?.statusCode ?? 0) >= 500) {
+        return '$detalle\nCódigo: $traza';
+      }
+      return detalle;
     }
     if (error.type == DioExceptionType.connectionError ||
         error.type == DioExceptionType.connectionTimeout) {

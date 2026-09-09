@@ -20,6 +20,9 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         }
         catch (AppException ex)
         {
+            // El mensaje del error de negocio queda escrito aquí, así que ningún mensaje de
+            // AppException debe llevar datos personales —nombres, teléfonos, matrículas—: el
+            // log lo lee quien opera el servidor, no el dueño del taller.
             logger.LogInformation(ex, "Error de negocio en {Path}: {Message}", context.Request.Path, ex.Message);
             await WriteProblemAsync(context, ex.StatusCode, ex.Message);
         }
@@ -34,7 +37,8 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error no controlado en {Path}", context.Request.Path);
+            logger.LogError(ex, "Error no controlado en {Path} (traza {TraceId})",
+                context.Request.Path, context.TraceIdentifier);
             await WriteProblemAsync(context, HttpStatusCode.InternalServerError,
                 "Ocurrió un error inesperado. Intente nuevamente.");
         }
@@ -48,13 +52,24 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         context.Response.StatusCode = (int)status;
         context.Response.ContentType = "application/problem+json";
 
-        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        var problem = new ProblemDetails
         {
             Status = (int)status,
             Title = ReasonPhrase(status),
             Detail = detail,
             Instance = context.Request.Path
-        });
+        };
+
+        // Solo en el 500. Un error de negocio le dice al usuario qué hacer y no hay nada que
+        // investigar; el genérico, en cambio, no le dice nada a nadie. Con esta traza —la misma
+        // que quedó en el log— una queja por WhatsApp se convierte en una petición concreta
+        // entre las de todos los demás a esa hora.
+        if ((int)status >= 500)
+        {
+            problem.Extensions["traceId"] = context.TraceIdentifier;
+        }
+
+        await context.Response.WriteAsJsonAsync(problem);
     }
 
     private static string ReasonPhrase(HttpStatusCode status) => status switch
