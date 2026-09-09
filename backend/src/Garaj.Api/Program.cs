@@ -48,6 +48,21 @@ builder.Services.AddRateLimiter(options =>
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
     });
+
+    // Que el límite salte es justo la señal que interesa: llegar a veinte intentos de login
+    // en un minuto no le pasa a un taller trabajando. Sin esto, el corte ocurría en silencio.
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("Garaj.RateLimit")
+            .LogWarning(
+                "Límite alcanzado en {Path} desde {Ip}",
+                context.HttpContext.Request.Path,
+                context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "IP desconocida");
+
+        return ValueTask.CompletedTask;
+    };
 });
 
 builder.Services.AddControllers().AddJsonOptions(options =>

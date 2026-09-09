@@ -80,6 +80,18 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 67 | 7 sep 2026 | Eiborth Gómez | Que los logs no lleven datos personales | **Cierto, uno** | **Hecho**: el nombre del cliente salía en un mensaje registrado |
 | 68 | 7 sep 2026 | Eiborth Gómez | Que todo evento lleve versión y ambiente | Cierto a medias | **Hecho**: la app manda su versión en cada petición |
 | 69 | 7 sep 2026 | Eiborth Gómez | Umbrales y alertas | Parcial | Play y el health check ya alertan; falta la tasa de 5xx |
+| 70 | 8 sep 2026 | Eiborth Gómez | Registrar eventos de seguridad | **Cierto** | **Hecho**: el login fallido y el corte por límite dejan rastro |
+| 71 | 8 sep 2026 | Eiborth Gómez | Señal cuando se rechaza por rol, taller o sucursal | Cierto, no se aplica | Los 403 ya se ven; el 404 deliberado cuesta más de lo que atrapa |
+| 72 | 8 sep 2026 | Eiborth Gómez | Audit trail con actor, acción, resultado | Cierto en parte | **Hecho**: el borrado de un abono deja quién lo hizo y quién lo había registrado |
+| 73 | 8 sep 2026 | Eiborth Gómez | Detectar patrones de fraude | Mitad y mitad | Lo inválido no se puede crear (52); detectar patrones no se aplica |
+| 74 | 8 sep 2026 | Eiborth Gómez | Reconciliación entre módulos | Comprobado | No hay dos verdades: el saldo es la suma de los abonos |
+| 75 | 8 sep 2026 | Eiborth Gómez | Percentiles de latencia | Parcial | El dato está en cada línea de log; las causas grandes ya se atendieron |
+| 76 | 8 sep 2026 | Eiborth Gómez | Comparar builds y definir rollback | **Cierto** | **Documentado**: escalonado, y migraciones compatibles hacia atrás |
+| 77 | 8 sep 2026 | Eiborth Gómez | Inventariar SDK y que coincidan con lo declarado | Comprobado | De dieciséis dependencias, solo Firebase habla con un tercero |
+| 78 | 8 sep 2026 | Eiborth Gómez | Retención de logs y quién los consulta | Parcial | Quién: solo el dueño de las cuentas. Cuánto: depende del destino de logs |
+| 79 | 8 sep 2026 | Eiborth Gómez | Separar ambientes | Comprobado | Otro Supabase, otro bucket y otra llave de firma |
+| 80 | 8 sep 2026 | Eiborth Gómez | Tablero mínimo de salud | Cubierto por partes | Cinco de nueve métricas ya se ven en Play y en Render |
+| 81 | 8 sep 2026 | Eiborth Gómez | Criterios para liberar una build | **Cierto** | **Documentado**: `deployment.md` §8, con umbrales y cuándo detener |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -865,6 +877,165 @@ crash-free users y ANR contra sus propios umbrales y avisa por correo, y `render
 Falta la alerta de **tasa** —los 5xx sobre el 1%, los timeouts triplicados—, y no se arregla con un
 umbral sino con el destino de logs del punto 61. Es la única inversión pendiente en observabilidad.
 
+## Día 13 — 8 de septiembre de 2026: seguridad, auditoría y criterios de release
+
+Doce controles, en la misma línea del día anterior pero con el foco en el dinero y en quién hizo
+qué. Tres se aplicaron, seis estaban cubiertos, dos se descartan y dos se resolvieron escribiendo
+la norma en vez de código. El propio reporte cierra distinto: dice que el siguiente nivel «no es
+agregar más eventos, sino definir qué métricas indican que la app está sana» — y en eso tiene razón.
+
+### 70. Eventos de seguridad
+
+Las altas y bajas de técnicos y los cambios de rol ya quedaban como filas con autor y fecha, y el
+login exitoso escribe `LastLoginAt`; las sesiones se guardan además con IP y agente.
+
+**Lo que no dejaba rastro era el fallo.** Alguien probando contraseñas contra el correo de un dueño
+era completamente invisible: desde el 59 se le corta a los veinte por minuto, pero el corte tampoco
+se anotaba. Ahora el login fallido deja una línea en `Warning` con el correo intentado y la IP, y el
+limitador registra el corte con la ruta y la IP.
+
+El correo es un dato personal y es la excepción consciente a la regla del 67: sin saber **qué
+cuenta** están probando, el registro no sirve para nada. La contraseña no se escribe nunca.
+
+No se añade bloqueo de cuenta tras N fallos: con el límite por minuto ya puesto, bloquear permitiría
+que un tercero deje a un taller sin trabajar a propósito.
+
+### 71. Señal de autorización — cierto, y no se aplica
+
+Los rechazos por rol son 403 y ya se filtran por estado en el log. Los rechazos **por taller no son
+403 sino 404**, por la decisión verificada en el 51 de no confirmar que el recurso existe. El efecto
+secundario es que un intento de acceso horizontal se ve igual que un enlace viejo.
+
+Distinguirlos exigiría una segunda consulta **sin** filtro de taller por cada 404 —a esa altura el
+registro ajeno ya es invisible para el código—: trabajo en el camino caliente para atrapar algo que
+con doce usuarios conocidos no ha pasado. Queda apuntado para cuando el volumen lo justifique. El
+404 deliberado es el precio de no filtrar existencia, y es una postura defendible.
+
+### 72. Auditoría
+
+Actor, recurso y fecha ya estaban en cada fila. Y hay más resguardos de los que el punto supone: una
+orden **facturada no se puede borrar** —habría que anular la factura, que sí deja rastro— y borrar
+una orden devuelve a bodega lo que salió, con motivo escrito.
+
+**El hueco: lo que se borra, se borra de verdad.** No hay borrado lógico en el dominio. El caso que
+importa es el abono, cuyo propio comentario decía que «no deja rastro más allá del saldo»: el dueño
+podía hacer desaparecer un pago registrado por un empleado sin que nadie pudiera reconstruirlo.
+Ahora el borrado queda escrito con el monto, la fecha, la venta, **quién lo registró y quién lo
+borra**.
+
+El borrado lógico general es la solución correcta y es una migración con filtros nuevos en todo el
+dominio: se hace con calma, no en la semana en que se pide acceso a producción.
+
+### 73. Manipulación y fraude
+
+Dos pedidos en una frase. Que lo inválido no entre está resuelto y verificado en el 52: la cantidad
+mayor que cero, el total armado por el servidor con sus propias líneas, el ISV en el servidor, el
+abono que no puede exceder el saldo, la venta que no puede exceder la existencia. Los «montos
+inválidos» no son detectables porque **no se pueden crear**, que es mejor.
+
+Detectar patrones no se aplica: no hay línea base —un mes de operación real— y el criterio sería
+nuestro y no del taller. Cinco anulaciones en un día es fraude en un taller de dos mecánicos y un
+martes normal en uno de quince. Y avisarnos **a nosotros** de que en el negocio de un cliente pasa
+algo raro con el dinero nos pone de auditores, que no es lo que somos.
+
+Lo que sí tiene sentido es que **el dueño** pueda verlo: las anuladas ya se apartan en el cierre
+(18), los movimientos de inventario llevan motivo y autor, y desde el 72 el borrado de un abono deja
+rastro. Juntarlo en una pantalla es producto, no telemetría; queda apuntado.
+
+### 74. Reconciliación entre módulos
+
+**No hay reconciliación porque no hay dos verdades.** Caja, cuentas por cobrar y los reportes no
+guardan cifras propias: derivan de las mismas filas de venta. El comentario de `Sale.cs` lo dice con
+la decisión concreta —no se guarda una bandera «es a crédito», porque una venta lo es cuando queda
+saldo y «guardar además el estado sería un segundo sitio donde la verdad puede desincronizarse»—.
+
+Donde sí hay dos representaciones es en el inventario, y ahí el movimiento se escribe en la misma
+transacción que la existencia, con token de concurrencia desde el 58. Y el cuadre se comprueba en
+cada corrida de las suites de humo, no cuando alguien mira un tablero.
+
+### 75. Percentiles de latencia
+
+El dato crudo está en cada línea del log —milisegundos, y desde el 68 con la versión del cliente—;
+falta quién lo agrupe, que es otra vez el destino de logs del 61.
+
+Pero las dos decisiones de rendimiento que más pesan ya están tomadas y por escrito en
+`render.yaml`: el plan **Starter** en vez del gratis, donde el servicio se dormía y el primer acceso
+del día tardaba ~50 s —ningún percentil sobrevive a eso—, y **API y base en la misma región**. Lo
+que un percentil serviría para descubrir está atendido en su causa.
+
+Lo que queda sin medir es el tiempo desde el teléfono, que incluye la red del taller. Eso solo lo
+reporta quien está ahí: que el equipo anote **cuánto tarda** lo que se siente lento vale más que un
+p95 nuestro.
+
+### 76. Comparar builds y rollback
+
+Play ya compara crash rate y ANR por versión. Lo importante es que **en las tiendas no existe volver
+atrás**: Play no acepta un `versionCode` menor y App Store no reinstala un build viejo. Lo único
+posible es **detener** el despliegue y corregir hacia adelante, lo que hace obligatorio el
+lanzamiento escalonado: si sale al 100% de golpe, no hay nada que detener.
+
+En el servidor sí hay rollback de un clic, pero `Database__MigrateOnStartup=true` significa que
+**volver el código atrás no vuelve el esquema atrás**. Escrito como norma en `deployment.md` §8:
+agregar en un despliegue y usar en el siguiente, nunca quitar ni renombrar en el mismo, nunca una
+columna obligatoria de entrada.
+
+### 77. Inventario de SDK
+
+De **dieciséis** dependencias del móvil, solo dos hablan con un tercero: `firebase_core` y
+`firebase_messaging`, que mandan a Google el token del aparato para entregar los avisos. Las otras
+catorce no salen del teléfono. Ni analítica, ni informes de fallos, ni publicidad, ni atribución.
+
+Y **coincide con lo declarado**: la política de privacidad ya nombra a Google Firebase como
+encargado, con propósito y país, junto a Supabase, Render, Cloudflare y las tiendas. El 11 lo dio por
+bueno desde el formulario; esto lo verifica desde el binario.
+
+### 78. Retención
+
+**Quién puede consultarlos** está resuelto por construcción: solo el dueño de las cuentas de Render y
+Supabase. No hay analistas ni terceros, y el usuario de plataforma no puede leer datos de negocio de
+un taller.
+
+**Cuánto** son tres plazos que hoy conviven sin estar escritos juntos: logs, los pocos días que da
+Render; datos del taller, 90 días tras la baja según la política; registros de negocio, indefinidos
+a propósito porque son la contabilidad del cliente (20). El primero no es elegible sin el destino de
+logs del 61, así que los tres se anotan cuando eso se decida.
+
+### 79. Separación de ambientes
+
+Comprobado, y de lo mejor separado del proyecto: `garaj-api-pruebas` sigue la rama `pruebas` con
+**otro proyecto de Supabase**, otro bucket, **otra llave de firma de JWT** —un token de pruebas no
+vale en producción— y otros orígenes CORS.
+
+La contaminación que el punto teme no es posible en el sentido peligroso: no hay datos reales en
+pruebas, y `POST /api/demo/seed` —que borra la base entera— solo puede existir allí.
+
+### 80. Tablero de salud
+
+Cinco de las nueve métricas ya se ven sin construir nada: crash-free, ANR, versión instalada y
+usuarios activos en Play; las sincronizaciones pendientes las ve el propio usuario en el banner de la
+cola, que es donde sirven. Los fallos de login existen desde el 70; 4xx/5xx y latencia están en el
+log.
+
+Falta un solo sitio donde mirarlas, y eso necesita el almacén del 61. Construirlo nosotros sería
+reinventar mal lo que Play y Render ya muestran, y expondría datos de operación en la misma app que
+usan los talleres.
+
+### 81. Criterios para liberar una versión
+
+El punto más útil del corte, y quedó escrito donde se va a usar: **`deployment.md` §8**.
+
+Antes de subir: las trece suites de humo, `flutter analyze`, `dotnet build`, `npm run build`,
+`flutter clean` si cambió la versión, y los **cinco recorridos a mano** en el taller de pruebas
+—recibir, armar, cobrar, cierre de caja, mostrador—. Eso último no es prescindible: es lo único que
+prueba que la versión sirve para trabajar.
+
+Umbrales para seguir subiendo: crash-free **≥ 99,5%** y ANR **≤ 0,3%**, a propósito más estrictos que
+los de Google (1,09% y 0,47%), porque al llegar al umbral de Google la ficha ya está castigada.
+
+Y se detiene sin discutirlo si el crash-free baja de 99% o si **algo impide cobrar o recibir un
+vehículo**. Ese criterio no es una métrica a propósito: un taller detenido no espera a que se
+analice un percentil.
+
 ## Para el cuestionario de acceso a producción
 
 Google no pide la lista de errores; pregunta cómo fue la prueba. Lo de arriba responde la pregunta
@@ -880,6 +1051,13 @@ aparecieron en el tercero, cuando se tocó el trabajo de verdad. De ahí saliero
 que se quedaba en pantalla contradiciendo lo que el usuario veía, un botón que se podía pulsar sin
 tener los datos, un campo que perdía el kilometraje en silencio y un permiso de avisos que se pedía
 sin explicar para qué. Los cuatro están corregidos.
+
+Los dos últimos cortes cambiaron la pregunta: ya no «funciona», sino «si se rompe, ¿alguien se
+entera?». De ahí salió que un 500 no dejaba forma de relacionar la queja de un usuario con el
+registro del servidor —ahora lleva un código que se muestra en pantalla—, que un intento de adivinar
+la contraseña de un dueño no dejaba rastro, que el nombre de un cliente terminaba escrito en el log,
+y que el borrado de un abono no decía quién lo había registrado. También se escribieron los
+criterios para liberar una versión, que antes eran costumbre.
 
 **Qué no se aplicó, y por qué.** Registro público de talleres —GarajApp no lo tiene a propósito: las
 cuentas las crea el dueño para su personal, y así se le declaró también a Apple—; el cambio de tema

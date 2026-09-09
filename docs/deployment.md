@@ -524,6 +524,66 @@ alias. Conviene también respaldar el `.jks` fuera de la máquina.
 
 ---
 
+## 8. Criterios para liberar una versión
+
+Que la app «abra y funcione» no es criterio de salida. Esto es lo que se exige antes de publicar,
+lo que se vigila después, y cuándo se detiene.
+
+### Antes de subir el paquete
+
+| Comprobación | Cómo |
+| --- | --- |
+| Las trece suites de humo pasan | `python3 backend/tests/smoke/fase1_smoke.py` … `fase13_smoke.py`, contra la API local sembrada (ver el README) |
+| El análisis del móvil está limpio | `cd mobile && flutter analyze` |
+| El backend compila sin errores | `cd backend && dotnet build` |
+| El panel compila | `cd web && npm run build` |
+| Si cambió `version:` o se añadió un paquete | `cd mobile && flutter clean` antes de compilar, o el release falla por un registro de plugins viejo |
+| Los cinco recorridos a mano, en el taller de pruebas | recibir vehículo → armar la reparación → cobrar → cierre de caja → venta de mostrador |
+
+Lo último no es prescindible: es lo único que prueba que la versión sirve para trabajar, y es
+justo lo que ninguna métrica dice.
+
+### Al publicar
+
+**Lanzamiento escalonado, siempre.** En las tiendas no existe volver a una versión anterior —Play
+no acepta un `versionCode` menor y App Store no reinstala un build viejo—, así que lo único que se
+puede hacer con una versión mala es **detenerla**. Si sale al 100% de golpe, no hay nada que
+detener. Se empieza bajo y se sube al confirmar que las métricas no empeoran.
+
+### Umbrales para seguir subiendo
+
+| Métrica | Umbral | De dónde sale |
+| --- | --- | --- |
+| Usuarios sin fallos (crash-free) | **≥ 99,5%** | Android Vitals, por versión |
+| Tasa de ANR | **≤ 0,3%** | Android Vitals, por versión |
+| Errores 5xx | Sin subir respecto a la semana anterior | Log de peticiones en Render |
+| Fallos de login | Sin picos que no expliquen los intentos fallidos registrados | Log, `Warning` |
+
+Los dos primeros son deliberadamente más estrictos que los de Google —marca mal comportamiento en
+1,09% de fallos y 0,47% de ANR—: si se llega al umbral de Google, la ficha ya está castigada. La
+mitad de ese margen deja tiempo de reaccionar.
+
+### Cuándo se detiene, sin discutirlo
+
+- Usuarios sin fallos por debajo de **99%**.
+- Cualquier fallo que impida **cobrar** o **recibir un vehículo**: son las dos cosas que el taller
+  no puede dejar de hacer, y un taller detenido no espera a que se analice una métrica.
+- 401 o 402 en volumen: significa que la gente se quedó fuera o con la suscripción mal leída.
+
+### La regla que hace seguro el rollback del servidor
+
+En Render sí se puede volver al deploy anterior con un clic, pero `Database__MigrateOnStartup` está
+en `true`: **volver el código atrás no vuelve el esquema atrás**. Para que ese clic sea seguro, cada
+migración tiene que ser compatible con la versión anterior del código:
+
+- Se **agrega** una columna en un despliegue y se **empieza a usar** en el siguiente.
+- Nunca se quita ni se renombra una columna en el mismo despliegue que deja de usarla.
+- Una columna nueva es opcional o trae valor por defecto, nunca obligatoria de entrada.
+
+Hasta hoy se ha cumplido, pero por costumbre y no por norma. Ahora es norma.
+
+---
+
 ## Puertos en desarrollo local
 
 Esta máquina ya tiene otros proyectos ocupando los puertos habituales (agroapp usa 9000/9001,
