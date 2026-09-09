@@ -131,7 +131,14 @@ export function errorMessage(error: unknown, fallback = 'Ocurrió un error inesp
     // exigiría await y aquí no lo hay, así que se usa el mensaje de respaldo.
     if (error.response?.data instanceof Blob) return fallback
 
-    return error.response?.data?.detail ?? error.message ?? fallback
+    const problema = error.response?.data
+    // La traza viene solo cuando falló el servidor, y es lo único que convierte un «me salió
+    // error» en una petición concreta que puedo buscar en el log.
+    if (problema?.detail && problema.traceId) {
+      return `${problema.detail} (código ${problema.traceId})`
+    }
+
+    return problema?.detail ?? error.message ?? fallback
   }
   return error instanceof Error ? error.message : fallback
 }

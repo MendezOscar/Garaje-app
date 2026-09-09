@@ -70,6 +70,16 @@ Los PDF originales están fuera del repositorio, en `~/dev/Pruebas-cerrada-garaj
 | 57 | 6 sep 2026 | Eiborth Gómez | Operaciones repetidas por reintento | **Cierto** | Sin idempotencia; queda como trabajo aparte |
 | 58 | 6 sep 2026 | Eiborth Gómez | Dos ventas de la última unidad | **Cierto** | **Hecho**: token de concurrencia en las existencias |
 | 59 | 6 sep 2026 | Eiborth Gómez | Límites de intentos (rate limiting) | **Cierto** | **Hecho**: login y enlace público |
+| 60 | 7 sep 2026 | Eiborth Gómez | No hay informe de fallos ni ANR | Cierto a medias | **Hecho a medias**: manejadores globales con la pantalla; los crashes los reporta Play |
+| 61 | 7 sep 2026 | Eiborth Gómez | Instrumentar códigos, endpoint, latencia y tipo de fallo | Comprobado | Ya lo hace Serilog; el hueco es dónde se guardan los logs |
+| 62 | 7 sep 2026 | Eiborth Gómez | Correlacionar una operación de la app al servidor | **Cierto** | **Hecho**: la traza del 500 sale en pantalla y en el log |
+| 63 | 7 sep 2026 | Eiborth Gómez | Eventos de venta, cobro, abono, anulación y cierre | Comprobado | Quedan como filas con quién y cuándo, no como eventos |
+| 64 | 7 sep 2026 | Eiborth Gómez | Medir el embudo funcional | Por diseño | No se aplica: exige analítica, y está declarado que no hay |
+| 65 | 7 sep 2026 | Eiborth Gómez | Medir búsquedas sin resultados | Cubierto de otra forma | El buscador se lo dice al usuario (punto 35) |
+| 66 | 7 sep 2026 | Eiborth Gómez | Registrar offline, reintentos, cola y conflictos | Comprobado | La cola lo guarda en disco y lo muestra; falta el 57 |
+| 67 | 7 sep 2026 | Eiborth Gómez | Que los logs no lleven datos personales | **Cierto, uno** | **Hecho**: el nombre del cliente salía en un mensaje registrado |
+| 68 | 7 sep 2026 | Eiborth Gómez | Que todo evento lleve versión y ambiente | Cierto a medias | **Hecho**: la app manda su versión en cada petición |
+| 69 | 7 sep 2026 | Eiborth Gómez | Umbrales y alertas | Parcial | Play y el health check ya alertan; falta la tasa de 5xx |
 
 ## Día 1 — 27 de agosto de 2026
 
@@ -731,6 +741,129 @@ que es otro problema y se ve en la auditoría.
 Los casos que piden capturar una petición y alterarla —precio, total, sucursal, identificadores—
 valen la pena y **no los puedo hacer yo leyendo código**: se hacen con la app en la mano y un proxy.
 Que los corran; el terreno está preparado para que fallen del lado correcto.
+
+## Día 12 — 7 de septiembre de 2026: telemetría y observabilidad
+
+Un corte sin capturas y sin defectos: **diez controles** sobre qué queda registrado cuando algo
+falla. Cambia la pregunta —ya no es «funciona», es «si se rompe, ¿alguien se entera?»— y por eso
+la mitad se responde con partes del sistema que existen por otros motivos.
+
+Cuatro se aplicaron, cuatro estaban cubiertos y dos se descartan por diseño. Los dos descartados
+son los que conviene explicar bien en el cuestionario, porque «no medimos» suena a descuido y en
+realidad es la decisión de no meter analítica, ya declarada en Play.
+
+### 60. Informe de fallos y ANR
+
+**Cierto que no hay SDK**: ni Crashlytics ni Sentry, y tampoco había un manejador global de errores
+de Flutter. Pero el punto pasa por alto que **Play Console reporta crashes y ANR sin instalar nada**,
+con versión, build, modelo y sistema. Lo que Vitals no puede saber es en qué iba el usuario.
+
+Meter Crashlytics obligaría a rehacer el formulario de seguridad de los datos y la política de
+privacidad —el punto 30 declara que no hay analítica ni informes de fallos—, justo antes de pedir
+acceso a producción. Se descarta por ahora, y en su lugar `main.dart` gana `FlutterError.onError` y
+`PlatformDispatcher.instance.onError`, que anotan el fallo **con la pantalla donde ocurrió** en el
+registro del aparato. Nada sale del teléfono.
+
+### 61. Códigos, endpoint, latencia y tipo de fallo
+
+Ya existía, y más completo de lo que el reporte supone: `UseSerilogRequestLogging` escribe método,
+ruta, estado y milisegundos por petición, y el middleware de errores separa los tres tipos por
+nivel —negocio en `Information`, concurrencia en `Warning`, lo demás en `Error` con traza—, así que
+filtrar «los 5xx de verdad» es un filtro por nivel.
+
+**El hueco real es otro y no es el que el punto describe**: esos logs salen a la consola de Render,
+que los conserva pocos días y no permite buscar hacia atrás ni alertar. Un taller que reporte el
+lunes algo del miércoles anterior puede encontrarse con que la evidencia ya no está. Se arregla con
+un destino de logs externo, que cuesta mensualidad: queda anotado como riesgo conocido.
+
+### 62. Correlación
+
+Seguir **qué pasó** ya estaba resuelto en la base y no en los logs: toda entidad de negocio hereda
+de `AuditableEntity` y un interceptor de EF rellena quién y cuándo al guardar, sin que ningún caso
+de uso pueda olvidarse. Las siete operaciones que el punto enumera quedan con autor y fecha para
+siempre, que es más fuerte que un correlation ID: los logs se borran, las filas no.
+
+Lo que faltaba era el **puente entre la queja y el registro**. Ahora el 500 lleva
+`context.TraceIdentifier` al log y al `ProblemDetails`, y los dos clientes lo muestran: el móvil en
+una segunda línea, el panel entre paréntesis. Solo en los 5xx: un error de negocio ya le dice al
+usuario qué hacer y no hay nada que investigar.
+
+### 63. Operaciones financieras
+
+Cubierto por los puntos 18 y 31. Cada venta, abono y anulación es una fila con autor y fecha; una
+anulación no borra, se aparta y se informa en el cierre. Y la advertencia de no registrar datos de
+tarjeta **no aplica**: GarajApp no procesa cobros —«Tarjeta» y «Transferencia» son anotaciones de
+cómo pagó el cliente—, así que no existe número de tarjeta en el sistema que se pueda filtrar.
+
+Lo que falta son los **fallos** agregados, no los éxitos, y eso es el punto 61 otra vez: no es
+instrumentar más, es tener dónde guardar y qué alertar.
+
+### 64. Embudo funcional — descartado por diseño
+
+Exige un SDK de eventos, y con él volver a Data safety y a la política para declarar identificadores
+y datos de uso. Además mide poco aquí: son doce usuarios conocidos, en talleres que se visitan; un
+«40% de abandono» serían tres personas. Y el ejemplo que da el propio punto —quien llega a recibir
+un vehículo y nunca registra el requerimiento— ya se ve en los datos: los requerimientos guardan su
+estado y el tablero de Hoy muestra los pendientes de atender, que además le sirve al dueño.
+
+### 65. Búsquedas sin resultados
+
+La parte de medir se descarta con el mismo argumento del 64 —y la prueba es este expediente: los
+tres problemas de búsqueda (34, 35 y 36) los encontró una persona, no un contador—. La parte útil
+ya se resolvió mejor: desde el punto 35 el buscador le dice **al usuario, en el momento**, si el
+repuesto no existe en el catálogo o si no hay existencia en esa sucursal. Los errores del buscador
+se registran como cualquier 5xx.
+
+Lo que sigue abierto en esta área es el **36**: la búsqueda no ignora acentos, y pide habilitar
+`unaccent` en la base de producción.
+
+### 66. Red y sincronización
+
+El mejor cubierto del corte, por partes hechas sin pensar en telemetría. La cola de subida guarda en
+**disco** cada foto pendiente con su número de intentos y su último error, tope de cinco, y se rinde
+de una vez si el fallo es un 402 de suscripción vencida en vez de gastar los cinco contra una pared.
+El estado no es un evento que alguien deba ir a leer: **se le muestra al usuario**, con reintentar y
+descartar, y desde el 56 se vacía sola al volver a la app. Sin contenido sensible: el manifiesto
+anota la ruta del archivo y la orden, no la foto.
+
+Queda abierto «identificar una operación repetida», que es el **57** —idempotencia—. Ahí el reporte
+acierta en el fondo: reintentar sin clave de idempotencia es justo el escenario en que algo puede
+aplicarse dos veces. En una foto el daño es un duplicado; en una venta, no.
+
+### 67. Privacidad de los logs
+
+Auditadas las **catorce** llamadas de log del backend, una por una. Sin contraseñas ni tokens; el
+login no registra el correo; el push escribe el estado que devuelve FCM, no el token del aparato; la
+ruta lleva GUID y no nombres, y con Serilog 8 el texto de búsqueda no se registra porque la consulta
+no entra en la ruta. Los avisos registran el **título** —el folio—, y la matrícula viaja en el
+cuerpo, que no se registra. Fotos y notas del cliente no pasan nunca por un log.
+
+**Un hallazgo real, pequeño**: `SaleService` lanzaba `«{FullName} no tiene saldo pendiente»`, y el
+middleware registra el mensaje de los errores de negocio. El nombre completo de un cliente quedaba
+escrito cada vez. Corregido —el usuario acaba de elegir al cliente, no necesita el nombre— y la
+regla quedó escrita en el middleware para que el próximo mensaje no lo reintroduzca.
+
+### 68. Versión y ambiente
+
+En el móvil ya estaba por dos caminos: Play atribuye cada crash a su build, y desde el punto 40 la
+versión instalada se lee al pie de «Más». Faltaba el **cruce**: un 500 en el servidor no decía de
+qué versión venía, y eso deja de ser teórico en cuanto convivan tres en la calle —iOS con la 1.0.0,
+Play con la 1.0.1 y la nueva—.
+
+Ahora la app manda `X-Garaj-Cliente: GarajApp/1.0.1+3` en cada petición, leído una sola vez, y el
+log de peticiones lo imprime al final de cada línea; el panel sale como «sin versión (panel web)».
+No se enriquecen los logs con la versión del servidor: con una sola instancia, la fecha del log ya
+dice qué deploy estaba corriendo.
+
+### 69. Alertas
+
+La frase más certera del corte: «la telemetría sin alertas convierte incidentes en información que
+nadie ve». Las dos alertas que más importan ya existen y no las hicimos nosotros: Play vigila
+crash-free users y ANR contra sus propios umbrales y avisa por correo, y `render.yaml` tiene
+`healthCheckPath: /health`, así que una API caída se detecta.
+
+Falta la alerta de **tasa** —los 5xx sobre el 1%, los timeouts triplicados—, y no se arregla con un
+umbral sino con el destino de logs del punto 61. Es la única inversión pendiente en observabilidad.
 
 ## Para el cuestionario de acceso a producción
 
