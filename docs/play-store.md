@@ -239,7 +239,7 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
   *llave de subida*. Resguárdela igual —si se pierde, hay que pedirle a Google que la reemplace,
   y eso son días de correos—.
 
-## Dónde va esto (26 de agosto de 2026)
+## Dónde va esto (9 de septiembre de 2026)
 
 | Paso | Estado |
 | --- | --- |
@@ -249,8 +249,9 @@ El `.aab` sale en `build/app/outputs/bundle/release/`.
 | Prueba interna, versión 1 (1.0.0) | Publicada |
 | Prueba cerrada, versión 1 promovida | Publicada |
 | Prueba cerrada, **1.0.1 (3)** con los arreglos de los verificadores | Subida el 4 de septiembre de 2026 |
-| 12 probadores aceptados | **Pendiente** |
-| Acceso a producción | Se puede pedir 14 días después de que el probador número 12 acepte |
+| 12 probadores aceptados | Hecho |
+| Prueba cerrada de 14 días | Cumplida |
+| **Acceso a producción** | **Solicitado el 9 de septiembre de 2026, 4:49 p.m.** — responden en 7 días o menos al correo del propietario de la cuenta |
 
 Los 14 días cuentan desde que hay **12 probadores aceptados y se mantienen**, no desde que se
 publicó la versión: el último en aceptar es el que fija la fecha. Y hasta que Google libera la
@@ -269,6 +270,81 @@ a producción, que pregunta qué cambió en la app por lo que ellos dijeron.
 Los probadores usan un taller aparte, aprovisionado con `provision-tenant`, no el de
 demostración que se le declaró al revisor: doce personas dejan desorden y ese es justo el taller
 que el revisor abre. Las credenciales de ese taller no van en el repositorio, que es público.
+
+## La solicitud de acceso a producción (9 de septiembre de 2026)
+
+Lo que se contestó, palabra por palabra, para no reconstruirlo de memoria si piden aclaración. El
+formulario son tres pasos y **todos los campos de texto tienen tope de 300 caracteres**, así que las
+respuestas largas del expediente no caben: hubo que resumirlas.
+
+**Cómo se reclutó a los verificadores**
+
+> Un equipo de QA, que probó la app a diario durante los 14 días y entregó un reporte escrito por
+> jornada: no fueron doce cuentas puestas para cumplir el requisito.
+
+**Qué tan fácil fue reclutarlos** — «Difícil». No se consiguieron doce talleres mecánicos con
+Android dispuestos a instalar una app en pruebas; hubo que organizar un equipo de QA.
+
+**Nivel de participación de los verificadores**
+
+> Recorrieron todas las funciones: acceso, recepción de vehículos, órdenes, inventario, ventas,
+> cuentas por cobrar y reportes. La diferencia con un usuario real: un mecánico repite pocos flujos
+> muchas veces al día; ellos revisaron cada pantalla una vez y auditaron seguridad y privacidad.
+
+La segunda mitad es deliberada: la pregunta busca detectar pruebas fingidas, y admitir en qué se
+diferencia de un usuario real le da credibilidad al resto.
+
+**Resumen de los comentarios y método para recogerlos**
+
+> Reporte escrito diario, 13 en total, con capturas y clasificación por severidad. Señalaron fallos
+> de validación, mensajes de error confusos, permisos pedidos sin contexto y riesgos de concurrencia
+> y de registro de datos. Se aplicaron 23 cambios; el resto se verificó o se descartó con motivo.
+
+**Público objetivo**
+
+> Talleres mecánicos de autos y motos en Honduras, de uno a diez trabajadores: el dueño, sus
+> mecánicos y, con acceso limitado, el cliente que deja su vehículo. No es una app de consumo
+> masivo: la usa quien trabaja en el taller.
+
+**Cómo ofrece valor**
+
+> Reemplaza el cuaderno del taller. Desde el teléfono se recibe el vehículo, se arma la reparación
+> con repuestos y mano de obra, se cobra y se le avisa al cliente por WhatsApp. El dueño ve qué se
+> debe, qué falta en bodega y cuánto entró, sin depender de papeles sueltos.
+
+Sin mencionar la mensualidad: aquí preguntan por el valor, no por el modelo de negocio, y meterlo
+invita a preguntas sobre pagos que no vienen al caso.
+
+**Qué cambios se hicieron con lo aprendido**
+
+> 23 cambios. Los principales: ver la contraseña al escribirla; el permiso de avisos se explica
+> antes de pedirlo; validación del kilometraje; el botón se bloquea hasta completar los datos;
+> privacidad y soporte dentro de la app; y las fotos tomadas sin señal se suben solas al recuperar
+> conexión.
+
+**Cómo se decidió que está lista**
+
+> Cuando los reportes dejaron de encontrar fallos que impidieran trabajar. Antes de publicar se
+> corren 13 suites de pruebas y se recorre a mano el ciclo completo: recibir el vehículo,
+> repararlo, cobrar y cerrar caja. Lo que queda pendiente son mejoras. Saldrá en lanzamiento
+> escalonado.
+
+Admitir que hay pendientes y decir que sale escalonado se lee como criterio. Lo contrario —«está
+todo perfecto»— es lo que suena a que no se probó.
+
+**Instalaciones esperadas el primer año** — «entre 0 y 10,000», que es la única coherente con el
+público objetivo declarado dos pantallas antes.
+
+### Mientras Google responde
+
+- **No** quitar verificadores ni cerrar el canal de prueba cerrada: pueden volver a mirar los datos.
+- **No** subir una versión nueva a ese canal.
+- **No** tocar la base de producción. Por eso el hallazgo 36 —la búsqueda sin acentos, que necesita
+  habilitar `unaccent` en Supabase— espera a que respondan, aunque sea solo de servidor.
+
+Si conceden el acceso, lo que sigue es la **1.0.2** con `flutter clean`, en lanzamiento escalonado y
+con los umbrales de [deployment.md §8](deployment.md). Si lo niegan, el motivo viene en el correo y
+suele ser una respuesta que quieren más concreta, no un problema de la app.
 
 ## Lista antes de mandar
 
