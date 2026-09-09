@@ -8,6 +8,7 @@ using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Garaj.Infrastructure.Auth;
@@ -19,7 +20,8 @@ public class AuthService(
     IOptions<JwtOptions> jwtOptions,
     IDateTimeProvider clock,
     ITenantContext tenantContext,
-    IHttpContextAccessorAdapter requestInfo) : IAuthService
+    IHttpContextAccessorAdapter requestInfo,
+    ILogger<AuthService> logger) : IAuthService
 {
     private readonly JwtOptions _jwt = jwtOptions.Value;
 
@@ -34,7 +36,17 @@ public class AuthService(
         // El mismo mensaje para usuario inexistente y contraseña incorrecta: no revelamos
         // qué emails están registrados.
         if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
+        {
+            // Con el correo y la IP a propósito, y es la única excepción a no escribir datos
+            // personales en el log: sin saber qué cuenta están probando, el registro no sirve
+            // para nada. Alguien tanteando la contraseña de un dueño era, hasta ahora,
+            // completamente invisible. La contraseña no se escribe en ningún caso.
+            logger.LogWarning(
+                "Login fallido para {Email} desde {Ip}",
+                normalizedEmail, requestInfo.RemoteIp ?? "IP desconocida");
+
             throw new UnauthorizedException();
+        }
 
         if (!user.IsActive)
             throw new UnauthorizedException("La cuenta está desactivada.");

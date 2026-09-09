@@ -10,6 +10,7 @@ using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Garaj.Infrastructure.Services;
 
@@ -27,7 +28,8 @@ public class SaleService(
     IDateTimeProvider clock,
     IConfiguration configuration,
     ITenantService tenants,
-    StockService stock) : ISaleService
+    StockService stock,
+    ILogger<SaleService> logger) : ISaleService
 {
     public async Task<PagedResult<SaleListItemDto>> ListAsync(
         SaleQuery query, CancellationToken ct = default)
@@ -472,7 +474,11 @@ public class SaleService(
 
     /// <summary>
     /// Borrar un abono es corregir una captura, no devolver dinero: para eso se anula la
-    /// venta entera. Por eso no pide motivo ni deja rastro más allá del saldo.
+    /// venta entera. Por eso no pide motivo.
+    ///
+    /// Pero la fila se va de verdad —no hay borrado lógico— y con ella quién la había
+    /// registrado. Un pago que desaparece sin dejar nada es justo lo que nadie podría
+    /// reconstruir después, así que el borrado queda escrito en el log antes de ocurrir.
     /// </summary>
     public async Task<SaleDetailDto> RemovePaymentAsync(
         Guid id, Guid paymentId, CancellationToken ct = default)
@@ -482,6 +488,11 @@ public class SaleService(
         var payment = await db.SalePayments
             .FirstOrDefaultAsync(p => p.Id == paymentId && p.SaleId == id, ct)
             ?? throw new NotFoundException("El abono no existe.");
+
+        logger.LogWarning(
+            "Abono borrado: {Monto} del {Fecha:yyyy-MM-dd} en la venta {VentaId}. "
+            + "Lo registró {AutorId} y lo borra {UsuarioId}",
+            payment.Amount, payment.PaidAt, id, payment.CreatedByUserId, tenantContext.UserId);
 
         db.SalePayments.Remove(payment);
         await db.SaveChangesAsync(ct);
