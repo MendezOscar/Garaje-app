@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { reportsApi, workOrdersApi } from '@/api/garaj'
+import { customersApi, reportsApi, salesApi, workOrdersApi } from '@/api/garaj'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -29,6 +29,21 @@ const caja = ref<CashClose | null>(null)
 const recientes = ref<WorkOrderListItem[]>([])
 const loading = ref(true)
 const error = ref('')
+
+/**
+ * Los primeros pasos de un taller recién dado de alta, o null cuando ya empezó.
+ *
+ * Un taller nuevo entra y ve todo en ceros: la pantalla es correcta y no dice nada. Esto le
+ * dice por dónde empezar, y desaparece solo cuando los tres están dados —no hay nada que
+ * apagar ni que recordar—.
+ */
+const primerosPasos = ref<{ cliente: boolean; vehiculo: boolean; cobro: boolean } | null>(null)
+
+const pasosHechos = computed(() => {
+  const p = primerosPasos.value
+  if (!p) return 0
+  return Number(p.cliente) + Number(p.vehiculo) + Number(p.cobro)
+})
 
 const hoy = new Intl.DateTimeFormat('es-HN', {
   weekday: 'long',
@@ -131,10 +146,48 @@ async function load() {
     recientes.value = [...ordenes.items]
       .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
       .slice(0, 6)
+
+    await cargarPrimerosPasos(resumen)
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar el resumen del día.')
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Solo se pregunta mientras el mes esté en cero y no haya nada por cobrar: un taller que ya
+ * factura no paga ni una consulta de más. Y las tres van en cadena —sin clientes no puede
+ * haber órdenes, sin órdenes no puede haber cobro—, así que un taller nuevo hace una sola.
+ */
+async function cargarPrimerosPasos(resumen: Dashboard) {
+  if (resumen.revenueMonth !== 0 || resumen.receivables !== 0) {
+    primerosPasos.value = null
+    return
+  }
+
+  try {
+    const clientes = await customersApi.list({ pageSize: 1 })
+    if (clientes.total === 0) {
+      primerosPasos.value = { cliente: false, vehiculo: false, cobro: false }
+      return
+    }
+
+    // `onlyOpen: false` a propósito: una orden ya entregada también cuenta como vehículo
+    // recibido, y con el filtro por defecto el paso se desmarcaría justo al cerrarla.
+    const todas = await workOrdersApi.list({ onlyOpen: false, pageSize: 1 })
+    if (todas.total === 0) {
+      primerosPasos.value = { cliente: true, vehiculo: false, cobro: false }
+      return
+    }
+
+    const ventas = await salesApi.list({ pageSize: 1 })
+    primerosPasos.value =
+      ventas.total > 0 ? null : { cliente: true, vehiculo: true, cobro: false }
+  } catch {
+    // Si algo de esto falla, no se muestra la guía: es una ayuda, no una pantalla que deba
+    // interrumpir el día con un error.
+    primerosPasos.value = null
   }
 }
 
@@ -158,6 +211,39 @@ watch(() => auth.activeBranchId, load)
 
     <p v-if="error" class="error">{{ error }}</p>
     <p v-else-if="loading" class="muted">Cargando…</p>
+
+    <!--
+      Arriba del dinero mientras el taller no ha facturado nada: es lo único accionable de la
+      pantalla cuando todo lo demás está en cero. Cada línea lleva a donde se hace.
+    -->
+    <article v-if="primerosPasos" class="panel pasos">
+      <header>
+        <h2>Primeros pasos</h2>
+        <span class="muted small num">{{ pasosHechos }} de 3</span>
+      </header>
+      <p class="muted small">Con esto ya puede trabajar el día completo desde el panel.</p>
+
+      <ul>
+        <li :class="{ hecho: primerosPasos.cliente }">
+          <RouterLink v-if="!primerosPasos.cliente" :to="{ name: 'customers' }">
+            Registre su primer cliente
+          </RouterLink>
+          <span v-else>Registre su primer cliente</span>
+        </li>
+        <li :class="{ hecho: primerosPasos.vehiculo }">
+          <RouterLink v-if="!primerosPasos.vehiculo" :to="{ name: 'receive-vehicle' }">
+            Reciba un vehículo
+          </RouterLink>
+          <span v-else>Reciba un vehículo</span>
+        </li>
+        <li :class="{ hecho: primerosPasos.cobro }">
+          <RouterLink v-if="!primerosPasos.cobro" :to="{ name: 'work-orders' }">
+            Cierre una orden y cóbrela
+          </RouterLink>
+          <span v-else>Cierre una orden y cóbrela</span>
+        </li>
+      </ul>
+    </article>
 
     <template v-if="dashboard">
       <div class="dinero">
@@ -281,6 +367,50 @@ watch(() => auth.activeBranchId, load)
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+}
+
+.pasos {
+  margin-bottom: 1rem;
+}
+
+.pasos header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.pasos h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.pasos ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pasos li {
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.pasos li::before {
+  content: '○';
+  margin-right: 0.5rem;
+  color: var(--text-muted);
+}
+
+/* Lo ya hecho no se enlaza: llevar a «registre su primer cliente» a quien tiene treinta
+   confunde. Queda como constancia de que ese paso está dado. */
+.pasos li.hecho::before {
+  content: '●';
+  color: var(--brand);
+}
+
+.pasos li.hecho span {
+  color: var(--text-muted);
+  text-decoration: line-through;
 }
 
 .rotulo {
