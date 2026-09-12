@@ -10,6 +10,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/work_order.dart';
 import '../../core/theme/garaj_brand.dart';
 import '../notifications/notifications_screen.dart';
+import 'primeros_pasos.dart';
 import '../reports/reports_screen.dart' show money;
 import '../shared/subscription_banner.dart';
 import '../shared/tenant_logo.dart';
@@ -91,6 +92,13 @@ class TodayScreen extends ConsumerWidget {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 10),
+                    // Arriba del dinero mientras el taller no ha facturado nada: es lo único
+                    // accionable de la pantalla cuando todo lo demás está en cero. En cuanto
+                    // hay movimiento del mes, ni siquiera se pregunta.
+                    if (d.month == 0 && d.receivables == 0) ...[
+                      PrimerosPasosCard(onVerOrdenes: onVerOrdenes),
+                      const SizedBox(height: 12),
+                    ],
                     _MoneyCard(summary: d, cobrado: caja.value),
                     const SizedBox(height: 12),
                     _Tiles(summary: d, onVerOrdenes: onVerOrdenes),
