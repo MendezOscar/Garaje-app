@@ -234,12 +234,22 @@ public static class InvoicePdf
                 if (sale.DiscountTotal > 0)
                     Total(totals, "Descuento", $"−{Money(sale.DiscountTotal, sale.Currency)}");
 
-                // El desglose que pide el régimen: en un taller todo va gravado, pero el
-                // importe exento se imprime igual —en cero— porque el formato lo exige.
+                // El desglose que pide el régimen. Los tres importes se imprimen aunque dos
+                // queden en cero, porque el formato los exige y a una factura a la que le falta
+                // una línea se la puede observar.
+                //
+                // En un taller todo va gravado: lo exonerado necesita una orden de exoneración
+                // del cliente, y el 18% es de licor, tabaco y boletos aéreos. La tasa se nombra
+                // junto al importe —«gravado 15%»— porque el formato distingue una de otra.
                 if (sale.FiscalNumber is not null)
                 {
+                    var gravado = sale.TaxRate > 0
+                        ? $"Importe gravado {sale.TaxRate:0.##}%"
+                        : "Importe gravado";
+
+                    Total(totals, "Importe exonerado", Money(0, sale.Currency));
                     Total(totals, "Importe exento", Money(0, sale.Currency));
-                    Total(totals, "Importe gravado", Money(sale.Subtotal - sale.DiscountTotal, sale.Currency));
+                    Total(totals, gravado, Money(sale.Subtotal - sale.DiscountTotal, sale.Currency));
                 }
 
                 if (sale.TaxRate > 0)

@@ -580,6 +580,11 @@ export interface PublicQuote {
     thumbnailUrl: string
     caption: string | null
   }[]
+  /**
+   * El token del seguimiento, cuando la cotización ya se convirtió en orden. Con esto el
+   * cliente sigue con el mismo enlace: ve avanzar su vehículo y descarga la factura al final.
+   */
+  trackingToken: string | null
 }
 
 /**

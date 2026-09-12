@@ -790,6 +790,17 @@ public class QuoteService(
             .Select(p => new PublicQuotePhotoDto(p.Url, p.ThumbnailUrl, p.Caption))
             .ToList();
 
+        // Si la cotización ya se convirtió en orden, el cliente puede seguir con este mismo
+        // enlace: el token de seguimiento lo lleva al avance, y de ahí a la factura cuando la
+        // haya. Antes de esto había que mandarle un segundo enlace por WhatsApp y el primero
+        // se quedaba mostrando una cotización que ya estaba aprobada.
+        var trackingToken = quote.WorkOrderId is { } orderId
+            ? await db.WorkOrders.AsNoTracking().IgnoreQueryFilters()
+                .Where(w => w.Id == orderId)
+                .Select(w => (Guid?)w.PublicToken)
+                .FirstOrDefaultAsync(ct)
+            : null;
+
         return new PublicQuoteDto(
             quote.Number,
             quote.Status,
@@ -818,6 +829,7 @@ public class QuoteService(
                 .Select(l => new PublicQuoteLineDto(
                     l.LineType, l.Description, l.Quantity, l.UnitPrice, l.Discount, l.Total))
                 .ToList(),
-            photos);
+            photos,
+            trackingToken);
     }
 }

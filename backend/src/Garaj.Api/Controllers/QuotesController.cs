@@ -122,8 +122,12 @@ public class QuotesController(IQuoteService service) : ControllerBase
 
 /// <summary>
 /// La cotización vista por el cliente desde el link de WhatsApp. Sin autenticación: el token
-/// aleatorio de la URL es la única credencial, y por eso no se reutiliza entre cotizaciones
-/// ni se expone ningún otro id en la respuesta.
+/// aleatorio de la URL es la única credencial, y por eso no se reutiliza entre cotizaciones.
+///
+/// La respuesta expone un solo id más, y es una excepción decidida: cuando la cotización ya se
+/// convirtió en orden, viaja el token de seguimiento para que el cliente siga con este mismo
+/// enlace. No amplía lo que puede ver —es su vehículo, y quien tiene este enlace ya veía esos
+/// datos—, y le ahorra recibir un segundo enlace por WhatsApp.
 /// </summary>
 [ApiController]
 [AllowAnonymous]

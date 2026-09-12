@@ -1,7 +1,9 @@
 using Garaj.Application.Common;
 using Garaj.Application.Tenants;
+using Garaj.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Garaj.Api.Controllers;
 
@@ -72,6 +74,7 @@ public class TenantController(ITenantService service) : ControllerBase
 /// </summary>
 [ApiController]
 [AllowAnonymous]
+[EnableRateLimiting(RateLimits.Publico)]
 [Route("api/tenants")]
 public class TenantLogoController(ITenantService service) : ControllerBase
 {

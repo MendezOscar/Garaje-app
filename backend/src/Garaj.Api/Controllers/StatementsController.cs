@@ -1,8 +1,10 @@
 using Garaj.Application.Common;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
+using Garaj.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Garaj.Api.Controllers;
 
@@ -52,6 +54,7 @@ public class StatementsController(ISaleService service) : ControllerBase
 /// </remarks>
 [ApiController]
 [AllowAnonymous]
+[EnableRateLimiting(RateLimits.Publico)]
 [Route("public/statements")]
 public class PublicStatementsController(ISaleService service) : ControllerBase
 {
