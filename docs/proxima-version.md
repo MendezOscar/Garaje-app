@@ -1,8 +1,12 @@
 # La siguiente versión: 1.1.0
 
-Tres cosas, decididas el 9 de septiembre de 2026 y **para implementar cuando Google responda la
-solicitud de acceso a producción**, no antes: mientras evalúan no se sube nada al canal cerrado ni
-se toca la base de producción.
+**Los cuatro puntos están hechos** (12 de septiembre de 2026) y la versión quedó en `1.1.0+4`.
+Lo que sigue es publicar: primero TestFlight y App Store, y el mismo paquete al canal cerrado de
+Play, que durante los 14 días nuevos le da a los verificadores algo que ejercitar.
+
+Tres cosas, decididas el 9 de septiembre de 2026. Google respondió el 12 pidiendo 14 días más de
+prueba cerrada, y como subir versiones al canal cerrado **no** reinicia ese contador, se
+implementaron durante la espera.
 
 Va como **1.1.0** y no como 1.0.2 porque son funciones nuevas, no correcciones. Arrastra además lo
 que ya está en `main` sin publicar: las fotos que se suben solas al volver a la app, el código del
