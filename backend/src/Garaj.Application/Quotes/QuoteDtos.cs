@@ -184,7 +184,11 @@ public record PublicQuoteDto(
     IReadOnlyList<PublicQuoteLineDto> Lines,
     // Las fotos del daño. Van al final porque se leen después del precio: primero cuánto es,
     // luego por qué.
-    IReadOnlyList<PublicQuotePhotoDto> Photos);
+    IReadOnlyList<PublicQuotePhotoDto> Photos,
+    // El token del seguimiento, cuando la cotización ya se convirtió en orden. Es lo que
+    // permite que el cliente siga con **el mismo enlace** en vez de esperar otro por WhatsApp:
+    // aprobó, y desde ahí ve avanzar su vehículo y al final descarga la factura.
+    Guid? TrackingToken = null);
 
 /// <summary>Una foto de la cotización tal como la ve el cliente: sin ids ni quién la subió.</summary>
 public record PublicQuotePhotoDto(string Url, string ThumbnailUrl, string? Caption);

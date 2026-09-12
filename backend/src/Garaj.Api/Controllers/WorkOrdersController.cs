@@ -3,8 +3,10 @@ using Garaj.Application.Inventory;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.WorkOrders;
+using Garaj.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Garaj.Api.Controllers;
 
@@ -192,6 +194,7 @@ public class WorkOrdersController(
 /// </remarks>
 [ApiController]
 [AllowAnonymous]
+[EnableRateLimiting(RateLimits.Publico)]
 [Route("public/work-orders")]
 public class PublicWorkOrdersController(
     IWorkOrderService orders, ISaleService sales) : ControllerBase

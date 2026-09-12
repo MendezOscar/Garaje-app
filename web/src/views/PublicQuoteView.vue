@@ -229,6 +229,15 @@ onMounted(load)
           </strong>
           el {{ formatDate(quote.respondedAt) }}. Gracias por responder.
         </p>
+
+        <!--
+          El trabajo ya empezó: desde aquí el cliente sigue con este mismo enlace en vez de
+          esperar otro por WhatsApp. La página del avance le entrega también la factura cuando
+          el vehículo sale del taller.
+        -->
+        <p v-if="quote.trackingToken" class="seguimiento">
+          <RouterLink :to="`/o/${quote.trackingToken}`">Ver el avance de su vehículo</RouterLink>
+        </p>
       </section>
 
       <section v-else-if="quote.isExpired" class="answered">
@@ -496,6 +505,11 @@ th {
 
 .answered p {
   margin: 0;
+}
+
+.seguimiento {
+  margin-top: 0.75rem !important;
+  font-weight: 600;
 }
 
 footer {
