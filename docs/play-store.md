@@ -29,7 +29,7 @@ dirección.
 | Campo | Valor |
 | --- | --- |
 | Nombre (30) | `GarajApp — Taller mecánico` |
-| **Descripción corta (80)** | `Órdenes, repuestos, cotizaciones y cobros del taller, desde el teléfono.` |
+| **Descripción corta (80)** | `Software para taller mecánico: órdenes, repuestos, cotizaciones y cobros.` |
 | Categoría | Empresa · etiquetas: gestión de negocios, productividad |
 | Correo de contacto | `mendez01developer@gmail.com` |
 | Teléfono de contacto | `+504 9824 2108` |
@@ -39,17 +39,23 @@ dirección.
 | Anuncios | No contiene anuncios |
 | Compras dentro de la app | No |
 
-La descripción corta es la que sale en el listado, debajo del nombre: son 72 caracteres de los
-80 y no repite «taller mecánico», que ya está en el nombre.
+La descripción corta es la que sale en el listado, debajo del nombre, y **sí es indexada**: son 73
+caracteres de los 80. Repite «taller mecánico» a propósito, junto a «software», que es como la
+gente busca esto —«software para taller mecánico», no «órdenes de trabajo»—; el nombre solo tiene
+30 caracteres y no alcanza para las dos palabras.
 
 ### Descripción completa (4000)
 
-La misma de la App Store —ocupa unos 1.600 caracteres, así que cabe de sobra— porque describe el
-mismo producto y ya está escrita para quien no conoce el sistema:
+Parte de la misma de la App Store, con dos añadidos que allá no hacen falta: Play **indexa este
+campo** para la búsqueda, así que la primera línea y el cierre nombran lo que la gente escribe al
+buscar. El resto se deja como está —describe el producto y no hay por qué inflarlo con palabras
+que un dueño de taller no usa—.
 
 ```
-GarajApp es el sistema de un taller mecánico de autos y motos, hecho para trabajar desde el
-patio y no desde un escritorio.
+GarajApp es el software de gestión para talleres mecánicos de autos y motos: órdenes de trabajo,
+inventario de repuestos, cotizaciones, facturación y control de caja, desde el teléfono.
+
+Hecho para trabajar desde el patio y no desde un escritorio.
 
 RECIBIR Y REPARAR
 · Reciba el vehículo en el mostrador con placa, kilometraje y el motivo de ingreso.
@@ -80,6 +86,16 @@ SABER CÓMO VA EL NEGOCIO
 VARIAS SUCURSALES
 · Cada sucursal con su bodega, sus correlativos y su gente.
 · El técnico ve lo suyo; el dueño ve todo.
+
+PARA QUÉ TALLERES SIRVE
+· Mecánica automotriz y de motocicletas.
+· Lubricentros y cambio de aceite.
+· Enderezado y pintura.
+· Talleres eléctricos y de aire acondicionado automotriz.
+· Talleres con una o varias sucursales.
+
+Busque el historial de un vehículo por su placa y sepa qué se le hizo la última vez, quién lo
+atendió y cuánto se cobró.
 
 GarajApp es para talleres. Cada taller ve solo sus datos.
 ```
