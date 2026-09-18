@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -181,6 +183,14 @@ class MoreScreen extends ConsumerWidget {
                 label: 'Política de privacidad',
                 onTap: () => _abrir('https://www.garajeapp.com/privacidad'),
               ),
+              // Sin diálogo que interrumpa ni recordatorios: el que quiera calificar entra
+              // aquí y lo hace. Una app recién publicada vive de las primeras reseñas, pero
+              // pedirlas a media orden es estorbar a alguien que está trabajando.
+              _Row(
+                icon: Icons.star_outline,
+                label: 'Califique la app',
+                onTap: () => _abrir(_fichaEnLaTienda),
+              ),
               _Row(
                 icon: Icons.logout,
                 label: 'Salir',
@@ -237,6 +247,13 @@ class _PieDeVersion extends ConsumerWidget {
 
 final _versionProvider =
     FutureProvider<PackageInfo>((ref) => PackageInfo.fromPlatform());
+
+/// La ficha de la app en la tienda del aparato. Son dos direcciones distintas y no hay una
+/// que sirva para las dos: en iPhone lleva el id que Apple asignó, en Android el nombre del
+/// paquete.
+String get _fichaEnLaTienda => Platform.isIOS
+    ? 'https://apps.apple.com/app/id6805656010?action=write-review'
+    : 'https://play.google.com/store/apps/details?id=com.garaj.garaj_app';
 
 Future<void> _abrir(String url) =>
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
