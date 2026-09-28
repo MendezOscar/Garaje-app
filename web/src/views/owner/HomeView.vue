@@ -138,14 +138,15 @@ async function load() {
       // Lo cobrado del día. Si falla —un taller recién abierto no tiene ni un abono— la
       // pantalla sigue: la cifra se pinta como un guion y no como un error.
       reportsApi.cashClose({ branchId: sucursal }).catch(() => null),
-      workOrdersApi.list({ onlyOpen: true, branchId: sucursal, pageSize: 200 }),
+      // Seis, que son las que se pintan. La API ya las devuelve de la más reciente a la más
+      // vieja, así que pedir doscientas para quedarse con seis era mover treinta veces más
+      // datos por gusto —y el taller que más órdenes tenga es el que más lo pagaba—.
+      workOrdersApi.list({ onlyOpen: true, branchId: sucursal, pageSize: 6 }),
     ])
 
     dashboard.value = resumen
     caja.value = cierre
-    recientes.value = [...ordenes.items]
-      .sort((a, b) => b.openedAt.localeCompare(a.openedAt))
-      .slice(0, 6)
+    recientes.value = ordenes.items
 
     await cargarPrimerosPasos(resumen)
   } catch (e) {
