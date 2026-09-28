@@ -25,15 +25,47 @@ public class UserService(
             .OrderBy(u => u.FullName)
             .ToListAsync(ct);
 
+        // Roles y sucursales de todos, en dos consultas. Antes se preguntaban usuario por
+        // usuario —el rol con UserManager y las sucursales en el mapeo—, así que un taller con
+        // quince empleados hacía treinta y un viajes a la base para pintar una pantalla.
+        var ids = users.Select(u => u.Id).ToList();
+
+        var roles = await (
+            from ur in db.UserRoles
+            join r in db.Roles on ur.RoleId equals r.Id
+            where ids.Contains(ur.UserId)
+            select new { ur.UserId, r.Name }).ToListAsync(ct);
+
+        var rolePorUsuario = roles
+            .GroupBy(x => x.UserId)
+            .ToDictionary(g => g.Key, g => g.First().Name ?? string.Empty);
+
+        var sucursales = await db.UserBranches
+            .Where(ub => ids.Contains(ub.UserId))
+            .Select(ub => new { ub.UserId, ub.BranchId })
+            .ToListAsync(ct);
+
+        var sucursalesPorUsuario = sucursales
+            .GroupBy(x => x.UserId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.BranchId).ToList());
+
         var result = new List<UserDto>(users.Count);
 
         foreach (var user in users)
         {
-            var userRole = (await userManager.GetRolesAsync(user)).FirstOrDefault() ?? string.Empty;
+            var userRole = rolePorUsuario.GetValueOrDefault(user.Id, string.Empty);
             if (role is not null && !string.Equals(userRole, role, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            result.Add(await MapAsync(user, userRole, ct));
+            result.Add(new UserDto(
+                user.Id,
+                user.Email ?? string.Empty,
+                user.FullName,
+                userRole,
+                user.IsActive,
+                user.CustomerId,
+                sucursalesPorUsuario.GetValueOrDefault(user.Id, []),
+                user.LastLoginAt));
         }
 
         return result;
