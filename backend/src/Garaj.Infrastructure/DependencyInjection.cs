@@ -39,6 +39,11 @@ public static class DependencyInjection
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
 
+        // Para el logo del taller, que se pedía al almacenamiento en cada cotización abierta y
+        // en cada PDF. En memoria del proceso: hay una sola instancia, y si algún día hay dos,
+        // lo peor que pasa es que cada una guarde su copia de la misma imagen.
+        services.AddMemoryCache();
+
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<AuditableEntityInterceptor>();

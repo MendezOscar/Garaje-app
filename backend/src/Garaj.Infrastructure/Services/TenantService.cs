@@ -4,6 +4,7 @@ using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -19,8 +20,23 @@ public class TenantService(
     IStorageService storage,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
+    IMemoryCache cache,
     ILogger<TenantService> logger) : ITenantService
 {
+    /// <summary>
+    /// Cuánto se guarda el logo en memoria.
+    ///
+    /// Es la imagen que encabeza cada cotización que un cliente abre por WhatsApp y **cada PDF
+    /// que se genera**, y hasta ahora se bajaba del almacenamiento cada vez. Un logo cambia una
+    /// vez al año, así que ese viaje era casi siempre para traer lo mismo.
+    ///
+    /// El peor caso de esta caché es que un taller que acaba de cambiar su logo vea el viejo un
+    /// rato —y ni eso: al guardarlo o borrarlo se limpia la entrada—.
+    /// </summary>
+    private static readonly TimeSpan LogoCacheTime = TimeSpan.FromHours(1);
+
+    private static string LogoCacheKey(Guid tenantId) => $"logo:{tenantId}";
+
     /// <summary>Tope de entrada. Un logo real no pasa de unos cientos de kilobytes.</summary>
     private const long MaxLogoBytes = 2 * 1024 * 1024;
 
@@ -105,6 +121,8 @@ public class TenantService(
         tenant.LogoStorageKey = key;
         await db.SaveChangesAsync(ct);
 
+        cache.Remove(LogoCacheKey(tenant.Id));
+
         return Map(tenant);
     }
 
@@ -121,6 +139,8 @@ public class TenantService(
             tenant.LogoStorageKey = null;
             await db.SaveChangesAsync(ct);
 
+            cache.Remove(LogoCacheKey(tenant.Id));
+
             try
             {
                 await storage.DeleteAsync(key, ct);
@@ -135,6 +155,19 @@ public class TenantService(
     }
 
     public async Task<TenantLogo?> GetLogoAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        // La caché guarda también el «este taller no tiene logo», que es la respuesta más
+        // común: si no, cada cotización de un taller sin logo seguiría consultando la base.
+        if (cache.TryGetValue<TenantLogo?>(LogoCacheKey(tenantId), out var enMemoria))
+            return enMemoria;
+
+        var logo = await LeerLogoAsync(tenantId, ct);
+        cache.Set(LogoCacheKey(tenantId), logo, LogoCacheTime);
+
+        return logo;
+    }
+
+    private async Task<TenantLogo?> LeerLogoAsync(Guid tenantId, CancellationToken ct)
     {
         // Ruta pública: no hay sesión ni tenant en contexto, así que el filtro global no
         // aplica y el tenant se filtra a mano.
