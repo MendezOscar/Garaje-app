@@ -10,7 +10,7 @@
 import BrandLogo from '@/components/BrandLogo.vue'
 
 const WHATSAPP = '50498242108'
-const CORREO = 'mendez01developer@gmail.com'
+const CORREO = 'soporte@garajeapp.com'
 
 const MENSAJE = encodeURIComponent(
   'Buenas, vi GarajApp y quiero saber más para mi taller.',
