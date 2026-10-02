@@ -573,6 +573,8 @@ export interface PublicQuote {
     unitPrice: number
     discount: number
     total: number
+    /** Repuesto que el taller compra afuera: no va en su factura, el cliente lo paga aparte. */
+    seCompraAfuera: boolean
   }[]
   /** Las fotos del daño que el taller adjuntó al presupuesto. */
   photos: {

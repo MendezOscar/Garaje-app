@@ -247,9 +247,12 @@ public static class InvoicePdf
                         ? $"Importe gravado {sale.TaxRate:0.##}%"
                         : "Importe gravado";
 
+                    // El gravado es lo cobrado **menos** el impuesto que lleva dentro, no el
+                    // subtotal: el precio ya lo trae. Así gravado + ISV da exactamente el
+                    // total, que es lo que un auditor suma primero.
                     Total(totals, "Importe exonerado", Money(0, sale.Currency));
                     Total(totals, "Importe exento", Money(0, sale.Currency));
-                    Total(totals, gravado, Money(sale.Subtotal - sale.DiscountTotal, sale.Currency));
+                    Total(totals, gravado, Money(sale.Total - sale.TaxTotal, sale.Currency));
                 }
 
                 if (sale.TaxRate > 0)

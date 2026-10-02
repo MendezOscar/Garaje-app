@@ -6,6 +6,7 @@ using Garaj.Application.Quotes;
 using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
+using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -617,9 +618,10 @@ public class QuoteService(
         quote.Subtotal = quote.Lines.Sum(l => l.Quantity * l.UnitPrice);
         quote.DiscountTotal = quote.Lines.Sum(l => l.Discount);
 
-        var taxable = quote.Subtotal - quote.DiscountTotal;
-        quote.TaxTotal = Math.Round(taxable * quote.TaxRate / 100m, 2);
-        quote.Total = taxable + quote.TaxTotal;
+        // Igual que en la venta: el precio lleva el ISV adentro y el total no cambia por
+        // desglosarlo. Lo que el cliente aprueba es lo que después se le cobra.
+        quote.Total = quote.Subtotal - quote.DiscountTotal;
+        quote.TaxTotal = Isv.Contenido(quote.Total, quote.TaxRate);
 
         await db.SaveChangesAsync(ct);
     }
@@ -827,7 +829,8 @@ public class QuoteService(
             quote.Lines
                 .OrderBy(l => l.Sequence)
                 .Select(l => new PublicQuoteLineDto(
-                    l.LineType, l.Description, l.Quantity, l.UnitPrice, l.Discount, l.Total))
+                    l.LineType, l.Description, l.Quantity, l.UnitPrice, l.Discount, l.Total,
+                    l.LineType == LineType.Part && l.PartId is null))
                 .ToList(),
             photos,
             trackingToken);

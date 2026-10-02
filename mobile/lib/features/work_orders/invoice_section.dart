@@ -479,11 +479,19 @@ class _CloseCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final tasa = ref.watch(taxRateProvider).value ?? 0;
-    final base = order.partsTotal + _labor;
-    // El ISV solo entra si la factura sale con CAI: sin rango autorizado no hay factura que
-    // respalde ese impuesto, y cobrarlo igual sería cobrar algo que nadie va a declarar.
-    final impuesto = fiscal ? base * tasa / 100 : 0.0;
-    final total = base + impuesto;
+
+    // Lo cargado a mano son los repuestos que el taller fue a comprar afuera para este
+    // trabajo: no salieron de su bodega, no van en la factura y el cliente los paga aparte.
+    final afuera = order.parts
+        .where((p) => p.partId == null)
+        .fold<double>(0, (suma, p) => suma + p.total);
+    final deBodega = order.partsTotal - afuera;
+
+    // El precio ya lleva el ISV adentro, así que facturar no cambia el total: solo lo
+    // desglosa. El impuesto se saca hacia atrás y únicamente cuando sale con CAI, que es la
+    // factura que lo respalda.
+    final total = deBodega + _labor;
+    final impuesto = fiscal && tasa > 0 ? total - total / (1 + tasa / 100) : 0.0;
 
     return _Section(
       title: 'Cerrar y facturar',
@@ -494,10 +502,15 @@ class _CloseCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Repuestos ${_money(order.partsTotal, 'L')} · mano de obra '
+                'Repuestos de bodega ${_money(deBodega, 'L')} · mano de obra '
                 '${_money(_labor, 'L')}',
                 style: theme.textTheme.bodySmall,
               ),
+              if (afuera > 0)
+                Text(
+                  'Más ${_money(afuera, 'L')} comprados afuera, que no van en la factura.',
+                  style: theme.textTheme.bodySmall,
+                ),
               const SizedBox(height: 4),
               Text('Total ${_money(total, 'L')}', style: theme.textTheme.titleLarge),
               if (tasa > 0) ...[
@@ -505,8 +518,8 @@ class _CloseCard extends ConsumerWidget {
                 Text(
                   fiscal
                       ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% '
-                          '(${_money(impuesto, 'L')}).'
-                      : 'Sin ISV: solo la factura con CAI lo lleva.',
+                          '(${_money(impuesto, 'L')}), ya dentro del precio.'
+                      : 'El total es el mismo con factura: el ISV ya va en el precio.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

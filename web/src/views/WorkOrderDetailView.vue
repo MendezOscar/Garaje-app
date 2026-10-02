@@ -181,19 +181,36 @@ const tasaImpuesto = ref(0)
 
 /**
  * Lo que se cobraría hoy, con el mismo cálculo que hace el servidor al cerrar: los pasos (o el
- * total escrito a mano) más los repuestos cargados, y el ISV **solo** si se factura con CAI.
+ * total escrito a mano) más los repuestos que salieron de la bodega.
  *
  * Es un estimado a la vista, no una factura: antes había que abrir la tarjeta de cierre para
- * enterarse de por cuánto iba la orden. `conIsv` es el otro número —lo que pagaría el cliente
- * que sí pide factura— para que la decisión no obligue a hacer la cuenta a mano.
+ * enterarse de por cuánto iba la orden.
+ *
+ * Dos cosas que no son obvias: el ISV **ya va dentro** del precio, así que facturar no cambia
+ * el total —solo lo desglosa—; y los repuestos comprados afuera no entran en la factura del
+ * taller, así que van aparte y no suman al total que el taller cobra.
  */
 const cobro = computed(() => {
   const labor = order.value?.laborTotal ?? 0
   const parts = order.value?.partsTotal ?? 0
-  const base = labor + parts
-  const isv = Math.round((base * tasaImpuesto.value) / 100 * 100) / 100
-  const impuesto = conCai.value ? isv : 0
-  return { labor, parts, impuesto, total: base + impuesto, conIsv: base + isv }
+
+  // Los repuestos cargados a mano son los que el taller fue a comprar afuera para este
+  // trabajo: no salieron de su bodega, no van en su factura y el cliente los paga aparte.
+  const afuera = (order.value?.parts ?? [])
+    .filter((p) => !p.partId)
+    .reduce((suma, p) => suma + p.total, 0)
+
+  const deBodega = parts - afuera
+
+  // El precio ya lleva el ISV adentro, así que el total no cambia por facturar: lo que cambia
+  // es que el impuesto se desglose. Antes se sumaba encima y el cliente que pedía factura
+  // pagaba un 15% más por la misma reparación.
+  const total = labor + deBodega
+  const impuesto = conCai.value
+    ? Math.round((total - total / (1 + tasaImpuesto.value / 100)) * 100) / 100
+    : 0
+
+  return { labor, parts, deBodega, afuera, impuesto, total, conCliente: total + afuera }
 })
 
 /** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
@@ -1043,20 +1060,27 @@ onMounted(async () => {
           <dl class="cuentas">
             <dt>Mano de obra</dt>
             <dd class="num">{{ formatMoney(cobro.labor) }}</dd>
-            <dt>Repuestos</dt>
-            <dd class="num">{{ formatMoney(cobro.parts) }}</dd>
+            <dt>Repuestos de bodega</dt>
+            <dd class="num">{{ formatMoney(cobro.deBodega) }}</dd>
             <template v-if="tasaImpuesto && conCai">
-              <dt>ISV {{ tasaImpuesto }}%</dt>
+              <dt>ISV {{ tasaImpuesto }}% incluido</dt>
               <dd class="num">{{ formatMoney(cobro.impuesto) }}</dd>
             </template>
             <dt class="fuerte">Total estimado</dt>
             <dd class="fuerte num grande">{{ formatMoney(cobro.total) }}</dd>
           </dl>
+          <!-- Lo comprado afuera no entra en la factura del taller, así que se dice aparte y
+               con el número que el cliente va a pagar de su bolsillo. -->
+          <p v-if="cobro.afuera > 0" class="muted small">
+            Más {{ formatMoney(cobro.afuera) }} en repuestos comprados afuera, que no van en la
+            factura. El cliente paga {{ formatMoney(cobro.conCliente) }} en total.
+          </p>
           <!-- El ISV solo lo lleva la factura con CAI, así que el estimado va sin él. El otro
                número queda a la vista para no tener que hacer la cuenta a mano cuando el
                cliente pregunta cuánto le sale con factura. -->
           <p v-if="tasaImpuesto && !conCai && !sales.length" class="muted small">
-            Sin CAI no lleva ISV. Con factura: {{ formatMoney(cobro.conIsv) }}.
+            Con factura el total es el mismo: el ISV ya va dentro del precio y la factura solo
+            lo desglosa.
           </p>
           <p v-if="!sales.length" class="muted small">Todavía no se ha facturado.</p>
           <p v-else class="muted small">

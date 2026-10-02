@@ -182,17 +182,23 @@ check("el subtotal suma las líneas", abs(quote["subtotal"] - expected_subtotal)
       f"{quote['subtotal']} vs {expected_subtotal}")
 check("sin ISV, el total es el subtotal menos descuentos", quote["taxTotal"] == 0,
       str(quote.get("taxTotal")))
+# El ISV va dentro del precio: el total es el subtotal menos descuentos, lleve impuesto o no.
 check("el total cierra",
-      abs(quote["total"] - (quote["subtotal"] - quote["discountTotal"] + quote["taxTotal"])) < 0.02,
+      abs(quote["total"] - (quote["subtotal"] - quote["discountTotal"])) < 0.02,
       str(quote.get("total")))
 
 # Cuando el taller sí va a facturar con CAI, le pone la tasa a esa cotización y el impuesto
 # entra: la regla es que no venga puesto de oficio, no que no se pueda cotizar con impuesto.
 status, conIsv = api("PUT", f"/api/quotes/{quote_id}",
                      {"taxRate": 15, "notes": "Cotización de prueba de humo"}, owner)
-check("ponerle el ISV a mano sí lo cobra",
-      abs(conIsv["taxTotal"] - round((conIsv["subtotal"] - conIsv["discountTotal"]) * 0.15, 2))
-      < 0.02, str(conIsv.get("taxTotal")))
+# El impuesto se saca hacia atrás: lo cobrado entre 1,15. Y el total no se mueve, que es justo
+# lo que se busca —el cliente que pide factura paga lo mismo que el que no la pide—.
+bruto = conIsv["subtotal"] - conIsv["discountTotal"]
+check("ponerle el ISV a mano lo desglosa del precio",
+      abs(conIsv["taxTotal"] - round(bruto - round(bruto / 1.15, 2), 2)) < 0.02,
+      str(conIsv.get("taxTotal")))
+check("y el total no cambia por desglosarlo", abs(conIsv["total"] - bruto) < 0.02,
+      str(conIsv.get("total")))
 status, quote = api("PUT", f"/api/quotes/{quote_id}",
                      {"taxRate": 0, "notes": "Cotización de prueba de humo"}, owner)
 check("y quitárselo lo deja en cero otra vez", quote["taxTotal"] == 0,

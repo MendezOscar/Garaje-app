@@ -199,7 +199,11 @@ public record PublicQuoteLineDto(
     decimal Quantity,
     decimal UnitPrice,
     decimal Discount,
-    decimal Total);
+    decimal Total,
+    // Un repuesto que el taller no tiene en bodega y va a comprar afuera para este trabajo.
+    // Se le dice al cliente porque ese no entra en la factura del taller: lo paga aparte.
+    // Va como bandera y no como id: en la página pública no se expone nada interno.
+    bool SeCompraAfuera = false);
 
 public record RespondToQuoteRequest(bool Approve, string? Note);
 
