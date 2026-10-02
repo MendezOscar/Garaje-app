@@ -241,14 +241,18 @@ public class SaleService(
 
         // Los repuestos ya salieron de la bodega al consumirlos en la orden: aquí solo se
         // facturan. Volver a descontarlos duplicaría la salida.
+        //
+        // Los cargados a mano **no se facturan**: son los que el taller fue a comprar a una
+        // casa de repuestos para este trabajo, y esos los paga el cliente aparte. El taller
+        // factura su mano de obra y lo que salió de su propia bodega. Siguen apareciendo en la
+        // orden y en la cotización —el cliente tiene que saber el costo completo— pero no
+        // entran a la venta, así que tampoco a caja ni a cuentas por cobrar.
         var parts = await db.WorkOrderParts.AsNoTracking()
-            .Where(p => p.WorkOrderId == order.Id)
+            .Where(p => p.WorkOrderId == order.Id && p.PartId != null)
             .Select(p => new
             {
                 p.PartId,
-                // Los del catálogo se describen con nombre y código; los cargados a mano, con
-                // lo que escribió quien los cargó, que es todo lo que hay de ellos.
-                Name = p.Part != null ? $"{p.Part.Name} ({p.Part.Sku})" : p.Description!,
+                Name = p.Part!.Name + " (" + p.Part.Sku + ")",
                 p.Quantity,
                 p.UnitPrice,
                 p.UnitCost
@@ -816,9 +820,10 @@ public class SaleService(
         sale.DiscountTotal = sale.Lines.Sum(l => l.Discount);
         sale.CostTotal = sale.Lines.Sum(l => l.Quantity * l.UnitCost);
 
-        var taxable = sale.Subtotal - sale.DiscountTotal;
-        sale.TaxTotal = Math.Round(taxable * sale.TaxRate / 100m, 2);
-        sale.Total = taxable + sale.TaxTotal;
+        // El precio ya trae el ISV adentro: el total es lo cobrado y el impuesto se saca hacia
+        // atrás. Ver Isv, que explica por qué.
+        sale.Total = sale.Subtotal - sale.DiscountTotal;
+        sale.TaxTotal = Isv.Contenido(sale.Total, sale.TaxRate);
     }
 
     /// <summary>

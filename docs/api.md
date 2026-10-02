@@ -463,6 +463,16 @@ Decisiones que conviene conocer:
   `taxRate` en cero, aunque el taller tenga ISV en su ficha y aunque se mande `taxRate` en el
   cuerpo. El impuesto se traslada al SAR con la factura que lo respalda: sin CAI no hay esa
   factura, y cobrarlo igual sería cobrarle al cliente un impuesto que nadie va a declarar.
+- **El ISV va dentro del precio, no encima.** El precio del catálogo es lo que el cliente paga
+  —así cotiza un taller por teléfono— y el documento lo desglosa hacia atrás:
+  `total = subtotal − descuentos`, y `taxTotal = total − total / (1 + tasa)`. El total es el
+  mismo con factura o sin ella; lo único que cambia es que aparezca el desglose. Antes se
+  sumaba al final y el cliente que pedía factura pagaba un 15% más por la misma reparación.
+- **Los repuestos cargados a mano no se facturan.** Son los que el taller fue a comprar a una
+  casa de repuestos para ese trabajo: no salieron de su bodega, así que el cierre los deja
+  fuera de la venta y el cliente los paga aparte. Siguen en la orden y en la cotización
+  —marcados, para que el cliente sepa el costo completo—, pero no entran a caja ni a cuentas
+  por cobrar.
 - El RTN sale del que se mande, y si no del de la ficha del cliente; sin ninguno, la factura
   va a **consumidor final**.
 - **A nombre de quién sale** es lo mismo: `customerName` manda, y si va vacío se usa el

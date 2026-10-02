@@ -133,7 +133,14 @@ onMounted(load)
           <tr v-for="(line, i) in quote.lines" :key="i">
             <td>
               {{ line.description }}
-              <div class="muted small">{{ LINE_TYPE_LABEL[line.lineType] }}</div>
+              <!--
+                Dicho en la línea y no en una nota al pie: este repuesto el taller lo compra
+                afuera para el trabajo, no sale de su bodega, y no va en su factura.
+              -->
+              <div class="muted small">
+                {{ LINE_TYPE_LABEL[line.lineType] }}
+                <template v-if="line.seCompraAfuera"> · se compra en casa de repuestos</template>
+              </div>
             </td>
             <td class="num">{{ quantity(line.quantity) }}</td>
             <td class="num unitario">{{ money(line.unitPrice) }}</td>
@@ -148,7 +155,7 @@ onMounted(load)
           <span>Descuento</span><span>−{{ money(quote.discountTotal) }}</span>
         </div>
         <div v-if="quote.taxRate > 0">
-          <span>ISV {{ quote.taxRate }}%</span><span>{{ money(quote.taxTotal) }}</span>
+          <span>ISV {{ quote.taxRate }}% incluido</span><span>{{ money(quote.taxTotal) }}</span>
         </div>
         <div class="grand"><span>Total</span><span>{{ money(quote.total) }}</span></div>
       </div>

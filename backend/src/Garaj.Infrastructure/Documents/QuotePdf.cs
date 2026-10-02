@@ -149,7 +149,11 @@ public static class QuotePdf
                         c.Item().Text(line.Description);
                         // El cliente distingue de un vistazo qué está pagando en piezas y
                         // qué en trabajo, que es la pregunta que siempre hace.
-                        c.Item().Text(line.LineType == LineType.Part ? "Repuesto" : "Mano de obra")
+                        //
+                        // Y un repuesto sin código de catálogo es uno que el taller va a
+                        // comprar afuera para este trabajo: se dice, porque ese no va en la
+                        // factura del taller y el cliente lo paga aparte.
+                        c.Item().Text(Concepto(line))
                             .FontSize(8).FontColor(Colors.Grey.Darken1);
                     });
                     table.Cell().Element(BodyCell).AlignRight().Text(Quantity(line.Quantity));
@@ -165,8 +169,13 @@ public static class QuotePdf
                 if (quote.DiscountTotal > 0)
                     Total(totals, "Descuento", $"−{Money(quote.DiscountTotal, quote.Currency)}");
 
+                // «Incluido» y no a secas: el precio de cada línea ya lo trae adentro, y sin
+                // esa palabra el cliente suma el ISV otra vez al total.
                 if (quote.TaxRate > 0)
-                    Total(totals, $"ISV {quote.TaxRate:0.##}%", Money(quote.TaxTotal, quote.Currency));
+                    Total(
+                        totals,
+                        $"ISV {quote.TaxRate:0.##}% incluido",
+                        Money(quote.TaxTotal, quote.Currency));
 
                 totals.Item().PaddingTop(4).BorderTop(1).BorderColor(Colors.Grey.Darken1)
                     .PaddingTop(4).Row(row =>
@@ -266,6 +275,17 @@ public static class QuotePdf
         container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5);
 
     // Mismo criterio que la factura: el símbolo, no el código ISO.
+    /// <summary>
+    /// Qué es cada línea para el cliente. Un repuesto sin `PartId` no está en la bodega del
+    /// taller: hay que ir a comprarlo, y es el que no entra en la factura del taller.
+    /// </summary>
+    private static string Concepto(QuoteLineDto line) => line.LineType switch
+    {
+        LineType.Part when line.PartId is null => "Repuesto · se compra en casa de repuestos",
+        LineType.Part => "Repuesto",
+        _ => "Mano de obra"
+    };
+
     private static string Money(decimal value, string currency) =>
         $"{(currency == "HNL" ? "L" : currency == "USD" ? "$" : currency)} " +
         value.ToString("N2", Culture);

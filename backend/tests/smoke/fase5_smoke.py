@@ -106,6 +106,14 @@ if detail["tasks"]:
 
 stock_before = stock_of(owner, matriz["id"], part["id"])
 
+# Un repuesto comprado afuera para este trabajo: no salió de la bodega del taller, así que el
+# taller no lo factura. El cliente se lo paga a la casa de repuestos.
+status, _comprado_afuera = api("POST", f"/api/work-orders/{order_id}/parts", {
+    "description": "Bomba de agua, comprada en la casa de repuestos",
+    "quantity": 1, "unitPrice": 1800, "unitCost": 1500,
+}, owner)
+check("se carga un repuesto comprado afuera", status == 200, str(status))
+
 status, sale = api("POST", "/api/sales/close-work-order", {
     "workOrderId": order_id, "paymentMethod": CASH, "notes": "Prueba de humo",
     # Con fecha pasada, para que el recordatorio salga atrasado en el bloque de más abajo.
@@ -119,12 +127,16 @@ check("factura el repuesto consumido",
       any(l["lineType"] == PART and l["partId"] == part["id"] for l in sale["lines"]))
 check("factura la mano de obra del paso",
       any(l["lineType"] == LABOR for l in sale["lines"]), str(sale["lines"]))
+check("y no factura el comprado afuera",
+      not any(l["lineType"] == PART and l["partId"] is None for l in sale["lines"]),
+      str(sale["lines"]))
 
 expected_subtotal = sum(l["quantity"] * l["unitPrice"] for l in sale["lines"])
 check("el subtotal suma las líneas", abs(sale["subtotal"] - expected_subtotal) < 0.01,
       f"{sale['subtotal']} vs {expected_subtotal}")
+# El ISV va dentro del precio, así que no se suma al final: el total es lo cobrado.
 check("el total cuadra con las líneas",
-      abs(sale["total"] - (sale["subtotal"] - sale["discountTotal"] + sale["taxTotal"])) < 0.02)
+      abs(sale["total"] - (sale["subtotal"] - sale["discountTotal"])) < 0.02)
 # Se cerró sin CAI, así que no lleva ISV: el impuesto solo lo cobra la factura fiscal.
 check("y sin CAI no lleva ISV", sale["taxTotal"] == 0, str(sale.get("taxTotal")))
 check("el margen descuenta el costo",
