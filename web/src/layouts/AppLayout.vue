@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
@@ -16,6 +16,31 @@ const route = useRoute()
  * Authorization; ver el comentario de TenantLogoController en el backend.
  */
 const logoTaller = computed(() => apiUrl(auth.user?.tenantLogoUrl))
+
+/**
+ * Al volver a la pestaña se vuelve a preguntar quién es el usuario.
+ *
+ * Por un caso real: a un taller vencido se le cobró la mensualidad y el panel siguió en modo
+ * lectura hasta que el dueño cerró sesión y volvió a entrar, porque el estado de la
+ * suscripción solo se consultaba al cargar la página. Un panel abierto toda la tarde nunca se
+ * enteraba.
+ *
+ * Con un minuto de espera entre consultas: cambiar de pestaña diez veces seguidas no son diez
+ * peticiones.
+ */
+const ESPERA_ENTRE_CONSULTAS = 60_000
+let ultimaConsulta = Date.now()
+
+function alVolverALaPestana(): void {
+  if (document.visibilityState !== 'visible') return
+  if (Date.now() - ultimaConsulta < ESPERA_ENTRE_CONSULTAS) return
+
+  ultimaConsulta = Date.now()
+  auth.loadCurrentUser()
+}
+
+onMounted(() => document.addEventListener('visibilitychange', alVolverALaPestana))
+onUnmounted(() => document.removeEventListener('visibilitychange', alVolverALaPestana))
 
 /**
  * El menú se arma por perfil: cada rol solo ve lo suyo.

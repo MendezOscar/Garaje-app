@@ -95,6 +95,26 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
+  /// Vuelve a preguntar quién es el usuario, sin tocar la pantalla si algo falla.
+  ///
+  /// Existe por un caso real: a un taller vencido se le cobró la mensualidad, el dueño la
+  /// reactivó desde el panel de plataforma, y la app del cliente siguió en modo lectura hasta
+  /// que cerró sesión y volvió a entrar. El estado de la suscripción venía de `/api/auth/me`
+  /// y eso solo se preguntaba al arrancar.
+  ///
+  /// No pone la app en cargando ni la saca al login si falla: lo que se sabía del usuario
+  /// sigue valiendo, y esto es una puesta al día, no una validación de sesión.
+  Future<void> refrescarEstado() async {
+    if (state is! AuthSignedIn) return;
+
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/api/auth/me');
+      state = AuthSignedIn(CurrentUser.fromJson(response.data!));
+    } on DioException {
+      // Sin red o servidor caído: se queda con lo que ya tenía.
+    }
+  }
+
   Future<void> login(String email, String password) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/auth/login',
