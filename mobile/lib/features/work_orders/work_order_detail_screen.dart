@@ -1775,11 +1775,16 @@ class _TotalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final tasa = ref.watch(taxRateProvider).value ?? 0;
-    final base = order.laborTotal + order.partsTotal;
-    // El ISV solo lo lleva la factura con CAI, así que el estimado va sin él y el otro número
-    // queda abajo: es la pregunta del mostrador —«¿y con factura?»— y hacerla a mano con el
-    // cliente enfrente es donde se equivoca uno.
-    final conFactura = base + base * tasa / 100;
+    // Los repuestos cargados a mano los compró el taller afuera para este trabajo: no van en
+    // su factura y el cliente los paga aparte, así que el total del taller no los incluye.
+    final afuera = order.parts
+        .where((p) => p.partId == null)
+        .fold<double>(0, (suma, p) => suma + p.total);
+    final base = order.laborTotal + order.partsTotal - afuera;
+
+    // Y el ISV ya va dentro del precio: facturar no cambia el total, solo lo desglosa. Antes
+    // se mostraba el «con factura» más caro, que era la cuenta del mostrador y ya no aplica.
+    final impuesto = tasa > 0 ? base - base / (1 + tasa / 100) : 0.0;
 
     final cotizaciones = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
     final ultima = cotizaciones.isEmpty ? null : cotizaciones.first;
@@ -1814,13 +1819,20 @@ class _TotalCard extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Trabajo ${_money(order.laborTotal)} · '
-                  'Repuestos ${_money(order.partsTotal)}',
+                  'Repuestos ${_money(order.partsTotal - afuera)}',
                   style: theme.textTheme.bodySmall,
                 ),
+                if (afuera > 0)
+                  Text(
+                    'Más ${_money(afuera)} comprados afuera, fuera de la factura',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 if (tasa > 0)
                   Text(
-                    'Con factura CAI ${_money(conFactura)} '
-                    '(ISV ${tasa.toStringAsFixed(0)}%)',
+                    'Con factura CAI es el mismo total '
+                    '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

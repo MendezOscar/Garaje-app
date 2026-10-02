@@ -174,8 +174,10 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
         ? null
         : ref.watch(branchFiscalRangeProvider(_branchId!)).value;
 
-    final impuesto = _fiscal ? _base * tasa / 100 : 0.0;
-    final total = _base + impuesto;
+    // El precio ya lleva el ISV adentro: el total es lo cobrado, y facturar solo lo desglosa.
+    // Antes se sumaba encima y el cliente que pedía factura pagaba un 15% más.
+    final total = _base;
+    final impuesto = _fiscal && tasa > 0 ? total - total / (1 + tasa / 100) : 0.0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Vender repuesto')),
@@ -360,9 +362,8 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                       Text(
                         _fiscal
                             ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% '
-                                '(${money(impuesto, 'HNL')}).'
-                            : 'Sin ISV: solo la factura con CAI lo lleva. '
-                                'Con factura: ${money(_base + _base * tasa / 100, 'HNL')}.',
+                                '(${money(impuesto, 'HNL')}), ya dentro del precio.'
+                            : 'El total es el mismo con factura: el ISV ya va en el precio.',
                         style: theme.textTheme.bodySmall,
                       ),
                     const SizedBox(height: 8),
