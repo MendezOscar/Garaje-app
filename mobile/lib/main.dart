@@ -74,7 +74,14 @@ class _GarajAppState extends ConsumerState<GarajApp> {
     // señal podía quedarse ahí días aunque el teléfono ya tuviera internet — y la pantalla de
     // bienvenida promete que se suben solas.
     _lifecycle = AppLifecycleListener(
-      onResume: () => ref.read(uploadQueueProvider.notifier).flush(),
+      onResume: () {
+        ref.read(uploadQueueProvider.notifier).flush();
+
+        // Y se vuelve a preguntar quién es el usuario. Lo que cambia estando la app cerrada
+        // es el estado de la suscripción: un taller al que se le cobró la mensualidad seguía
+        // en modo lectura hasta cerrar sesión, porque eso solo se consultaba al arrancar.
+        ref.read(authControllerProvider.notifier).refrescarEstado();
+      },
     );
   }
 
