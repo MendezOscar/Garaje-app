@@ -95,9 +95,11 @@ const cuenta = computed(() => {
   const subtotal = lineas.value.reduce((suma, l) => suma + l.cantidad * l.precio, 0)
   const descuento = lineas.value.reduce((suma, l) => suma + l.descuento, 0)
   const base = Math.max(0, subtotal - descuento)
-  const isv = Math.round((base * tasaImpuesto.value) / 100 * 100) / 100
+
+  // El precio ya lleva el ISV adentro: el total es lo cobrado y la factura solo lo desglosa.
+  const isv = Math.round((base - base / (1 + tasaImpuesto.value / 100)) * 100) / 100
   const impuesto = conCai.value ? isv : 0
-  return { subtotal, descuento, base, impuesto, total: base + impuesto, conIsv: base + isv }
+  return { subtotal, descuento, base, impuesto, total: base }
 })
 
 /** Lo que se pide de más de lo que hay. El servidor lo rechaza, así que se avisa antes. */
@@ -458,14 +460,14 @@ onMounted(async () => {
               <dd class="num">−{{ formatMoney(cuenta.descuento) }}</dd>
             </template>
             <template v-if="tasaImpuesto && conCai">
-              <dt>ISV {{ tasaImpuesto }}%</dt>
+              <dt>ISV {{ tasaImpuesto }}% incluido</dt>
               <dd class="num">{{ formatMoney(cuenta.impuesto) }}</dd>
             </template>
             <dt class="fuerte">Total</dt>
             <dd class="fuerte num grande">{{ formatMoney(cuenta.total) }}</dd>
           </dl>
           <p v-if="tasaImpuesto && !conCai && cuenta.base" class="muted small">
-            Sin CAI no lleva ISV. Con factura: {{ formatMoney(cuenta.conIsv) }}.
+            Con factura el total es el mismo: el ISV ya va dentro del precio.
           </p>
         </article>
 

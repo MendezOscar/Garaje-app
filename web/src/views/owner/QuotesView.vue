@@ -294,7 +294,8 @@ onMounted(async () => {
             <span>Descuento</span><span>−{{ formatMoney(selected.discountTotal) }}</span>
           </div>
           <div v-if="selected.taxRate > 0">
-            <span>ISV {{ selected.taxRate }}%</span><span>{{ formatMoney(selected.taxTotal) }}</span>
+            <span>ISV {{ selected.taxRate }}% incluido</span
+            ><span>{{ formatMoney(selected.taxTotal) }}</span>
           </div>
           <div class="grand"><span>Total</span><span>{{ formatMoney(selected.total) }}</span></div>
         </div>
