@@ -147,7 +147,11 @@ public record WorkOrderPartDto(
     decimal UnitCost,
     decimal Total,
     Guid? WorkOrderTaskId,
-    string? TaskTitle);
+    string? TaskTitle,
+    // Comprado en una casa de repuestos: se le cobra al cliente igual, pero no entra en la
+    // factura del taller.
+    bool BoughtOutside,
+    string? SupplierName);
 
 /// <param name="PartId">
 /// Del catálogo: descuenta de la bodega de la sucursal. Null carga el repuesto **a mano**,
@@ -162,13 +166,19 @@ public record WorkOrderPartDto(
 /// Lo que le costó al taller, solo en las líneas manuales. Si no se sabe, queda en cero y el
 /// margen de esa venta sale inflado.
 /// </param>
+/// <param name="BoughtOutside">
+/// Se compró en una casa de repuestos. Solo tiene sentido en una línea manual: lo del
+/// catálogo salió de la bodega por definición.
+/// </param>
 public record AddWorkOrderPartRequest(
     Guid? PartId,
     decimal Quantity,
     decimal? UnitPrice,
     Guid? WorkOrderTaskId,
     string? Description = null,
-    decimal? UnitCost = null);
+    decimal? UnitCost = null,
+    bool BoughtOutside = false,
+    string? SupplierName = null);
 
 public interface IPartService
 {

@@ -468,11 +468,17 @@ Decisiones que conviene conocer:
   `total = subtotal − descuentos`, y `taxTotal = total − total / (1 + tasa)`. El total es el
   mismo con factura o sin ella; lo único que cambia es que aparezca el desglose. Antes se
   sumaba al final y el cliente que pedía factura pagaba un 15% más por la misma reparación.
-- **Los repuestos cargados a mano no se facturan.** Son los que el taller fue a comprar a una
-  casa de repuestos para ese trabajo: no salieron de su bodega, así que el cierre los deja
-  fuera de la venta y el cliente los paga aparte. Siguen en la orden y en la cotización
-  —marcados, para que el cliente sepa el costo completo—, pero no entran a caja ni a cuentas
-  por cobrar.
+- **Lo comprado en una casa de repuestos no se factura.** La línea se marca al cargarla
+  (`boughtOutside`, con `supplierName` opcional) y el cierre la deja fuera de la venta: el
+  cliente se la paga a la casa de repuestos, no al taller, así que no entra a caja ni a
+  cuentas por cobrar. Sigue en la orden y en la cotización, con la casa escrita en la línea,
+  porque el cliente tiene que ver el costo completo del trabajo.
+
+  La bandera se pregunta y **no se deduce de que la línea sea manual**: a mano también se
+  carga un repuesto del taller que sencillamente no está en el catálogo, y ese sí se factura.
+- **El ISV de una cotización se prende por cotización.** Nace sin tasa. Con el impuesto dentro
+  del precio, prenderla no cambia el total: cambia lo que el documento dice —cuánto lleva
+  incluido, o que no lleva—, y eso depende de si ese trabajo se va a facturar con CAI.
 - El RTN sale del que se mande, y si no del de la ficha del cliente; sin ninguno, la factura
   va a **consumidor final**.
 - **A nombre de quién sale** es lo mismo: `customerName` manda, y si va vacío se usa el

@@ -75,6 +75,8 @@ class QuoteRepository {
     String? description,
     required double quantity,
     double? unitPrice,
+    bool boughtOutside = false,
+    String? supplierName,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/quotes/$id/lines',
@@ -85,6 +87,8 @@ class QuoteRepository {
         'description': description,
         'quantity': quantity,
         'unitPrice': unitPrice,
+        'boughtOutside': boughtOutside,
+        'supplierName': supplierName,
       },
     );
 
@@ -96,13 +100,21 @@ class QuoteRepository {
     return Quote.fromJson(response.data!);
   }
 
-  /// Vigencia y notas. El impuesto se deja como está: lo fija el taller, no la cotización.
-  Future<Quote> update(String id, {DateTime? validUntil, String? notes}) async {
+  /// Vigencia, notas y si la cotización lleva ISV. Con el impuesto dentro del precio, la
+  /// tasa no cambia el total: cambia lo que el documento le dice al cliente. Va null para
+  /// dejarla como está.
+  Future<Quote> update(
+    String id, {
+    DateTime? validUntil,
+    String? notes,
+    double? taxRate,
+  }) async {
     final response = await _dio.put<Map<String, dynamic>>(
       '/api/quotes/$id',
       data: {
         'validUntil': validUntil?.toUtc().toIso8601String(),
         'notes': notes,
+        'taxRate': taxRate,
       },
     );
 

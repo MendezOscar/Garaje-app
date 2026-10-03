@@ -37,6 +37,8 @@ class QuoteLine {
     required this.quantity,
     required this.unitPrice,
     required this.total,
+    this.boughtOutside = false,
+    this.supplierName,
   });
 
   factory QuoteLine.fromJson(Map<String, dynamic> json) => QuoteLine(
@@ -46,6 +48,8 @@ class QuoteLine {
         quantity: (json['quantity'] as num).toDouble(),
         unitPrice: (json['unitPrice'] as num).toDouble(),
         total: (json['total'] as num).toDouble(),
+        boughtOutside: json['boughtOutside'] as bool? ?? false,
+        supplierName: json['supplierName'] as String?,
       );
 
   final String id;
@@ -54,6 +58,11 @@ class QuoteLine {
   final double quantity;
   final double unitPrice;
   final double total;
+
+  /// Se compra en una casa de repuestos: cuenta en el total de la cotización, pero el taller
+  /// no lo factura. El cliente tiene que verlo escrito, no enterarse al pagar.
+  final bool boughtOutside;
+  final String? supplierName;
 }
 
 class Quote {

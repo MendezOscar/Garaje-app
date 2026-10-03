@@ -39,6 +39,19 @@ public class WorkOrderPart : TenantEntity
     /// </summary>
     public decimal UnitCost { get; set; }
 
+    /// <summary>
+    /// El repuesto se compró en una casa de repuestos, no salió de la bodega del taller. Lo
+    /// marca quien carga la línea: no se deduce de <see cref="PartId"/>, porque a mano también
+    /// se cargan repuestos propios que sencillamente no están en el catálogo.
+    /// </summary>
+    public bool BoughtOutside { get; set; }
+
+    /// <summary>
+    /// En qué casa de repuestos se compró. Opcional: puede marcarse la línea sin recordar el
+    /// nombre. Solo tiene sentido con <see cref="BoughtOutside"/>.
+    /// </summary>
+    public string? SupplierName { get; set; }
+
     public WorkOrder WorkOrder { get; set; } = null!;
     public Part? Part { get; set; }
 }

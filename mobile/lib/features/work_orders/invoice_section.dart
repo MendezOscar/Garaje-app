@@ -480,10 +480,10 @@ class _CloseCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final tasa = ref.watch(taxRateProvider).value ?? 0;
 
-    // Lo cargado a mano son los repuestos que el taller fue a comprar afuera para este
-    // trabajo: no salieron de su bodega, no van en la factura y el cliente los paga aparte.
+    // Los marcados como comprados en una casa de repuestos no van en la factura: el cliente
+    // los paga aparte. Lo demás sí, aunque se haya cargado a mano sin estar en el catálogo.
     final afuera = order.parts
-        .where((p) => p.partId == null)
+        .where((p) => p.boughtOutside)
         .fold<double>(0, (suma, p) => suma + p.total);
     final deBodega = order.partsTotal - afuera;
 
@@ -502,13 +502,14 @@ class _CloseCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Repuestos de bodega ${_money(deBodega, 'L')} · mano de obra '
+                'Repuestos del taller ${_money(deBodega, 'L')} · mano de obra '
                 '${_money(_labor, 'L')}',
                 style: theme.textTheme.bodySmall,
               ),
               if (afuera > 0)
                 Text(
-                  'Más ${_money(afuera, 'L')} comprados afuera, que no van en la factura.',
+                  'Aparte: ${_money(afuera, 'L')} de casa de repuestos, que el cliente paga '
+                  'por su cuenta y no entra en esta factura.',
                   style: theme.textTheme.bodySmall,
                 ),
               const SizedBox(height: 4),

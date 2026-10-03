@@ -242,17 +242,20 @@ public class SaleService(
         // Los repuestos ya salieron de la bodega al consumirlos en la orden: aquí solo se
         // facturan. Volver a descontarlos duplicaría la salida.
         //
-        // Los cargados a mano **no se facturan**: son los que el taller fue a comprar a una
-        // casa de repuestos para este trabajo, y esos los paga el cliente aparte. El taller
-        // factura su mano de obra y lo que salió de su propia bodega. Siguen apareciendo en la
-        // orden y en la cotización —el cliente tiene que saber el costo completo— pero no
-        // entran a la venta, así que tampoco a caja ni a cuentas por cobrar.
+        // Los marcados como comprados en una casa de repuestos **no se facturan**: esos los
+        // paga el cliente aparte. El taller factura su mano de obra y lo que salió de su
+        // bodega. Siguen apareciendo en la orden y en la cotización —el cliente tiene que
+        // saber el costo completo— pero no entran a la venta, así que tampoco a caja ni a
+        // cuentas por cobrar.
+        //
+        // La bandera es explícita y no se deduce de `PartId`: a mano también se carga un
+        // repuesto propio que sencillamente no está en el catálogo, y ese sí se factura.
         var parts = await db.WorkOrderParts.AsNoTracking()
-            .Where(p => p.WorkOrderId == order.Id && p.PartId != null)
+            .Where(p => p.WorkOrderId == order.Id && !p.BoughtOutside)
             .Select(p => new
             {
                 p.PartId,
-                Name = p.Part!.Name + " (" + p.Part.Sku + ")",
+                Name = p.Part != null ? p.Part.Name + " (" + p.Part.Sku + ")" : p.Description!,
                 p.Quantity,
                 p.UnitPrice,
                 p.UnitCost

@@ -106,13 +106,21 @@ if detail["tasks"]:
 
 stock_before = stock_of(owner, matriz["id"], part["id"])
 
-# Un repuesto comprado afuera para este trabajo: no salió de la bodega del taller, así que el
-# taller no lo factura. El cliente se lo paga a la casa de repuestos.
+# Un repuesto comprado en una casa de repuestos: el taller no lo factura, el cliente se lo
+# paga aparte. La bandera es explícita; cargarlo a mano sin marcarla sí se factura.
 status, _comprado_afuera = api("POST", f"/api/work-orders/{order_id}/parts", {
     "description": "Bomba de agua, comprada en la casa de repuestos",
     "quantity": 1, "unitPrice": 1800, "unitCost": 1500,
+    "boughtOutside": True, "supplierName": "Repuestos El Ahorro",
 }, owner)
 check("se carga un repuesto comprado afuera", status == 200, str(status))
+
+# El mismo caso pero del taller: no está en el catálogo y aun así se factura.
+status, _manual_del_taller = api("POST", f"/api/work-orders/{order_id}/parts", {
+    "description": "Empaque hecho a la medida",
+    "quantity": 1, "unitPrice": 250, "unitCost": 90,
+}, owner)
+check("se carga un repuesto a mano del taller", status == 200, str(status))
 
 status, sale = api("POST", "/api/sales/close-work-order", {
     "workOrderId": order_id, "paymentMethod": CASH, "notes": "Prueba de humo",
@@ -127,8 +135,12 @@ check("factura el repuesto consumido",
       any(l["lineType"] == PART and l["partId"] == part["id"] for l in sale["lines"]))
 check("factura la mano de obra del paso",
       any(l["lineType"] == LABOR for l in sale["lines"]), str(sale["lines"]))
-check("y no factura el comprado afuera",
-      not any(l["lineType"] == PART and l["partId"] is None for l in sale["lines"]),
+check("factura el cargado a mano que es del taller",
+      any(l["lineType"] == PART and l["description"].startswith("Empaque") for l in sale["lines"]),
+      str(sale["lines"]))
+check("y no factura el comprado en la casa de repuestos",
+      not any(l["lineType"] == PART and "Bomba de agua" in l["description"]
+              for l in sale["lines"]),
       str(sale["lines"]))
 
 expected_subtotal = sum(l["quantity"] * l["unitPrice"] for l in sale["lines"])

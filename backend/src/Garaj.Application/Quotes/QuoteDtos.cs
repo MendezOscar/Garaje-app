@@ -42,7 +42,11 @@ public record QuoteLineDto(
     decimal Quantity,
     decimal UnitPrice,
     decimal Discount,
-    decimal Total);
+    decimal Total,
+    // Se compra en una casa de repuestos: cuenta en el total de la cotización, pero el taller
+    // no lo factura.
+    bool BoughtOutside = false,
+    string? SupplierName = null);
 
 public record QuoteListItemDto(
     Guid Id,
@@ -123,7 +127,9 @@ public record SaveQuoteLineRequest(
     string? Description,
     decimal Quantity,
     decimal? UnitPrice,
-    decimal Discount = 0);
+    decimal Discount = 0,
+    bool BoughtOutside = false,
+    string? SupplierName = null);
 
 /// <summary>Todo lo que hace falta para armar la cotización desde una orden de trabajo.</summary>
 public record QuoteFromWorkOrderRequest(
@@ -200,10 +206,12 @@ public record PublicQuoteLineDto(
     decimal UnitPrice,
     decimal Discount,
     decimal Total,
-    // Un repuesto que el taller no tiene en bodega y va a comprar afuera para este trabajo.
-    // Se le dice al cliente porque ese no entra en la factura del taller: lo paga aparte.
+    // Un repuesto que el taller compra en una casa de repuestos para este trabajo. Se le dice
+    // al cliente porque ese no entra en la factura del taller, aunque sí en lo que paga.
     // Va como bandera y no como id: en la página pública no se expone nada interno.
-    bool SeCompraAfuera = false);
+    bool SeCompraAfuera = false,
+    // La casa de repuestos, cuando el taller la anotó.
+    string? CasaDeRepuestos = null);
 
 public record RespondToQuoteRequest(bool Approve, string? Note);
 

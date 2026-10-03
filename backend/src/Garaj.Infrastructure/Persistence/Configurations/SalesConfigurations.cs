@@ -29,6 +29,7 @@ public class QuoteLineConfiguration : IEntityTypeConfiguration<QuoteLine>
     public void Configure(EntityTypeBuilder<QuoteLine> b)
     {
         b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+        b.Property(x => x.SupplierName).HasMaxLength(120);
 
         b.HasOne(x => x.Quote)
             .WithMany(q => q.Lines)

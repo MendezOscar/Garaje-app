@@ -536,7 +536,11 @@ public class WorkOrderService(
             WorkOrderTaskId = request.WorkOrderTaskId,
             Quantity = request.Quantity,
             UnitPrice = precio,
-            UnitCost = request.UnitCost is { } costo && costo >= 0 ? costo : 0
+            UnitCost = request.UnitCost is { } costo && costo >= 0 ? costo : 0,
+            BoughtOutside = request.BoughtOutside,
+            SupplierName = request.BoughtOutside
+                ? request.SupplierName?.Trim() is { Length: > 0 } casa ? casa : null
+                : null
         };
     }
 
@@ -902,7 +906,9 @@ public class WorkOrderService(
                 p.UnitCost,
                 p.Quantity * p.UnitPrice,
                 p.WorkOrderTaskId,
-                db.WorkOrderTasks.Where(t => t.Id == p.WorkOrderTaskId).Select(t => t.Title).FirstOrDefault()))
+                db.WorkOrderTasks.Where(t => t.Id == p.WorkOrderTaskId).Select(t => t.Title).FirstOrDefault(),
+                p.BoughtOutside,
+                p.SupplierName))
             .ToListAsync(ct);
 
     /// <summary>

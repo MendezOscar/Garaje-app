@@ -52,6 +52,8 @@ class InventoryRepository {
     required double quantity,
     required double unitPrice,
     double? unitCost,
+    bool boughtOutside = false,
+    String? supplierName,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/parts',
@@ -60,6 +62,8 @@ class InventoryRepository {
         'quantity': quantity,
         'unitPrice': unitPrice,
         'unitCost': unitCost,
+        'boughtOutside': boughtOutside,
+        'supplierName': supplierName,
       },
     );
 

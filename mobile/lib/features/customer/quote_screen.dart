@@ -280,7 +280,8 @@ class _Linea extends StatelessWidget {
                 Text(
                   line.lineType == LineType.labor
                       ? 'mano de obra'
-                      : 'repuesto · ${_cantidad(line.quantity)}',
+                      : 'repuesto · ${_cantidad(line.quantity)}'
+                          '${_casa(line)}',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -361,6 +362,17 @@ String _yaRespondido(Quote q) => switch (q.status) {
 
 String _cantidad(double value) =>
     value == value.roundToDouble() ? value.toInt().toString() : value.toStringAsFixed(2);
+
+/// El repuesto que el taller compra afuera: se dice en la línea, no al pie, porque es lo que
+/// el cliente paga aparte y no le va a aparecer en la factura del taller.
+String _casa(QuoteLine line) {
+  if (!line.boughtOutside) return '';
+
+  final casa = line.supplierName;
+  return casa != null && casa.isNotEmpty
+      ? ' · se compra en $casa'
+      : ' · se compra en casa de repuestos';
+}
 
 String _fecha(DateTime value) {
   const meses = [

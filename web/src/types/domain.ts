@@ -393,6 +393,10 @@ export interface WorkOrderPart {
   total: number
   workOrderTaskId: string | null
   taskTitle: string | null
+  /** Comprado en una casa de repuestos: se le cobra al cliente pero no va en la factura. */
+  boughtOutside: boolean
+  /** En cuál casa se compró, si se anotó. */
+  supplierName: string | null
 }
 
 export interface LaborService {
@@ -486,6 +490,9 @@ export interface QuoteLine {
   unitPrice: number
   discount: number
   total: number
+  /** Se compra en una casa de repuestos: cuenta en el total, pero el taller no lo factura. */
+  boughtOutside: boolean
+  supplierName: string | null
 }
 
 export interface QuoteListItem {
@@ -535,6 +542,9 @@ export interface SaveQuoteLine {
   quantity: number
   unitPrice?: number
   discount?: number
+  /** Solo en repuestos sin catálogo: se compra en una casa de repuestos. */
+  boughtOutside?: boolean
+  supplierName?: string
 }
 
 export interface WhatsAppLink {
@@ -575,6 +585,8 @@ export interface PublicQuote {
     total: number
     /** Repuesto que el taller compra afuera: no va en su factura, el cliente lo paga aparte. */
     seCompraAfuera: boolean
+    /** La casa de repuestos, cuando el taller la anotó. */
+    casaDeRepuestos: string | null
   }[]
   /** Las fotos del daño que el taller adjuntó al presupuesto. */
   photos: {

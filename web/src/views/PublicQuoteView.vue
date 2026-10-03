@@ -139,7 +139,9 @@ onMounted(load)
               -->
               <div class="muted small">
                 {{ LINE_TYPE_LABEL[line.lineType] }}
-                <template v-if="line.seCompraAfuera"> · se compra en casa de repuestos</template>
+                <template v-if="line.seCompraAfuera">
+                  · se compra en {{ line.casaDeRepuestos || 'casa de repuestos' }}
+                </template>
               </div>
             </td>
             <td class="num">{{ quantity(line.quantity) }}</td>
