@@ -14,7 +14,7 @@ import {
   type QuoteDetail,
   type QuoteListItem,
 } from '@/types/domain'
-import { formatDate, formatMoney, formatQuantity } from '@/utils/format'
+import { formatDate, formatMoney, formatQuantity, sinIsv } from '@/utils/format'
 import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
 
 const route = useRoute()
@@ -315,10 +315,12 @@ onMounted(async () => {
                 </div>
               </td>
               <td class="num muted">
-                {{ formatQuantity(line.quantity) }} × {{ formatMoney(line.unitPrice) }}
+                {{ formatQuantity(line.quantity) }} ×
+                {{ formatMoney(sinIsv(line.unitPrice, selected.taxRate)) }}
+                <template v-if="selected.taxRate > 0"> sin ISV</template>
                 <div v-if="line.discount" class="small">−{{ formatMoney(line.discount) }}</div>
               </td>
-              <td class="num">{{ formatMoney(line.total) }}</td>
+              <td class="num">{{ formatMoney(sinIsv(line.total, selected.taxRate)) }}</td>
               <td v-if="selected.isEditable" class="num">
                 <button type="button" class="link" :disabled="busy" @click="removeLine(line.id)">
                   Quitar
@@ -328,15 +330,24 @@ onMounted(async () => {
           </tbody>
         </table>
 
+        <!-- Con ISV el desglose reemplaza al subtotal: es lo mismo que lee el cliente. -->
         <div class="totals">
-          <div><span>Subtotal</span><span>{{ formatMoney(selected.subtotal) }}</span></div>
+          <div v-if="selected.taxRate === 0">
+            <span>Subtotal</span><span>{{ formatMoney(selected.subtotal) }}</span>
+          </div>
           <div v-if="selected.discountTotal > 0">
             <span>Descuento</span><span>−{{ formatMoney(selected.discountTotal) }}</span>
           </div>
-          <div v-if="selected.taxRate > 0">
-            <span>ISV {{ selected.taxRate }}% incluido</span
-            ><span>{{ formatMoney(selected.taxTotal) }}</span>
-          </div>
+          <template v-if="selected.taxRate > 0">
+            <div>
+              <span>Neto</span
+              ><span>{{ formatMoney(selected.total - selected.taxTotal) }}</span>
+            </div>
+            <div>
+              <span>ISV {{ selected.taxRate }}%</span
+              ><span>{{ formatMoney(selected.taxTotal) }}</span>
+            </div>
+          </template>
           <div class="grand"><span>Total</span><span>{{ formatMoney(selected.total) }}</span></div>
         </div>
 

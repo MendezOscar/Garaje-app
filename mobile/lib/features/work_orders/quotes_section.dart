@@ -517,11 +517,15 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                     Expanded(
                       child: Text(
                         '${line.description} (${line.lineType.label}'
-                        '${_casa(line)})',
+                        '${_casa(line)}'
+                        '${quote.taxRate > 0 ? ' · sin ISV' : ''})',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
-                    Text(_money(line.total, quote.currency), style: theme.textTheme.bodySmall),
+                    Text(
+                      _money(sinIsv(line.total, quote.taxRate), quote.currency),
+                      style: theme.textTheme.bodySmall,
+                    ),
                     if (editable)
                       IconButton(
                         tooltip: 'Quitar la línea',
@@ -567,6 +571,33 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
             ),
 
             const Divider(height: 20),
+            // Con ISV se desglosa aquí: es lo mismo que lee el cliente en su copia, y lo que
+            // le permite sumar las líneas de arriba y llegar al neto.
+            if (quote.taxRate > 0) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Neto', style: theme.textTheme.bodySmall),
+                  Text(
+                    _money(quote.total - quote.taxTotal, quote.currency),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'ISV ${quote.taxRate.toStringAsFixed(0)}%',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  Text(
+                    _money(quote.taxTotal, quote.currency),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

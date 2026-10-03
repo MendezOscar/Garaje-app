@@ -5,7 +5,7 @@ import { apiUrl, errorMessage } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { publicQuotesApi } from '@/api/garaj'
 import { LINE_TYPE_LABEL, QuoteStatus, type PublicQuote } from '@/types/domain'
-import { formatDate } from '@/utils/format'
+import { formatDate, sinIsv } from '@/utils/format'
 
 // Página anónima: la abre el cliente desde el link de WhatsApp, sin cuenta ni login. El
 // token de la URL es la única credencial, así que aquí no se pide nada más.
@@ -125,7 +125,7 @@ onMounted(load)
           <tr>
             <th>Detalle</th>
             <th class="num">Cant.</th>
-            <th class="num unitario">P. unit.</th>
+            <th class="num unitario">P. unit.{{ quote.taxRate > 0 ? ' sin ISV' : '' }}</th>
             <th class="num">Total</th>
           </tr>
         </thead>
@@ -145,20 +145,25 @@ onMounted(load)
               </div>
             </td>
             <td class="num">{{ quantity(line.quantity) }}</td>
-            <td class="num unitario">{{ money(line.unitPrice) }}</td>
-            <td class="num">{{ money(line.total) }}</td>
+            <td class="num unitario">{{ money(sinIsv(line.unitPrice, quote.taxRate)) }}</td>
+            <td class="num">{{ money(sinIsv(line.total, quote.taxRate)) }}</td>
           </tr>
         </tbody>
       </table>
 
+      <!-- Con ISV el desglose reemplaza al subtotal: neto, impuesto y total, que es lo que
+           el cliente puede comprobar sumando las líneas de arriba. -->
       <div class="totals">
-        <div><span>Subtotal</span><span>{{ money(quote.subtotal) }}</span></div>
+        <div v-if="quote.taxRate === 0">
+          <span>Subtotal</span><span>{{ money(quote.subtotal) }}</span>
+        </div>
         <div v-if="quote.discountTotal > 0">
           <span>Descuento</span><span>−{{ money(quote.discountTotal) }}</span>
         </div>
-        <div v-if="quote.taxRate > 0">
-          <span>ISV {{ quote.taxRate }}% incluido</span><span>{{ money(quote.taxTotal) }}</span>
-        </div>
+        <template v-if="quote.taxRate > 0">
+          <div><span>Neto</span><span>{{ money(quote.total - quote.taxTotal) }}</span></div>
+          <div><span>ISV {{ quote.taxRate }}%</span><span>{{ money(quote.taxTotal) }}</span></div>
+        </template>
         <div class="grand"><span>Total</span><span>{{ money(quote.total) }}</span></div>
       </div>
 

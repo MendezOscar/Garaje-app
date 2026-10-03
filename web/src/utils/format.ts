@@ -74,3 +74,13 @@ export function whatsappLink(phone: string, message?: string): string {
   const base = `https://wa.me/${phone}`
   return message ? `${base}?text=${encodeURIComponent(message)}` : base
 }
+
+/**
+ * El precio sin el ISV que ya trae adentro. El impuesto va dentro del precio, así que para
+ * desglosarlo se divide, no se resta un porcentaje: `425 / 1.15 = 369.57`, y lo que falta
+ * para el total es el impuesto. Con tasa cero devuelve el mismo precio.
+ */
+export function sinIsv(bruto: number, tasa: number): number {
+  if (tasa <= 0) return bruto
+  return Math.round((bruto / (1 + tasa / 100)) * 100) / 100
+}
