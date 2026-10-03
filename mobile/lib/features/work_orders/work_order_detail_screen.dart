@@ -1788,10 +1788,20 @@ class _TotalCard extends ConsumerWidget {
     // se mostraba el «con factura» más caro, que era la cuenta del mostrador y ya no aplica.
     final impuesto = tasa > 0 ? facturable - facturable / (1 + tasa / 100) : 0.0;
 
+    // Lo que le queda al taller: lo que factura, sin el ISV —que no es suyo, lo recauda—,
+    // menos lo que le costaron los repuestos. La mano de obra entra completa porque no tiene
+    // costo cargado, así que es un techo y no el número exacto.
+    final costo = order.parts
+        .where((p) => !p.boughtOutside)
+        .fold<double>(0, (suma, p) => suma + p.unitCost * p.quantity);
+    final neto = facturable - impuesto;
+    final ganancia = neto - costo;
+    final margen = neto > 0 ? ganancia / neto * 100 : 0.0;
+
     final cotizaciones = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
     final ultima = cotizaciones.isEmpty ? null : cotizaciones.first;
 
-    return Container(
+    final tarjeta = Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1853,6 +1863,60 @@ class _TotalCard extends ConsumerWidget {
             ),
         ],
       ),
+    );
+
+    if (costo <= 0) return tarjeta;
+
+    return Column(
+      children: [
+        tarjeta,
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.lock_outline, size: 14,
+                          color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 6),
+                      Text('Ganancia estimada', style: theme.textTheme.bodyMedium),
+                    ],
+                  ),
+                  Text(
+                    '${_money(ganancia)} · ${margen.toStringAsFixed(1)}%',
+                    style: theme.textTheme.bodyMedium?.merge(monoStyle),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Costo de los repuestos', style: theme.textTheme.bodySmall),
+                  Text(_money(costo), style: theme.textTheme.bodySmall),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Sobre lo que factura el taller y sin ISV, con el costo de hoy. La mano de '
+                'obra entra completa: no tiene costo cargado. Solo usted ve esto.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

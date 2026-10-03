@@ -37,7 +37,7 @@ import {
   type FiscalRange,
   type WorkOrderListItem,
 } from '@/types/domain'
-import { formatDate, formatDateTime, formatMoney, whatsappLink } from '@/utils/format'
+import { formatDate, formatDateTime, formatMoney, sinIsv, whatsappLink } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -223,6 +223,28 @@ const cobro = computed(() => {
     : 0
 
   return { labor, parts, deBodega, afuera, impuesto, facturable, total }
+})
+
+/**
+ * Lo que le queda al taller de este trabajo. Se calcula sobre lo que el taller factura y sin
+ * ISV —el impuesto no es suyo, lo recauda— menos lo que le costaron los repuestos.
+ *
+ * La mano de obra entra completa porque no tiene costo cargado: el taller no registra horas
+ * pagadas contra la orden. Así que es un techo, no el número exacto, y se dice.
+ */
+const ganancia = computed(() => {
+  const incluidos = (order.value?.parts ?? []).filter(
+    (p) => cobrarLosDeAfuera.value || !p.boughtOutside,
+  )
+  const costo = incluidos.reduce((suma, p) => suma + p.unitCost * p.quantity, 0)
+  const neto = conCai.value ? sinIsv(cobro.value.facturable, tasaImpuesto.value) : cobro.value.facturable
+
+  return {
+    costo,
+    neto,
+    monto: neto - costo,
+    margen: neto > 0 ? ((neto - costo) / neto) * 100 : 0,
+  }
 })
 
 /** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
@@ -1095,6 +1117,25 @@ onMounted(async () => {
             Con factura el total es el mismo: el ISV ya va dentro del precio y la factura solo
             lo desglosa.
           </p>
+          <!-- Lo que le queda al taller. Va aquí, pegado al cobro, porque es la pregunta que
+               sigue a «cuánto le cobro»: si ese precio deja algo. Solo lo ve el Dueño. -->
+          <section v-if="ganancia.costo > 0" class="ganancia">
+            <div class="linea">
+              <strong>Ganancia estimada</strong>
+              <strong class="verde">
+                {{ formatMoney(ganancia.monto) }} · {{ ganancia.margen.toFixed(1) }}%
+              </strong>
+            </div>
+            <div class="linea muted small">
+              <span>Costo de los repuestos</span>
+              <span>{{ formatMoney(ganancia.costo) }}</span>
+            </div>
+            <p class="muted small">
+              Sobre lo que factura el taller y sin ISV, con el costo de hoy. La mano de obra
+              entra completa: no tiene costo cargado. Solo usted ve esto.
+            </p>
+          </section>
+
           <p v-if="!sales.length" class="muted small">Todavía no se ha facturado.</p>
           <p v-else class="muted small">
             Ya facturada: {{ sales.map((s) => s.number).join(', ') }}.
@@ -2218,6 +2259,27 @@ dd {
   gap: 0.125rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+.ganancia {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+}
+
+.ganancia .linea {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ganancia .verde {
+  color: var(--ok, #157f3d);
+}
+
+.ganancia p {
+  margin: 0.35rem 0 0;
 }
 
 .fiscal {

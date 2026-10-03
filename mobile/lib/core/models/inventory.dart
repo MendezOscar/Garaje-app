@@ -167,6 +167,7 @@ class WorkOrderPart {
     required this.unit,
     required this.quantity,
     required this.unitPrice,
+    required this.unitCost,
     required this.total,
     this.taskTitle,
     this.boughtOutside = false,
@@ -181,6 +182,7 @@ class WorkOrderPart {
         unit: json['unit'] as String,
         quantity: (json['quantity'] as num).toDouble(),
         unitPrice: (json['unitPrice'] as num).toDouble(),
+        unitCost: (json['unitCost'] as num?)?.toDouble() ?? 0,
         total: (json['total'] as num).toDouble(),
         taskTitle: json['taskTitle'] as String?,
         boughtOutside: json['boughtOutside'] as bool? ?? false,
@@ -198,6 +200,9 @@ class WorkOrderPart {
   final String unit;
   final double quantity;
   final double unitPrice;
+
+  /// Lo que le costó al taller. Llega en cero para el Cliente: ese dato es del margen.
+  final double unitCost;
   final double total;
   final String? taskTitle;
 
