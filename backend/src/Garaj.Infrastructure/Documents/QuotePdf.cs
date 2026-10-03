@@ -276,13 +276,15 @@ public static class QuotePdf
 
     // Mismo criterio que la factura: el símbolo, no el código ISO.
     /// <summary>
-    /// Qué es cada línea para el cliente. Un repuesto sin `PartId` no está en la bodega del
-    /// taller: hay que ir a comprarlo, y es el que no entra en la factura del taller.
+    /// Qué es cada línea para el cliente. El repuesto marcado como comprado afuera se cobra
+    /// igual, pero no entra en la factura del taller, y por eso se dice de dónde viene.
     /// </summary>
-    private static string Concepto(QuoteLineDto line) => line.LineType switch
+    private static string Concepto(QuoteLineDto line) => line switch
     {
-        LineType.Part when line.PartId is null => "Repuesto · se compra en casa de repuestos",
-        LineType.Part => "Repuesto",
+        { LineType: LineType.Part, BoughtOutside: true, SupplierName: { Length: > 0 } casa } =>
+            $"Repuesto · se compra en {casa}",
+        { LineType: LineType.Part, BoughtOutside: true } => "Repuesto · se compra en casa de repuestos",
+        { LineType: LineType.Part } => "Repuesto",
         _ => "Mano de obra"
     };
 

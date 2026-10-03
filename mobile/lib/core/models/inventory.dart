@@ -169,6 +169,8 @@ class WorkOrderPart {
     required this.unitPrice,
     required this.total,
     this.taskTitle,
+    this.boughtOutside = false,
+    this.supplierName,
   });
 
   factory WorkOrderPart.fromJson(Map<String, dynamic> json) => WorkOrderPart(
@@ -181,6 +183,8 @@ class WorkOrderPart {
         unitPrice: (json['unitPrice'] as num).toDouble(),
         total: (json['total'] as num).toDouble(),
         taskTitle: json['taskTitle'] as String?,
+        boughtOutside: json['boughtOutside'] as bool? ?? false,
+        supplierName: json['supplierName'] as String?,
       );
 
   final String id;
@@ -196,4 +200,11 @@ class WorkOrderPart {
   final double unitPrice;
   final double total;
   final String? taskTitle;
+
+  /// Se compró en una casa de repuestos: el cliente lo paga, pero no va en la factura del
+  /// taller. Lo marca quien carga la línea; no se deduce de que no tenga catálogo.
+  final bool boughtOutside;
+
+  /// En qué casa se compró, si se anotó.
+  final String? supplierName;
 }

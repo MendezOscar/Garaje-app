@@ -35,6 +35,14 @@ const concepto = ref('')
 const precio = ref<number | ''>('')
 const costo = ref<number | ''>('')
 
+/**
+ * Si se compró en una casa de repuestos. Se pregunta en vez de deducirse de que la línea sea
+ * manual: a mano también se carga un repuesto del taller que no está en el catálogo, y ese sí
+ * se factura. Lo comprado afuera se le cobra al cliente, pero el taller no lo factura.
+ */
+const afuera = ref(false)
+const casa = ref('')
+
 const selectedPart = computed(() => catalog.value.find((p) => p.id === selectedPartId.value))
 
 /** Lo que se le va a cobrar al cliente por lo que se está por agregar. */
@@ -79,6 +87,8 @@ async function add() {
             quantity: Number(quantity.value),
             unitPrice: Number(precio.value),
             unitCost: costo.value === '' ? undefined : Number(costo.value),
+            boughtOutside: afuera.value,
+            supplierName: afuera.value && casa.value.trim() ? casa.value.trim() : undefined,
           }
         : { partId: selectedPartId.value, quantity: Number(quantity.value) },
     )
@@ -86,6 +96,8 @@ async function add() {
     concepto.value = ''
     precio.value = ''
     costo.value = ''
+    afuera.value = false
+    casa.value = ''
     quantity.value = 1
     adding.value = false
     emit('changed')
@@ -144,7 +156,10 @@ watch(search, () => {
           <td>
             <strong>{{ line.partName }}</strong>
             <div class="muted small">
-              {{ line.sku || 'Cargado a mano' }}
+              <template v-if="line.boughtOutside">
+                Se compra en {{ line.supplierName || 'casa de repuestos' }}
+              </template>
+              <template v-else>{{ line.sku || 'Cargado a mano' }}</template>
               <template v-if="line.taskTitle"> · {{ line.taskTitle }}</template>
               <template v-if="showCost && line.unitCost">
                 · costo {{ formatMoney(line.unitCost) }}
@@ -206,6 +221,18 @@ watch(search, () => {
             <input v-model.number="costo" type="number" step="0.01" min="0" placeholder="0.00" />
           </label>
         </div>
+
+        <label class="check">
+          <input v-model="afuera" type="checkbox" />
+          Comprado en casa de repuestos
+        </label>
+
+        <input
+          v-if="afuera"
+          v-model="casa"
+          placeholder="¿En cuál casa de repuestos? (opcional)"
+          maxlength="120"
+        />
       </template>
 
       <div class="row">
@@ -309,7 +336,8 @@ tfoot td {
   gap: 1rem;
 }
 
-.radio {
+.radio,
+.check {
   display: flex;
   align-items: center;
   gap: 0.3rem;

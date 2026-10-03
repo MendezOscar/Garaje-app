@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/quote_repository.dart';
+import '../../core/api/tenant_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
@@ -328,14 +329,17 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
     final description = TextEditingController();
     final quantity = TextEditingController(text: '1');
     final price = TextEditingController();
+    final casa = TextEditingController();
     var lineType = LineType.labor;
+    var afuera = false;
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setInner) => AlertDialog(
           title: const Text('Línea libre'),
-          content: Column(
+          content: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SegmentedButton<LineType>(
@@ -374,7 +378,25 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                   ),
                 ],
               ),
+              // El repuesto que el taller va a comprar afuera: se cotiza igual, pero el
+              // cliente tiene que leer de dónde sale, porque no entra en la factura.
+              if (lineType == LineType.part) ...[
+                SwitchListTile(
+                  value: afuera,
+                  onChanged: (valor) => setInner(() => afuera = valor),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Se compra en casa de repuestos'),
+                ),
+                if (afuera)
+                  TextField(
+                    controller: casa,
+                    textCapitalization: TextCapitalization.words,
+                    maxLength: 120,
+                    decoration: const InputDecoration(labelText: '¿En cuál? (opcional)'),
+                  ),
+              ],
             ],
+            ),
           ),
           actions: [
             TextButton(
@@ -407,6 +429,23 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
             description: text,
             quantity: qty,
             unitPrice: unitPrice,
+            boughtOutside: lineType == LineType.part && afuera,
+            supplierName: lineType == LineType.part && afuera && casa.text.trim().isNotEmpty
+                ? casa.text.trim()
+                : null,
+          );
+    });
+  }
+
+  /// Prende o apaga el ISV de esta cotización. La vigencia y las notas se reenvían tal cual
+  /// porque el servidor reemplaza las notas con lo que reciba: omitirlas las borraría.
+  Future<void> _cambiarIsv(bool conIsv, double tasa) async {
+    await _run(() async {
+      await ref.read(quoteRepositoryProvider).update(
+            widget.quote.id,
+            validUntil: widget.quote.validUntil,
+            notes: widget.quote.notes,
+            taxRate: conIsv ? tasa : 0,
           );
     });
   }
@@ -444,6 +483,9 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
     // respondida es un documento cerrado y el backend devuelve 409 al editarla.
     final editable = widget.isOwner && quote.isEditable;
 
+    // La del taller: es la que se le pone a la cotización al prender el ISV.
+    final tasaDelTaller = ref.watch(taxRateProvider).value ?? 0;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
@@ -474,7 +516,8 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${line.description} (${line.lineType.label})',
+                        '${line.description} (${line.lineType.label}'
+                        '${_casa(line)})',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -538,6 +581,27 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                 'No incluye ISV.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+
+            // El ISV va dentro del precio: prenderlo no sube el total, solo dice cuánto de
+            // ese total es impuesto. Se decide por cotización porque no todo trabajo se
+            // factura con CAI.
+            if (editable && tasaDelTaller > 0)
+              SwitchListTile(
+                value: quote.taxRate > 0,
+                onChanged: _busy ? null : (valor) => _cambiarIsv(valor, tasaDelTaller),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(
+                  'Con ISV ${tasaDelTaller.toStringAsFixed(0)}% incluido',
+                  style: theme.textTheme.bodySmall,
+                ),
+                subtitle: Text(
+                  'El total no cambia.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
 
@@ -615,6 +679,16 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
         ),
       ),
     );
+  }
+
+  /// Lo que el cliente ve escrito en la línea: que ese repuesto se compra afuera y dónde.
+  static String _casa(QuoteLine line) {
+    if (!line.boughtOutside) return '';
+
+    final casa = line.supplierName;
+    return casa != null && casa.isNotEmpty
+        ? ' · se compra en $casa'
+        : ' · se compra en casa de repuestos';
   }
 
   static String _money(double value, String currency) =>

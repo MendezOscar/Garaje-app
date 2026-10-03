@@ -124,10 +124,10 @@ public class QuoteService(
     }
 
     /// <summary>
-    /// La cotización nace sin ISV. Al cotizar nadie sabe todavía si el cliente va a pedir
-    /// factura con CAI, y el impuesto solo lo lleva esa factura: cargarlo por adelantado
-    /// infla el presupuesto un 15% frente a lo que la mayoría termina pagando. Cuando sí se
-    /// va a facturar, se le pone la tasa a esa cotización (<c>PUT /api/quotes/{id}</c>).
+    /// La cotización nace sin ISV. Con el impuesto dentro del precio la tasa ya no cambia el
+    /// total —solo cuánto de ese total es impuesto—, así que esto no es una decisión de
+    /// precio sino de qué dice el documento: sin tasa dice que no lleva ISV, con tasa dice
+    /// cuánto va incluido. Se cambia con <c>PUT /api/quotes/{id}</c>.
     /// </summary>
     private const decimal SinImpuesto = 0m;
 
@@ -172,7 +172,9 @@ public class QuoteService(
                     // van con lo que escribió quien los cargó.
                     Name = p.Part != null ? $"{p.Part.Name} ({p.Part.Sku})" : p.Description!,
                     p.Quantity,
-                    p.UnitPrice
+                    p.UnitPrice,
+                    p.BoughtOutside,
+                    p.SupplierName
                 })
                 .ToListAsync(ct);
 
@@ -187,7 +189,9 @@ public class QuoteService(
                     Sequence = ++sequence,
                     Quantity = part.Quantity,
                     UnitPrice = part.UnitPrice,
-                    Total = part.Quantity * part.UnitPrice
+                    Total = part.Quantity * part.UnitPrice,
+                    BoughtOutside = part.BoughtOutside,
+                    SupplierName = part.SupplierName
                 });
             }
         }
@@ -584,6 +588,12 @@ public class QuoteService(
             line.LaborServiceId = null;
             line.Description = Describe(request.Description, part is null ? null : $"{part.Name} ({part.Sku})");
             line.UnitPrice = request.UnitPrice ?? part?.SalePrice ?? 0;
+
+            // Lo del catálogo salió de la bodega del taller: ahí la bandera no aplica.
+            line.BoughtOutside = part is null && request.BoughtOutside;
+            line.SupplierName = line.BoughtOutside
+                ? request.SupplierName?.Trim() is { Length: > 0 } casa ? casa : null
+                : null;
         }
         else
         {
@@ -597,6 +607,8 @@ public class QuoteService(
             line.Description = Describe(request.Description, service?.Name);
             line.UnitPrice = request.UnitPrice
                 ?? service?.PriceFor(null) ?? 0;
+            line.BoughtOutside = false;
+            line.SupplierName = null;
         }
 
         line.Total = Math.Max(0, line.Quantity * line.UnitPrice - line.Discount);
@@ -766,7 +778,8 @@ public class QuoteService(
                 .OrderBy(l => l.Sequence)
                 .Select(l => new QuoteLineDto(
                     l.Id, l.LineType, l.PartId, l.LaborServiceId, l.Description,
-                    l.Sequence, l.Quantity, l.UnitPrice, l.Discount, l.Total))
+                    l.Sequence, l.Quantity, l.UnitPrice, l.Discount, l.Total,
+                    l.BoughtOutside, l.SupplierName))
                 .ToList());
     }
 
@@ -830,7 +843,7 @@ public class QuoteService(
                 .OrderBy(l => l.Sequence)
                 .Select(l => new PublicQuoteLineDto(
                     l.LineType, l.Description, l.Quantity, l.UnitPrice, l.Discount, l.Total,
-                    l.LineType == LineType.Part && l.PartId is null))
+                    l.BoughtOutside, l.SupplierName))
                 .ToList(),
             photos,
             trackingToken);

@@ -75,6 +75,7 @@ public class WorkOrderPartConfiguration : IEntityTypeConfiguration<WorkOrderPart
             .OnDelete(DeleteBehavior.Cascade);
 
         b.Property(x => x.Description).HasMaxLength(200);
+        b.Property(x => x.SupplierName).HasMaxLength(120);
 
         // Opcional: una línea manual no apunta a ningún repuesto del catálogo.
         b.HasOne(x => x.Part)

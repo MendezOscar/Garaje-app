@@ -27,5 +27,14 @@ public class QuoteLine : TenantEntity
 
     public decimal Total { get; set; }
 
+    /// <summary>
+    /// Se copia de la orden: el cliente tiene que ver en la cotización qué va a comprarse
+    /// afuera. La línea cuenta en el total de la cotización igual que cualquier otra.
+    /// </summary>
+    public bool BoughtOutside { get; set; }
+
+    /// <summary>La casa de repuestos, si se anotó.</summary>
+    public string? SupplierName { get; set; }
+
     public Quote Quote { get; set; } = null!;
 }

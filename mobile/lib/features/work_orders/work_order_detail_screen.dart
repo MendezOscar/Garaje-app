@@ -1775,16 +1775,18 @@ class _TotalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final tasa = ref.watch(taxRateProvider).value ?? 0;
-    // Los repuestos cargados a mano los compró el taller afuera para este trabajo: no van en
-    // su factura y el cliente los paga aparte, así que el total del taller no los incluye.
+    // El total estimado es todo lo que el cliente paga, repuestos comprados afuera incluidos:
+    // es la cifra que se le dice y la que después lleva la cotización. Lo que cambia con esos
+    // repuestos es la factura del taller, que no los lleva, y eso se dice aparte.
     final afuera = order.parts
-        .where((p) => p.partId == null)
+        .where((p) => p.boughtOutside)
         .fold<double>(0, (suma, p) => suma + p.total);
-    final base = order.laborTotal + order.partsTotal - afuera;
+    final base = order.laborTotal + order.partsTotal;
+    final facturable = base - afuera;
 
     // Y el ISV ya va dentro del precio: facturar no cambia el total, solo lo desglosa. Antes
     // se mostraba el «con factura» más caro, que era la cuenta del mostrador y ya no aplica.
-    final impuesto = tasa > 0 ? base - base / (1 + tasa / 100) : 0.0;
+    final impuesto = tasa > 0 ? facturable - facturable / (1 + tasa / 100) : 0.0;
 
     final cotizaciones = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
     final ultima = cotizaciones.isEmpty ? null : cotizaciones.first;
@@ -1819,20 +1821,24 @@ class _TotalCard extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Trabajo ${_money(order.laborTotal)} · '
-                  'Repuestos ${_money(order.partsTotal - afuera)}',
+                  'Repuestos ${_money(order.partsTotal)}',
                   style: theme.textTheme.bodySmall,
                 ),
                 if (afuera > 0)
                   Text(
-                    'Más ${_money(afuera)} comprados afuera, fuera de la factura',
+                    'De eso, ${_money(afuera)} se compra en casa de repuestos: el taller '
+                    'factura ${_money(facturable)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 if (tasa > 0)
                   Text(
-                    'Con factura CAI es el mismo total '
-                    '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})',
+                    afuera > 0
+                        ? 'La factura CAI no cambia ese monto '
+                            '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})'
+                        : 'Con factura CAI es el mismo total '
+                            '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

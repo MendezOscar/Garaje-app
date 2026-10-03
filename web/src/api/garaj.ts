@@ -324,6 +324,9 @@ export const workOrdersApi = {
       unitPrice?: number
       unitCost?: number
       workOrderTaskId?: string
+      /** Comprado en una casa de repuestos: se cobra, pero no entra en la factura. */
+      boughtOutside?: boolean
+      supplierName?: string
     },
   ) {
     const { data } = await api.post<WorkOrderPart>(`/api/work-orders/${id}/parts`, body)

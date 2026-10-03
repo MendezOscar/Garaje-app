@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
-import { laborServicesApi, partsApi, quotesApi } from '@/api/garaj'
+import { laborServicesApi, partsApi, quotesApi, tenantApi } from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import {
   LINE_TYPE_LABEL,
@@ -40,7 +40,12 @@ const newLine = ref({
   quantity: 1,
   unitPrice: 0,
   discount: 0,
+  boughtOutside: false,
+  supplierName: '',
 })
+
+/** La del taller, para poder prender el ISV de una cotización sin escribir la tasa. */
+const tasaDelTaller = ref(0)
 
 const catalog = computed(() =>
   newLine.value.lineType === LineType.Part
@@ -110,6 +115,12 @@ function addLine() {
       quantity: Number(line.quantity),
       unitPrice: Number(line.unitPrice) || undefined,
       discount: Number(line.discount) || 0,
+      // Solo tiene sentido en un repuesto libre: lo del catálogo salió de la bodega.
+      boughtOutside: esRepuestoLibre.value && line.boughtOutside,
+      supplierName:
+        esRepuestoLibre.value && line.boughtOutside && line.supplierName.trim()
+          ? line.supplierName.trim()
+          : undefined,
     })
     newLine.value = {
       lineType: line.lineType,
@@ -118,6 +129,8 @@ function addLine() {
       quantity: 1,
       unitPrice: 0,
       discount: 0,
+      boughtOutside: false,
+      supplierName: '',
     }
     return result
   })
@@ -126,6 +139,27 @@ function addLine() {
 function removeLine(lineId: string) {
   return run(() => quotesApi.removeLine(selected.value!.id, lineId))
 }
+
+/**
+ * Prende o apaga el ISV de esta cotización. Con el impuesto dentro del precio no cambia el
+ * total: cambia lo que el documento le dice al cliente —cuánto lleva incluido, o que no
+ * lleva—, y eso depende de si ese trabajo se va a facturar con CAI.
+ */
+function toggleIsv(conIsv: boolean) {
+  const quote = selected.value!
+  return run(() =>
+    quotesApi.update(quote.id, {
+      validUntil: quote.validUntil ?? undefined,
+      notes: quote.notes ?? undefined,
+      taxRate: conIsv ? tasaDelTaller.value : 0,
+    }),
+  )
+}
+
+/** Una línea de repuesto sin catálogo: la única que puede venir de una casa de repuestos. */
+const esRepuestoLibre = computed(
+  () => newLine.value.lineType === LineType.Part && !newLine.value.catalogId,
+)
 
 /**
  * Envía y abre WhatsApp. El `window.open` va antes del await deliberadamente: si se abre
@@ -181,6 +215,7 @@ function respond(approve: boolean) {
 }
 
 onMounted(async () => {
+  tasaDelTaller.value = (await tenantApi.get().catch(() => null))?.defaultTaxRate ?? 0
   await load()
   // Se puede llegar desde el detalle de una orden con ?id=…
   if (typeof route.query.id === 'string') await open(route.query.id)
@@ -272,7 +307,12 @@ onMounted(async () => {
             <tr v-for="line in selected.lines" :key="line.id">
               <td>
                 {{ line.description }}
-                <div class="muted small">{{ LINE_TYPE_LABEL[line.lineType] }}</div>
+                <div class="muted small">
+                  {{ LINE_TYPE_LABEL[line.lineType] }}
+                  <template v-if="line.boughtOutside">
+                    · se compra en {{ line.supplierName || 'casa de repuestos' }}
+                  </template>
+                </div>
               </td>
               <td class="num muted">
                 {{ formatQuantity(line.quantity) }} × {{ formatMoney(line.unitPrice) }}
@@ -305,6 +345,18 @@ onMounted(async () => {
           No incluye ISV.
         </p>
 
+        <!-- El ISV va dentro del precio: prenderlo no sube el total, solo dice cuánto de ese
+             total es impuesto. Se decide por cotización porque no todo trabajo se factura. -->
+        <label v-if="selected.isEditable && tasaDelTaller > 0" class="check">
+          <input
+            type="checkbox"
+            :checked="selected.taxRate > 0"
+            :disabled="busy"
+            @change="toggleIsv(($event.target as HTMLInputElement).checked)"
+          />
+          Cotizar con ISV {{ tasaDelTaller }}% incluido (el total no cambia)
+        </label>
+
         <form v-if="selected.isEditable" class="add" @submit.prevent="addLine">
           <div class="row gap">
             <select v-model.number="newLine.lineType" @change="newLine.catalogId = ''">
@@ -320,6 +372,16 @@ onMounted(async () => {
             v-if="!newLine.catalogId"
             v-model="newLine.description"
             placeholder="Descripción de la línea"
+          />
+          <label v-if="esRepuestoLibre" class="check">
+            <input v-model="newLine.boughtOutside" type="checkbox" />
+            Se compra en casa de repuestos
+          </label>
+          <input
+            v-if="esRepuestoLibre && newLine.boughtOutside"
+            v-model="newLine.supplierName"
+            placeholder="¿En cuál casa de repuestos? (opcional)"
+            maxlength="120"
           />
           <div class="row gap">
             <label>Cant.<input v-model.number="newLine.quantity" type="number" step="0.01" min="0.01" /></label>
@@ -546,6 +608,15 @@ td {
   border-top: 1px solid var(--border);
   font-size: 1rem;
   font-weight: 600;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .sin-isv {

@@ -37,13 +37,22 @@ class PartsSection extends ConsumerWidget {
       switch (choice) {
         case _FromCatalog(:final part, :final quantity):
           await repo.addPart(order.id, partId: part.id, quantity: quantity);
-        case _Manual(:final description, :final quantity, :final unitPrice, :final unitCost):
+        case _Manual(
+            :final description,
+            :final quantity,
+            :final unitPrice,
+            :final unitCost,
+            :final boughtOutside,
+            :final supplierName,
+          ):
           await repo.addManualPart(
             order.id,
             description: description,
             quantity: quantity,
             unitPrice: unitPrice,
             unitCost: unitCost,
+            boughtOutside: boughtOutside,
+            supplierName: supplierName,
           );
       }
 
@@ -118,7 +127,7 @@ class PartsSection extends ConsumerWidget {
               title: Text(line.partName),
               subtitle: Text(
                 '${_quantity(line.quantity)} ${line.unit} × ${_money(line.unitPrice)}'
-                '${line.partId == null ? ' · a mano' : ''}'
+                '${_origen(line)}'
                 '${line.taskTitle != null ? ' · ${line.taskTitle}' : ''}',
               ),
               trailing: Row(
@@ -177,12 +186,18 @@ class _Manual extends _Choice {
     required this.quantity,
     required this.unitPrice,
     this.unitCost,
+    this.boughtOutside = false,
+    this.supplierName,
   });
 
   final String description;
   final double quantity;
   final double unitPrice;
   final double? unitCost;
+
+  /// Comprado en una casa de repuestos: se le cobra al cliente pero no va en la factura.
+  final bool boughtOutside;
+  final String? supplierName;
 }
 
 class _PartPicker extends ConsumerStatefulWidget {
@@ -304,11 +319,17 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
 
   /// Repuesto que no está en el catálogo: el que se compró de encargo para esta orden. No
   /// descuenta existencias —nunca pasó por bodega— así que el precio hay que escribirlo.
+  ///
+  /// Puede ser del taller aunque no esté en el catálogo, o comprado en una casa de repuestos.
+  /// Esa diferencia se pregunta y no se adivina: la comprada afuera se le cobra al cliente
+  /// igual, pero no entra en la factura del taller.
   Future<void> _askManual() async {
     final concepto = TextEditingController();
     final cantidad = TextEditingController(text: '1');
     final precio = TextEditingController();
     final costo = TextEditingController();
+    final casa = TextEditingController();
+    var afuera = false;
 
     final manual = await showDialog<_Manual>(
       context: context,
@@ -350,6 +371,32 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                   helperMaxLines: 2,
                 ),
               ),
+              // Solo esta parte se redibuja: el resto del diálogo no depende del interruptor.
+              StatefulBuilder(
+                builder: (context, redibujar) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      value: afuera,
+                      onChanged: (valor) => redibujar(() => afuera = valor),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Comprado en casa de repuestos'),
+                      subtitle: const Text(
+                        'Se le cobra al cliente, pero no va en la factura del taller.',
+                      ),
+                    ),
+                    if (afuera)
+                      TextField(
+                        controller: casa,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 120,
+                        decoration: const InputDecoration(
+                          labelText: '¿En cuál casa de repuestos? (opcional)',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -369,6 +416,9 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                   quantity: cant,
                   unitPrice: unit,
                   unitCost: double.tryParse(costo.text.replaceAll(',', '.')),
+                  boughtOutside: afuera,
+                  supplierName:
+                      afuera && casa.text.trim().isNotEmpty ? casa.text.trim() : null,
                 ),
               );
             },
@@ -381,6 +431,15 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
     if (manual == null || !mounted) return;
     Navigator.pop(context, manual);
   }
+}
+
+/// De dónde salió el repuesto, que es lo que el taller distingue de un vistazo: lo comprado
+/// en una casa de repuestos se le cobra al cliente pero no va en su factura.
+String _origen(WorkOrderPart line) {
+  if (!line.boughtOutside) return line.partId == null ? ' · a mano' : '';
+
+  final casa = line.supplierName;
+  return casa != null && casa.isNotEmpty ? ' · $casa' : ' · casa de repuestos';
 }
 
 String _money(double value) => 'L ${value.toStringAsFixed(2)}';

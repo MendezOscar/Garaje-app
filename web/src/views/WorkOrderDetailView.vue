@@ -194,10 +194,11 @@ const cobro = computed(() => {
   const labor = order.value?.laborTotal ?? 0
   const parts = order.value?.partsTotal ?? 0
 
-  // Los repuestos cargados a mano son los que el taller fue a comprar afuera para este
-  // trabajo: no salieron de su bodega, no van en su factura y el cliente los paga aparte.
+  // Lo marcado como comprado en una casa de repuestos no va en la factura del taller: el
+  // cliente lo paga aparte. Un repuesto cargado a mano pero del taller sí se factura, y por
+  // eso la bandera se pregunta al cargarlo en vez de deducirse de que no tenga catálogo.
   const afuera = (order.value?.parts ?? [])
-    .filter((p) => !p.partId)
+    .filter((p) => p.boughtOutside)
     .reduce((suma, p) => suma + p.total, 0)
 
   const deBodega = parts - afuera
@@ -1060,7 +1061,7 @@ onMounted(async () => {
           <dl class="cuentas">
             <dt>Mano de obra</dt>
             <dd class="num">{{ formatMoney(cobro.labor) }}</dd>
-            <dt>Repuestos de bodega</dt>
+            <dt>Repuestos del taller</dt>
             <dd class="num">{{ formatMoney(cobro.deBodega) }}</dd>
             <template v-if="tasaImpuesto && conCai">
               <dt>ISV {{ tasaImpuesto }}% incluido</dt>
@@ -1072,8 +1073,9 @@ onMounted(async () => {
           <!-- Lo comprado afuera no entra en la factura del taller, así que se dice aparte y
                con el número que el cliente va a pagar de su bolsillo. -->
           <p v-if="cobro.afuera > 0" class="muted small">
-            Más {{ formatMoney(cobro.afuera) }} en repuestos comprados afuera, que no van en la
-            factura. El cliente paga {{ formatMoney(cobro.conCliente) }} en total.
+            Aparte, {{ formatMoney(cobro.afuera) }} en repuestos de casa de repuestos, que el
+            cliente paga por su cuenta y no entran en la factura. En total paga
+            {{ formatMoney(cobro.conCliente) }}.
           </p>
           <!-- El ISV solo lo lleva la factura con CAI, así que el estimado va sin él. El otro
                número queda a la vista para no tener que hacer la cuenta a mano cuando el
