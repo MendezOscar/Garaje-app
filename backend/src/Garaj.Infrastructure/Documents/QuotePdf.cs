@@ -1,6 +1,7 @@
 using System.Globalization;
 using Garaj.Application.Quotes;
 using Garaj.Domain.Enums;
+using Garaj.Domain.Rules;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -135,7 +136,8 @@ public static class QuotePdf
                     header.Cell().Element(HeaderCell).Text("#");
                     header.Cell().Element(HeaderCell).Text("Descripción");
                     header.Cell().Element(HeaderCell).AlignRight().Text("Cant.");
-                    header.Cell().Element(HeaderCell).AlignRight().Text("P. unit.");
+                    header.Cell().Element(HeaderCell).AlignRight()
+                        .Text(quote.TaxRate > 0 ? "P. unit. sin ISV" : "P. unit.");
                     header.Cell().Element(HeaderCell).AlignRight().Text("Total");
                 });
 
@@ -156,26 +158,37 @@ public static class QuotePdf
                         c.Item().Text(Concepto(line))
                             .FontSize(8).FontColor(Colors.Grey.Darken1);
                     });
+                    // Con ISV, la línea se muestra sin impuesto y el desglose va al pie: así
+                    // el cliente puede sumar lo que lee y llegar al neto que ve abajo.
+                    var unitario = quote.TaxRate > 0
+                        ? Isv.Base(line.UnitPrice, quote.TaxRate)
+                        : line.UnitPrice;
+                    var importe = quote.TaxRate > 0
+                        ? Isv.Base(line.Total, quote.TaxRate)
+                        : line.Total;
+
                     table.Cell().Element(BodyCell).AlignRight().Text(Quantity(line.Quantity));
-                    table.Cell().Element(BodyCell).AlignRight().Text(Money(line.UnitPrice, quote.Currency));
-                    table.Cell().Element(BodyCell).AlignRight().Text(Money(line.Total, quote.Currency));
+                    table.Cell().Element(BodyCell).AlignRight().Text(Money(unitario, quote.Currency));
+                    table.Cell().Element(BodyCell).AlignRight().Text(Money(importe, quote.Currency));
                 }
             });
 
             column.Item().AlignRight().Width(240).Column(totals =>
             {
-                Total(totals, "Subtotal", Money(quote.Subtotal, quote.Currency));
+                // Sin ISV el subtotal es la suma de las líneas y no hay nada que desglosar.
+                // Con ISV el desglose reemplaza esa fila: neto, impuesto y total, que es lo
+                // que pide una factura y lo que el cliente puede comprobar sumando.
+                if (quote.TaxRate == 0)
+                    Total(totals, "Subtotal", Money(quote.Subtotal, quote.Currency));
 
                 if (quote.DiscountTotal > 0)
                     Total(totals, "Descuento", $"−{Money(quote.DiscountTotal, quote.Currency)}");
 
-                // «Incluido» y no a secas: el precio de cada línea ya lo trae adentro, y sin
-                // esa palabra el cliente suma el ISV otra vez al total.
                 if (quote.TaxRate > 0)
-                    Total(
-                        totals,
-                        $"ISV {quote.TaxRate:0.##}% incluido",
-                        Money(quote.TaxTotal, quote.Currency));
+                {
+                    Total(totals, "Neto", Money(quote.Total - quote.TaxTotal, quote.Currency));
+                    Total(totals, $"ISV {quote.TaxRate:0.##}%", Money(quote.TaxTotal, quote.Currency));
+                }
 
                 totals.Item().PaddingTop(4).BorderTop(1).BorderColor(Colors.Grey.Darken1)
                     .PaddingTop(4).Row(row =>

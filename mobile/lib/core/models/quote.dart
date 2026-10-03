@@ -149,3 +149,9 @@ class Quote {
   static DateTime? _date(Object? value) =>
       value == null ? null : DateTime.parse(value as String);
 }
+
+/// El precio sin el ISV que ya trae adentro. El impuesto va dentro del precio, así que para
+/// desglosarlo se divide, no se resta un porcentaje: `425 / 1.15 = 369.57`, y lo que falta
+/// para el total es el impuesto. Con tasa cero devuelve el mismo precio.
+double sinIsv(double bruto, double tasa) =>
+    tasa <= 0 ? bruto : (bruto / (1 + tasa / 100) * 100).roundToDouble() / 100;

@@ -199,8 +199,10 @@ class _QuoteScreenState extends ConsumerState<QuoteScreen> {
                     // pide factura con CAI tiene que ver desde hoy que el impuesto se le
                     // suma, y no enterarse cuando va a pagar.
                     Text(
-                      q.taxTotal > 0
-                          ? 'Incluye ${money(q.taxTotal, q.currency)} de impuesto.'
+                      q.taxRate > 0
+                          ? 'Neto ${money(q.total - q.taxTotal, q.currency)} · '
+                              'ISV ${q.taxRate.toStringAsFixed(0)}% '
+                              '${money(q.taxTotal, q.currency)}'
                           : 'No incluye ISV.',
                       style: theme.textTheme.bodySmall,
                     ),
@@ -216,7 +218,11 @@ class _QuoteScreenState extends ConsumerState<QuoteScreen> {
                   children: [
                     for (var i = 0; i < q.lines.length; i++) ...[
                       if (i > 0) Divider(height: 1, color: theme.dividerColor),
-                      _Linea(line: q.lines[i], currency: q.currency),
+                      _Linea(
+                        line: q.lines[i],
+                        currency: q.currency,
+                        tasa: q.taxRate,
+                      ),
                     ],
                   ],
                 ),
@@ -258,10 +264,17 @@ class _QuoteScreenState extends ConsumerState<QuoteScreen> {
 }
 
 class _Linea extends StatelessWidget {
-  const _Linea({required this.line, required this.currency});
+  const _Linea({
+    required this.line,
+    required this.currency,
+    required this.tasa,
+  });
 
   final QuoteLine line;
   final String currency;
+
+  /// La del documento. Con ISV, la línea se muestra sin impuesto y el desglose va al pie.
+  final double tasa;
 
   @override
   Widget build(BuildContext context) {
@@ -278,10 +291,9 @@ class _Linea extends StatelessWidget {
               children: [
                 Text(line.description),
                 Text(
-                  line.lineType == LineType.labor
-                      ? 'mano de obra'
-                      : 'repuesto · ${_cantidad(line.quantity)}'
-                          '${_casa(line)}',
+                  '${line.lineType == LineType.labor ? 'mano de obra' : 'repuesto · ${_cantidad(line.quantity)}'}'
+                  '${_casa(line)}'
+                  '${tasa > 0 ? ' · sin ISV' : ''}',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -289,7 +301,7 @@ class _Linea extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            money(line.total, currency),
+            money(sinIsv(line.total, tasa), currency),
             style: theme.textTheme.titleSmall?.copyWith(fontFamily: GarajFonts.mono),
           ),
         ],
