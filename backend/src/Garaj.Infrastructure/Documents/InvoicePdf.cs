@@ -1,6 +1,7 @@
 using System.Globalization;
 using Garaj.Application.Sales;
 using Garaj.Domain.Enums;
+using Garaj.Domain.Rules;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -206,7 +207,8 @@ public static class InvoicePdf
                     header.Cell().Element(HeaderCell).Text("#");
                     header.Cell().Element(HeaderCell).Text("Descripción");
                     header.Cell().Element(HeaderCell).AlignRight().Text("Cant.");
-                    header.Cell().Element(HeaderCell).AlignRight().Text("P. unit.");
+                    header.Cell().Element(HeaderCell).AlignRight()
+                        .Text(sale.TaxRate > 0 ? "P. unit. sin ISV" : "P. unit.");
                     header.Cell().Element(HeaderCell).AlignRight().Text("Total");
                 });
 
@@ -221,15 +223,25 @@ public static class InvoicePdf
                         c.Item().Text(line.LineType == LineType.Part ? "Repuesto" : "Mano de obra")
                             .FontSize(8).FontColor(Colors.Grey.Darken1);
                     });
+                    // Con ISV la línea va sin impuesto, para que la columna sume el importe
+                    // gravado del pie en vez de un número que no aparece en ninguna parte.
+                    var unitario = sale.TaxRate > 0
+                        ? Isv.Base(line.UnitPrice, sale.TaxRate)
+                        : line.UnitPrice;
+                    var importe = sale.TaxRate > 0
+                        ? Isv.Base(line.Total, sale.TaxRate)
+                        : line.Total;
+
                     table.Cell().Element(BodyCell).AlignRight().Text(Quantity(line.Quantity));
-                    table.Cell().Element(BodyCell).AlignRight().Text(Money(line.UnitPrice, sale.Currency));
-                    table.Cell().Element(BodyCell).AlignRight().Text(Money(line.Total, sale.Currency));
+                    table.Cell().Element(BodyCell).AlignRight().Text(Money(unitario, sale.Currency));
+                    table.Cell().Element(BodyCell).AlignRight().Text(Money(importe, sale.Currency));
                 }
             });
 
             column.Item().AlignRight().Width(240).Column(totals =>
             {
-                Total(totals, "Subtotal", Money(sale.Subtotal, sale.Currency));
+                if (sale.TaxRate == 0)
+                    Total(totals, "Subtotal", Money(sale.Subtotal, sale.Currency));
 
                 if (sale.DiscountTotal > 0)
                     Total(totals, "Descuento", $"−{Money(sale.DiscountTotal, sale.Currency)}");
