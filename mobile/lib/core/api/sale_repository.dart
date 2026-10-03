@@ -332,6 +332,7 @@ class SaleRepository {
     String? customerName,
     DateTime? nextServiceAt,
     int? nextServiceMileage,
+    bool includeOutsideParts = false,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/sales/close-work-order',
@@ -353,6 +354,9 @@ class SaleRepository {
         // la orden no genera recordatorio.
         'nextServiceAt': nextServiceAt?.toUtc().toIso8601String(),
         'nextServiceMileage': nextServiceMileage,
+        // Los comprados en una casa de repuestos entran solo si la factura de esa compra
+        // salió a nombre del taller. Cambia caso por caso, así que se pregunta al cerrar.
+        'includeOutsideParts': includeOutsideParts,
       },
     );
 

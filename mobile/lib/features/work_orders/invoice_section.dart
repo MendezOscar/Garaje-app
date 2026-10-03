@@ -68,6 +68,11 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
 
   /// Entrega a crédito: lo que deja hoy y para cuándo queda el resto.
   bool _onCredit = false;
+
+  /// Si los repuestos comprados en una casa de repuestos entran en esta factura. Depende de a
+  /// nombre de quién salió la factura de esa compra, que cambia caso por caso, así que se
+  /// pregunta al cerrar y nace apagado: cobrar de más es peor que preguntar.
+  bool _cobrarLosDeAfuera = false;
   final _initialPayment = TextEditingController();
   DateTime? _dueDate;
 
@@ -189,6 +194,7 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             // Sin fecha, la orden no genera recordatorio: este trabajo no se repite.
             nextServiceAt: _nextServiceAt,
             nextServiceMileage: int.tryParse(_nextServiceMileage.text.trim()),
+            includeOutsideParts: _cobrarLosDeAfuera,
           );
     });
   }
@@ -369,6 +375,9 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             setState(() => _fiscal = value);
             if (value) _cargarFicha();
           },
+          cobrarLosDeAfuera: _cobrarLosDeAfuera,
+          onCobrarLosDeAfueraChanged: (value) =>
+              setState(() => _cobrarLosDeAfuera = value),
           onCredit: _onCredit,
           initialPayment: _initialPayment,
           dueDate: _dueDate,
@@ -420,6 +429,8 @@ class _CloseCard extends ConsumerWidget {
     required this.customerTaxId,
     required this.customerName,
     required this.onFiscalChanged,
+    required this.cobrarLosDeAfuera,
+    required this.onCobrarLosDeAfueraChanged,
     required this.onCredit,
     required this.initialPayment,
     required this.dueDate,
@@ -459,6 +470,9 @@ class _CloseCard extends ConsumerWidget {
   final TextEditingController customerName;
   final ValueChanged<bool> onFiscalChanged;
 
+  final bool cobrarLosDeAfuera;
+  final ValueChanged<bool> onCobrarLosDeAfueraChanged;
+
   /// Por qué no se puede emitir con CAI, o null si sí se puede.
   String? get _impedimento {
     if (fiscalRange == null) {
@@ -490,7 +504,7 @@ class _CloseCard extends ConsumerWidget {
     // El precio ya lleva el ISV adentro, así que facturar no cambia el total: solo lo
     // desglosa. El impuesto se saca hacia atrás y únicamente cuando sale con CAI, que es la
     // factura que lo respalda.
-    final total = deBodega + _labor;
+    final total = deBodega + _labor + (cobrarLosDeAfuera ? afuera : 0);
     final impuesto = fiscal && tasa > 0 ? total - total / (1 + tasa / 100) : 0.0;
 
     return _Section(
@@ -506,12 +520,33 @@ class _CloseCard extends ConsumerWidget {
                 '${_money(_labor, 'L')}',
                 style: theme.textTheme.bodySmall,
               ),
-              if (afuera > 0)
-                Text(
-                  'Aparte: ${_money(afuera, 'L')} de casa de repuestos, que el cliente paga '
-                  'por su cuenta y no entra en esta factura.',
-                  style: theme.textTheme.bodySmall,
+              if (afuera > 0) ...[
+                SwitchListTile(
+                  value: cobrarLosDeAfuera,
+                  onChanged: busy ? null : onCobrarLosDeAfueraChanged,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(
+                    'Cobrar los ${_money(afuera, 'L')} de casa de repuestos',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  subtitle: Text(
+                    cobrarLosDeAfuera
+                        ? 'Entran en esta factura, como cualquier otro repuesto.'
+                        : 'El cliente los paga por su cuenta y no entran en la factura.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
+                Text(
+                  'Márquelo si la factura de esa compra salió a nombre del taller: ahí es un '
+                  'gasto suyo y tiene que salir como venta.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               Text('Total ${_money(total, 'L')}', style: theme.textTheme.titleLarge),
               if (tasa > 0) ...[
