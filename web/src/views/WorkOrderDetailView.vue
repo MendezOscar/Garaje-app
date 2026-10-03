@@ -117,6 +117,14 @@ const historial = ref<WorkOrderListItem[]>([])
  */
 const conCai = ref(false)
 const rtnFactura = ref('')
+
+/**
+ * Si los repuestos comprados en una casa de repuestos entran en esta factura. Depende de a
+ * nombre de quién salió la factura de esa compra: al taller, es un gasto suyo y tiene que
+ * volver a salir como venta; al cliente, el taller nunca fue dueño y no puede facturarlo.
+ * Nace apagado porque cobrar de más es peor que preguntar.
+ */
+const cobrarLosDeAfuera = ref(false)
 /**
  * A nombre de quién sale la factura. Se precarga con lo que tenga la ficha y se puede
  * cambiar aquí: pasa que el cliente pide la factura a nombre de la empresa donde trabaja,
@@ -206,12 +214,15 @@ const cobro = computed(() => {
   // El precio ya lleva el ISV adentro, así que el total no cambia por facturar: lo que cambia
   // es que el impuesto se desglose. Antes se sumaba encima y el cliente que pedía factura
   // pagaba un 15% más por la misma reparación.
-  const total = labor + deBodega
+  // Lo que el taller va a facturar: todo menos lo comprado afuera, salvo que al cerrar se
+  // pida cobrarlo. El total estimado, en cambio, es siempre lo que el cliente paga.
+  const facturable = labor + deBodega + (cobrarLosDeAfuera.value ? afuera : 0)
+  const total = labor + parts
   const impuesto = conCai.value
-    ? Math.round((total - total / (1 + tasaImpuesto.value / 100)) * 100) / 100
+    ? Math.round((facturable - facturable / (1 + tasaImpuesto.value / 100)) * 100) / 100
     : 0
 
-  return { labor, parts, deBodega, afuera, impuesto, total, conCliente: total + afuera }
+  return { labor, parts, deBodega, afuera, impuesto, facturable, total }
 })
 
 /** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
@@ -350,6 +361,7 @@ function closeAndInvoice() {
         ? new Date(`${nextServiceAt.value}T09:00:00`).toISOString()
         : undefined,
       nextServiceMileage: Number(nextServiceMileage.value) || undefined,
+      includeOutsideParts: cobrarLosDeAfuera.value,
     }),
   )
 }
@@ -1061,8 +1073,8 @@ onMounted(async () => {
           <dl class="cuentas">
             <dt>Mano de obra</dt>
             <dd class="num">{{ formatMoney(cobro.labor) }}</dd>
-            <dt>Repuestos del taller</dt>
-            <dd class="num">{{ formatMoney(cobro.deBodega) }}</dd>
+            <dt>Repuestos</dt>
+            <dd class="num">{{ formatMoney(cobro.parts) }}</dd>
             <template v-if="tasaImpuesto && conCai">
               <dt>ISV {{ tasaImpuesto }}% incluido</dt>
               <dd class="num">{{ formatMoney(cobro.impuesto) }}</dd>
@@ -1070,12 +1082,11 @@ onMounted(async () => {
             <dt class="fuerte">Total estimado</dt>
             <dd class="fuerte num grande">{{ formatMoney(cobro.total) }}</dd>
           </dl>
-          <!-- Lo comprado afuera no entra en la factura del taller, así que se dice aparte y
-               con el número que el cliente va a pagar de su bolsillo. -->
+          <!-- Lo comprado afuera se le cobra al cliente igual; lo que cambia es si el taller
+               lo factura, y eso se decide al cerrar. -->
           <p v-if="cobro.afuera > 0" class="muted small">
-            Aparte, {{ formatMoney(cobro.afuera) }} en repuestos de casa de repuestos, que el
-            cliente paga por su cuenta y no entran en la factura. En total paga
-            {{ formatMoney(cobro.conCliente) }}.
+            De eso, {{ formatMoney(cobro.afuera) }} se compró en casa de repuestos. El taller
+            factura {{ formatMoney(cobro.facturable) }}.
           </p>
           <!-- El ISV solo lo lleva la factura con CAI, así que el estimado va sin él. El otro
                número queda a la vista para no tener que hacer la cuenta a mano cuando el
@@ -1134,7 +1145,7 @@ onMounted(async () => {
             Factura con CAI
             <span v-if="rangoFiscal && !impedimentoCai" class="muted small">
               · siguiente {{ rangoFiscal.nextFiscalNumber }}<template v-if="tasaImpuesto">
-              · le suma el ISV {{ tasaImpuesto }}%</template>
+              · desglosa el ISV {{ tasaImpuesto }}%, que ya va en el precio</template>
             </span>
           </label>
           <p v-if="impedimentoCai" class="muted small">{{ impedimentoCai }}</p>
@@ -1154,6 +1165,16 @@ onMounted(async () => {
           <p v-if="conCai && !rtnFactura.trim()" class="muted small">
             Sale a consumidor final. Arriba de L 10,000 el SAR pide el RTN o el número de
             identidad del cliente en su ficha.
+          </p>
+
+          <label v-if="cobro.afuera > 0" class="checkbox">
+            <input v-model="cobrarLosDeAfuera" type="checkbox" />
+            Cobrar los {{ formatMoney(cobro.afuera) }} de casa de repuestos
+          </label>
+          <p v-if="cobro.afuera > 0" class="muted small">
+            Márquelo si la factura de esa compra salió a nombre del taller: ahí es un gasto
+            suyo y tiene que volver a salir como venta. Si salió a nombre del cliente, déjelo
+            sin marcar y él la paga por su cuenta.
           </p>
 
           <label class="checkbox">

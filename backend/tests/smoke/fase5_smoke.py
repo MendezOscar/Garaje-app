@@ -138,7 +138,7 @@ check("factura la mano de obra del paso",
 check("factura el cargado a mano que es del taller",
       any(l["lineType"] == PART and l["description"].startswith("Empaque") for l in sale["lines"]),
       str(sale["lines"]))
-check("y no factura el comprado en la casa de repuestos",
+check("y no factura el comprado en la casa de repuestos, que no se pidió cobrar",
       not any(l["lineType"] == PART and "Bomba de agua" in l["description"]
               for l in sale["lines"]),
       str(sale["lines"]))

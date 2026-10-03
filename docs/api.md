@@ -476,6 +476,11 @@ Decisiones que conviene conocer:
 
   La bandera se pregunta y **no se deduce de que la línea sea manual**: a mano también se
   carga un repuesto del taller que sencillamente no está en el catálogo, y ese sí se factura.
+
+  Al cerrar se puede pedir cobrarlos igual (`includeOutsideParts`). El criterio es a nombre de
+  quién salió la factura de esa compra: si se la dieron al taller, ese repuesto es un gasto
+  suyo y tiene que volver a salir como venta o queda un gasto sin ingreso que lo respalde; si
+  salió a nombre del cliente, el taller nunca fue dueño. Por eso se pregunta y nace apagado.
 - **El ISV de una cotización se prende por cotización.** Nace sin tasa. Con el impuesto dentro
   del precio, prenderla no cambia el total: cambia lo que el documento dice —cuánto lleva
   incluido, o que no lleva—, y eso depende de si ese trabajo se va a facturar con CAI.

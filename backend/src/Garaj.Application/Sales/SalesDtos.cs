@@ -154,7 +154,12 @@ public record CloseWorkOrderRequest(
     // opcionales y se dejan vacíos cuando el trabajo no se repite: una reparación de frenos no
     // vuelve, un cambio de aceite sí. Con fecha, la orden aparece en «Recordatorios».
     DateTimeOffset? NextServiceAt = null,
-    int? NextServiceMileage = null);
+    int? NextServiceMileage = null,
+    // Cobra también los repuestos comprados en una casa de repuestos. Depende de a nombre de
+    // quién salió la factura de esa compra: si se la dieron al taller, ese repuesto es un
+    // gasto suyo y tiene que volver a salir como venta; si salió a nombre del cliente, el
+    // taller nunca fue dueño y no puede facturarlo. Por eso se pregunta al cerrar.
+    bool IncludeOutsideParts = false);
 
 /// <summary>Un abono a una venta con saldo.</summary>
 public record RegisterPaymentRequest(

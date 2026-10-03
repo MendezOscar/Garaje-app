@@ -250,8 +250,13 @@ public class SaleService(
         //
         // La bandera es explícita y no se deduce de `PartId`: a mano también se carga un
         // repuesto propio que sencillamente no está en el catálogo, y ese sí se factura.
+        //
+        // Salvo que al cerrar se pida incluirlos: cuando la casa de repuestos le facturó al
+        // taller, ese repuesto es un gasto suyo y tiene que volver a salir como venta, o
+        // queda un gasto sin ingreso que lo respalde.
         var parts = await db.WorkOrderParts.AsNoTracking()
-            .Where(p => p.WorkOrderId == order.Id && !p.BoughtOutside)
+            .Where(p => p.WorkOrderId == order.Id
+                && (request.IncludeOutsideParts || !p.BoughtOutside))
             .Select(p => new
             {
                 p.PartId,

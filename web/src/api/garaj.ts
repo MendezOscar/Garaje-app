@@ -781,6 +781,8 @@ export const salesApi = {
     /** Cuándo le toca el próximo servicio. Vacío = este trabajo no se repite. */
     nextServiceAt?: string
     nextServiceMileage?: number
+    /** Cobra también lo comprado en casa de repuestos: solo si esa factura salió al taller. */
+    includeOutsideParts?: boolean
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
     return data
