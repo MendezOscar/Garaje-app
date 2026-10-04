@@ -70,6 +70,10 @@ public class TenantService(
         if (request.DefaultTaxRate is < 0 or > 100)
             throw new AppException("La tasa de impuesto va entre 0 y 100.");
 
+        // Dos años de tope: más que eso es un error de tecleo, no una garantía.
+        if (request.DefaultWarrantyDays is < 0 or > 730)
+            throw new AppException("La garantía va entre 0 y 730 días.");
+
         var tenant = await CurrentAsync(ct);
 
         tenant.Name = name;
@@ -79,6 +83,7 @@ public class TenantService(
         tenant.Email = Trim(request.Email);
         tenant.Address = Trim(request.Address);
         tenant.DefaultTaxRate = request.DefaultTaxRate;
+        tenant.DefaultWarrantyDays = request.DefaultWarrantyDays;
 
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
@@ -361,5 +366,6 @@ public class TenantService(
         tenant.Currency,
         tenant.DefaultTaxRate,
         tenant.DefaultPhoneCountryCode,
+        tenant.DefaultWarrantyDays,
         tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id));
 }

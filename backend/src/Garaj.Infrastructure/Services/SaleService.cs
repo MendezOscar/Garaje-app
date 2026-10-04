@@ -46,6 +46,11 @@ public class SaleService(
                              && s.Total > (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0));
         if (query.CustomerId is { } customerId) q = q.Where(s => s.CustomerId == customerId);
         if (query.WorkOrderId is { } workOrderId) q = q.Where(s => s.WorkOrderId == workOrderId);
+
+        // Lo del vehículo: la venta lo lleva directo en el servicio rápido, y por la orden
+        // cuando salió de una. Así el historial de un carro no depende de por dónde entró.
+        if (query.VehicleId is { } vehicleId)
+            q = q.Where(s => s.VehicleId == vehicleId);
         // Npgsql solo escribe `timestamptz` en UTC. Una fecha con el desplazamiento del taller
         // —o sin ninguno, que el servidor interpreta en el suyo— hacía estallar la consulta:
         // se normaliza aquí, que es el único punto donde toca la base.
@@ -167,14 +172,25 @@ public class SaleService(
 
         var tenant = await CurrentTenantAsync(ct);
 
+        // El servicio rápido manda el vehículo: es lo que lo hace aparecer en su historial.
+        if (request.VehicleId is { } vehicleId
+            && !await db.Vehicles.AnyAsync(v => v.Id == vehicleId, ct))
+            throw new NotFoundException("El vehículo no existe.");
+
+        var saleDate = request.SaleDate ?? clock.UtcNow;
+        var warranty = WarrantyFor(request.WarrantyDays, tenant, saleDate);
+
         var sale = new Sale
         {
             BranchId = request.BranchId,
             CustomerId = request.CustomerId,
+            VehicleId = request.VehicleId,
             Number = await NextNumberAsync(request.BranchId, ct),
-            SaleDate = request.SaleDate ?? clock.UtcNow,
+            SaleDate = saleDate,
             PaymentMethod = request.PaymentMethod,
             TaxRate = TaxRateFor(request.Fiscal, request.TaxRate, tenant),
+            WarrantyDays = warranty.Days,
+            WarrantyUntil = warranty.Until,
             DueDate = request.DueDate,
             Notes = Truncate(request.Notes, 2000)
         };
@@ -219,15 +235,21 @@ public class SaleService(
 
         var tenant = await CurrentTenantAsync(ct);
 
+        var saleDate = clock.UtcNow;
+        var warranty = WarrantyFor(request.WarrantyDays, tenant, saleDate);
+
         var sale = new Sale
         {
             BranchId = order.BranchId,
             CustomerId = order.Vehicle.CustomerId,
+            VehicleId = order.VehicleId,
             WorkOrderId = order.Id,
             Number = await NextNumberAsync(order.BranchId, ct),
-            SaleDate = clock.UtcNow,
+            SaleDate = saleDate,
             PaymentMethod = request.PaymentMethod,
             TaxRate = TaxRateFor(request.Fiscal, request.TaxRate, tenant),
+            WarrantyDays = warranty.Days,
+            WarrantyUntil = warranty.Until,
             DueDate = request.DueDate,
             Notes = Truncate(request.Notes, 2000)
         };
@@ -819,6 +841,21 @@ public class SaleService(
         fiscal ? requested ?? tenant.DefaultTaxRate : 0m;
 
     /// <summary>
+    /// La garantía de este trabajo: los días pedidos, o los del taller si no se pidieron.
+    /// Cero —o un taller que no da garantía— deja la venta sin ella.
+    /// </summary>
+    /// <remarks>
+    /// Se congela la fecha además de los días: cambiar mañana la garantía del taller no
+    /// puede mover la de un trabajo ya entregado, que es lo que el cliente tiene por escrito.
+    /// </remarks>
+    private static (int? Days, DateTimeOffset? Until) WarrantyFor(
+        int? requested, Tenant tenant, DateTimeOffset saleDate)
+    {
+        var days = requested ?? tenant.DefaultWarrantyDays;
+        return days > 0 ? (days, saleDate.AddDays(days)) : (null, null);
+    }
+
+    /// <summary>
     /// Los importes se calculan aquí y nunca se aceptan del cliente: es lo que se cobra y lo
     /// que después tiene que cuadrar con la caja.
     /// </summary>
@@ -952,9 +989,24 @@ public class SaleService(
         var order = sale.WorkOrderId is { } orderId
             ? await db.WorkOrders.AsNoTracking()
                 .Where(w => w.Id == orderId)
-                .Select(w => new { w.Number, Vehicle = w.Vehicle.Brand + " " + w.Vehicle.Model })
+                .Select(w => new
+                {
+                    w.Number,
+                    w.VehicleId,
+                    Vehicle = w.Vehicle.Brand + " " + w.Vehicle.Model
+                })
                 .FirstOrDefaultAsync(ct)
             : null;
+
+        // El servicio rápido no tiene orden, pero sí vehículo: se lee de la venta.
+        var vehicleId = sale.VehicleId ?? order?.VehicleId;
+
+        var vehicle = sale.VehicleId is { } ownVehicleId
+            ? await db.Vehicles.AsNoTracking()
+                .Where(v => v.Id == ownVehicleId)
+                .Select(v => v.Brand + " " + v.Model)
+                .FirstOrDefaultAsync(ct)
+            : order?.Vehicle;
 
         var paid = sale.Payments.Sum(p => p.Amount);
 
@@ -987,8 +1039,11 @@ public class SaleService(
             customer?.Phone,
             sale.WorkOrderId,
             order?.Number,
-            order?.Vehicle,
+            vehicleId,
+            vehicle,
             sale.SaleDate,
+            sale.WarrantyDays,
+            sale.WarrantyUntil,
             sale.PaymentMethod,
             sale.Subtotal,
             sale.DiscountTotal,

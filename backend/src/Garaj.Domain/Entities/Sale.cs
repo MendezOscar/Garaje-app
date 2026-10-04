@@ -41,6 +41,26 @@ public class Sale : TenantEntity, IBranchEntity
     public DateTimeOffset? DueDate { get; set; }
 
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// De qué vehículo fue el trabajo. Lo llevan la venta de una orden y el servicio rápido;
+    /// la venta de mostrador de un repuesto suelto va sin él. Es lo que hace que el trabajo
+    /// aparezca en el historial del vehículo, que es donde el taller lo busca después.
+    /// </summary>
+    public Guid? VehicleId { get; set; }
+
+    /// <summary>
+    /// Días de garantía de este trabajo, elegidos al facturar. Null es sin garantía.
+    /// </summary>
+    /// <remarks>
+    /// Vive en la venta y no en la orden porque es donde se decide y donde se imprime, y
+    /// porque así un servicio rápido —que no tiene orden— la lleva igual.
+    /// </remarks>
+    public int? WarrantyDays { get; set; }
+
+    /// <summary>Hasta cuándo vale la garantía. Se calcula al facturar y no se vuelve a tocar.</summary>
+    public DateTimeOffset? WarrantyUntil { get; set; }
+
     public bool IsVoided { get; set; }
     public string? VoidReason { get; set; }
 

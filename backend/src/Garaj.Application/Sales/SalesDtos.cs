@@ -57,8 +57,12 @@ public record SaleDetailDto(
     string? CustomerPhone,
     Guid? WorkOrderId,
     string? WorkOrderNumber,
+    Guid? VehicleId,
     string? VehicleLabel,
     DateTimeOffset SaleDate,
+    // Garantía del trabajo. Null es sin garantía.
+    int? WarrantyDays,
+    DateTimeOffset? WarrantyUntil,
     PaymentMethod PaymentMethod,
     decimal Subtotal,
     decimal DiscountTotal,
@@ -125,7 +129,12 @@ public record CreateSaleRequest(
     // A nombre de quién sale la factura, cuando no es a nombre del cliente que la pide:
     // suele ser la empresa dueña del RTN. Vacío usa el de su ficha, y si tampoco tiene,
     // su propio nombre.
-    string? CustomerName = null);
+    string? CustomerName = null,
+    // De qué vehículo es el trabajo. Es lo que convierte una venta de mostrador en un
+    // servicio rápido: aparece en el historial del vehículo, como una orden.
+    Guid? VehicleId = null,
+    // Días de garantía. Null toma el del taller; cero es sin garantía.
+    int? WarrantyDays = null);
 
 /// <summary>
 /// Cierre de la orden: la entrega al cliente y genera la venta con lo que se le hizo.
@@ -159,7 +168,9 @@ public record CloseWorkOrderRequest(
     // quién salió la factura de esa compra: si se la dieron al taller, ese repuesto es un
     // gasto suyo y tiene que volver a salir como venta; si salió a nombre del cliente, el
     // taller nunca fue dueño y no puede facturarlo. Por eso se pregunta al cerrar.
-    bool IncludeOutsideParts = false);
+    bool IncludeOutsideParts = false,
+    // Días de garantía. Null toma el del taller; cero es sin garantía.
+    int? WarrantyDays = null);
 
 /// <summary>Un abono a una venta con saldo.</summary>
 public record RegisterPaymentRequest(
@@ -176,6 +187,10 @@ public record SaleQuery : PageQuery
     public Guid? BranchId { get; init; }
     public Guid? CustomerId { get; init; }
     public Guid? WorkOrderId { get; init; }
+
+    /// <summary>Todo lo que se le hizo a un vehículo: órdenes facturadas y servicios rápidos.</summary>
+    public Guid? VehicleId { get; init; }
+
     public DateTimeOffset? From { get; init; }
     public DateTimeOffset? To { get; init; }
     public bool IncludeVoided { get; init; }
