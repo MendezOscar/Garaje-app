@@ -17,6 +17,9 @@ public class QuoteConfiguration : IEntityTypeConfiguration<Quote>
 
         b.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
 
+        // El historial del vehículo lee por aquí: órdenes y servicios rápidos del mismo carro.
+        b.HasIndex(x => x.VehicleId);
+
         // El link público resuelve la cotización solo por este token, así que debe ser único
         // globalmente: la consulta corre sin filtro de tenant.
         b.HasIndex(x => x.PublicToken).IsUnique();
@@ -59,6 +62,9 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         b.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
+
+        // El historial del vehículo lee por aquí: órdenes y servicios rápidos del mismo carro.
+        b.HasIndex(x => x.VehicleId);
 
         // Único entre los que tienen número fiscal: si dos cajas emiten a la vez, la segunda
         // falla en la base en lugar de repetir un correlativo del SAR.

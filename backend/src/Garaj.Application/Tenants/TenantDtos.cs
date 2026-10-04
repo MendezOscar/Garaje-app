@@ -21,6 +21,8 @@ public record TenantSettingsDto(
     string Currency,
     decimal DefaultTaxRate,
     string DefaultPhoneCountryCode,
+    // Días de garantía que lleva un trabajo por defecto. Cero es sin garantía.
+    int DefaultWarrantyDays,
     string? LogoUrl);
 
 public record UpdateTenantRequest(
@@ -31,7 +33,8 @@ public record UpdateTenantRequest(
     string? Email,
     string? Address,
     decimal DefaultTaxRate,
-    string? DefaultPhoneCountryCode);
+    string? DefaultPhoneCountryCode,
+    int DefaultWarrantyDays = 0);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

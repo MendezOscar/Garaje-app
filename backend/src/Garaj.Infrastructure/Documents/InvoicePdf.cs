@@ -294,6 +294,16 @@ public static class InvoicePdf
                 }
             });
 
+            // La garantía, impresa y con fecha. Es lo que evita la discusión de «usted me
+            // dijo tres meses»: el cliente se lleva por escrito hasta cuándo vale.
+            if (sale.WarrantyUntil is { } hasta && sale.WarrantyDays is { } dias)
+            {
+                column.Item().PaddingTop(6).Background(Colors.Grey.Lighten4).Padding(6).Text(
+                        $"Garantía de {dias} días sobre el trabajo realizado, "
+                        + $"hasta el {hasta.ToLocalTime():dd/MM/yyyy}.")
+                    .FontSize(9);
+            }
+
             // El valor en letras es obligatorio en la factura fiscal, y de paso estorba la
             // corrección a mano de la cifra.
             if (sale.FiscalNumber is not null)

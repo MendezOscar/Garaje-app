@@ -32,6 +32,13 @@ public class Tenant : AuditableEntity
     public decimal DefaultTaxRate { get; set; }
 
     /// <summary>
+    /// Días de garantía que lleva un trabajo por defecto. Cero es sin garantía, y es como
+    /// nace un taller: ofrecerla es una decisión suya, no nuestra. Se puede cambiar al
+    /// facturar, trabajo por trabajo.
+    /// </summary>
+    public int DefaultWarrantyDays { get; set; }
+
+    /// <summary>
     /// Suspensión manual: el corte definitivo, decidido por nosotros. A diferencia del vencimiento
     /// —que solo deja el taller en modo lectura— un taller suspendido no puede ni iniciar sesión.
     /// </summary>
