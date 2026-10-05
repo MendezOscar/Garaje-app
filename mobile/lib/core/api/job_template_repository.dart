@@ -5,9 +5,9 @@ import '../auth/auth_controller.dart';
 
 /// Trabajos frecuentes: el cambio de aceite, las pastillas de adelante, lo que el taller repite.
 ///
-/// En el teléfono es donde más se nota, porque teclear de pie y con las manos sucias es lo caro.
-/// Aquí solo se listan y se aplican; crearlos y corregirlos se hace en el panel, que es una
-/// acción de catálogo y se hace una vez.
+/// En el teléfono es donde más se nota, porque teclear de pie y con las manos sucias es lo
+/// caro. Se listan, se aplican, y se guardan desde una orden ya hecha: ese es el camino
+/// bueno, porque los pasos y los repuestos ya están ahí y ya están bien.
 
 class JobTemplate {
   const JobTemplate({
@@ -113,6 +113,68 @@ class JobTemplateRepository {
         .toList();
   }
 
+  /// Guarda una orden ya hecha como trabajo frecuente.
+  ///
+  /// Es el camino principal y el único que vale la pena en el teléfono: los pasos, sus
+  /// servicios y sus repuestos ya están en la orden, y salieron de un trabajo real.
+  Future<JobTemplate> fromWorkOrder({
+    required String workOrderId,
+    required String name,
+    String? description,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/job-templates/from-work-order',
+      data: {'workOrderId': workOrderId, 'name': name, 'description': description},
+    );
+
+    return JobTemplate.fromJson(response.data!);
+  }
+
+  /// El detalle: sus pasos y sus repuestos, a precios de hoy.
+  Future<JobTemplateDetail> get(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/job-templates/$id');
+    return JobTemplateDetail.fromJson(response.data!);
+  }
+
+  /// Le cambia el nombre, la descripción o si está activo. Los pasos y los repuestos se
+  /// mandan tal como están: el servidor reemplaza la plantilla completa con lo que reciba.
+  Future<JobTemplateDetail> rename(
+    JobTemplateDetail plantilla, {
+    required String name,
+    String? description,
+    required bool isActive,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/job-templates/${plantilla.id}',
+      data: {
+        'name': name,
+        'description': description,
+        'isActive': isActive,
+        'tasks': [
+          for (final paso in plantilla.tasks)
+            {
+              'title': paso.title,
+              'description': paso.description,
+              'laborServiceId': paso.laborServiceId,
+              'estimatedHours': paso.estimatedHours,
+            },
+        ],
+        'parts': [
+          for (final repuesto in plantilla.parts)
+            {
+              'partId': repuesto.partId,
+              'description': repuesto.partId == null ? repuesto.partName : null,
+              'quantity': repuesto.quantity,
+            },
+        ],
+      },
+    );
+
+    return JobTemplateDetail.fromJson(response.data!);
+  }
+
+  Future<void> remove(String id) => _dio.delete<void>('/api/job-templates/$id');
+
   /// Anexa los pasos del trabajo a la orden. Los repuestos vuelven como sugerencia.
   Future<ApplyTemplateResult> apply(String workOrderId, String templateId) async {
     final response = await _dio.post<Map<String, dynamic>>(
@@ -123,6 +185,106 @@ class JobTemplateRepository {
     return ApplyTemplateResult.fromJson(response.data!);
   }
 }
+
+/// Un trabajo frecuente con lo que lleva: sus pasos y sus repuestos, a precios de hoy.
+class JobTemplateDetail {
+  const JobTemplateDetail({
+    required this.id,
+    required this.name,
+    required this.isActive,
+    required this.tasks,
+    required this.parts,
+    required this.total,
+    this.description,
+  });
+
+  factory JobTemplateDetail.fromJson(Map<String, dynamic> json) => JobTemplateDetail(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        description: json['description'] as String?,
+        isActive: json['isActive'] as bool? ?? true,
+        tasks: ((json['tasks'] as List<dynamic>?) ?? [])
+            .map((e) => JobTemplateTask.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        parts: ((json['parts'] as List<dynamic>?) ?? [])
+            .map((e) => JobTemplatePart.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        total: (json['total'] as num?)?.toDouble() ?? 0,
+      );
+
+  final String id;
+  final String name;
+  final String? description;
+  final bool isActive;
+  final List<JobTemplateTask> tasks;
+  final List<JobTemplatePart> parts;
+  final double total;
+}
+
+class JobTemplateTask {
+  const JobTemplateTask({
+    required this.title,
+    this.description,
+    this.laborServiceId,
+    this.laborServiceName,
+    this.estimatedHours,
+    this.price,
+  });
+
+  factory JobTemplateTask.fromJson(Map<String, dynamic> json) => JobTemplateTask(
+        title: json['title'] as String,
+        description: json['description'] as String?,
+        laborServiceId: json['laborServiceId'] as String?,
+        laborServiceName: json['laborServiceName'] as String?,
+        estimatedHours: (json['estimatedHours'] as num?)?.toDouble(),
+        price: (json['price'] as num?)?.toDouble(),
+      );
+
+  final String title;
+  final String? description;
+  final String? laborServiceId;
+  final String? laborServiceName;
+  final double? estimatedHours;
+
+  /// Lo que se cobraría por el paso hoy. Null si no lleva servicio del catálogo.
+  final double? price;
+}
+
+class JobTemplatePart {
+  const JobTemplatePart({
+    required this.partName,
+    required this.quantity,
+    required this.unitPrice,
+    required this.total,
+    this.partId,
+    this.sku,
+    this.unit,
+  });
+
+  factory JobTemplatePart.fromJson(Map<String, dynamic> json) => JobTemplatePart(
+        partId: json['partId'] as String?,
+        sku: json['sku'] as String?,
+        partName: json['partName'] as String,
+        unit: json['unit'] as String?,
+        quantity: (json['quantity'] as num).toDouble(),
+        unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0,
+        total: (json['total'] as num?)?.toDouble() ?? 0,
+      );
+
+  final String? partId;
+  final String? sku;
+  final String partName;
+  final String? unit;
+  final double quantity;
+  final double unitPrice;
+  final double total;
+}
+
+/// El detalle de un trabajo frecuente. `autoDispose` porque se abre, se mira y se vuelve.
+final jobTemplateDetailProvider =
+    FutureProvider.autoDispose.family<JobTemplateDetail, String>(
+  (ref, id) => ref.watch(jobTemplateRepositoryProvider).get(id),
+);
 
 /// Los trabajos frecuentes activos, el más usado primero. Al Cliente la API le responde 403.
 final jobTemplatesProvider = FutureProvider.autoDispose<List<JobTemplate>>(

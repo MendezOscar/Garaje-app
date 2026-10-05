@@ -82,6 +82,69 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
   /// Quién responde por la orden. Se decide en el patio —llega una moto urgente y hay que
   /// mover a alguien—, así que se cambia desde el teléfono y no desde la computadora.
+  /// Guarda esta orden como trabajo frecuente. Es el camino bueno para armarlos: los pasos,
+  /// sus servicios y sus repuestos salieron de un trabajo real, no de teclear una plantilla.
+  Future<void> _guardarComoFrecuente(WorkOrderDetail order) async {
+    final nombre = TextEditingController(text: order.description);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Guardar como trabajo frecuente'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nombre,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              maxLength: 200,
+              decoration: const InputDecoration(
+                labelText: 'Cómo se va a llamar',
+                hintText: 'Cambio de aceite y filtro',
+              ),
+            ),
+            Text(
+              'Se guardan sus ${order.tasks.length} '
+              '${order.tasks.length == 1 ? 'paso' : 'pasos'} y sus '
+              '${order.parts.length} '
+              '${order.parts.length == 1 ? 'repuesto' : 'repuestos'}. La próxima vez que entre '
+              'el mismo trabajo se anexa completo con un toque.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || nombre.text.trim().isEmpty) return;
+
+    await _run(() async {
+      await ref.read(jobTemplateRepositoryProvider).fromWorkOrder(
+            workOrderId: order.id,
+            name: nombre.text.trim(),
+          );
+
+      ref.invalidate(jobTemplatesProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Guardado como trabajo frecuente.')),
+        );
+      }
+    });
+  }
+
   Future<void> _asignarTecnico(WorkOrderDetail order) async {
     final tecnicos = (ref.read(technicianOptionsProvider).value ?? const <TechnicianOption>[])
         .where((t) => t.worksAt(order.branchId))
@@ -623,6 +686,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                           _detener(cargada);
                         case 'tecnico':
                           _asignarTecnico(cargada);
+                        case 'frecuente':
+                          _guardarComoFrecuente(cargada);
                         default:
                           _changeStatus(value as WorkOrderStatus);
                       }
@@ -646,6 +711,13 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 // sección fija arriba de los pasos.
                 if (_isOwner)
                   const PopupMenuItem(value: 'tecnico', child: Text('Asignar técnico')),
+                // Guardar la orden como trabajo frecuente: los pasos y los repuestos ya
+                // están ahí y ya están bien, porque salieron de un trabajo real.
+                if (_isOwner && cargada.tasks.isNotEmpty)
+                  const PopupMenuItem(
+                    value: 'frecuente',
+                    child: Text('Guardar como trabajo frecuente'),
+                  ),
               ],
             ),
         ],
