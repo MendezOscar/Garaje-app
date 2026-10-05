@@ -123,6 +123,19 @@ public class UserService(
             CreatedAt = clock.UtcNow
         };
 
+        // Cómo se le paga, si ya viene definido al crearlo. Igual que al editar: solo técnicos.
+        if (request.Role == AppRoles.Technician)
+        {
+            if (request.PayAmount < 0)
+                throw new AppException("El monto del pago no puede ser negativo.");
+
+            if (request.PayMode == TechnicianPayMode.Percentage && request.PayAmount > 100)
+                throw new AppException("El porcentaje va entre 0 y 100.");
+
+            user.PayMode = request.PayMode;
+            user.PayAmount = request.PayAmount;
+        }
+
         var created = await userManager.CreateAsync(user, request.Password);
         if (!created.Succeeded)
             throw new AppException(string.Join(" ", created.Errors.Select(e => e.Description)));

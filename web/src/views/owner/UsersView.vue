@@ -89,6 +89,8 @@ async function save() {
         fullName: f.fullName.trim(),
         isActive: f.isActive,
         branchIds: f.branchIds,
+        payMode: f.payMode,
+        payAmount: f.payAmount,
       })
       notice.value = 'Cambios guardados.'
     } else {
@@ -105,6 +107,8 @@ async function save() {
         role: 'Technician',
         password: f.password,
         branchIds: f.branchIds,
+        payMode: f.payMode,
+        payAmount: f.payAmount,
       })
       notice.value = 'Técnico creado. Entrégale el correo y la contraseña.'
     }

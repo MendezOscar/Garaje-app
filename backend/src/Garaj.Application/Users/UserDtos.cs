@@ -23,7 +23,10 @@ public record CreateUserRequest(
     string Role,
     string Password,
     IReadOnlyList<Guid>? BranchIds,
-    Guid? CustomerId);
+    Guid? CustomerId,
+    // Cómo se le paga, si ya se decide al crearlo. Solo se aplica a técnicos.
+    TechnicianPayMode PayMode = TechnicianPayMode.Undefined,
+    decimal PayAmount = 0);
 
 public record UpdateUserRequest(
     string FullName,

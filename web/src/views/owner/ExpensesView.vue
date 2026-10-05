@@ -212,7 +212,7 @@ onMounted(async () => {
       </div>
       <div class="filtros">
         <select v-model="period" @change="load">
-          <option v-for="(label, key) in PERIODS" :key="key" :value="key">{{ label }}</option>
+          <option v-for="p in PERIODS" :key="p.key" :value="p.key">{{ p.label }}</option>
         </select>
         <select v-if="branches.length > 1" v-model="branchId" @change="load">
           <option value="">Todas las sucursales</option>
