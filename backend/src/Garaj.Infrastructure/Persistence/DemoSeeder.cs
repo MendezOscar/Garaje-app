@@ -113,6 +113,7 @@ public class DemoSeeder(
         await db.Notifications.ExecuteDeleteAsync(ct);
         await db.DeviceTokens.ExecuteDeleteAsync(ct);
         await db.MediaAttachments.ExecuteDeleteAsync(ct);
+        await db.Claims.ExecuteDeleteAsync(ct);
         await db.SalePayments.ExecuteDeleteAsync(ct);
         await db.SaleLines.ExecuteDeleteAsync(ct);
         await db.Sales.ExecuteDeleteAsync(ct);
@@ -124,6 +125,7 @@ public class DemoSeeder(
         await db.WorkOrderStatusHistory.ExecuteDeleteAsync(ct);
         await db.WorkOrderTasks.ExecuteDeleteAsync(ct);
         await db.ServiceRequests.ExecuteDeleteAsync(ct);
+        await db.VehicleReceptions.ExecuteDeleteAsync(ct);
         await db.WorkOrders.ExecuteDeleteAsync(ct);
         await db.Vehicles.ExecuteDeleteAsync(ct);
         await db.Customers.ExecuteDeleteAsync(ct);
@@ -132,6 +134,7 @@ public class DemoSeeder(
         await db.JobTemplates.ExecuteDeleteAsync(ct);
         await db.Parts.ExecuteDeleteAsync(ct);
         await db.LaborServices.ExecuteDeleteAsync(ct);
+        await db.Expenses.ExecuteDeleteAsync(ct);
         await db.RefreshTokens.ExecuteDeleteAsync(ct);
         await db.UserBranches.ExecuteDeleteAsync(ct);
         await db.Users.ExecuteDeleteAsync(ct);
