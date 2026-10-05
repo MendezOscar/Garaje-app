@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, customersApi, salesApi, stockApi, tenantApi } from '@/api/garaj'
+import {
+  branchesApi,
+  customersApi,
+  laborServicesApi,
+  salesApi,
+  stockApi,
+  tenantApi,
+  vehiclesApi,
+} from '@/api/garaj'
 import {
   LineType,
   PAYMENT_METHOD_LABEL,
@@ -9,14 +17,16 @@ import {
   type Branch,
   type Customer,
   type FiscalRange,
+  type LaborService,
   type SaleDetail,
   type StockItem,
+  type Vehicle,
 } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 
 /**
- * Vender un repuesto sin recibir el vehículo.
+ * Vender un repuesto o cobrar un trabajo corto sin abrirle una orden al vehículo.
  *
  * Pasa todos los días: alguien entra por un filtro o un litro de aceite y se va. Hasta hoy la
  * única forma de registrarlo era abrirle una orden de trabajo a una moto que nunca entró al
@@ -26,6 +36,10 @@ import { useAuthStore } from '@/stores/auth'
  *
  * La venta se arma desde las existencias de la sucursal, no desde el catálogo: lo que importa
  * en el mostrador es lo que hay para entregar hoy, con su precio y su cantidad.
+ *
+ * Y el servicio rápido: hay trabajos de veinte minutos —un cambio de aceite, apretar algo—
+ * que no justifican recepción, estados ni aprobación. Se cobran aquí, con el vehículo puesto
+ * para que queden en su historial, y con la misma garantía que una orden completa.
  */
 const auth = useAuthStore()
 
@@ -36,10 +50,32 @@ const busqueda = ref('')
 const resultados = ref<StockItem[]>([])
 const buscando = ref(false)
 
-/** Las líneas de la venta. El precio y el descuento se pueden tocar: en el mostrador se regatea. */
-const lineas = ref<
-  { partId: string; sku: string; nombre: string; unidad: string; disponible: number; cantidad: number; precio: number; descuento: number }[]
->([])
+/**
+ * Las líneas de la venta: repuestos de bodega y trabajos. El precio y el descuento se pueden
+ * tocar porque en el mostrador se regatea.
+ *
+ * `disponible` va en null en un trabajo: no hay existencia que alcance o falte.
+ */
+type Linea = {
+  clave: string
+  tipo: LineType
+  partId?: string
+  laborServiceId?: string
+  sku: string
+  nombre: string
+  unidad: string
+  disponible: number | null
+  cantidad: number
+  precio: number
+  descuento: number
+}
+
+const lineas = ref<Linea[]>([])
+
+/** El catálogo de mano de obra, para cobrar un trabajo sin escribirlo cada vez. */
+const servicios = ref<LaborService[]>([])
+const servicioId = ref('')
+const trabajoLibre = ref({ descripcion: '', precio: 0 })
 
 /**
  * A quién se le vende. Es opcional a propósito: la mayoría de estas ventas son a alguien que
@@ -51,6 +87,17 @@ const cliente = ref<Customer | null>(null)
 const buscaCliente = ref('')
 const clientes = ref<Customer[]>([])
 const buscandoCliente = ref(false)
+
+/**
+ * De qué vehículo es el trabajo. Opcional: una venta de mostrador no lo tiene. Puesto, el
+ * trabajo aparece en el historial del vehículo igual que una orden, que es donde el taller
+ * lo busca cuando el cliente vuelve.
+ */
+const vehiculos = ref<Vehicle[]>([])
+const vehiculoId = ref('')
+
+/** Días de garantía de este trabajo. Nace con la del taller y se puede cambiar aquí. */
+const garantiaDias = ref(0)
 
 const paymentMethod = ref<PaymentMethod>(PaymentMethod.Cash)
 const notas = ref('')
@@ -103,7 +150,9 @@ const cuenta = computed(() => {
 })
 
 /** Lo que se pide de más de lo que hay. El servidor lo rechaza, así que se avisa antes. */
-const sinExistencia = computed(() => lineas.value.filter((l) => l.cantidad > l.disponible))
+const sinExistencia = computed(() =>
+  lineas.value.filter((l) => l.disponible !== null && l.cantidad > l.disponible),
+)
 
 const puedeGuardar = computed(
   () => lineas.value.length > 0 && !sinExistencia.value.length && !!branchId.value && !guardando.value,
@@ -138,6 +187,8 @@ function agregar(item: StockItem) {
     return
   }
   lineas.value.push({
+    clave: `repuesto:${item.partId}`,
+    tipo: LineType.Part,
     partId: item.partId,
     sku: item.sku,
     nombre: item.partName,
@@ -149,8 +200,48 @@ function agregar(item: StockItem) {
   })
 }
 
-function quitar(partId: string) {
-  lineas.value = lineas.value.filter((l) => l.partId !== partId)
+/** Un trabajo del catálogo, con el precio que ya tiene puesto. */
+function agregarServicio() {
+  const servicio = servicios.value.find((s) => s.id === servicioId.value)
+  if (!servicio) return
+
+  lineas.value.push({
+    clave: `trabajo:${servicio.id}:${Date.now()}`,
+    tipo: LineType.Labor,
+    laborServiceId: servicio.id,
+    sku: servicio.code,
+    nombre: servicio.name,
+    unidad: 'trabajo',
+    disponible: null,
+    cantidad: 1,
+    precio: servicio.price,
+    descuento: 0,
+  })
+  servicioId.value = ''
+}
+
+/** Un trabajo que no está en el catálogo: se escribe y se le pone precio. */
+function agregarTrabajoLibre() {
+  const nombre = trabajoLibre.value.descripcion.trim()
+  const precio = Number(trabajoLibre.value.precio) || 0
+  if (!nombre || precio <= 0) return
+
+  lineas.value.push({
+    clave: `libre:${Date.now()}`,
+    tipo: LineType.Labor,
+    sku: '',
+    nombre,
+    unidad: 'trabajo',
+    disponible: null,
+    cantidad: 1,
+    precio,
+    descuento: 0,
+  })
+  trabajoLibre.value = { descripcion: '', precio: 0 }
+}
+
+function quitar(clave: string) {
+  lineas.value = lineas.value.filter((l) => l.clave !== clave)
 }
 
 async function buscarCliente() {
@@ -169,13 +260,20 @@ async function buscarCliente() {
   }
 }
 
-function elegirCliente(elegido: Customer | null) {
+async function elegirCliente(elegido: Customer | null) {
   cliente.value = elegido
   clientes.value = []
   buscaCliente.value = ''
   // La factura sale con lo que tenga su ficha, y se puede cambiar aquí para esta venta.
   rtnFactura.value = elegido?.taxId ?? ''
   nombreFactura.value = elegido?.billingName ?? elegido?.fullName ?? ''
+
+  // Sus vehículos, para poder decir de cuál fue el trabajo. Sin cliente no hay de dónde
+  // sacarlos: una venta de mostrador no tiene vehículo y no lo necesita.
+  vehiculoId.value = ''
+  vehiculos.value = elegido
+    ? (await vehiclesApi.list({ customerId: elegido.id, pageSize: 20 }).catch(() => null))?.items ?? []
+    : []
 }
 
 async function guardar() {
@@ -188,9 +286,14 @@ async function guardar() {
       customerId: cliente.value?.id,
       paymentMethod: paymentMethod.value,
       notes: notas.value.trim() || undefined,
+      vehicleId: vehiculoId.value || undefined,
+      warrantyDays: garantiaDias.value,
       lines: lineas.value.map((l) => ({
-        lineType: LineType.Part,
-        partId: l.partId,
+        lineType: l.tipo,
+        partId: l.partId ?? null,
+        laborServiceId: l.laborServiceId ?? null,
+        // El trabajo escrito a mano manda su concepto; el del catálogo lo toma de ahí.
+        description: l.laborServiceId || l.partId ? undefined : l.nombre,
         quantity: l.cantidad,
         unitPrice: l.precio,
         discount: l.descuento,
@@ -221,6 +324,8 @@ function otra() {
   hecha.value = null
   lineas.value = []
   cliente.value = null
+  vehiculos.value = []
+  vehiculoId.value = ''
   notas.value = ''
   conCai.value = false
   rtnFactura.value = ''
@@ -240,8 +345,13 @@ watch(branchId, () => {
 onMounted(async () => {
   branches.value = await branchesApi.list().catch(() => [])
   branchId.value = sucursalesPermitidas.value[0]?.id ?? ''
-  tasaImpuesto.value = (await tenantApi.get().catch(() => null))?.defaultTaxRate ?? 0
+
+  const taller = await tenantApi.get().catch(() => null)
+  tasaImpuesto.value = taller?.defaultTaxRate ?? 0
+  garantiaDias.value = taller?.defaultWarrantyDays ?? 0
+
   rangos.value = await tenantApi.fiscalRanges().catch(() => [])
+  servicios.value = await laborServicesApi.list().catch(() => [])
 })
 </script>
 
@@ -250,9 +360,10 @@ onMounted(async () => {
     <header>
       <RouterLink :to="{ name: 'home' }" class="volver" aria-label="Volver al inicio">‹</RouterLink>
       <div>
-        <h1>Vender repuesto</h1>
+        <h1>Venta rápida</h1>
         <p class="muted small">
-          Sin recibir el vehículo. Sale de la bodega de la sucursal y entra a la caja del día.
+          Un repuesto de mostrador o un trabajo corto, sin abrirle orden al vehículo. Sale de
+          la bodega de la sucursal y entra a la caja del día.
         </p>
       </div>
     </header>
@@ -288,7 +399,7 @@ onMounted(async () => {
         </label>
 
         <section class="paso">
-          <h2><span class="numero">1</span> Qué se vende</h2>
+          <h2><span class="numero">1</span> Qué se vende o se hace</h2>
           <div class="buscador">
             <input
               v-model="busqueda"
@@ -321,11 +432,50 @@ onMounted(async () => {
           </p>
           <p v-else class="muted small">Escriba el nombre o el código del repuesto.</p>
 
+          <!-- El trabajo: del catálogo si está, y si no se escribe. Es lo que convierte esto
+               en un servicio rápido y no solo en la venta de una pieza. -->
+          <div class="trabajo">
+            <div class="buscador">
+              <select v-model="servicioId">
+                <option value="">— agregar un trabajo del catálogo —</option>
+                <option v-for="s in servicios" :key="s.id" :value="s.id">
+                  {{ s.name }} · {{ formatMoney(s.price) }}
+                </option>
+              </select>
+              <button type="button" class="suave" :disabled="!servicioId" @click="agregarServicio">
+                Agregar
+              </button>
+            </div>
+            <div class="buscador">
+              <input
+                v-model="trabajoLibre.descripcion"
+                placeholder="O escriba el trabajo: cambio de aceite, revisión…"
+                maxlength="200"
+              />
+              <input
+                v-model.number="trabajoLibre.precio"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Precio"
+                class="precio-libre"
+              />
+              <button
+                type="button"
+                class="suave"
+                :disabled="!trabajoLibre.descripcion.trim() || !trabajoLibre.precio"
+                @click="agregarTrabajoLibre"
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+
           <div v-if="lineas.length" class="tabla">
             <table>
               <thead>
                 <tr>
-                  <th>Repuesto</th>
+                  <th>Concepto</th>
                   <th class="num">Cantidad</th>
                   <th class="num">Precio</th>
                   <th class="num">Descuento</th>
@@ -334,14 +484,19 @@ onMounted(async () => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="linea in lineas" :key="linea.partId">
+                <tr v-for="linea in lineas" :key="linea.clave">
                   <td>
                     {{ linea.nombre }}
-                    <span class="muted small num">{{ linea.sku }}</span>
+                    <span class="muted small num">
+                      {{ linea.sku || (linea.tipo === LineType.Labor ? 'trabajo' : '') }}
+                    </span>
                   </td>
                   <td class="num">
                     <input v-model.number="linea.cantidad" type="number" min="0.01" step="0.01" />
-                    <span v-if="linea.cantidad > linea.disponible" class="falta small">
+                    <span
+                      v-if="linea.disponible !== null && linea.cantidad > linea.disponible"
+                      class="falta small"
+                    >
                       hay {{ linea.disponible }}
                     </span>
                   </td>
@@ -355,7 +510,7 @@ onMounted(async () => {
                     {{ formatMoney(Math.max(0, linea.cantidad * linea.precio - linea.descuento)) }}
                   </td>
                   <td>
-                    <button type="button" class="quitar" @click="quitar(linea.partId)">×</button>
+                    <button type="button" class="quitar" @click="quitar(linea.clave)">×</button>
                   </td>
                 </tr>
               </tbody>
@@ -394,11 +549,27 @@ onMounted(async () => {
               historial y se le puede facturar con su RTN.
             </p>
           </template>
+
+          <!-- Con vehículo, el trabajo entra al historial del carro como una orden. Sin él,
+               es la venta de mostrador de siempre. -->
+          <label v-if="vehiculos.length" class="campo">
+            De qué vehículo
+            <select v-model="vehiculoId">
+              <option value="">— ninguno, es venta de mostrador —</option>
+              <option v-for="v in vehiculos" :key="v.id" :value="v.id">
+                {{ v.brand }} {{ v.model }}<template v-if="v.plate"> · {{ v.plate }}</template>
+              </option>
+            </select>
+          </label>
         </section>
 
         <section class="paso">
           <h2><span class="numero">3</span> Cómo paga</h2>
           <div class="campos">
+            <label class="campo">
+              Garantía (días)
+              <input v-model.number="garantiaDias" type="number" min="0" max="730" />
+            </label>
             <label class="campo">
               Forma de pago
               <select v-model.number="paymentMethod">
@@ -617,6 +788,18 @@ aside {
 .buscador input {
   flex: 1;
   min-width: 0;
+}
+
+.trabajo {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border, rgba(127, 127, 127, 0.3));
+}
+
+.precio-libre {
+  max-width: 7rem;
 }
 
 .resultados {

@@ -723,7 +723,11 @@ export interface SalePayment {
 
 export interface SaleDetail extends SaleListItem {
   customerPhone: string | null
+  vehicleId: string | null
   vehicleLabel: string | null
+  /** Garantía del trabajo. Null es sin garantía. */
+  warrantyDays: number | null
+  warrantyUntil: string | null
   subtotal: number
   discountTotal: number
   taxRate: number
@@ -977,6 +981,8 @@ export interface TenantSettings {
   currency: string
   defaultTaxRate: number
   defaultPhoneCountryCode: string
+  /** Días de garantía que lleva un trabajo por defecto. Cero es sin garantía. */
+  defaultWarrantyDays: number
   /** Ruta relativa a la base de la API, o null. Se abre con `apiUrl()`. */
   logoUrl: string | null
 }
