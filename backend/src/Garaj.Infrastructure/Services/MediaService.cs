@@ -310,6 +310,18 @@ public class MediaService(
             return;
         }
 
+        // El comprobante del gasto. Solo el Dueño: lo que sale de la caja es del negocio, y
+        // el filtro global del tenant ya acota el gasto al taller de quien pregunta.
+        if (ownerType == MediaOwnerType.Expense)
+        {
+            scope.EnsureOwner();
+
+            if (!await db.Expenses.AsNoTracking().AnyAsync(e => e.Id == ownerId, ct))
+                throw new NotFoundException("El gasto no existe.");
+
+            return;
+        }
+
         if (workOrderId is not { } id || !await ScopedOrders(scope).AnyAsync(w => w.Id == id, ct))
             throw new NotFoundException("La orden de trabajo no existe.");
     }
@@ -401,6 +413,7 @@ public class MediaService(
             MediaOwnerType.WorkOrder => "work-orders",
             MediaOwnerType.WorkOrderTask => "work-order-tasks",
             MediaOwnerType.Quote => "quotes",
+            MediaOwnerType.Expense => "expenses",
             _ => "other"
         };
 
