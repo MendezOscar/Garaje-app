@@ -16,7 +16,10 @@ public record ExpenseDto(
     DateTimeOffset ExpenseDate,
     string? Notes,
     string? CreatedByName,
-    int PhotoCount);
+    int PhotoCount,
+    // A quién se le pagó, en los gastos de salario.
+    Guid? EmployeeUserId,
+    string? EmployeeName);
 
 public record SaveExpenseRequest(
     Guid BranchId,
@@ -26,12 +29,18 @@ public record SaveExpenseRequest(
     PaymentMethod PaymentMethod,
     string? SupplierName,
     DateTimeOffset? ExpenseDate,
-    string? Notes);
+    string? Notes,
+    // El empleado al que se le paga. Solo en los gastos de salario: es lo que permite
+    // responder cuánto se le ha pagado a cada técnico sin llevar un registro aparte.
+    Guid? EmployeeUserId = null);
 
 public record ExpenseQuery : PageQuery
 {
     public Guid? BranchId { get; init; }
     public ExpenseCategory? Category { get; init; }
+
+    /// <summary>Lo que se le ha pagado a un empleado.</summary>
+    public Guid? EmployeeUserId { get; init; }
     public DateTimeOffset? From { get; init; }
     public DateTimeOffset? To { get; init; }
 

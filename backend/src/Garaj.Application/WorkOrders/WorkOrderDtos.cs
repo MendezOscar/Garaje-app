@@ -297,6 +297,9 @@ public record SaveVehicleReceptionRequest(
     int? MileageIn,
     string? Signature);
 
+/// <param name="UnitCost">Lo que le costó al taller. Omitido deja el que tenía.</param>
+public record SetPartPriceRequest(decimal UnitPrice, decimal? UnitCost);
+
 public record ServiceReminderQuery
 {
     public Guid? BranchId { get; init; }
@@ -358,6 +361,14 @@ public interface IWorkOrderService
         Guid workOrderId, AddWorkOrderPartRequest request, CancellationToken ct = default);
 
     /// <summary>Lo quita de la orden y lo devuelve a la bodega con un movimiento de entrada.</summary>
+    /// <summary>
+    /// Le pone precio a una línea ya cargada. Es lo que hace el Dueño con lo que el técnico
+    /// cargó sin poder valorarlo, y de paso sirve para corregir un precio mal escrito.
+    /// </summary>
+    Task<WorkOrderPartDto> SetPartPriceAsync(
+        Guid workOrderId, Guid partLineId, SetPartPriceRequest request,
+        CancellationToken ct = default);
+
     Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default);
 
     /// <summary>

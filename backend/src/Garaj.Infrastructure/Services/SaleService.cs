@@ -422,6 +422,15 @@ public class SaleService(
             throw new AppException(
                 "La orden no tiene repuestos ni mano de obra que cobrar. Cargue lo trabajado antes de cerrarla.");
 
+        // Un repuesto en cero es uno que el técnico cargó sin poder ponerle precio. Facturar
+        // así es regalarlo sin querer, así que se corta y se dice cuál falta valorar.
+        if (sale.Lines.FirstOrDefault(l => l.LineType == LineType.Part && l.UnitPrice == 0)
+            is { } sinPrecio)
+        {
+            throw new AppException(
+                $"«{sinPrecio.Description}» no tiene precio. Póngaselo en la orden antes de facturar.");
+        }
+
         Recalculate(sale);
         await EnsureCustomerIdentifiedAsync(sale, ct);
         SettleOnCreation(sale, request.InitialPayment, request.PaymentMethod);

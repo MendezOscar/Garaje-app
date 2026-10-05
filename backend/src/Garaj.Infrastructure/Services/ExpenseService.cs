@@ -28,6 +28,7 @@ public class ExpenseService(
         var q = db.Expenses.AsNoTracking();
 
         if (query.Category is { } category) q = q.Where(e => e.Category == category);
+        if (query.EmployeeUserId is { } employeeId) q = q.Where(e => e.EmployeeUserId == employeeId);
         if (query.From is { } from) q = q.Where(e => e.ExpenseDate >= from.ToUniversalTime());
         if (query.To is { } to) q = q.Where(e => e.ExpenseDate <= to.ToUniversalTime());
 
@@ -64,7 +65,10 @@ public class ExpenseService(
                 db.Users.Where(u => u.Id == e.CreatedByUserId)
                     .Select(u => u.FullName).FirstOrDefault(),
                 db.MediaAttachments.Count(m =>
-                    m.OwnerType == MediaOwnerType.Expense && m.OwnerId == e.Id)))
+                    m.OwnerType == MediaOwnerType.Expense && m.OwnerId == e.Id),
+                e.EmployeeUserId,
+                db.Users.Where(u => u.Id == e.EmployeeUserId)
+                    .Select(u => u.FullName).FirstOrDefault()))
             .ToListAsync(ct);
 
         return new PagedResult<ExpenseDto>(items, total, query.Page, query.PageSize);
@@ -269,6 +273,12 @@ public class ExpenseService(
         expense.SupplierName = Recortar(request.SupplierName, 200);
         expense.Notes = Recortar(request.Notes, 1000);
         expense.ExpenseDate = (request.ExpenseDate ?? clock.UtcNow).ToUniversalTime();
+
+        // Solo tiene sentido en un salario: en los demás gastos, a quién se le pagó es el
+        // proveedor, que va por su nombre.
+        expense.EmployeeUserId = request.Category == ExpenseCategory.Salaries
+            ? request.EmployeeUserId
+            : null;
     }
 
     private static string? Recortar(string? value, int max) =>
@@ -291,6 +301,9 @@ public class ExpenseService(
                 db.Users.Where(u => u.Id == e.CreatedByUserId)
                     .Select(u => u.FullName).FirstOrDefault(),
                 db.MediaAttachments.Count(m =>
-                    m.OwnerType == MediaOwnerType.Expense && m.OwnerId == e.Id)))
+                    m.OwnerType == MediaOwnerType.Expense && m.OwnerId == e.Id),
+                e.EmployeeUserId,
+                db.Users.Where(u => u.Id == e.EmployeeUserId)
+                    .Select(u => u.FullName).FirstOrDefault()))
             .FirstOrDefaultAsync(ct);
 }

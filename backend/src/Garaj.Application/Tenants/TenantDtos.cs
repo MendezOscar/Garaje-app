@@ -27,6 +27,8 @@ public record TenantSettingsDto(
     bool ChargesStorage,
     int StorageFreeDays,
     decimal StorageDailyRate,
+    // Si el técnico ve precios de repuestos, de mano de obra y los totales de la orden.
+    bool TechniciansSeePrices,
     string? LogoUrl);
 
 public record UpdateTenantRequest(
@@ -41,7 +43,8 @@ public record UpdateTenantRequest(
     int DefaultWarrantyDays = 0,
     bool ChargesStorage = false,
     int StorageFreeDays = 3,
-    decimal StorageDailyRate = 0);
+    decimal StorageDailyRate = 0,
+    bool TechniciansSeePrices = true);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

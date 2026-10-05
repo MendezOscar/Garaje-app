@@ -610,7 +610,14 @@ public class WorkOrderService(
         if (!await Scoped(scope).AnyAsync(w => w.Id == workOrderId, ct))
             throw new NotFoundException("La orden de trabajo no existe.");
 
-        return await PartsOfAsync(workOrderId, ct);
+        var parts = await PartsOfAsync(workOrderId, ct);
+
+        if (scope.IsCustomer)
+            return parts.Select(p => p with { UnitCost = 0 }).ToList();
+
+        return await TechnicianWithoutPricesAsync(scope, ct)
+            ? parts.Select(p => p with { UnitPrice = 0, UnitCost = 0, Total = 0 }).ToList()
+            : parts;
     }
 
     public async Task<WorkOrderPartDto> AddPartAsync(
@@ -631,9 +638,11 @@ public class WorkOrderService(
         if (request.WorkOrderTaskId is { } taskId)
             await FindTaskAsync(workOrderId, taskId, ct);
 
+        var sinPrecios = await TechnicianWithoutPricesAsync(scope, ct);
+
         var line = request.PartId is { } partId
             ? await FromCatalogAsync(order, partId, request, scope, ct)
-            : Manual(order, request);
+            : Manual(order, request, sinPrecios);
 
         db.WorkOrderParts.Add(line);
         await db.SaveChangesAsync(ct);
@@ -675,15 +684,21 @@ public class WorkOrderService(
     /// esta orden y nunca pasó por bodega, así que no hay existencia que descontar. El precio
     /// es obligatorio porque no hay catálogo del que sacarlo.
     /// </summary>
-    private static WorkOrderPart Manual(WorkOrder order, AddWorkOrderPartRequest request)
+    private static WorkOrderPart Manual(
+        WorkOrder order, AddWorkOrderPartRequest request, bool sinPrecios)
     {
         var concepto = request.Description?.Trim();
 
         if (string.IsNullOrWhiteSpace(concepto))
             throw new AppException("Escriba qué repuesto es.");
 
-        if (request.UnitPrice is not { } precio || precio < 0)
-            throw new AppException("Un repuesto cargado a mano necesita su precio.");
+        // El técnico que no ve precios tampoco los pone: la línea se crea en cero y queda
+        // esperando que el Dueño la valore antes de poder facturar la orden.
+        var precio = sinPrecios
+            ? 0m
+            : request.UnitPrice is { } pedido && pedido >= 0
+                ? pedido
+                : throw new AppException("Un repuesto cargado a mano necesita su precio.");
 
         return new WorkOrderPart
         {
@@ -699,6 +714,30 @@ public class WorkOrderService(
                 ? request.SupplierName?.Trim() is { Length: > 0 } casa ? casa : null
                 : null
         };
+    }
+
+    public async Task<WorkOrderPartDto> SetPartPriceAsync(
+        Guid workOrderId, Guid partLineId, SetPartPriceRequest request,
+        CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        if (request.UnitPrice < 0)
+            throw new AppException("El precio no puede ser negativo.");
+
+        await FindEditableAsync(workOrderId, scope, ct);
+
+        var line = await db.WorkOrderParts
+            .FirstOrDefaultAsync(p => p.Id == partLineId && p.WorkOrderId == workOrderId, ct)
+            ?? throw new NotFoundException("El repuesto no está cargado en esta orden.");
+
+        line.UnitPrice = request.UnitPrice;
+        if (request.UnitCost is { } costo && costo >= 0) line.UnitCost = costo;
+
+        await db.SaveChangesAsync(ct);
+
+        return (await PartsOfAsync(workOrderId, ct)).First(p => p.Id == line.Id);
     }
 
     public async Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default)
@@ -1085,6 +1124,26 @@ public class WorkOrderService(
         return q;
     }
 
+    /// <summary>
+    /// Si a este usuario hay que ocultarle los precios: es técnico y el taller tiene apagado
+    /// que los vea.
+    /// </summary>
+    /// <remarks>
+    /// Se consulta el ajuste del taller y no se cachea: cambia una vez al año y la lectura es
+    /// por clave primaria. Un valor viejo aquí sería enseñarle precios a quien no debe.
+    /// </remarks>
+    private async Task<bool> TechnicianWithoutPricesAsync(AccessScope scope, CancellationToken ct)
+    {
+        if (!scope.IsTechnician) return false;
+
+        var ve = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => (bool?)t.TechniciansSeePrices)
+            .FirstOrDefaultAsync(ct);
+
+        return ve == false;
+    }
+
     private async Task<WorkOrder> FindEditableAsync(Guid id, AccessScope scope, CancellationToken ct) =>
         await Scoped(scope).AsTracking().FirstOrDefaultAsync(w => w.Id == id, ct)
         ?? throw new NotFoundException("La orden de trabajo no existe.");
@@ -1157,9 +1216,20 @@ public class WorkOrderService(
 
         // El cliente ve qué repuestos se le pusieron y a qué precio, pero no el costo del
         // taller: ese dato es del margen, no de la factura.
-        var parts = scope.IsCustomer
-            ? (await PartsOfAsync(order.Id, ct)).Select(p => p with { UnitCost = 0 }).ToList()
-            : await PartsOfAsync(order.Id, ct);
+        //
+        // Y el técnico, cuando el taller lo decide así, no ve ninguno de los dos: recibe la
+        // orden, carga lo que puso y la deja en espera de aprobación; el precio lo pone el
+        // Dueño. Se quitan aquí, en el servidor: lo que no se manda no se puede mirar, y
+        // esconderlo en la pantalla dejaría el número en la respuesta.
+        var sinPrecios = await TechnicianWithoutPricesAsync(scope, ct);
+
+        var parts = (await PartsOfAsync(order.Id, ct))
+            .Select(p => scope.IsCustomer
+                ? p with { UnitCost = 0 }
+                : sinPrecios
+                    ? p with { UnitPrice = 0, UnitCost = 0, Total = 0 }
+                    : p)
+            .ToList();
 
         // El cliente ve una versión curada de la línea de tiempo: las notas internas del
         // taller no salen de ahí.
@@ -1191,7 +1261,7 @@ public class WorkOrderService(
                     t.AssignedTechnicianId is { } id ? names.GetValueOrDefault(id) : null,
                     t.LaborServiceId,
                     service?.Name,
-                    t.PriceWith(service),
+                    sinPrecios ? null : t.PriceWith(service),
                     t.EstimatedHours, t.ActualHours, t.TechnicianNotes, t.StartedAt, t.CompletedAt);
             })
             .ToList();
@@ -1227,11 +1297,13 @@ public class WorkOrderService(
             parts,
             parts.Sum(p => p.Total),
             // En modo manual los pasos no llevan precio: lo que se cobra es el total escrito.
-            order.LaborMode == LaborMode.Manual
-                ? order.ManualLaborTotal ?? 0
-                : tasks.Sum(t => t.LaborPrice ?? 0),
+            sinPrecios
+                ? 0
+                : order.LaborMode == LaborMode.Manual
+                    ? order.ManualLaborTotal ?? 0
+                    : tasks.Sum(t => t.LaborPrice ?? 0),
             order.LaborMode,
-            order.ManualLaborTotal);
+            sinPrecios ? null : order.ManualLaborTotal);
     }
 
     /// <summary>Los servicios del catálogo que dan precio a los pasos, en una sola consulta.</summary>

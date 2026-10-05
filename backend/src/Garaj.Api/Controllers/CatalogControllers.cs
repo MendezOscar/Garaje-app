@@ -50,6 +50,16 @@ public class UsersController(IUserService service) : ControllerBase
     public async Task<ActionResult<UserDto>> Get(Guid id, CancellationToken ct)
         => Ok(await service.GetAsync(id, ct));
 
+    /// <summary>
+    /// Cuánto le tocaría a este técnico por el periodo, según cómo se le paga. Es una
+    /// propuesta para la pantalla de pago: lo que se le paga de verdad lo escribe el Dueño.
+    /// </summary>
+    [HttpGet("{id:guid}/pay-proposal")]
+    public async Task<ActionResult<TechnicianPayProposalDto>> PayProposal(
+        Guid id, [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to,
+        CancellationToken ct)
+        => Ok(await service.PayProposalAsync(id, from, to, ct));
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create(CreateUserRequest request, CancellationToken ct)
     {

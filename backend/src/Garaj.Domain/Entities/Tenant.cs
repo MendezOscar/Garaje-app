@@ -38,6 +38,18 @@ public class Tenant : AuditableEntity
     /// </summary>
     public int DefaultWarrantyDays { get; set; }
 
+    /// <summary>
+    /// Si el técnico ve precios: de repuestos, de mano de obra y los totales de la orden.
+    /// </summary>
+    /// <remarks>
+    /// Nace encendido para no cambiarle la pantalla de un día para otro a un taller que ya
+    /// trabaja así. Apagado, el técnico recibe la orden, agrega pasos y carga repuestos, pero
+    /// no toca plata: pone la orden en espera de aprobación y el Dueño le pone precio y
+    /// cotiza. Se impone en el servidor, no escondiendo campos en la pantalla: lo que no se
+    /// manda no se puede mirar.
+    /// </remarks>
+    public bool TechniciansSeePrices { get; set; } = true;
+
     // ---------- Bodegaje ----------
     //
     // Lo que el taller cobra por el vehículo que nadie retira. Nace apagado: cobrarlo es una
