@@ -6,7 +6,10 @@ enum MediaOwnerType {
   workOrderTask(3),
 
   /// Fotos del daño que justifican el presupuesto. Las ve el cliente en su cotización.
-  quote(4);
+  quote(4),
+
+  /// El comprobante del gasto. Es lo que lo respalda cuando alguien lo discute.
+  expense(5);
 
   const MediaOwnerType(this.value);
 

@@ -7,7 +7,9 @@ import '../../core/api/sale_repository.dart' show PaymentMethod;
 import '../../core/api/service_request_repository.dart'
     show BranchOption, branchOptionsProvider;
 import '../../core/theme/garaj_brand.dart';
+import '../../core/models/media.dart';
 import '../reports/reports_screen.dart' show money;
+import '../work_orders/photo_gallery.dart';
 
 /// Gastos del taller y lo que dejó el mes.
 ///
@@ -37,7 +39,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
     setState(() => _busy = true);
     try {
-      await ref.read(expenseRepositoryProvider).create(
+      final creado = await ref.read(expenseRepositoryProvider).create(
             branchId: gasto.branchId,
             category: gasto.category,
             description: gasto.description,
@@ -48,6 +50,10 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
       ref.invalidate(expensesProvider);
       ref.invalidate(incomeStatementProvider);
+
+      // El comprobante se adjunta ahora o no se adjunta: es el único momento en que el papel
+      // está en la mano.
+      if (mounted) await _comprobante(creado);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -57,6 +63,47 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// El comprobante del gasto, en una hoja: se toma la foto del recibo y se cierra.
+  Future<void> _comprobante(Expense gasto) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  gasto.description,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  '${money(gasto.amount, 'HNL')} · ${gasto.category.label}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                PhotoGallery(
+                  ownerId: gasto.id,
+                  ownerType: MediaOwnerType.expense,
+                  canEdit: true,
+                  titulo: 'COMPROBANTE',
+                  vacioPropio: 'Tome una foto del recibo: un gasto sin comprobante se puede '
+                      'discutir.',
+                  vacioAjeno: 'Sin comprobante.',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ref.invalidate(expensesProvider);
   }
 
   @override
@@ -145,12 +192,28 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       '${gasto.category.label} · ${_fecha(gasto.expenseDate)}'
                       '${gasto.supplierName != null ? ' · ${gasto.supplierName}' : ''}',
                     ),
-                    trailing: Text(
-                      money(gasto.amount, 'HNL'),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: GarajFonts.mono,
-                      ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          money(gasto.amount, 'HNL'),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontFamily: GarajFonts.mono,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          gasto.photoCount > 0
+                              ? Icons.receipt_long
+                              : Icons.receipt_long_outlined,
+                          size: 18,
+                          color: gasto.photoCount > 0
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
                     ),
+                    onTap: () => _comprobante(gasto),
                   )
             else if (gastos.isLoading)
               const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),

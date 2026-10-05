@@ -113,6 +113,8 @@ export const MediaOwnerType = {
   WorkOrder: 2,
   WorkOrderTask: 3,
   Quote: 4,
+  /** El comprobante del gasto. Es lo que lo respalda. */
+  Expense: 5,
 } as const
 export type MediaOwnerType = (typeof MediaOwnerType)[keyof typeof MediaOwnerType]
 

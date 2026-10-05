@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, expensesApi } from '@/api/garaj'
+import PhotoGallery from '@/components/PhotoGallery.vue'
 import {
   EXPENSE_CATEGORY_LABEL,
   ExpenseCategory,
@@ -34,6 +35,9 @@ const loading = ref(false)
 const busy = ref(false)
 
 const editando = ref<string | null>(null)
+
+/** El gasto recién guardado, para adjuntarle el comprobante sin ir a buscarlo. */
+const conComprobante = ref<Expense | null>(null)
 const form = ref<SaveExpense>(vacio())
 
 function vacio(): SaveExpense {
@@ -111,8 +115,9 @@ function guardar() {
 
   const id = editando.value
   return run(async () => {
-    if (id) await expensesApi.update(id, body)
-    else await expensesApi.create(body)
+    // Se queda a la vista el recién registrado: es cuando se tiene el comprobante en la mano
+    // y el único momento en que de verdad se le va a tomar la foto.
+    conComprobante.value = id ? await expensesApi.update(id, body) : await expensesApi.create(body)
 
     editando.value = null
     form.value = vacio()
@@ -121,6 +126,7 @@ function guardar() {
 
 function editar(expense: Expense) {
   editando.value = expense.id
+  conComprobante.value = expense
   form.value = {
     branchId: expense.branchId,
     category: expense.category,
@@ -306,6 +312,19 @@ onMounted(async () => {
       </article>
 
       <article class="card">
+        <template v-if="conComprobante">
+          <h2>Comprobante de {{ conComprobante.description }}</h2>
+          <p class="muted small">
+            {{ formatMoney(conComprobante.amount) }} ·
+            {{ EXPENSE_CATEGORY_LABEL[conComprobante.category] }}. Un gasto sin comprobante se
+            puede discutir.
+          </p>
+          <PhotoGallery :key="conComprobante.id" :expense-id="conComprobante.id" :can-edit="true" />
+          <button type="button" class="suave" @click="conComprobante = null">Listo</button>
+        </template>
+      </article>
+
+      <article class="card">
         <h2>Gastos del periodo</h2>
         <p v-if="!expenses.length" class="muted small">Ninguno registrado todavía.</p>
         <div v-else class="tabla">
@@ -322,6 +341,14 @@ onMounted(async () => {
                 </td>
                 <td class="num">{{ formatMoney(gasto.amount) }}</td>
                 <td class="num">
+                  <button
+                    type="button"
+                    class="link"
+                    :disabled="busy"
+                    @click="conComprobante = gasto"
+                  >
+                    {{ gasto.photoCount > 0 ? `Comprobante (${gasto.photoCount})` : 'Comprobante' }}
+                  </button>
                   <button type="button" class="link" :disabled="busy" @click="editar(gasto)">
                     Corregir
                   </button>
