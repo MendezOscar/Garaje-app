@@ -149,7 +149,10 @@ onMounted(async () => {
           <RouterLink :to="{ name: 'receivables' }">Por cobrar</RouterLink>.
         </p>
       </div>
-      <RouterLink class="boton" :to="{ name: 'counter-sale' }">Venta rápida</RouterLink>
+      <!-- La venta de mostrador se hace desde aquí y ya no es una entrada aparte del menú:
+           eran dos lugares para lo mismo —una en TRABAJO y otra en DINERO—, y no se
+           entendía en qué se diferenciaban. -->
+      <RouterLink class="boton" :to="{ name: 'counter-sale' }">Nueva venta</RouterLink>
     </header>
 
     <div class="filtros">

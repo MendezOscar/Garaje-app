@@ -240,93 +240,123 @@ onMounted(async () => {
     <SkeletonList v-if="loading" :rows="4" variant="tabla" />
 
     <div v-else class="layout">
-      <form class="card" @submit.prevent="save">
-        <h2>Datos del taller</h2>
+      <!-- Tres bloques y no uno: antes estaba todo revuelto en una sola tarjeta —el RTN
+           junto al ISV, el precio del bodegaje entre el teléfono y la dirección—, y había que
+           leerla entera para encontrar una cosa. Ahora se agrupa por lo que hace cada dato:
+           lo que se imprime, lo que se cobra, y lo que el técnico alcanza a ver. El guardar
+           es uno solo: sigue siendo un formulario. -->
+      <form class="grupos" @submit.prevent="save">
+        <section class="card">
+          <h2>Identidad del taller</h2>
+          <p class="muted small ayuda">
+            Es lo que se imprime en cada cotización y en cada factura que recibe su cliente.
+          </p>
 
-        <label>
-          Nombre comercial
-          <input v-model="form.name" required />
-        </label>
-        <label>
-          Razón social
-          <input v-model="form.legalName" placeholder="Servicios Automotrices S. de R.L." />
-        </label>
-        <div class="row">
+          <label>
+            Nombre comercial
+            <input v-model="form.name" required />
+          </label>
+          <label>
+            Razón social
+            <input v-model="form.legalName" placeholder="Servicios Automotrices S. de R.L." />
+            <small class="muted">Como aparece en el RTN. Si no la pone, se usa el comercial.</small>
+          </label>
           <label>
             RTN
             <input v-model="form.taxId" placeholder="08019995123456" />
           </label>
+          <div class="row">
+            <label>
+              Teléfono
+              <input v-model="form.phone" placeholder="50499001111" />
+            </label>
+            <label>
+              Código de país
+              <input v-model="form.defaultPhoneCountryCode" placeholder="504" />
+              <small class="muted">Arma los enlaces de WhatsApp que les manda.</small>
+            </label>
+          </div>
           <label>
-            ISV por defecto (%)
-            <input v-model.number="form.defaultTaxRate" type="number" min="0" max="100" step="0.01" />
+            Correo
+            <input v-model="form.email" type="email" placeholder="contacto@sutaller.hn" />
           </label>
-        </div>
-        <!-- Apagarlo cambia lo que el servidor le manda al técnico, no solo lo que la
-             pantalla enseña: avísele antes de hacerlo. -->
-        <label class="checkbox">
-          <input v-model="form.techniciansSeePrices" type="checkbox" />
-          El técnico ve precios y totales
-        </label>
-        <p class="muted small">
-          Apagado, el técnico recibe la orden, agrega pasos y carga repuestos, pero no ve
-          cuánto cuestan ni cuánto suma la orden. Carga el repuesto sin precio y usted se lo
-          pone antes de facturar.
-        </p>
+          <label>
+            Dirección de la casa matriz
+            <input v-model="form.address" placeholder="Bo. El Centro, 3 calle, Comayagüela" />
+          </label>
+        </section>
 
-        <!-- El bodegaje nace apagado: cobrarlo es una decisión del taller, y uno que no lo
-             cobra no quiere ni ver los campos. -->
-        <label class="checkbox">
-          <input v-model="form.chargesStorage" type="checkbox" />
-          Cobrar bodegaje por el vehículo que nadie retira
-        </label>
-        <div v-if="form.chargesStorage" class="row">
-          <label>
-            Días de gracia
-            <input v-model.number="form.storageFreeDays" type="number" min="0" max="365" />
-            <small class="muted">Desde que se le avisa al cliente que está listo.</small>
-          </label>
-          <label>
-            Por día
-            <input v-model.number="form.storageDailyRate" type="number" min="0" step="0.01" />
-          </label>
-        </div>
+        <section class="card">
+          <h2>Cómo cobra el taller</h2>
+          <p class="muted small ayuda">
+            Lo que el sistema propone al cotizar y al facturar. Todo se puede cambiar trabajo
+            por trabajo.
+          </p>
 
-        <label>
-          Garantía por defecto (días)
-          <input v-model.number="form.defaultWarrantyDays" type="number" min="0" max="730" />
-          <small class="muted">
-            La que lleva un trabajo al facturarlo, y que se imprime en la factura con su fecha.
-            Cero es sin garantía. Se puede cambiar trabajo por trabajo al cobrar.
-          </small>
-        </label>
-        <div class="row">
           <label>
-            Teléfono
-            <input v-model="form.phone" placeholder="50499001111" />
+            ISV (%)
+            <input
+              v-model.number="form.defaultTaxRate"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+            />
+            <small class="muted">
+              Sus precios ya llevan el impuesto dentro: esto no sube el total, solo lo desglosa
+              en la cotización y en la factura. En cero no se desglosa nada.
+            </small>
           </label>
-          <label>
-            Código de país
-            <input v-model="form.defaultPhoneCountryCode" placeholder="504" />
-          </label>
-        </div>
-        <label>
-          Correo
-          <input v-model="form.email" type="email" placeholder="contacto@sutaller.hn" />
-        </label>
-        <label>
-          Dirección de la casa matriz
-          <input v-model="form.address" placeholder="Bo. El Centro, 3 calle, Comayagüela" />
-        </label>
 
-        <div class="actions">
+          <label>
+            Garantía por defecto (días)
+            <input v-model.number="form.defaultWarrantyDays" type="number" min="0" max="730" />
+            <small class="muted">
+              La que lleva un trabajo al facturarlo, y que se imprime en la factura con su
+              fecha. Cero es sin garantía.
+            </small>
+          </label>
+
+          <!-- El bodegaje nace apagado: cobrarlo es una decisión del taller, y uno que no lo
+               cobra no quiere ni ver los campos. -->
+          <label class="checkbox">
+            <input v-model="form.chargesStorage" type="checkbox" />
+            Cobrar bodegaje por el vehículo que nadie retira
+          </label>
+          <div v-if="form.chargesStorage" class="row sangria">
+            <label>
+              Días de gracia
+              <input v-model.number="form.storageFreeDays" type="number" min="0" max="365" />
+              <small class="muted">Desde que se le avisa al cliente que está listo.</small>
+            </label>
+            <label>
+              Por día
+              <input v-model.number="form.storageDailyRate" type="number" min="0" step="0.01" />
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Qué ve el técnico</h2>
+
+          <!-- Apagarlo cambia lo que el servidor le manda al técnico, no solo lo que la
+               pantalla enseña: avísele antes de hacerlo. -->
+          <label class="checkbox">
+            <input v-model="form.techniciansSeePrices" type="checkbox" />
+            El técnico ve precios y totales
+          </label>
+          <p class="muted small ayuda">
+            Apagado, el técnico recibe la orden, agrega pasos y carga repuestos, pero no ve
+            cuánto cuestan ni cuánto suma la orden, y no puede mandarle la cotización al
+            cliente: le reporta a usted y usted trata con el cliente. El repuesto lo carga sin
+            precio y usted se lo pone antes de facturar.
+          </p>
+        </section>
+
+        <div class="guardar">
           <button type="submit" :disabled="busy">Guardar</button>
           <span v-if="saved" class="ok">Guardado</span>
         </div>
-
-        <p class="muted small">
-          El código de país arma los enlaces de WhatsApp que se mandan a sus clientes. Estos
-          datos se imprimen en cada cotización y en cada factura.
-        </p>
       </form>
 
       <div class="card">
@@ -611,6 +641,29 @@ h1 {
 .row {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Los tres bloques del formulario, uno debajo del otro, con el guardar al final. */
+.grupos {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* El texto que explica para qué sirve el bloque, pegado a su título. */
+.ayuda {
+  margin: -0.25rem 0 var(--space-2);
+}
+
+/* Lo que depende de una casilla va corrido hacia dentro: se ve que cuelga de ella. */
+.sangria {
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--border);
+}
+
+.guardar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .checkbox {

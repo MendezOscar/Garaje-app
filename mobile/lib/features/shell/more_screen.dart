@@ -148,6 +148,12 @@ class MoreScreen extends ConsumerWidget {
                   route: '/inventario',
                 ),
                 _Row(icon: Icons.group_outlined, label: 'Usuarios', route: '/usuarios'),
+                _Row(
+                  icon: Icons.storefront_outlined,
+                  label: 'Taller',
+                  foot: 'ISV, garantía, bodegaje y qué ve el técnico',
+                  route: '/taller',
+                ),
               ],
             ),
           ],

@@ -112,6 +112,12 @@ function crear() {
   })
 }
 
+/** Abre la orden con la que se va a reparar, dejando el reclamo abierto. */
+function abrirOrden() {
+  if (!selected.value) return
+  return run(() => claimsApi.openRepairOrder(selected.value!.id))
+}
+
 function resolver() {
   if (!selected.value || !resolucion.value.resolution.trim()) return
 
@@ -276,9 +282,31 @@ onMounted(load)
               {{ selected.repairWorkOrderNumber }}
             </RouterLink>
             · costó {{ formatMoney(selected.repairCost) }}
+            <div class="muted small">
+              {{
+                selected.repairWarrantyCovered === null
+                  ? 'Falta decir si la cubre la garantía. Se decide en esa orden, con el diagnóstico hecho.'
+                  : selected.repairWarrantyCovered
+                    ? 'La paga el taller: no se le factura al cliente.'
+                    : 'Es un servicio nuevo: se le cobra al cliente.'
+              }}
+            </div>
           </dd>
         </template>
       </dl>
+
+      <!-- Abrir la orden sin cerrar el reclamo. Es el orden real de las cosas: primero entra
+           el carro y se repara, y hasta que se sabe qué pasó se cierra el reclamo. -->
+      <div v-if="selected.status === ClaimStatus.Open && !selected.repairWorkOrderId" class="abrir">
+        <button type="button" :disabled="busy" @click="abrirOrden">
+          Abrir la orden de reparación
+        </button>
+        <p class="muted small">
+          Recibe el vehículo con su propia orden, sus pasos y sus repuestos. Si la cubre la
+          garantía se decide ahí, con el diagnóstico hecho: cubierta la paga el taller, y si no,
+          se cobra como un servicio nuevo.
+        </p>
+      </div>
 
       <form v-if="selected.status === ClaimStatus.Open" class="resolver" @submit.prevent="resolver">
         <h3>Cerrar el reclamo</h3>
@@ -294,14 +322,16 @@ onMounted(load)
           Qué se hizo
           <textarea v-model="resolucion.resolution" rows="3" maxlength="2000"></textarea>
         </label>
-        <label class="checkbox">
-          <input v-model="resolucion.openRepairOrder" type="checkbox" />
-          Abrir una orden para la reparación
-        </label>
-        <p class="muted small">
-          La orden va ligada a este reclamo y lleva sus propios pasos y repuestos. Es lo que
-          después dice cuánto le costó la garantía al taller.
-        </p>
+        <template v-if="!selected.repairWorkOrderId">
+          <label class="checkbox">
+            <input v-model="resolucion.openRepairOrder" type="checkbox" />
+            Abrir una orden para la reparación
+          </label>
+          <p class="muted small">
+            La orden va ligada a este reclamo y lleva sus propios pasos y repuestos. Es lo que
+            después dice cuánto le costó la garantía al taller.
+          </p>
+        </template>
         <button type="submit" :disabled="busy || !resolucion.resolution.trim()">
           Cerrar el reclamo
         </button>
@@ -317,6 +347,13 @@ onMounted(load)
 </template>
 
 <style scoped>
+.abrir {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-top: var(--space-3);
+}
+
 .top {
   display: flex;
   align-items: flex-start;

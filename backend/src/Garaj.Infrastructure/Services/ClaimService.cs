@@ -168,6 +168,24 @@ public class ClaimService(
         return await MapAsync(claim, ct);
     }
 
+    public async Task<ClaimDetailDto> OpenRepairOrderAsync(Guid id, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var claim = await db.Claims
+            .Include(c => c.Sale)
+            .FirstOrDefaultAsync(c => c.Id == id, ct)
+            ?? throw new NotFoundException("El reclamo no existe.");
+
+        if (claim.RepairWorkOrderId is not null)
+            throw new ConflictException("Este reclamo ya tiene su orden de reparación.");
+
+        claim.RepairWorkOrderId = await AbrirOrdenDeReparacionAsync(claim, ct);
+        await db.SaveChangesAsync(ct);
+
+        return await MapAsync(claim, ct);
+    }
+
     /// <summary>
     /// La orden con la que se repara. Es trabajo nuevo —sus pasos, sus repuestos— y por eso
     /// va aparte de la original: así se puede saber cuánto le costó la garantía al taller.
@@ -192,8 +210,12 @@ public class ClaimService(
             VehicleId = vehicleId,
             Number = $"{prefix}-{branch.WorkOrderSequence:D6}",
             Status = WorkOrderStatus.Received,
-            Description = $"Garantía del reclamo {claim.Number}: {claim.Reason}",
-            OpenedAt = clock.UtcNow
+            Description = $"Reclamo {claim.Number}: {claim.Reason}",
+            OpenedAt = clock.UtcNow,
+            // De qué reclamo viene, para que la orden lo pueda enseñar y para que la decisión
+            // de la garantía tenga dónde vivir.
+            ClaimId = claim.Id
+            // WarrantyCovered se queda en null: se decide en el diagnóstico, no aquí.
         };
 
         db.WorkOrders.Add(order);
@@ -240,7 +262,7 @@ public class ClaimService(
         var repair = claim.RepairWorkOrderId is { } repairId
             ? await db.WorkOrders.AsNoTracking()
                 .Where(w => w.Id == repairId)
-                .Select(w => new { w.Number, w.ManualLaborTotal })
+                .Select(w => new { w.Number, w.ManualLaborTotal, w.WarrantyCovered })
                 .FirstOrDefaultAsync(ct)
             : null;
 
@@ -277,7 +299,8 @@ public class ClaimService(
             names.Resolved,
             claim.RepairWorkOrderId,
             repair?.Number,
-            repairCost + (repair?.ManualLaborTotal ?? 0));
+            repairCost + (repair?.ManualLaborTotal ?? 0),
+            repair?.WarrantyCovered);
     }
 
     private async Task<(string? Received, string? Resolved)> NombresAsync(

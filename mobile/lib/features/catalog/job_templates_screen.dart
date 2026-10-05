@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/job_template_repository.dart';
+import '../../core/api/work_order_repository.dart' show LaborServiceOption, laborServicesProvider;
 import '../../core/theme/garaj_brand.dart';
 import '../../core/widgets/garaj_skeleton.dart';
 import '../../core/widgets/garaj_states.dart';
@@ -11,10 +12,12 @@ import '../reports/reports_screen.dart' show money;
 /// Trabajos frecuentes: el cambio de aceite, las pastillas de adelante, lo que el taller
 /// repite.
 ///
-/// Aquí se miran, se renombran, se activan y se borran. Crearlos no se hace desde esta
-/// pantalla a propósito: el camino bueno es guardar una orden ya hecha como trabajo frecuente
-/// —desde la orden, con «Guardar como frecuente»—, porque entonces los pasos, sus servicios y
-/// sus repuestos ya están ahí y ya están bien.
+/// Aquí se miran, se crean, se renombran, se activan y se borran.
+///
+/// El mejor camino sigue siendo guardar una orden ya hecha como trabajo frecuente —desde la
+/// orden, con «Guardar como frecuente»—, porque entonces los pasos, sus servicios y sus
+/// repuestos ya están ahí y ya están bien. Pero el taller también arma trabajos de memoria
+/// antes de haberlos hecho nunca, y para eso no hay orden de donde copiar.
 class JobTemplatesScreen extends ConsumerStatefulWidget {
   const JobTemplatesScreen({super.key});
 
@@ -23,6 +26,46 @@ class JobTemplatesScreen extends ConsumerStatefulWidget {
 }
 
 class _JobTemplatesScreenState extends ConsumerState<JobTemplatesScreen> {
+  bool _busy = false;
+
+  Future<void> _crear() async {
+    final servicios = await ref.read(laborServicesProvider.future);
+
+    if (!mounted) return;
+    final nuevo = await showModalBottomSheet<_NuevoTrabajo>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _FormularioTrabajo(servicios: servicios),
+    );
+
+    if (nuevo == null) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(jobTemplateRepositoryProvider).create(
+            name: nuevo.nombre,
+            description: nuevo.descripcion,
+            tasks: nuevo.pasos,
+          );
+
+      ref.invalidate(jobTemplatesProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('«${nuevo.nombre}» guardado.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo guardar el trabajo.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _abrir(JobTemplate plantilla) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -40,6 +83,11 @@ class _JobTemplatesScreenState extends ConsumerState<JobTemplatesScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Trabajos frecuentes')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _busy ? null : _crear,
+        icon: const Icon(Icons.add),
+        label: const Text('Nuevo'),
+      ),
       body: plantillas.when(
         loading: () => const GarajSkeletonList(rows: 4),
         error: (e, _) => GarajError(
@@ -58,9 +106,9 @@ class _JobTemplatesScreenState extends ConsumerState<JobTemplatesScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Se arman desde una orden ya hecha: abra una, busque «Guardar como '
-                  'frecuente», y la próxima vez que entre el mismo trabajo se anexa completo '
-                  'con un toque.',
+                  'Ármelos con «Nuevo», o mejor desde una orden ya hecha: ábrala, busque '
+                  '«Guardar como frecuente», y se guarda con sus pasos y sus repuestos tal '
+                  'como quedó el trabajo de verdad.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -368,3 +416,231 @@ TextStyle? _rotulo(ThemeData theme) => theme.textTheme.labelSmall?.copyWith(
 
 String _cantidad(double value) =>
     value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
+
+/// Lo que devuelve el formulario de un trabajo nuevo.
+typedef _PasoNuevo = ({String title, String? laborServiceId, double? estimatedHours});
+
+class _NuevoTrabajo {
+  const _NuevoTrabajo({required this.nombre, this.descripcion, required this.pasos});
+
+  final String nombre;
+  final String? descripcion;
+  final List<_PasoNuevo> pasos;
+}
+
+/// Armar un trabajo frecuente de memoria: cómo se llama y qué pasos lleva.
+///
+/// Los repuestos no se piden aquí a propósito: cuántos empaques y de qué marca lleva depende
+/// del carro que entre, y eso se sabe con el vehículo delante. Se agregan después, guardando
+/// una orden real encima de este trabajo.
+class _FormularioTrabajo extends StatefulWidget {
+  const _FormularioTrabajo({required this.servicios});
+
+  final List<LaborServiceOption> servicios;
+
+  @override
+  State<_FormularioTrabajo> createState() => _FormularioTrabajoState();
+}
+
+class _FormularioTrabajoState extends State<_FormularioTrabajo> {
+  final _nombre = TextEditingController();
+  final _descripcion = TextEditingController();
+  final _pasos = <_PasoEnEdicion>[_PasoEnEdicion()];
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _descripcion.dispose();
+    for (final paso in _pasos) {
+      paso.dispose();
+    }
+    super.dispose();
+  }
+
+  bool get _sePuedeGuardar =>
+      _nombre.text.trim().isNotEmpty && _pasos.any((p) => p.titulo.text.trim().isNotEmpty);
+
+  void _guardar() {
+    Navigator.pop(
+      context,
+      _NuevoTrabajo(
+        nombre: _nombre.text.trim(),
+        descripcion: _descripcion.text.trim().isEmpty ? null : _descripcion.text.trim(),
+        pasos: [
+          for (final paso in _pasos)
+            if (paso.titulo.text.trim().isNotEmpty)
+              (
+                title: paso.titulo.text.trim(),
+                laborServiceId: paso.servicioId,
+                estimatedHours: double.tryParse(paso.horas.text.trim()),
+              ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: GarajSpace.md,
+        right: GarajSpace.md,
+        top: GarajSpace.md,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + GarajSpace.md,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nuevo trabajo frecuente', style: theme.textTheme.titleLarge),
+            const SizedBox(height: GarajSpace.md),
+
+            TextField(
+              controller: _nombre,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Cómo se llama',
+                hintText: 'Cambio de aceite, frenos de adelante…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: GarajSpace.sm),
+
+            TextField(
+              controller: _descripcion,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Para qué sirve (opcional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: GarajSpace.lg),
+
+            Text('PASOS', style: theme.textTheme.labelSmall),
+            const SizedBox(height: GarajSpace.xs),
+            Text(
+              'Lo que hay que hacer, en orden. Si el paso sale del catálogo de mano de obra, '
+              'elíjalo ahí y el precio lo pone el catálogo.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+            const SizedBox(height: GarajSpace.sm),
+
+            for (final (i, paso) in _pasos.indexed) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: paso.titulo,
+                      textCapitalization: TextCapitalization.sentences,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Paso ${i + 1}',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  if (_pasos.length > 1)
+                    IconButton(
+                      tooltip: 'Quitar el paso',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setState(() {
+                        _pasos.removeAt(i).dispose();
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: GarajSpace.xs),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: DropdownButtonFormField<String?>(
+                      initialValue: paso.servicioId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Del catálogo',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('— ninguno —')),
+                        for (final s in widget.servicios)
+                          DropdownMenuItem(value: s.id, child: Text(s.name)),
+                      ],
+                      onChanged: (v) => setState(() {
+                        paso.servicioId = v;
+                        // Sin título escrito, el del catálogo sirve: es como se llama el
+                        // trabajo en el taller.
+                        if (v != null && paso.titulo.text.trim().isEmpty) {
+                          paso.titulo.text =
+                              widget.servicios.firstWhere((s) => s.id == v).name;
+                        }
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: GarajSpace.sm),
+                  Expanded(
+                    child: TextField(
+                      controller: paso.horas,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Horas',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: GarajSpace.md),
+            ],
+
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _pasos.add(_PasoEnEdicion())),
+              icon: const Icon(Icons.add),
+              label: const Text('Otro paso'),
+            ),
+            const SizedBox(height: GarajSpace.lg),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: GarajSpace.sm),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _sePuedeGuardar ? _guardar : null,
+                    child: const Text('Guardar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un paso mientras se escribe. Lleva sus propios controladores para que al quitar un paso
+/// del medio no se arrastre el texto del de abajo.
+class _PasoEnEdicion {
+  final titulo = TextEditingController();
+  final horas = TextEditingController();
+  String? servicioId;
+
+  void dispose() {
+    titulo.dispose();
+    horas.dispose();
+  }
+}

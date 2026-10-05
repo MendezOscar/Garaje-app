@@ -276,6 +276,19 @@ const ganancia = computed(() => {
   }
 })
 
+/**
+ * Dice si el reclamo del que nace esta orden lo cubre la garantía.
+ *
+ * Cubierta la paga el taller y la orden no se factura; no cubierta se cobra como cualquier
+ * otra. Mientras no se decide, el servidor no deja facturar: es la decisión que dice quién
+ * paga, y tomarla después de cobrar no serviría de nada.
+ */
+function decidirGarantia(cubre: boolean) {
+  return run(async () => {
+    order.value = await workOrdersApi.setWarrantyDecision(id.value, cubre)
+  })
+}
+
 function guardarRecepcion() {
   return run(async () => {
     recepcion.value = await workOrdersApi.saveReception(id.value, formRecepcion.value)
@@ -864,6 +877,61 @@ onMounted(async () => {
     </details>
 
     <ErrorNote v-if="error" :message="error" />
+
+    <!-- Las órdenes que nacen de un reclamo. Arriba de todo y no en una tarjeta del medio: lo
+         primero que hay que saber de esta orden es quién la va a pagar, y hasta que no se
+         decide no se puede facturar. -->
+    <article v-if="order.claimId" class="card reclamo">
+      <h2>
+        Viene del reclamo
+        <RouterLink :to="{ name: 'claims', query: { reclamo: order.claimNumber } }">
+          {{ order.claimNumber }}
+        </RouterLink>
+      </h2>
+      <p class="muted small">
+        {{
+          order.claimWasUnderWarranty
+            ? 'El trabajo original estaba en garantía el día que el cliente reclamó.'
+            : 'El trabajo original ya no estaba en garantía el día que el cliente reclamó.'
+        }}
+      </p>
+
+      <template v-if="order.warrantyCovered === null">
+        <p class="pregunta">¿La cubre la garantía?</p>
+        <p class="muted small">
+          Se decide con el diagnóstico hecho: si lo que falló es lo que el taller hizo, la paga
+          el taller. Hasta que no lo diga, la orden no se puede facturar.
+        </p>
+        <div class="acciones">
+          <button type="button" :disabled="busy" @click="decidirGarantia(true)">
+            Sí, la paga el taller
+          </button>
+          <button type="button" class="btn-ghost" :disabled="busy" @click="decidirGarantia(false)">
+            No, es un servicio nuevo
+          </button>
+        </div>
+      </template>
+
+      <template v-else>
+        <p class="decidido">
+          <strong v-if="order.warrantyCovered">La paga el taller.</strong>
+          <strong v-else>Es un servicio nuevo: se le cobra al cliente.</strong>
+          <span v-if="order.warrantyCovered" class="muted small">
+            No se factura: entregue el vehículo y pase la orden a Entregada. Lo que costó queda
+            en el reclamo.
+          </span>
+        </p>
+        <button
+          v-if="canEdit && !order.closedAt"
+          type="button"
+          class="link"
+          :disabled="busy"
+          @click="decidirGarantia(!order.warrantyCovered)"
+        >
+          Cambiar la decisión
+        </button>
+      </template>
+    </article>
 
     <div class="grid">
       <!-- La columna de trabajo: lo que se hace hoy con el vehículo enfrente. -->
@@ -2071,6 +2139,25 @@ header p {
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
+}
+
+/* El recuadro del reclamo. Ámbar mientras falta decidir —es lo que frena la factura— y
+   normal cuando ya se decidió. */
+.reclamo {
+  margin-bottom: var(--space-4);
+  border-left: 3px solid var(--warning);
+}
+
+.reclamo .pregunta {
+  margin: var(--space-3) 0 0;
+  font-weight: 600;
+}
+
+.reclamo .decidido {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
 }
 
 .card {

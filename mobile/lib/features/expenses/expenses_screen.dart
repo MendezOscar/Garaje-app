@@ -26,8 +26,31 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   bool _busy = false;
 
   Future<void> _registrar() async {
-    final branches = ref.read(branchOptionsProvider).value ?? const [];
-    if (branches.isEmpty) return;
+    // Con `ref.read` sobre un proveedor autoDispose que nadie estaba mirando, la lista venía
+    // vacía y el botón se iba por el `return` sin decir nada: tocarlo no hacía absolutamente
+    // nada. Pidiéndole el futuro se carga aquí mismo la primera vez.
+    final List<BranchOption> branches;
+    try {
+      branches = await ref.read(branchOptionsProvider.future);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudieron cargar las sucursales.'))),
+        );
+      }
+      return;
+    }
+
+    if (branches.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El taller no tiene sucursales donde anotar el gasto.')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
 
     final gasto = await showModalBottomSheet<_NuevoGasto>(
       context: context,

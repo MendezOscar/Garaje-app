@@ -41,6 +41,14 @@ public class ClaimsController(IClaimService service) : ControllerBase
         Guid id, ResolveClaimRequest request, CancellationToken ct)
         => Ok(await service.ResolveAsync(id, request, ct));
 
+    /// <summary>
+    /// Abre la orden con la que se va a reparar, dejando el reclamo abierto. Si la cubre la
+    /// garantía se decide después, en el diagnóstico de esa orden.
+    /// </summary>
+    [HttpPost("{id:guid}/repair-order")]
+    public async Task<ActionResult<ClaimDetailDto>> OpenRepairOrder(Guid id, CancellationToken ct)
+        => Ok(await service.OpenRepairOrderAsync(id, ct));
+
     [HttpPost("{id:guid}/reopen")]
     public async Task<ActionResult<ClaimDetailDto>> Reopen(Guid id, CancellationToken ct)
         => Ok(await service.ReopenAsync(id, ct));

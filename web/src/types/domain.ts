@@ -945,6 +945,16 @@ export interface WorkOrderDetail {
   laborMode: LaborMode
   /** El total escrito a mano. Solo cuenta en modo manual. */
   manualLaborTotal: number | null
+  /** El reclamo que originó la orden. Null en una orden normal. */
+  claimId: string | null
+  claimNumber: string | null
+  /**
+   * Si la cubre la garantía. Null mientras no se decide: se decide con el diagnóstico hecho.
+   * True la paga el taller y no se factura.
+   */
+  warrantyCovered: boolean | null
+  /** Si el trabajo original estaba en garantía el día del reclamo. Viene congelado. */
+  claimWasUnderWarranty: boolean | null
 }
 
 export const NotificationType = {
@@ -1156,6 +1166,8 @@ export interface ClaimDetail extends ClaimListItem {
   resolvedByName: string | null
   /** Lo que costó repararlo, cuando se abrió orden de garantía. */
   repairCost: number
+  /** Si la orden de reparación la cubre la garantía. Null mientras no se decide. */
+  repairWarrantyCovered: boolean | null
 }
 
 /**

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/customer_repository.dart';
+import '../../core/api/dashboard_repository.dart';
+import '../../core/api/expense_repository.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/service_request_repository.dart';
@@ -169,8 +171,13 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
             ],
           );
 
-      // La existencia bajó y hay una venta más: las dos listas que la enseñan quedan viejas.
+      // La existencia bajó y hay una venta más. Sin invalidar el registro, la venta quedaba
+      // guardada pero «Ventas» seguía mostrando la lista de antes, y parecía que no se había
+      // guardado nada. Lo mismo la caja del día y el estado de resultados, que la cuentan.
       ref.invalidate(stockProvider);
+      ref.invalidate(salesRegistryProvider);
+      ref.invalidate(dashboardProvider);
+      ref.invalidate(incomeStatementProvider);
       setState(() => _hecha = venta);
     } catch (e) {
       if (mounted) {

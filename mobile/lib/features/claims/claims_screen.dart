@@ -160,7 +160,14 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
           maxLines: 4,
           maxLength: 2000,
           textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(labelText: etiqueta, helperText: ayuda, helperMaxLines: 2),
+          // Sin contador: con dos renglones de ayuda, el «45/2000» se le montaba encima. El
+          // tope de 2000 sigue puesto, solo que nadie escribe un reclamo de 2000 letras.
+          decoration: InputDecoration(
+            labelText: etiqueta,
+            helperText: ayuda,
+            helperMaxLines: 2,
+            counterText: '',
+          ),
         ),
         actions: [
           TextButton(
@@ -238,6 +245,11 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
                     onReabrir: () => _run(() async {
                       await ref.read(claimRepositoryProvider).reopen(lista[i].id);
                     }),
+                    onAbrirOrden: () => _run(() async {
+                      await ref
+                          .read(claimRepositoryProvider)
+                          .openRepairOrder(lista[i].id);
+                    }),
                   ),
                 ),
         ),
@@ -252,12 +264,14 @@ class _ClaimCard extends StatelessWidget {
     required this.busy,
     required this.onCerrar,
     required this.onReabrir,
+    required this.onAbrirOrden,
   });
 
   final Claim claim;
   final bool busy;
   final VoidCallback onCerrar;
   final VoidCallback onReabrir;
+  final VoidCallback onAbrirOrden;
 
   @override
   Widget build(BuildContext context) {
@@ -319,9 +333,25 @@ class _ClaimCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'Reparado en la orden $orden · costó ${money(claim.repairCost, 'HNL')}',
+                  'Orden $orden · costó ${money(claim.repairCost, 'HNL')}\n'
+                  '${_garantiaEnPalabras(claim.repairWarrantyCovered)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+
+            // Abrir la orden sin cerrar el reclamo: primero entra el carro y se repara, y
+            // hasta que se sabe qué pasó se cierra el reclamo.
+            if (abierto && claim.repairWorkOrderId == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: busy ? null : onAbrirOrden,
+                    icon: const Icon(Icons.build_outlined),
+                    label: const Text('Abrir la orden de reparación'),
                   ),
                 ),
               ),
@@ -344,6 +374,14 @@ class _ClaimCard extends StatelessWidget {
     );
   }
 }
+
+/// Qué se decidió de la garantía de la orden de reparación, en palabras.
+String _garantiaEnPalabras(bool? cubierta) => switch (cubierta) {
+      null => 'Falta decir si la cubre la garantía: se decide en esa orden, con el '
+          'diagnóstico hecho.',
+      true => 'La paga el taller: no se le factura al cliente.',
+      false => 'Es un servicio nuevo: se le cobra al cliente.',
+    };
 
 /// Busca el trabajo facturado sobre el que se reclama: por número de factura, de orden, o
 /// por el nombre del cliente, que es lo que el taller tiene a mano cuando el cliente llega.

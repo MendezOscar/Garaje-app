@@ -15,11 +15,14 @@ mandar los paquetes a las tiendas.
 
 Es lo primero, porque casi todo lo demás depende de cómo quede configurado.
 
-**Panel → Taller.**
+**Panel → Taller.** **App → Más → Taller.**
 
-- [ ] Hay campos nuevos: **garantía por defecto** (días), **bodegaje** (si se cobra y cuánto por
-      día), **tasa de ISV** y **el técnico ve los precios**.
+- [ ] Los ajustes están en **tres bloques**: identidad del taller, cómo cobra, y qué ve el
+      técnico. Cada uno dice para qué sirve.
+- [ ] **Garantía por defecto** (días), **bodegaje** (si se cobra y cuánto por día), **ISV** y
+      **el técnico ve los precios**.
 - [ ] Guardar y recargar: los valores quedan.
+- [ ] Guardar desde el teléfono y ver el cambio en el panel, y al revés.
 - [ ] Con bodegaje en cero, el cobro por vehículo sin retirar no se propone en ninguna parte.
 
 ---
@@ -28,8 +31,12 @@ Es lo primero, porque casi todo lo demás depende de cómo quede configurado.
 
 Cobrar un trabajo corto sin abrirle orden al vehículo. Es la entrada del mostrador.
 
-**Panel → Venta rápida.** **App → Más → Venta rápida.**
+**Panel → Ventas → Nueva venta.** **App → Más → Ventas → Venta rápida.**
 
+- [ ] En el panel hay **una sola entrada en el menú**, Ventas, y la venta nueva se abre desde
+      ahí: antes eran dos, una en TRABAJO y otra en DINERO.
+- [ ] En el primer paso se elige **un camino a la vez** —repuesto, trabajo del catálogo,
+      trabajo escrito—, no los tres a la vez.
 - [ ] Agregar un repuesto del inventario: descuenta existencias.
 - [ ] Agregar un servicio del catálogo de mano de obra.
 - [ ] Agregar un trabajo escrito a mano, con su precio.
@@ -44,9 +51,14 @@ Cobrar un trabajo corto sin abrirle orden al vehículo. Es la entrada del mostra
 
 **App → una orden → Recepción.** **Panel → detalle de la orden → tarjeta de recepción.**
 
+> Es opcional: nada obliga a llenarla y la orden sigue su curso sin ella.
+
 - [ ] Llenar en el teléfono: kilometraje, nivel de combustible, estado de la carrocería, lo que
       el cliente deja dentro, observaciones.
-- [ ] **Firmar con el dedo** y guardar.
+- [ ] **Firmar con el dedo**: la pantalla **no se mueve** mientras se dibuja.
+- [ ] **Deshacer** el último trazo y **Borrar** toda la firma.
+- [ ] Guardar, salir y volver a entrar: **la firma guardada se ve**, con «Firmar de nuevo»
+      para reemplazarla.
 - [ ] La firma y las notas se ven en el panel, en el detalle de la orden.
 - [ ] Volver a abrir la recepción en el teléfono: trae lo que ya se había escrito.
 - [ ] Corregir algo y guardar: no duplica, corrige.
@@ -75,7 +87,16 @@ El cliente vuelve diciendo que el trabajo quedó mal.
 - [ ] Anotar un reclamo sobre una factura: se le pone folio `REC-000001`.
 - [ ] Al anotarlo queda registrado **si estaba o no en garantía** ese día. Eso no cambia después,
       aunque la garantía venza.
-- [ ] Abrir una **orden de reparación** desde el reclamo: nace ligada a él.
+- [ ] **Abrir la orden de reparación con el reclamo abierto**, desde el reclamo mismo: recibe
+      el vehículo con su propia orden, y el reclamo sigue abierto hasta que se sepa qué pasó.
+- [ ] Esa orden dice arriba **de qué reclamo viene** y si el trabajo original estaba en
+      garantía ese día.
+- [ ] En el diagnóstico, decidir: **la paga el taller** o **se le cobra al cliente**.
+- [ ] Intentar facturarla **sin decidir**: no deja, y dice que falta decidirlo.
+- [ ] Decidir que la paga el taller e intentar facturarla: tampoco deja. Se entrega y se pasa
+      a Entregada; lo que costó queda en el reclamo.
+- [ ] Decidir que se le cobra: se factura como cualquier otra orden.
+- [ ] Cambiar la decisión mientras la orden siga abierta.
 - [ ] Resolver el reclamo: muestra lo que costó la reparación (repuestos más mano de obra).
 - [ ] Reabrirlo: vuelve a la lista de abiertos, arriba.
 - [ ] Los abiertos salen primero, siempre.
@@ -193,6 +214,27 @@ Un repaso corto por lo que el cliente usa todos los días:
 - [ ] Reportes.
 - [ ] Recordatorios de servicio y el mensaje de WhatsApp.
 - [ ] Avisos (la campana) y notificaciones push.
+
+---
+
+---
+
+## Lo que ya se probó solo
+
+Cinco casos corren contra una API local, en el simulador, y pasan:
+
+```bash
+# la API local, con el taller de pruebas
+docker compose --profile local-db up -d postgres
+cd backend && ConnectionStrings__Default="Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-dev-secret"   ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5199   dotnet run --project src/Garaj.Api --no-launch-profile
+
+# las pruebas
+cd mobile && flutter test integration_test/arreglos_test.dart -d <simulador>   --dart-define=API_URL=http://localhost:5199
+```
+
+Cubren el botón de gasto, la venta de un trabajo, el trabajo frecuente nuevo, los ajustes del
+taller y el recuadro del reclamo. Son los que se rompieron, así que son los que de aquí en
+adelante no se pueden volver a romper sin que se note.
 
 ---
 

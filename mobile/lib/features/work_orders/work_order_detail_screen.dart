@@ -761,6 +761,22 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 atraso: _atraso(order),
                 mostrarTecnico: !_isTechnician,
               ),
+
+              // Las órdenes que nacen de un reclamo, arriba de todo: lo primero que hay que
+              // saber de esta orden es quién la va a pagar, y hasta que no se decide el
+              // servidor no deja facturarla.
+              if (order.claimId != null && _isOwner) ...[
+                const SizedBox(height: 14),
+                _Reclamo(
+                  order: order,
+                  busy: _busy,
+                  onDecidir: (cubre) => _run(() async {
+                    await ref
+                        .read(workOrderRepositoryProvider)
+                        .setWarrantyDecision(widget.id, covered: cubre);
+                  }),
+                ),
+              ],
               const SizedBox(height: 14),
               // El orden es el del trabajo: se diagnostica, se ve por cuánto va, se arman
               // los pasos, se cargan los repuestos, se cotiza, se fotografía, se avisa y se
@@ -2262,4 +2278,97 @@ String _hora(DateTime value) {
   final local = value.toLocal();
   return '${local.hour.toString().padLeft(2, '0')}:'
       '${local.minute.toString().padLeft(2, '0')}';
+}
+
+/// El recuadro de la orden que nace de un reclamo.
+///
+/// Lo que se decide aquí es quién paga: si lo que falló es lo que el taller hizo, la paga el
+/// taller y la orden no se factura; si no, es un servicio nuevo y se cobra como cualquier
+/// otro. Se decide con el diagnóstico hecho y no al recibir el reclamo, porque hasta que no
+/// se abre el carro no se sabe.
+class _Reclamo extends StatelessWidget {
+  const _Reclamo({required this.order, required this.busy, required this.onDecidir});
+
+  final WorkOrderDetail order;
+  final bool busy;
+  final void Function(bool cubre) onDecidir;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final claro = theme.brightness == Brightness.light;
+    final ambar = claro ? GarajColors.warning : GarajColors.warningLight;
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Color.lerp(theme.dividerColor, ambar, 0.55)!),
+        borderRadius: const BorderRadius.all(Radius.circular(10)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Viene del reclamo ${order.claimNumber}',
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: GarajSpace.xs),
+            Text(
+              order.claimWasUnderWarranty == true
+                  ? 'El trabajo original estaba en garantía el día que el cliente reclamó.'
+                  : 'El trabajo original ya no estaba en garantía el día que reclamó.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+
+            if (order.warrantyCovered == null) ...[
+              const SizedBox(height: GarajSpace.md),
+              Text('¿La cubre la garantía?', style: theme.textTheme.titleSmall),
+              const SizedBox(height: GarajSpace.xs),
+              Text(
+                'Si lo que falló es lo que el taller hizo, la paga el taller. Hasta que no lo '
+                'diga, la orden no se puede facturar.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+              ),
+              const SizedBox(height: GarajSpace.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: busy ? null : () => onDecidir(true),
+                      child: const Text('La paga el taller'),
+                    ),
+                  ),
+                  const SizedBox(width: GarajSpace.sm),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: busy ? null : () => onDecidir(false),
+                      child: const Text('Se le cobra'),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              const SizedBox(height: GarajSpace.sm),
+              Text(
+                order.warrantyCovered!
+                    ? 'La paga el taller. No se factura: entregue el vehículo y pase la orden '
+                        'a Entregada.'
+                    : 'Es un servicio nuevo: se le cobra al cliente.',
+                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (order.status.isOpen)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: busy ? null : () => onDecidir(!order.warrantyCovered!),
+                    child: const Text('Cambiar la decisión'),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

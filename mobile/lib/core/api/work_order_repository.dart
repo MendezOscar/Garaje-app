@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -202,6 +204,36 @@ class WorkOrderRepository {
     );
 
     return response.data == null ? null : VehicleReception.fromJson(response.data!);
+  }
+
+  /// Dice si la orden de un reclamo la cubre la garantía. Cubierta la paga el taller y la
+  /// orden no se factura; no cubierta se cobra como cualquier otra.
+  Future<WorkOrderDetail> setWarrantyDecision(String id, {required bool covered}) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$id/warranty-decision',
+      data: {'covered': covered},
+    );
+
+    return WorkOrderDetail.fromJson(response.data!);
+  }
+
+  /// La firma ya guardada, en bytes.
+  ///
+  /// Va por la API y no por el bucket —el objeto es privado—, así que necesita la cabecera de
+  /// autorización y no se puede pintar con `Image.network`. Null cuando no firmó: el backend
+  /// responde 404.
+  Future<Uint8List?> receptionSignature(String workOrderId) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/api/work-orders/$workOrderId/reception/signature',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return response.data == null ? null : Uint8List.fromList(response.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   /// Guarda la hoja. La firma va en base64 y solo cuando se acaba de firmar: mandarla en cada
@@ -479,6 +511,14 @@ final workOrderDetailProvider =
 );
 
 /// La hoja de recepción de una orden. `autoDispose` porque se mira una vez y se vuelve.
+/// La imagen de la firma guardada. Aparte de la hoja porque son bytes, no JSON, y porque la
+/// hoja se pide siempre y la firma solo cuando hay que enseñarla.
+final receptionSignatureProvider =
+    FutureProvider.autoDispose.family<Uint8List?, String>(
+  (ref, workOrderId) =>
+      ref.watch(workOrderRepositoryProvider).receptionSignature(workOrderId),
+);
+
 final receptionProvider =
     FutureProvider.autoDispose.family<VehicleReception?, String>(
   (ref, workOrderId) => ref.watch(workOrderRepositoryProvider).reception(workOrderId),

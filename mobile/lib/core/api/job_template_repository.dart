@@ -130,6 +130,40 @@ class JobTemplateRepository {
     return JobTemplate.fromJson(response.data!);
   }
 
+  /// Crea un trabajo frecuente desde cero: nombre, descripción y sus pasos.
+  ///
+  /// Guardar una orden ya hecha sigue siendo el mejor camino —ahí los repuestos ya están—,
+  /// pero el taller también quiere armar el trabajo de memoria antes de haberlo hecho nunca,
+  /// y para eso no hay orden de donde copiar.
+  Future<JobTemplate> create({
+    required String name,
+    String? description,
+    required List<({String title, String? laborServiceId, double? estimatedHours})> tasks,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/job-templates',
+      data: {
+        'name': name,
+        'description': description,
+        'isActive': true,
+        'tasks': [
+          for (final paso in tasks)
+            {
+              'title': paso.title,
+              'description': null,
+              'laborServiceId': paso.laborServiceId,
+              'estimatedHours': paso.estimatedHours,
+            },
+        ],
+        // Los repuestos se agregan después, desde una orden: aquí todavía no se sabe de qué
+        // marca ni cuántos lleva este carro en concreto.
+        'parts': <Map<String, dynamic>>[],
+      },
+    );
+
+    return JobTemplate.fromJson(response.data!);
+  }
+
   /// El detalle: sus pasos y sus repuestos, a precios de hoy.
   Future<JobTemplateDetail> get(String id) async {
     final response = await _dio.get<Map<String, dynamic>>('/api/job-templates/$id');

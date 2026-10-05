@@ -27,6 +27,7 @@ import '../../features/shell/technician_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
+import '../../features/workshop/workshop_settings_screen.dart';
 import '../auth/auth_controller.dart';
 import '../models/current_user.dart';
 import '../onboarding/onboarding_controller.dart';
@@ -84,6 +85,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/ventas', builder: (_, __) => const SalesScreen()),
       GoRoute(path: '/mostrador', builder: (_, __) => const CounterSaleScreen()),
       GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
+
+      // Los ajustes del taller: el ISV, la garantía, el bodegaje y si el técnico ve precios.
+      // Son los que el Dueño cambia con el taller abierto, y el teléfono es lo que trae
+      // encima.
+      GoRoute(path: '/taller', builder: (_, __) => const WorkshopSettingsScreen()),
       GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
       GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
       GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
@@ -135,6 +141,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/ventas' ||
           location == '/mostrador' ||
           location == '/usuarios' ||
+          location == '/taller' ||
           location == '/clientes') {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null

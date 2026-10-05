@@ -224,6 +224,10 @@ class WorkOrderDetail {
     required this.laborTotal,
     required this.laborMode,
     this.manualLaborTotal,
+    this.claimId,
+    this.claimNumber,
+    this.warrantyCovered,
+    this.claimWasUnderWarranty,
     this.plate,
     this.diagnosis,
     this.mileageIn,
@@ -270,6 +274,10 @@ class WorkOrderDetail {
         laborTotal: (json['laborTotal'] as num).toDouble(),
         laborMode: LaborMode.fromValue(json['laborMode'] as int),
         manualLaborTotal: (json['manualLaborTotal'] as num?)?.toDouble(),
+        claimId: json['claimId'] as String?,
+        claimNumber: json['claimNumber'] as String?,
+        warrantyCovered: json['warrantyCovered'] as bool?,
+        claimWasUnderWarranty: json['claimWasUnderWarranty'] as bool?,
       );
 
   final String id;
@@ -305,6 +313,19 @@ class WorkOrderDetail {
   /// De dónde sale ese número.
   final LaborMode laborMode;
   final double? manualLaborTotal;
+
+  // ---------- Cuando la orden nace de un reclamo ----------
+
+  /// El reclamo que la originó, y su folio. Null en una orden normal.
+  final String? claimId;
+  final String? claimNumber;
+
+  /// Si la cubre la garantía. Null mientras no se decide, que es como nace: se decide con el
+  /// diagnóstico hecho. True la paga el taller y la orden no se factura.
+  final bool? warrantyCovered;
+
+  /// Si el trabajo original estaba en garantía el día del reclamo. Viene congelado de ese día.
+  final bool? claimWasUnderWarranty;
 
   bool get isCatalogLabor => laborMode == LaborMode.catalog;
 }

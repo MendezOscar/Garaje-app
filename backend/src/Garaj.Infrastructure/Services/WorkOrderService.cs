@@ -1266,6 +1266,15 @@ public class WorkOrderService(
             })
             .ToList();
 
+        // De qué reclamo viene, cuando viene de uno. Son dos datos y una consulta que solo se
+        // hace en las órdenes de reclamo, que son pocas.
+        var reclamo = order.ClaimId is { } claimId
+            ? await db.Claims.AsNoTracking()
+                .Where(c => c.Id == claimId)
+                .Select(c => new { c.Number, c.WasUnderWarranty })
+                .FirstOrDefaultAsync(ct)
+            : null;
+
         return new WorkOrderDetailDto(
             order.Id,
             order.Number,
@@ -1303,7 +1312,34 @@ public class WorkOrderService(
                     ? order.ManualLaborTotal ?? 0
                     : tasks.Sum(t => t.LaborPrice ?? 0),
             order.LaborMode,
-            sinPrecios ? null : order.ManualLaborTotal);
+            sinPrecios ? null : order.ManualLaborTotal,
+            order.ClaimId,
+            reclamo?.Number,
+            order.WarrantyCovered,
+            reclamo?.WasUnderWarranty);
+    }
+
+    public async Task<WorkOrderDetailDto> SetWarrantyDecisionAsync(
+        Guid id, WarrantyDecisionRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
+            ?? throw new NotFoundException("La orden no existe.");
+
+        if (order.ClaimId is null)
+            throw new AppException(
+                "Esta orden no viene de un reclamo, así que no hay garantía que decidir.");
+
+        if (order.SaleId is not null)
+            throw new ConflictException(
+                "La orden ya se facturó: lo que se cobró no se cambia desde aquí.");
+
+        order.WarrantyCovered = request.Covered;
+        await db.SaveChangesAsync(ct);
+
+        return await GetAsync(id, ct);
     }
 
     /// <summary>Los servicios del catálogo que dan precio a los pasos, en una sola consulta.</summary>

@@ -47,6 +47,21 @@ const auth = useAuthStore()
 const branches = ref<Branch[]>([])
 const branchId = ref('')
 
+/**
+ * Qué se está agregando ahora mismo.
+ *
+ * Uno a la vez: con los tres caminos a la vista —buscar repuesto, elegir del catálogo,
+ * escribir el trabajo— había dos botones «Agregar» idénticos y la pantalla no decía cuál era
+ * cuál. Empieza en repuesto porque es lo que más se vende en el mostrador.
+ */
+const MODOS = [
+  { clave: 'repuesto', etiqueta: 'Repuesto' },
+  { clave: 'catalogo', etiqueta: 'Trabajo del catálogo' },
+  { clave: 'libre', etiqueta: 'Trabajo escrito' },
+] as const
+
+const modo = ref<(typeof MODOS)[number]['clave']>('repuesto')
+
 const busqueda = ref('')
 const resultados = ref<StockItem[]>([])
 const buscando = ref(false)
@@ -359,7 +374,7 @@ onMounted(async () => {
 <template>
   <section>
     <header>
-      <RouterLink :to="{ name: 'home' }" class="volver" aria-label="Volver al inicio">‹</RouterLink>
+      <RouterLink :to="{ name: 'sales' }" class="volver" aria-label="Volver a Ventas">‹</RouterLink>
       <div>
         <h1>Venta rápida</h1>
         <p class="muted small">
@@ -401,57 +416,93 @@ onMounted(async () => {
 
         <section class="paso">
           <h2><span class="numero">1</span> Qué se vende o se hace</h2>
-          <div class="buscador">
-            <input
-              v-model="busqueda"
-              type="search"
-              placeholder="Buscar por nombre o código"
-              @input="buscar"
-              @keydown.enter.prevent="buscar"
-            />
-            <button type="button" class="btn-ghost" @click="buscar">Buscar</button>
+          <!-- Un camino a la vez. Antes los tres estaban a la vista al mismo tiempo, con
+               dos botones «Agregar» idénticos uno debajo del otro, y no se entendía cuál
+               agregaba qué. -->
+          <div class="modos" role="tablist" aria-label="Qué se agrega">
+            <button
+              v-for="m in MODOS"
+              :key="m.clave"
+              type="button"
+              role="tab"
+              :aria-selected="modo === m.clave"
+              :class="{ on: modo === m.clave }"
+              @click="modo = m.clave"
+            >
+              {{ m.etiqueta }}
+            </button>
           </div>
 
-          <p v-if="buscando" class="muted small">Buscando…</p>
-          <ul v-else-if="resultados.length" class="resultados">
-            <li v-for="item in resultados" :key="item.partId">
-              <button type="button" class="resultado" @click="agregar(item)">
-                <span class="nombre">{{ item.partName }}</span>
-                <span class="meta muted small">
-                  <span class="num">{{ item.sku }}</span>
-                  · <span class="num">{{ formatMoney(item.salePrice) }}</span>
-                  ·
-                  <span :class="{ nada: item.quantity <= 0 }">
-                    quedan {{ item.quantity }} {{ item.unit }}
+          <template v-if="modo === 'repuesto'">
+            <div class="buscador">
+              <input
+                v-model="busqueda"
+                type="search"
+                placeholder="Buscar por nombre o código"
+                @input="buscar"
+                @keydown.enter.prevent="buscar"
+              />
+              <button type="button" class="btn-ghost" @click="buscar">Buscar</button>
+            </div>
+
+            <p v-if="buscando" class="muted small">Buscando…</p>
+            <ul v-else-if="resultados.length" class="resultados">
+              <li v-for="item in resultados" :key="item.partId">
+                <button type="button" class="resultado" @click="agregar(item)">
+                  <span class="nombre">{{ item.partName }}</span>
+                  <span class="meta muted small">
+                    <span class="num">{{ item.sku }}</span>
+                    · <span class="num">{{ formatMoney(item.salePrice) }}</span>
+                    ·
+                    <span :class="{ nada: item.quantity <= 0 }">
+                      quedan {{ item.quantity }} {{ item.unit }}
+                    </span>
                   </span>
-                </span>
-              </button>
-            </li>
-          </ul>
-          <p v-else-if="busqueda.trim().length >= 2" class="muted small">
-            Nada con ese nombre en esta sucursal.
-          </p>
-          <p v-else class="muted small">Escriba el nombre o el código del repuesto.</p>
+                </button>
+              </li>
+            </ul>
+            <p v-else-if="busqueda.trim().length >= 2" class="muted small">
+              Nada con ese nombre en esta sucursal.
+            </p>
+            <p v-else class="muted small">
+              Escriba el nombre o el código, y toque el repuesto para agregarlo.
+            </p>
+          </template>
 
           <!-- El trabajo: del catálogo si está, y si no se escribe. Es lo que convierte esto
                en un servicio rápido y no solo en la venta de una pieza. -->
-          <div class="trabajo">
+          <template v-else-if="modo === 'catalogo'">
             <div class="buscador">
-              <select v-model="servicioId">
-                <option value="">— agregar un trabajo del catálogo —</option>
+              <select v-model="servicioId" aria-label="Trabajo del catálogo">
+                <option value="">— elija el trabajo —</option>
                 <option v-for="s in servicios" :key="s.id" :value="s.id">
                   {{ s.name }} · {{ formatMoney(s.price) }}
                 </option>
               </select>
-              <button type="button" class="btn-ghost" :disabled="!servicioId" @click="agregarServicio">
+              <button
+                type="button"
+                class="btn-ghost"
+                :disabled="!servicioId"
+                @click="agregarServicio"
+              >
                 Agregar
               </button>
             </div>
+            <p v-if="!servicios.length" class="muted small">
+              Todavía no hay nada en el catálogo de mano de obra. Se arma en
+              <RouterLink :to="{ name: 'labor-services' }">Mano de obra</RouterLink>, o escriba
+              el trabajo aquí mismo.
+            </p>
+            <p v-else class="muted small">El precio sale del catálogo.</p>
+          </template>
+
+          <template v-else>
             <div class="buscador">
               <input
                 v-model="trabajoLibre.descripcion"
-                placeholder="O escriba el trabajo: cambio de aceite, revisión…"
+                placeholder="Cambio de aceite, revisión, diagnóstico…"
                 maxlength="200"
+                aria-label="El trabajo"
               />
               <input
                 v-model.number="trabajoLibre.precio"
@@ -460,6 +511,7 @@ onMounted(async () => {
                 step="0.01"
                 placeholder="Precio"
                 class="precio-libre"
+                aria-label="Precio del trabajo"
               />
               <button
                 type="button"
@@ -470,7 +522,10 @@ onMounted(async () => {
                 Agregar
               </button>
             </div>
-          </div>
+            <p class="muted small">
+              Para lo que no está en el catálogo. El precio lo pone usted.
+            </p>
+          </template>
 
           <div v-if="lineas.length" class="tabla">
             <table>
@@ -805,12 +860,33 @@ aside {
   min-width: 0;
 }
 
-.trabajo {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border, rgba(127, 127, 127, 0.3));
+/* Los tres caminos, como pestañas: se ve cuál está activo y no hay dos «Agregar» a la vez. */
+.modos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  padding: 0.1875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+
+.modos button {
+  flex: 1;
+  min-width: 8rem;
+  padding: 0.375rem 0.625rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.modos button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
 }
 
 .precio-libre {
