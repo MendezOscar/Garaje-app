@@ -12,6 +12,7 @@ import '../../core/models/current_user.dart';
 import '../../core/models/inventory.dart';
 import '../../core/models/media.dart';
 import '../../core/models/quote.dart';
+import '../../core/widgets/garaj_states.dart';
 import 'photo_gallery.dart';
 
 /// Cotizaciones de la orden. Para el Cliente es donde aprueba el trabajo sin salir de la
@@ -770,12 +771,10 @@ class _QuotePartPickerState extends ConsumerState<_QuotePartPicker> {
             Expanded(
               child: results.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(apiErrorMessage(e, 'No se pudo cargar el catálogo.')),
-                  ),
-                ),
+                error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar el catálogo.'),
+          onRetry: () => ref.invalidate(partSearchProvider(_search)),
+        ),
                 data: (parts) => parts.isEmpty
                     ? const Center(child: Text('Sin resultados.'))
                     : ListView.builder(

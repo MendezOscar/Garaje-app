@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/report_repository.dart';
 import '../../core/theme/garaj_brand.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// Cierre de caja: lo **cobrado** en el día.
 ///
@@ -59,7 +60,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(cashCloseProvider(_day)),
         child: cierre.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const GarajSkeletonList(rows: 3),
           error: (e, _) => ListView(
             padding: const EdgeInsets.all(24),
             children: [Text(apiErrorMessage(e, 'No se pudo cargar el cierre de caja.'))],

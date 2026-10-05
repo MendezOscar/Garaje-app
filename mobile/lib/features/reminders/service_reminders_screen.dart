@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/work_order_repository.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// A quién le toca servicio.
 ///
@@ -139,7 +140,7 @@ class _ServiceRemindersScreenState extends ConsumerState<ServiceRemindersScreen>
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(serviceRemindersProvider(_filter)),
         child: reminders.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const GarajSkeletonList(),
           error: (e, _) => ListView(
             padding: const EdgeInsets.all(24),
             children: [Text(apiErrorMessage(e, 'No se pudo cargar a quién le toca servicio.'))],

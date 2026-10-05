@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/notification_repository.dart';
 import '../../core/models/notification.dart';
 import '../../core/push/push_messaging.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// Los avisos del usuario. Tocar uno lo marca leído y lleva a la orden, que es donde está
 /// todo lo demás: el vehículo, los pasos, las fotos y la cotización.
@@ -42,7 +43,7 @@ class NotificationsScreen extends ConsumerWidget {
             const _AvisosApagados(),
             Expanded(
               child: notifications.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const GarajSkeletonList(),
           error: (e, _) => ListView(
             children: [
               const SizedBox(height: 120),

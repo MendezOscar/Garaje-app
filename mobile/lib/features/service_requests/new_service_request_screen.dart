@@ -17,6 +17,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/media.dart';
 import '../../core/models/work_order.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// Alta de un requerimiento. La misma pantalla para el cliente que pide cita desde su casa y
 /// para el taller que recibe la moto en el mostrador.
@@ -87,7 +88,7 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
           if (staff) _buscador(),
           Expanded(
             child: vehicles.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const GarajSkeletonList(rows: 4),
         error: (e, _) => Center(child: Text(apiErrorMessage(e, 'No se pudo cargar la información.'))),
         data: (vehicleList) {
           if (vehicleList.isEmpty && !staff) {

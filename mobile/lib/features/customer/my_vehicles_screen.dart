@@ -13,6 +13,7 @@ import '../../core/theme/garaj_brand.dart';
 import '../notifications/notifications_screen.dart';
 import '../reports/reports_screen.dart' show money;
 import '../shared/tenant_logo.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// El inicio del Cliente: dónde está su vehículo y qué le toca a él.
 ///
@@ -75,7 +76,7 @@ class MyVehiclesScreen extends ConsumerWidget {
             ..invalidate(myQuotesProvider);
         },
         child: ordenes.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const GarajSkeletonList(),
           error: (e, _) => ListView(
             children: [
               const SizedBox(height: 100),

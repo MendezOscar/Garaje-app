@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/api/staff_repository.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// Usuarios del taller, para el Dueño.
 ///
@@ -154,7 +155,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(staffUsersProvider),
         child: users.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const GarajSkeletonList(),
           error: (e, _) => ListView(
             children: [
               const SizedBox(height: 120),

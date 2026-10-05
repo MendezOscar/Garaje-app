@@ -9,6 +9,7 @@ import '../../core/models/work_order.dart';
 import '../notifications/notifications_screen.dart';
 import '../shared/status_chip.dart';
 import '../work_orders/photo_capture.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// El día del Técnico, ordenado por lo que toca.
 ///
@@ -53,7 +54,7 @@ class MyWorkScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(openOrdersProvider),
         child: ordenes.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const GarajSkeletonList(),
           error: (e, _) => ListView(
             children: [
               const SizedBox(height: 100),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/job_template_repository.dart';
 import '../../core/theme/garaj_brand.dart';
+import '../../core/widgets/garaj_skeleton.dart';
+import '../../core/widgets/garaj_states.dart';
 import '../reports/reports_screen.dart' show money;
 
 /// Trabajos frecuentes: el cambio de aceite, las pastillas de adelante, lo que el taller
@@ -39,12 +41,10 @@ class _JobTemplatesScreenState extends ConsumerState<JobTemplatesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Trabajos frecuentes')),
       body: plantillas.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(e, 'No se pudieron cargar los trabajos.')),
-          ),
+        loading: () => const GarajSkeletonList(rows: 4),
+        error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudieron cargar los trabajos.'),
+          onRetry: () => ref.invalidate(jobTemplatesProvider),
         ),
         data: (lista) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(jobTemplatesProvider),
@@ -262,12 +262,10 @@ class _DetalleTrabajoState extends ConsumerState<_DetalleTrabajo> {
         ],
       ),
       body: detalle.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(e, 'No se pudo cargar el trabajo.')),
-          ),
+        loading: () => const GarajSkeletonList(rows: 4),
+        error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar el trabajo.'),
+          onRetry: () => ref.invalidate(jobTemplateDetailProvider(widget.id)),
         ),
         data: (plantilla) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),

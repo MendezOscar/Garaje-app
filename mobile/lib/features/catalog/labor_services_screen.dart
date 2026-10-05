@@ -5,6 +5,8 @@ import '../../core/api/api_client.dart';
 import '../../core/api/labor_service_repository.dart';
 import '../../core/api/work_order_repository.dart' show laborServicesProvider;
 import '../../core/theme/garaj_brand.dart';
+import '../../core/widgets/garaj_skeleton.dart';
+import '../../core/widgets/garaj_states.dart';
 import '../reports/reports_screen.dart' show money;
 
 /// El catálogo de mano de obra: lo que el taller cobra por cada trabajo.
@@ -80,12 +82,10 @@ class _LaborServicesScreenState extends ConsumerState<LaborServicesScreen> {
         label: const Text('Trabajo'),
       ),
       body: catalogo.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(e, 'No se pudo cargar el catálogo.')),
-          ),
+        loading: () => const GarajSkeletonList(),
+        error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar el catálogo.'),
+          onRetry: () => ref.invalidate(laborCatalogProvider),
         ),
         data: (lista) {
           final texto = _busqueda.trim().toLowerCase();

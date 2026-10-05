@@ -7,6 +7,8 @@ import '../../core/api/service_request_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/inventory.dart';
+import '../../core/widgets/garaj_skeleton.dart';
+import '../../core/widgets/garaj_states.dart';
 
 /// La bodega desde el teléfono. Los repuestos llegan al mostrador, no a la oficina: la
 /// entrada de una compra, el conteo de una gaveta y el traslado a la otra sucursal pasan
@@ -465,7 +467,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(stockProvider(_filter)),
               child: stock.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const GarajSkeletonList(),
                 error: (e, _) => ListView(
                   children: [
                     const SizedBox(height: 100),
@@ -756,13 +758,11 @@ class _Kardex extends ConsumerWidget {
           const Divider(height: 1),
           Expanded(
             child: movements.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(apiErrorMessage(e, 'No se pudo cargar el kardex.')),
-                ),
-              ),
+              loading: () => const GarajSkeletonList(),
+              error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar el kardex.'),
+          onRetry: () => ref.invalidate(movementsProvider((item.partId, item.branchId))),
+        ),
               data: (list) => list.isEmpty
                   ? const Center(child: Text('Sin movimientos todavía.'))
                   : ListView.builder(

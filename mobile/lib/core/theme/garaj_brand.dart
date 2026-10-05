@@ -38,6 +38,25 @@ class GarajColors {
   static const dangerLight = Color(0xFFFF6B5B);
 }
 
+/// Espaciado.
+///
+/// Antes cada pantalla ponía el `SizedBox` que le parecía: 6 aquí, 10 allá, 14 en la de al
+/// lado. Todo es múltiplo de 4, que es lo que hace que dos pantallas escritas en semanas
+/// distintas se vean alineadas. Son cinco medidas a propósito: con más, volvemos a
+/// improvisar.
+class GarajSpace {
+  const GarajSpace._();
+
+  static const xs = 4.0; // entre una etiqueta y su dato
+  static const sm = 8.0; // dentro de una fila
+  static const md = 16.0; // relleno de tarjeta, entre tarjetas
+  static const lg = 24.0; // entre bloques de una pantalla
+  static const xl = 32.0; // entre secciones grandes
+
+  /// Lo que mide algo para que un dedo le pegue sin fallar. Material pide 48.
+  static const touch = 48.0;
+}
+
 class GarajFonts {
   const GarajFonts._();
 
@@ -90,8 +109,15 @@ ThemeData _theme(Brightness brightness) {
         fontWeight: FontWeight.w700,
         letterSpacing: -0.4,
       ),
+      // El título de una tarjeta y el de una sección: antes cada pantalla elegía su tamaño
+      // a mano, y dos listas seguidas no se parecían.
+      titleMedium: TextStyle(fontSize: 16, height: 1.3, fontWeight: FontWeight.w600),
+      titleSmall: TextStyle(fontSize: 15, height: 1.3, fontWeight: FontWeight.w600),
       bodyLarge: TextStyle(fontSize: 16, height: 1.45),
       bodyMedium: TextStyle(fontSize: 15, height: 1.45),
+      // Texto secundario: la segunda línea de una fila, el pie de una nota. 13 px era
+      // demasiado chico para leerlo de pie, con el teléfono en una mano.
+      bodySmall: TextStyle(fontSize: 14, height: 1.4),
       labelLarge: TextStyle(fontWeight: FontWeight.w600),
     ),
 
@@ -143,6 +169,35 @@ ThemeData _theme(Brightness brightness) {
         ),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
+    ),
+
+    // Los otros dos botones también miden lo que mide un dedo. Hasta ahora solo el lleno
+    // tenía alto mínimo, y el de «Cancelar» de al lado quedaba más bajo que él.
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, GarajSpace.touch),
+        side: BorderSide(color: border),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(6)),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
+    ),
+
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, GarajSpace.touch),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(6)),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      ),
+    ),
+
+    // Para que un icono solo —el de borrar, el de la cámara— tenga los 48 px aunque el
+    // dibujo mida 24.
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(minimumSize: const Size.square(GarajSpace.touch)),
     ),
 
     dividerTheme: DividerThemeData(color: border, space: 1, thickness: 1),
