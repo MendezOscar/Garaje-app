@@ -86,6 +86,9 @@ export const usersApi = {
     password: string
     branchIds?: string[]
     customerId?: string
+    /** Cómo se le paga. Solo se aplica a técnicos. */
+    payMode?: TechnicianPayMode
+    payAmount?: number
   }) {
     const { data } = await api.post<User>('/api/users', body)
     return data
