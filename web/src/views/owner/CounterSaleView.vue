@@ -105,6 +105,19 @@ const clientes = ref<Customer[]>([])
 const buscandoCliente = ref(false)
 
 /**
+ * Registrar al cliente aquí mismo, cuando no está en el padrón.
+ *
+ * Antes había que salirse a Clientes, crearlo y volver a empezar la venta. Se crea de verdad
+ * —no es un nombre escrito en la venta— porque es lo que hace que el trabajo le quede en su
+ * historial y que después se le pueda facturar con su RTN.
+ */
+const nuevoCliente = ref<{ abierto: boolean; fullName: string; phone: string }>({
+  abierto: false,
+  fullName: '',
+  phone: '',
+})
+
+/**
  * De qué vehículo es el trabajo. Opcional: una venta de mostrador no lo tiene. Puesto, el
  * trabajo aparece en el historial del vehículo igual que una orden, que es donde el taller
  * lo busca cuando el cliente vuelve.
@@ -273,6 +286,28 @@ async function buscarCliente() {
     // Es una ayuda para encontrarlo: si falla, la venta se registra igual sin cliente.
   } finally {
     buscandoCliente.value = false
+  }
+}
+
+/** Lo registra y lo deja elegido, sin salir de la venta. */
+async function registrarCliente() {
+  const f = nuevoCliente.value
+  if (!f.fullName.trim() || !f.phone.trim()) return
+
+  guardando.value = true
+  error.value = ''
+  try {
+    const creado = await customersApi.create({
+      fullName: f.fullName.trim(),
+      phone: f.phone.trim(),
+    })
+
+    await elegirCliente(creado)
+    nuevoCliente.value = { abierto: false, fullName: '', phone: '' }
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo registrar el cliente.')
+  } finally {
+    guardando.value = false
   }
 }
 
@@ -618,6 +653,43 @@ onMounted(async () => {
               Opcional. Sin cliente la venta es a alguien de paso; con cliente le queda en su
               historial y se le puede facturar con su RTN.
             </p>
+
+            <!-- No está en el padrón: se registra aquí mismo. Antes había que salirse a
+                 Clientes, crearlo y volver a empezar la venta. -->
+            <button
+              v-if="!nuevoCliente.abierto"
+              type="button"
+              class="link"
+              @click="
+                ((nuevoCliente.abierto = true), (nuevoCliente.fullName = buscaCliente.trim()))
+              "
+            >
+              ¿No está registrado? Agregarlo
+            </button>
+            <div v-else class="nuevo-cliente">
+              <div class="buscador">
+                <input v-model="nuevoCliente.fullName" placeholder="Nombre y apellido" />
+                <input v-model="nuevoCliente.phone" placeholder="Teléfono" inputmode="tel" />
+              </div>
+              <div class="acciones">
+                <button
+                  type="button"
+                  :disabled="
+                    guardando || !nuevoCliente.fullName.trim() || !nuevoCliente.phone.trim()
+                  "
+                  @click="registrarCliente"
+                >
+                  Registrar y usarlo
+                </button>
+                <button
+                  type="button"
+                  class="link"
+                  @click="nuevoCliente = { abierto: false, fullName: '', phone: '' }"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </template>
 
           <!-- Con vehículo, el trabajo entra al historial del carro como una orden. Sin él,
@@ -861,6 +933,15 @@ aside {
 }
 
 /* Los tres caminos, como pestañas: se ve cuál está activo y no hay dos «Agregar» a la vez. */
+.nuevo-cliente {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
 .modos {
   display: flex;
   flex-wrap: wrap;

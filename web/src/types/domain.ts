@@ -955,6 +955,8 @@ export interface WorkOrderDetail {
   warrantyCovered: boolean | null
   /** Si el trabajo original estaba en garantía el día del reclamo. Viene congelado. */
   claimWasUnderWarranty: boolean | null
+  /** Si el reclamo sigue abierto. Con la orden entregada, la pantalla ofrece cerrarlo. */
+  claimIsOpen: boolean | null
 }
 
 export const NotificationType = {

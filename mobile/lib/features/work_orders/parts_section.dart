@@ -119,6 +119,20 @@ class PartsSection extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
 
+          // Arriba y lleno. Estaba abajo de la lista como enlace de texto, y en el taller no
+          // se encontraba: la queja fue «no está el de agregar repuestos».
+          if (canEdit) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: busy ? null : () => _add(context, ref),
+                icon: const Icon(Icons.add),
+                label: const Text('Cargar un repuesto'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           if (order.parts.isEmpty)
             Text('Sin repuestos cargados.', style: theme.textTheme.bodySmall),
 
@@ -158,12 +172,6 @@ class PartsSection extends ConsumerWidget {
               ),
             ),
 
-          if (canEdit)
-            TextButton.icon(
-              onPressed: busy ? null : () => _add(context, ref),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Cargar repuesto'),
-            ),
         ],
       ),
     );

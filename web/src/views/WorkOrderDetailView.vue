@@ -2,22 +2,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl, errorMessage } from '@/api/client'
-import {
-  customersApi,
-  jobTemplatesApi,
-  laborServicesApi,
-  quotesApi,
-  salesApi,
-  tenantApi,
-  usersApi,
-  workOrdersApi,
-} from '@/api/garaj'
+import { claimsApi, customersApi, jobTemplatesApi, laborServicesApi, quotesApi, salesApi, tenantApi, usersApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  ClaimStatus,
   FUEL_LEVEL_LABEL,
   FuelLevel,
   LaborMode,
@@ -66,6 +58,9 @@ const dueDate = ref('')
 const newPayment = ref({ amount: '' as number | string, method: PaymentMethod.Cash, reference: '' })
 
 const statusNote = ref('')
+
+/** Lo que se escribe para cerrar el reclamo del que nació esta orden. */
+const resolucionReclamo = ref('')
 const noteIsInternal = ref(false)
 const newTask = ref({ title: '', laborServiceId: '' })
 
@@ -286,6 +281,29 @@ const ganancia = computed(() => {
 function decidirGarantia(cubre: boolean) {
   return run(async () => {
     order.value = await workOrdersApi.setWarrantyDecision(id.value, cubre)
+  })
+}
+
+/**
+ * Cierra el reclamo del que nació esta orden.
+ *
+ * Cómo termina no se pregunta: sale de lo que ya se decidió de la garantía. Preguntarlo otra
+ * vez sería pedir dos veces la misma decisión, y con las dos respuestas se podrían contradecir.
+ */
+function cerrarReclamo() {
+  const claimId = order.value?.claimId
+  if (!claimId || !resolucionReclamo.value.trim()) return
+
+  return run(async () => {
+    await claimsApi.resolve(claimId, {
+      status: order.value!.warrantyCovered
+        ? ClaimStatus.RepairedUnderWarranty
+        : ClaimStatus.RepairedAndCharged,
+      resolution: resolucionReclamo.value.trim(),
+    })
+
+    resolucionReclamo.value = ''
+    order.value = await workOrdersApi.get(id.value)
   })
 }
 
@@ -930,6 +948,31 @@ onMounted(async () => {
         >
           Cambiar la decisión
         </button>
+
+        <!-- Terminada la orden, el último paso es cerrar el reclamo, y es el que se olvida:
+             el carro ya se entregó y el reclamo sigue abierto en la lista. Se ofrece aquí, con
+             el cómo termina ya elegido según lo que se decidió de la garantía. -->
+        <form v-if="order.closedAt && order.claimIsOpen" class="cerrar-reclamo" @submit.prevent="cerrarReclamo">
+          <h3>Cerrar el reclamo {{ order.claimNumber }}</h3>
+          <label>
+            Qué se hizo
+            <textarea
+              v-model="resolucionReclamo"
+              rows="2"
+              maxlength="2000"
+              placeholder="Se cambió la pastilla de adelante, quedó probado"
+            ></textarea>
+          </label>
+          <p class="muted small">
+            Se va a cerrar como
+            <strong>{{
+              order.warrantyCovered ? 'reparado en garantía, sin cobrar' : 'reparado y cobrado'
+            }}</strong>, que es lo que se decidió arriba.
+          </p>
+          <button type="submit" :disabled="busy || !resolucionReclamo.trim()">
+            Cerrar el reclamo
+          </button>
+        </form>
       </template>
     </article>
 
@@ -2151,6 +2194,24 @@ header p {
 .reclamo .pregunta {
   margin: var(--space-3) 0 0;
   font-weight: 600;
+}
+
+.cerrar-reclamo {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.cerrar-reclamo h3 {
+  margin: 0;
+}
+
+.cerrar-reclamo label,
+.cerrar-reclamo textarea {
+  width: 100%;
 }
 
 .reclamo .decidido {

@@ -228,6 +228,7 @@ class WorkOrderDetail {
     this.claimNumber,
     this.warrantyCovered,
     this.claimWasUnderWarranty,
+    this.claimIsOpen,
     this.plate,
     this.diagnosis,
     this.mileageIn,
@@ -278,6 +279,7 @@ class WorkOrderDetail {
         claimNumber: json['claimNumber'] as String?,
         warrantyCovered: json['warrantyCovered'] as bool?,
         claimWasUnderWarranty: json['claimWasUnderWarranty'] as bool?,
+        claimIsOpen: json['claimIsOpen'] as bool?,
       );
 
   final String id;
@@ -326,6 +328,10 @@ class WorkOrderDetail {
 
   /// Si el trabajo original estaba en garantía el día del reclamo. Viene congelado de ese día.
   final bool? claimWasUnderWarranty;
+
+  /// Si el reclamo sigue abierto. Con la orden entregada y el reclamo abierto, la pantalla
+  /// ofrece cerrarlo: es el último paso y el que se olvida.
+  final bool? claimIsOpen;
 
   bool get isCatalogLabor => laborMode == LaborMode.catalog;
 }
