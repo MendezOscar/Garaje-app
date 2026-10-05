@@ -288,14 +288,14 @@ onMounted(async () => {
     <table v-else>
       <thead>
         <tr>
-          <th>Repuesto</th>
-          <th>Sucursal</th>
-          <th class="num">Existencia</th>
-          <th class="num">Mínimo</th>
-          <th v-if="canManage" class="num">Costo</th>
-          <th class="num">Venta</th>
-          <th>Ubicación</th>
-          <th></th>
+          <th scope="col">Repuesto</th>
+          <th scope="col">Sucursal</th>
+          <th scope="col" class="num">Existencia</th>
+          <th scope="col" class="num">Mínimo</th>
+          <th scope="col" v-if="canManage" class="num">Costo</th>
+          <th scope="col" class="num">Venta</th>
+          <th scope="col">Ubicación</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>

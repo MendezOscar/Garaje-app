@@ -154,10 +154,10 @@ onMounted(async () => {
     <table v-else>
       <thead>
         <tr>
-          <th>Cliente y vehículo</th>
-          <th>Le toca</th>
-          <th>Última visita</th>
-          <th></th>
+          <th scope="col">Cliente y vehículo</th>
+          <th scope="col">Le toca</th>
+          <th scope="col">Última visita</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>

@@ -217,13 +217,13 @@ onMounted(async () => {
         <table>
           <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Venta</th>
-              <th>De dónde</th>
-              <th>Cliente</th>
-              <th class="num">Total</th>
-              <th class="num">Saldo</th>
-              <th></th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Venta</th>
+              <th scope="col">De dónde</th>
+              <th scope="col">Cliente</th>
+              <th scope="col" class="num">Total</th>
+              <th scope="col" class="num">Saldo</th>
+              <th scope="col"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>

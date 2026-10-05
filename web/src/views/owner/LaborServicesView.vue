@@ -158,11 +158,11 @@ onMounted(load)
         <table v-else>
           <thead>
             <tr>
-              <th>Código</th>
-              <th>Servicio</th>
-              <th>Cómo se cobra</th>
-              <th class="num">Precio</th>
-              <th></th>
+              <th scope="col">Código</th>
+              <th scope="col">Servicio</th>
+              <th scope="col">Cómo se cobra</th>
+              <th scope="col" class="num">Precio</th>
+              <th scope="col"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>

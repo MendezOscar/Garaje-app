@@ -203,10 +203,10 @@ onMounted(async () => {
         <table v-else>
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Sucursales</th>
-              <th>Último ingreso</th>
-              <th></th>
+              <th scope="col">Nombre</th>
+              <th scope="col">Sucursales</th>
+              <th scope="col">Último ingreso</th>
+              <th scope="col"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
@@ -248,9 +248,9 @@ onMounted(async () => {
         <table v-else>
           <thead>
             <tr>
-              <th>Cliente</th>
-              <th>Último ingreso</th>
-              <th></th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Último ingreso</th>
+              <th scope="col"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>

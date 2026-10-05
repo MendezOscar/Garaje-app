@@ -148,11 +148,11 @@ watch(search, () => {
     <table>
       <thead>
         <tr>
-          <th>Cliente</th>
-          <th>Teléfono</th>
-          <th>Vehículos</th>
-          <th>App</th>
-          <th></th>
+          <th scope="col">Cliente</th>
+          <th scope="col">Teléfono</th>
+          <th scope="col">Vehículos</th>
+          <th scope="col">App</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>

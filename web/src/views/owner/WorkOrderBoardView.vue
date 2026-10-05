@@ -311,12 +311,12 @@ watch([search, branchId, verCerradas], load)
       <table>
         <thead>
           <tr>
-            <th>Folio</th>
-            <th>Vehículo</th>
-            <th>Cliente</th>
-            <th>Estado</th>
-            <th>Técnico</th>
-            <th>Prometida</th>
+            <th scope="col">Folio</th>
+            <th scope="col">Vehículo</th>
+            <th scope="col">Cliente</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Técnico</th>
+            <th scope="col">Prometida</th>
           </tr>
         </thead>
         <tbody>

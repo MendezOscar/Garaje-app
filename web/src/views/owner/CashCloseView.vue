@@ -151,11 +151,11 @@ onMounted(async () => {
         <table>
           <thead>
             <tr>
-              <th>Hora</th>
-              <th>Factura</th>
-              <th>Cliente</th>
-              <th>Forma</th>
-              <th class="num">Monto</th>
+              <th scope="col">Hora</th>
+              <th scope="col">Factura</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Forma</th>
+              <th scope="col" class="num">Monto</th>
             </tr>
           </thead>
           <tbody>
