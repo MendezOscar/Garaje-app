@@ -34,6 +34,24 @@ public enum WorkOrderStatus
 }
 
 /// <summary>
+/// En qué va un reclamo. Nace abierto y termina de una de tres formas, porque son las tres
+/// cosas que de verdad pasan: se repara sin cobrar, se repara cobrando, o no procede.
+/// </summary>
+public enum ClaimStatus
+{
+    Open = 1,
+
+    /// <summary>Se reparó sin cobrarle: entraba en la garantía.</summary>
+    RepairedUnderWarranty = 2,
+
+    /// <summary>Se reparó, pero se le cobró: no entraba, o ya había vencido.</summary>
+    RepairedAndCharged = 3,
+
+    /// <summary>No procede. La razón se escribe: es lo que se lee cuando el cliente insiste.</summary>
+    Rejected = 4
+}
+
+/// <summary>
 /// Cuánta gasolina traía al entrar. En cuartos y no en litros: es lo que se lee de la aguja
 /// con el carro delante, y lo que después se puede comparar al entregarlo.
 /// </summary>
