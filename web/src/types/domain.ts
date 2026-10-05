@@ -1041,3 +1041,52 @@ export interface CreatedTenant {
   ownerEmail: string
   password: string
 }
+
+/**
+ * Cuánta gasolina traía al entrar. En cuartos: es lo que se lee de la aguja con el carro
+ * delante, y lo que después se puede comparar al entregarlo.
+ */
+export const FuelLevel = {
+  Unknown: 0,
+  Empty: 1,
+  Quarter: 2,
+  Half: 3,
+  ThreeQuarters: 4,
+  Full: 5,
+} as const
+export type FuelLevel = (typeof FuelLevel)[keyof typeof FuelLevel]
+
+export const FUEL_LEVEL_LABEL: Record<FuelLevel, string> = {
+  [FuelLevel.Unknown]: 'Sin anotar',
+  [FuelLevel.Empty]: 'Vacío',
+  [FuelLevel.Quarter]: 'Un cuarto',
+  [FuelLevel.Half]: 'Medio',
+  [FuelLevel.ThreeQuarters]: 'Tres cuartos',
+  [FuelLevel.Full]: 'Lleno',
+}
+
+/** Cómo entró el vehículo al taller. Es la hoja que decide la discusión de después. */
+export interface VehicleReception {
+  workOrderId: string
+  fuelLevel: FuelLevel
+  damages: string | null
+  belongings: string | null
+  notes: string | null
+  deliveredByName: string | null
+  /** Ruta relativa a la base de la API, o null si no firmó. Se abre con `apiUrl()`. */
+  signatureUrl: string | null
+  mileageIn: number | null
+  receivedByName: string | null
+  receivedAt: string
+}
+
+export interface SaveVehicleReception {
+  fuelLevel: FuelLevel
+  damages?: string | null
+  belongings?: string | null
+  notes?: string | null
+  deliveredByName?: string | null
+  mileageIn?: number | null
+  /** PNG en base64 sin el prefijo `data:`. Omitido deja la que ya hubiera. */
+  signature?: string | null
+}

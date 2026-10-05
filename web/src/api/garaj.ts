@@ -43,6 +43,8 @@ import type {
   WorkOrderDetail,
   WorkOrderListItem,
   WorkOrderPart,
+  VehicleReception,
+  SaveVehicleReception,
   WorkOrderStatus,
   WorkOrderTask,
   CustomerStatement,
@@ -330,6 +332,18 @@ export const workOrdersApi = {
     },
   ) {
     const { data } = await api.post<WorkOrderPart>(`/api/work-orders/${id}/parts`, body)
+    return data
+  },
+  /**
+   * Cómo entró el vehículo. Responde 204 sin cuerpo cuando la hoja no se llenó, que es la
+   * mayoría: es opcional.
+   */
+  async reception(id: string): Promise<VehicleReception | null> {
+    const { data } = await api.get<VehicleReception | ''>(`/api/work-orders/${id}/reception`)
+    return data || null
+  },
+  async saveReception(id: string, body: SaveVehicleReception) {
+    const { data } = await api.put<VehicleReception>(`/api/work-orders/${id}/reception`, body)
     return data
   },
   async removePart(id: string, partLineId: string) {

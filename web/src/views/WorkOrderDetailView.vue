@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage } from '@/api/client'
+import { apiUrl, errorMessage } from '@/api/client'
 import {
   customersApi,
   jobTemplatesApi,
@@ -17,6 +17,8 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  FUEL_LEVEL_LABEL,
+  FuelLevel,
   LaborMode,
   LineType,
   PAYMENT_METHOD_LABEL,
@@ -35,6 +37,8 @@ import {
   type User,
   type WorkOrderDetail,
   type FiscalRange,
+  type SaveVehicleReception,
+  type VehicleReception,
   type WorkOrderListItem,
 } from '@/types/domain'
 import { formatDate, formatDateTime, formatMoney, sinIsv, whatsappLink } from '@/utils/format'
@@ -110,6 +114,15 @@ const nextServiceMileage = ref<number | string>('')
  * orden entregada desaparecía del tablero.
  */
 const historial = ref<WorkOrderListItem[]>([])
+
+/**
+ * Cómo entró el vehículo. Se llena desde el teléfono, con el carro delante; aquí se lee y se
+ * corrige. La firma no se puede tomar desde el panel: se firma con el dedo donde está el
+ * cliente, que es el taller.
+ */
+const recepcion = ref<VehicleReception | null>(null)
+const editandoRecepcion = ref(false)
+const formRecepcion = ref<SaveVehicleReception>({ fuelLevel: FuelLevel.Unknown })
 
 /**
  * Factura con CAI. Sin marcar por defecto a propósito: cada factura fiscal quema un número
@@ -247,6 +260,13 @@ const ganancia = computed(() => {
   }
 })
 
+function guardarRecepcion() {
+  return run(async () => {
+    recepcion.value = await workOrdersApi.saveReception(id.value, formRecepcion.value)
+    editandoRecepcion.value = false
+  })
+}
+
 /** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
 const ultimaCotizacion = computed(
   () =>
@@ -285,6 +305,19 @@ async function load() {
   try {
     order.value = await workOrdersApi.get(id.value)
     diagnosis.value = order.value.diagnosis ?? ''
+
+    // Falla sola si el rol no la puede ver: la hoja es opcional y no debe tumbar la orden.
+    recepcion.value = await workOrdersApi.reception(id.value).catch(() => null)
+    formRecepcion.value = recepcion.value
+      ? {
+          fuelLevel: recepcion.value.fuelLevel,
+          damages: recepcion.value.damages,
+          belongings: recepcion.value.belongings,
+          notes: recepcion.value.notes,
+          deliveredByName: recepcion.value.deliveredByName,
+          mileageIn: recepcion.value.mileageIn,
+        }
+      : { fuelLevel: FuelLevel.Unknown, mileageIn: order.value.mileageIn }
 
     if (canEdit.value) {
       const page = await workOrdersApi.list({
@@ -1450,6 +1483,103 @@ onMounted(async () => {
         </article>
 
 
+        <!-- Cómo entró el vehículo. Se llena desde el teléfono con el carro delante; aquí
+             se lee y se corrige, menos la firma, que se toma donde está el cliente. -->
+        <article class="card">
+          <header class="titulo-con-accion">
+            <h2>Recepción del vehículo</h2>
+            <button
+              v-if="canEdit"
+              type="button"
+              class="link"
+              @click="editandoRecepcion = !editandoRecepcion"
+            >
+              {{ editandoRecepcion ? 'Cancelar' : recepcion ? 'Corregir' : 'Llenar' }}
+            </button>
+          </header>
+
+          <template v-if="!editandoRecepcion">
+            <p v-if="!recepcion" class="muted small">
+              Sin llenar. Es lo que decide la discusión de después: con cuánto combustible
+              entró, qué golpes ya traía y qué dejó adentro el cliente, firmado por él.
+            </p>
+            <dl v-else class="cuentas">
+              <dt>Combustible</dt>
+              <dd>{{ FUEL_LEVEL_LABEL[recepcion.fuelLevel] }}</dd>
+              <template v-if="recepcion.mileageIn">
+                <dt>Kilometraje</dt>
+                <dd class="num">{{ recepcion.mileageIn }}</dd>
+              </template>
+              <template v-if="recepcion.damages">
+                <dt>Golpes que ya traía</dt>
+                <dd>{{ recepcion.damages }}</dd>
+              </template>
+              <template v-if="recepcion.belongings">
+                <dt>Deja adentro</dt>
+                <dd>{{ recepcion.belongings }}</dd>
+              </template>
+              <template v-if="recepcion.notes">
+                <dt>Notas</dt>
+                <dd>{{ recepcion.notes }}</dd>
+              </template>
+              <template v-if="recepcion.deliveredByName">
+                <dt>Lo entregó</dt>
+                <dd>{{ recepcion.deliveredByName }}</dd>
+              </template>
+            </dl>
+            <p v-if="recepcion" class="muted small">
+              Recibido el {{ formatDate(recepcion.receivedAt) }}
+              <template v-if="recepcion.receivedByName"> por {{ recepcion.receivedByName }}</template>.
+            </p>
+            <p v-if="recepcion && !recepcion.signatureUrl" class="muted small">
+              Sin firma. Se firma desde la app, con el cliente delante.
+            </p>
+            <img
+              v-else-if="recepcion"
+              :src="apiUrl(recepcion.signatureUrl) ?? undefined"
+              alt="Firma del cliente al entregar el vehículo"
+              class="firma"
+            />
+          </template>
+
+          <form v-else class="recepcion" @submit.prevent="guardarRecepcion">
+            <div class="row">
+              <label>
+                Combustible
+                <select v-model.number="formRecepcion.fuelLevel">
+                  <option v-for="(label, value) in FUEL_LEVEL_LABEL" :key="value" :value="Number(value)">
+                    {{ label }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                Kilometraje de entrada
+                <input v-model.number="formRecepcion.mileageIn" type="number" min="0" />
+              </label>
+            </div>
+            <label>
+              Golpes y rayones que ya traía
+              <textarea v-model="formRecepcion.damages" rows="2" maxlength="2000"></textarea>
+            </label>
+            <label>
+              Qué deja adentro
+              <textarea v-model="formRecepcion.belongings" rows="2" maxlength="2000"></textarea>
+            </label>
+            <label>
+              Otras notas
+              <textarea v-model="formRecepcion.notes" rows="2" maxlength="2000"></textarea>
+            </label>
+            <label>
+              Quién entrega el vehículo
+              <input v-model="formRecepcion.deliveredByName" maxlength="200" />
+            </label>
+            <p class="muted small">
+              La firma se toma desde la app: se firma con el dedo, donde está el cliente.
+            </p>
+            <button type="submit" :disabled="busy">Guardar la recepción</button>
+          </form>
+        </article>
+
         <!-- Plegado: un vehículo con años de taller trae veinte visitas y empujaba la línea de
              tiempo fuera de la pantalla. El resumen contesta cerrado lo que casi siempre se
              pregunta —cuántas veces vino y cuándo la última—, así que abrirlo es para leer el
@@ -2259,6 +2389,27 @@ dd {
   gap: 0.125rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+.firma {
+  max-width: 260px;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.3));
+  border-radius: 8px;
+  background: #fff;
+}
+
+.recepcion {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.titulo-con-accion {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .ganancia {
