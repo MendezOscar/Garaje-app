@@ -147,7 +147,7 @@ onMounted(async () => {
           <RouterLink :to="{ name: 'receivables' }">Por cobrar</RouterLink>.
         </p>
       </div>
-      <RouterLink class="boton" :to="{ name: 'counter-sale' }">Vender repuesto</RouterLink>
+      <RouterLink class="boton" :to="{ name: 'counter-sale' }">Venta rápida</RouterLink>
     </header>
 
     <div class="filtros">

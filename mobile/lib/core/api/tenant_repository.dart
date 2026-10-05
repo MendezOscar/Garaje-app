@@ -52,6 +52,12 @@ class TenantRepository {
     return ((response.data ?? const {})['defaultTaxRate'] as num?)?.toDouble() ?? 0;
   }
 
+  /// Los días de garantía que el taller da por defecto. Cero es sin garantía.
+  Future<int> defaultWarrantyDays() async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/tenant');
+    return ((response.data ?? const {})['defaultWarrantyDays'] as num?)?.toInt() ?? 0;
+  }
+
   Future<List<FiscalRange>> fiscalRanges() async {
     final response = await _dio.get<List<dynamic>>('/api/tenant/fiscal-ranges');
 
@@ -70,6 +76,16 @@ final tenantRepositoryProvider = Provider<TenantRepository>(
 final taxRateProvider = FutureProvider<double>((ref) async {
   try {
     return await ref.watch(tenantRepositoryProvider).defaultTaxRate();
+  } catch (_) {
+    return 0;
+  }
+});
+
+/// La garantía por defecto del taller. Se traga el error igual que el ISV: para quien no es
+/// Dueño, la ficha del taller no se consulta y la venta sale sin garantía.
+final defaultWarrantyDaysProvider = FutureProvider<int>((ref) async {
+  try {
+    return await ref.watch(tenantRepositoryProvider).defaultWarrantyDays();
   } catch (_) {
     return 0;
   }

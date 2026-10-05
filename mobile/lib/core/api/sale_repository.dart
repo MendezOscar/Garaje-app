@@ -137,18 +137,29 @@ class SalesPage {
 
 /// Una línea de una venta de mostrador. Solo repuestos: la mano de obra sin vehículo no es
 /// una venta de mostrador, es un trabajo, y ese va por su orden.
+/// Un renglón de la venta rápida: un repuesto de bodega o un trabajo.
+///
+/// El trabajo puede salir del catálogo de mano de obra —y entonces lleva su `laborServiceId`—
+/// o escribirse a mano, y entonces lleva `description` y su precio.
 class CounterSaleLine {
   const CounterSaleLine({
-    required this.partId,
+    this.partId,
+    this.laborServiceId,
+    this.description,
     required this.quantity,
     required this.unitPrice,
     this.discount = 0,
   });
 
-  final String partId;
+  final String? partId;
+  final String? laborServiceId;
+  final String? description;
   final double quantity;
   final double unitPrice;
   final double discount;
+
+  /// 1 es repuesto, 2 mano de obra. Lo decide de dónde salió la línea.
+  int get lineType => partId != null ? 1 : 2;
 }
 
 /// Un abono a una venta. Lo cobrado sale de sumarlos, no de un campo aparte.
@@ -417,6 +428,8 @@ class SaleRepository {
     bool fiscal = false,
     String? customerTaxId,
     String? customerName,
+    String? vehicleId,
+    int? warrantyDays,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/sales',
@@ -425,12 +438,16 @@ class SaleRepository {
         'customerId': customerId,
         'paymentMethod': paymentMethod.value,
         'notes': notes,
+        // Con vehículo el trabajo entra en su historial, como una orden.
+        'vehicleId': vehicleId,
+        'warrantyDays': warrantyDays,
         'lines': [
           for (final line in lines)
             {
-              // 1 es repuesto: lo único que se vende en el mostrador.
-              'lineType': 1,
+              'lineType': line.lineType,
               'partId': line.partId,
+              'laborServiceId': line.laborServiceId,
+              'description': line.description,
               'quantity': line.quantity,
               'unitPrice': line.unitPrice,
               'discount': line.discount,

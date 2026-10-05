@@ -206,7 +206,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _busy ? null : () => context.push('/mostrador'),
         icon: const Icon(Icons.add_shopping_cart_outlined),
-        label: const Text('Vender repuesto'),
+        label: const Text('Venta rápida'),
       ),
       body: pagina.when(
         loading: () => const Center(child: CircularProgressIndicator()),
