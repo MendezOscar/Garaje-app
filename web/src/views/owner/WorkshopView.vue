@@ -24,6 +24,7 @@ const form = ref({
   email: '',
   address: '',
   defaultTaxRate: 15,
+  defaultWarrantyDays: 0,
   defaultPhoneCountryCode: '504',
 })
 
@@ -126,6 +127,7 @@ function fill(data: TenantSettings) {
     email: data.email ?? '',
     address: data.address ?? '',
     defaultTaxRate: data.defaultTaxRate,
+    defaultWarrantyDays: data.defaultWarrantyDays,
     defaultPhoneCountryCode: data.defaultPhoneCountryCode,
   }
 }
@@ -157,6 +159,7 @@ async function save() {
         email: f.email.trim() || null,
         address: f.address.trim() || null,
         defaultTaxRate: Number(f.defaultTaxRate) || 0,
+        defaultWarrantyDays: Number(f.defaultWarrantyDays) || 0,
         defaultPhoneCountryCode: f.defaultPhoneCountryCode.trim() || null,
       }),
     )
@@ -244,6 +247,14 @@ onMounted(async () => {
             <input v-model.number="form.defaultTaxRate" type="number" min="0" max="100" step="0.01" />
           </label>
         </div>
+        <label>
+          Garantía por defecto (días)
+          <input v-model.number="form.defaultWarrantyDays" type="number" min="0" max="730" />
+          <small class="muted">
+            La que lleva un trabajo al facturarlo, y que se imprime en la factura con su fecha.
+            Cero es sin garantía. Se puede cambiar trabajo por trabajo al cobrar.
+          </small>
+        </label>
         <div class="row">
           <label>
             Teléfono

@@ -716,6 +716,8 @@ export const salesApi = {
     branchId?: string
     customerId?: string
     workOrderId?: string
+    /** Todo lo que se le hizo a un vehículo: órdenes facturadas y servicios rápidos. */
+    vehicleId?: string
     from?: string
     to?: string
     includeVoided?: boolean
@@ -755,6 +757,10 @@ export const salesApi = {
     customerTaxId?: string
     /** A nombre de quién sale. Vacío = el de la ficha, o el nombre del cliente. */
     customerName?: string
+    /** De qué vehículo es el trabajo: lo que convierte la venta en un servicio rápido. */
+    vehicleId?: string
+    /** Días de garantía. Omitido toma el del taller; cero es sin garantía. */
+    warrantyDays?: number
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales', body)
     return data
@@ -783,6 +789,8 @@ export const salesApi = {
     nextServiceMileage?: number
     /** Cobra también lo comprado en casa de repuestos: solo si esa factura salió al taller. */
     includeOutsideParts?: boolean
+    /** Días de garantía. Omitido toma el del taller; cero es sin garantía. */
+    warrantyDays?: number
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
     return data
@@ -903,6 +911,7 @@ export const tenantApi = {
     address: string | null
     defaultTaxRate: number
     defaultPhoneCountryCode: string | null
+    defaultWarrantyDays: number
   }): Promise<TenantSettings> {
     const { data } = await api.put<TenantSettings>('/api/tenant', body)
     return data
