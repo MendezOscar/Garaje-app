@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/claims/claims_screen.dart';
 import '../../features/customers/customers_screen.dart';
+import '../../features/expenses/expenses_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/login/login_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
@@ -72,6 +73,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
       GoRoute(path: '/recordatorios', builder: (_, __) => const ServiceRemindersScreen()),
       GoRoute(path: '/reclamos', builder: (_, __) => const ClaimsScreen()),
+      GoRoute(path: '/resultados', builder: (_, __) => const ExpensesScreen()),
       GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
       // El registro de ventas y la venta de mostrador. Pasa con el cliente enfrente, que es
       // donde está el teléfono y no la computadora.
@@ -122,6 +124,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/caja' ||
           location == '/recordatorios' ||
           location == '/reclamos' ||
+          location == '/resultados' ||
           location == '/por-cobrar' ||
           location == '/ventas' ||
           location == '/mostrador' ||

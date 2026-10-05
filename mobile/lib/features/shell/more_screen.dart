@@ -115,6 +115,12 @@ class MoreScreen extends ConsumerWidget {
                   route: '/ventas',
                 ),
                 _Row(icon: Icons.insights_outlined, label: 'Reportes', route: '/reportes'),
+                _Row(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: 'Resultados y gastos',
+                  foot: 'qué dejó el mes',
+                  route: '/resultados',
+                ),
               ],
             ),
             _Group(
