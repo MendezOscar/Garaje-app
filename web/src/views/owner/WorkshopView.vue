@@ -627,13 +627,6 @@ h1 {
   gap: 0.5rem;
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  cursor: pointer;
-}
 
 .muted {
   color: var(--text-muted);

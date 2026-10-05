@@ -177,13 +177,6 @@ onBeforeUnmount(() => window.clearInterval(timer))
   border-bottom: 1px solid var(--border);
 }
 
-.link {
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
 
 .empty {
   padding: 1.5rem 1rem;

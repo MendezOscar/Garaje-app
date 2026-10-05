@@ -726,12 +726,6 @@ legend {
 
 .link {
   align-self: flex-start;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-size: 0.8125rem;
-  cursor: pointer;
 }
 
 .secondary {

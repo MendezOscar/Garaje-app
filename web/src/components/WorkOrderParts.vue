@@ -202,7 +202,9 @@ watch(search, () => {
             >
               Poner precio
             </button>
-            <button type="button" class="link" :disabled="busy" @click="remove(line)">Quitar</button>
+            <button type="button" class="link danger" :disabled="busy" @click="remove(line)">
+              Quitar
+            </button>
           </td>
         </tr>
       </tbody>
@@ -352,14 +354,6 @@ tfoot td {
   white-space: nowrap;
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--danger);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
 
 .add {
   display: flex;

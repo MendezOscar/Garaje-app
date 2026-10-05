@@ -311,13 +311,33 @@ onMounted(async () => {
           <td v-if="canManage" class="num muted">{{ formatMoney(item.costPrice) }}</td>
           <td class="num">{{ formatMoney(item.salePrice) }}</td>
           <td class="muted small">{{ item.location ?? '—' }}</td>
-          <td class="row-actions">
-            <button type="button" @click="openKardex(item)">Kardex</button>
-            <template v-if="canManage">
-              <button type="button" @click="openMovement('receive', item)">Entrada</button>
-              <button type="button" @click="openMovement('adjust', item)">Ajuste</button>
-              <button type="button" @click="openEditPart(item)">Editar</button>
-            </template>
+          <!-- Apagados y no llenos: cuatro botones azules por fila, veinte filas, y la
+               pantalla deja de decir qué es lo importante. -->
+          <td class="col-acciones">
+            <div class="acciones">
+              <button type="button" class="btn-ghost btn-sm" @click="openKardex(item)">
+                Kardex
+              </button>
+              <template v-if="canManage">
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm"
+                  @click="openMovement('receive', item)"
+                >
+                  Entrada
+                </button>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm"
+                  @click="openMovement('adjust', item)"
+                >
+                  Ajuste
+                </button>
+                <button type="button" class="btn-ghost btn-sm" @click="openEditPart(item)">
+                  Editar
+                </button>
+              </template>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -513,16 +533,12 @@ th {
   font-weight: 600;
 }
 
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  justify-content: flex-end;
+.col-acciones {
+  width: 1%;
 }
 
-.row-actions button {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
+.col-acciones .acciones {
+  justify-content: flex-end;
 }
 
 .drawer-backdrop {

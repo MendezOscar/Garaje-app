@@ -189,11 +189,17 @@ onMounted(async () => {
               <template v-if="r.closedAt"> · {{ formatDate(r.closedAt) }}</template>
             </div>
           </td>
-          <td class="acciones">
-            <button type="button" @click="recordar(r)">Recordar por WhatsApp</button>
-            <span v-if="r.remindedAt" class="muted small">
-              recordado {{ formatDate(r.remindedAt) }}
-            </span>
+          <td class="col-accion">
+            <!-- El div por dentro y no `display: flex` en el `td`: una celda con flex deja de
+                 ser celda, la columna pierde la alineación y el botón se sale de la fila. -->
+            <div class="accion">
+              <button type="button" class="btn-sm" @click="recordar(r)">
+                Recordar por WhatsApp
+              </button>
+              <span v-if="r.remindedAt" class="muted small">
+                recordado {{ formatDate(r.remindedAt) }}
+              </span>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -293,11 +299,16 @@ td {
   color: var(--text);
 }
 
-.acciones {
+.col-accion {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.accion {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .notice {
