@@ -138,6 +138,12 @@ const rtnFactura = ref('')
  * Nace apagado porque cobrar de más es peor que preguntar.
  */
 const cobrarLosDeAfuera = ref(false)
+
+/**
+ * Días de garantía de este trabajo. Nace con la del taller y se cambia aquí, trabajo por
+ * trabajo: no es lo mismo garantizar un cambio de aceite que una reparación de motor.
+ */
+const garantiaDias = ref(0)
 /**
  * A nombre de quién sale la factura. Se precarga con lo que tenga la ficha y se puede
  * cambiar aquí: pasa que el cliente pide la factura a nombre de la empresa donde trabaja,
@@ -266,6 +272,16 @@ function guardarRecepcion() {
     editandoRecepcion.value = false
   })
 }
+
+/**
+ * Hasta cuándo vale la garantía de este trabajo, o null si no la tiene o ya venció. Sale de
+ * la venta, que es donde se decidió al facturar.
+ */
+const garantia = computed(() => {
+  const venta = sales.value.find((s) => !s.isVoided && s.warrantyUntil)
+  if (!venta?.warrantyUntil) return null
+  return new Date(venta.warrantyUntil) >= new Date() ? venta.warrantyUntil : null
+})
 
 /** La cotización más reciente de la orden: la que el cliente tiene en la mano. */
 const ultimaCotizacion = computed(
@@ -417,6 +433,7 @@ function closeAndInvoice() {
         : undefined,
       nextServiceMileage: Number(nextServiceMileage.value) || undefined,
       includeOutsideParts: cobrarLosDeAfuera.value,
+      warrantyDays: garantiaDias.value,
     }),
   )
 }
@@ -718,7 +735,10 @@ async function reenviarCotizacion(quoteId: string) {
 onMounted(async () => {
   if (auth.isOwner) {
     technicians.value = await usersApi.list('Technician').catch(() => [])
-    tasaImpuesto.value = (await tenantApi.get().catch(() => null))?.defaultTaxRate ?? 0
+
+    const taller = await tenantApi.get().catch(() => null)
+    tasaImpuesto.value = taller?.defaultTaxRate ?? 0
+    garantiaDias.value = taller?.defaultWarrantyDays ?? 0
   }
   if (canEdit.value) laborServices.value = await laborServicesApi.list().catch(() => [])
   if (canEdit.value) jobTemplates.value = await jobTemplatesApi.list().catch(() => [])
@@ -1169,6 +1189,12 @@ onMounted(async () => {
             </p>
           </section>
 
+          <!-- La garantía, a la vista: es la primera pregunta cuando el cliente vuelve
+               diciendo que algo quedó mal. -->
+          <p v-if="garantia" class="garantia small">
+            En garantía hasta el {{ formatDate(garantia) }}.
+          </p>
+
           <p v-if="!sales.length" class="muted small">Todavía no se ha facturado.</p>
           <p v-else class="muted small">
             Ya facturada: {{ sales.map((s) => s.number).join(', ') }}.
@@ -1249,6 +1275,14 @@ onMounted(async () => {
             Márquelo si la factura de esa compra salió a nombre del taller: ahí es un gasto
             suyo y tiene que volver a salir como venta. Si salió a nombre del cliente, déjelo
             sin marcar y él la paga por su cuenta.
+          </p>
+
+          <label class="rtn">
+            Garantía (días)
+            <input v-model.number="garantiaDias" type="number" min="0" max="730" />
+          </label>
+          <p class="muted small">
+            Sale impresa en la factura con su fecha. Cero es sin garantía.
           </p>
 
           <label class="checkbox">
@@ -2389,6 +2423,10 @@ dd {
   gap: 0.125rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+.garantia {
+  color: var(--ok, #157f3d);
 }
 
 .firma {

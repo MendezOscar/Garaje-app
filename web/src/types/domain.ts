@@ -709,6 +709,8 @@ export interface SaleListItem {
   dueDate: string | null
   isOverdue: boolean
   isVoided: boolean
+  /** Hasta cuándo vale la garantía del trabajo. Null es sin garantía. */
+  warrantyUntil: string | null
 }
 
 export interface SalePayment {
