@@ -43,3 +43,7 @@ logs/
 # Lo que deja python al importar los scripts de backend/tools.
 __pycache__/
 *.pyc
+
+# El manual en PDF se genera con tools/manual-pdf.py; no hace falta versionarlo.
+docs/manual/*.pdf
+docs/manual/.manual.html
