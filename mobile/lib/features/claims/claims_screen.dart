@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/claim_repository.dart';
 import '../../core/api/sale_repository.dart';
+import '../../core/widgets/garaj_skeleton.dart';
+import '../../core/widgets/garaj_states.dart';
 import '../reports/reports_screen.dart' show money;
 
 /// Reclamos: el cliente volvió diciendo que el trabajo quedó mal.
@@ -199,12 +201,10 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
         label: const Text('Anotar'),
       ),
       body: reclamos.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(e, 'No se pudieron cargar los reclamos.')),
-          ),
+        loading: () => const GarajSkeletonList(),
+        error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudieron cargar los reclamos.'),
+          onRetry: () => ref.invalidate(claimsProvider(_soloAbiertos)),
         ),
         data: (lista) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(claimsProvider(_soloAbiertos)),

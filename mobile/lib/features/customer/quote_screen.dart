@@ -8,6 +8,7 @@ import '../../core/api/work_order_repository.dart';
 import '../../core/models/media.dart';
 import '../../core/models/quote.dart';
 import '../../core/theme/garaj_brand.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 import '../reports/reports_screen.dart' show money;
 
 /// El presupuesto del Cliente, en su propia pantalla.
@@ -160,7 +161,7 @@ class _QuoteScreenState extends ConsumerState<QuoteScreen> {
               ),
             ),
       body: cotizacion.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const GarajSkeletonList(rows: 3),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

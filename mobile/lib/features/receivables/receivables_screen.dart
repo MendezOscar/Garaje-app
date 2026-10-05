@@ -8,6 +8,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/theme/garaj_brand.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 import '../reports/reports_screen.dart' show money;
 
 /// Cuentas por cobrar.
@@ -160,7 +161,7 @@ class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
         ),
       ),
       body: sales.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const GarajSkeletonList(),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

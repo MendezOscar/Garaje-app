@@ -9,6 +9,7 @@ import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/period.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// Bandeja de requerimientos del taller.
 ///
@@ -136,7 +137,7 @@ class _ServiceRequestsScreenState extends ConsumerState<ServiceRequestsScreen> {
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(serviceRequestsProvider),
               child: requests.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const GarajSkeletonList(),
                 error: (e, _) => ListView(
                   children: [
                     const SizedBox(height: 120),

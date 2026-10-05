@@ -19,6 +19,8 @@ import '../../core/sync/upload_queue.dart';
 import '../../core/models/work_order.dart';
 import '../../core/theme/garaj_brand.dart';
 import '../shared/status_chip.dart';
+import '../../core/widgets/garaj_skeleton.dart';
+import '../../core/widgets/garaj_states.dart';
 import 'invoice_section.dart';
 import 'parts_section.dart';
 import 'photo_capture.dart';
@@ -740,12 +742,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               onSecondary: _isOwner ? () => _avisar(cargada!) : _tomarFoto,
             ),
       body: detail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(e, 'No se pudo cargar la orden.')),
-          ),
+        loading: () => const GarajSkeletonList(rows: 3),
+        error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar la orden.'),
+          onRetry: () => ref.invalidate(workOrderDetailProvider(widget.id)),
         ),
         data: (order) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(workOrderDetailProvider(widget.id)),
@@ -2244,12 +2244,10 @@ class _SeccionPagina extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(detail.value?.number ?? 'Orden')),
       body: detail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(e, 'No se pudo cargar la orden.')),
-          ),
+        loading: () => const GarajSkeletonList(rows: 3),
+        error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar la orden.'),
+          onRetry: () => ref.invalidate(workOrderDetailProvider(id)),
         ),
         data: (order) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),

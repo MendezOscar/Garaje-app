@@ -13,6 +13,8 @@ import '../notifications/notifications_screen.dart';
 import '../shared/status_chip.dart';
 import '../shared/subscription_banner.dart';
 import '../shared/tenant_logo.dart';
+import '../../core/widgets/garaj_skeleton.dart';
+import '../../core/widgets/garaj_states.dart';
 
 /// Bandeja de órdenes. La comparten el Técnico ("mis asignaciones"), el Dueño (las del
 /// taller) y el Cliente (las de sus vehículos): el backend ya filtra por perfil, así que
@@ -84,30 +86,19 @@ class _OrdersList extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(myWorkOrdersProvider),
       child: orders.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorState(
+        loading: () => const GarajSkeletonList(),
+        error: (e, _) => GarajError(
           message: apiErrorMessage(e, 'No se pudieron cargar las órdenes.'),
           onRetry: () => ref.invalidate(myWorkOrdersProvider),
         ),
         data: (items) => items.isEmpty
             // ListView aunque esté vacío: si no, no se puede tirar para refrescar.
-            ? ListView(
-                children: [
-                  const SizedBox(height: 120),
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        // Con una búsqueda escrita, el mensaje de "no hay nada" del perfil
-                        // haría dudar de la búsqueda misma.
-                        ref.watch(ordersSearchProvider).trim().isEmpty
-                            ? emptyMessage
-                            : 'Ninguna orden coincide con esa búsqueda.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
+            // Con una búsqueda escrita, el mensaje de "no hay nada" del perfil haría dudar
+            // de la búsqueda misma.
+            ? GarajEmpty(
+                title: ref.watch(ordersSearchProvider).trim().isEmpty
+                    ? emptyMessage
+                    : 'Ninguna orden coincide con esa búsqueda',
               )
             : ListView.separated(
                 padding: const EdgeInsets.all(12),
@@ -298,30 +289,3 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 120),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Text(message, textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                FilledButton.tonal(onPressed: onRetry, child: const Text('Reintentar')),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}

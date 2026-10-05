@@ -11,6 +11,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/theme/garaj_brand.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 import '../reports/reports_screen.dart' show money;
 
 /// El registro de ventas en el teléfono.
@@ -209,7 +210,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
         label: const Text('Venta rápida'),
       ),
       body: pagina.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const GarajSkeletonList(),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

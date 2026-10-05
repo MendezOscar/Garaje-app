@@ -6,6 +6,7 @@ import '../../core/api/inventory_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/inventory.dart';
 import '../../core/models/work_order.dart';
+import '../../core/widgets/garaj_states.dart';
 
 /// Repuestos consumidos en la orden. Para el técnico es la diferencia entre un inventario
 /// que cuadra y uno que no: si no lo registra aquí, nadie lo registra.
@@ -246,12 +247,10 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
             Expanded(
               child: results.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(apiErrorMessage(e, 'No se pudo cargar el catálogo.')),
-                  ),
-                ),
+                error: (e, _) => GarajError(
+          message: apiErrorMessage(e, 'No se pudo cargar el catálogo.'),
+          onRetry: () => ref.invalidate(partSearchProvider(_search)),
+        ),
                 data: (parts) => parts.isEmpty
                     ? const Center(child: Text('Sin resultados.'))
                     : ListView.builder(

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/customer_repository.dart';
 import '../../core/models/work_order.dart';
+import '../../core/widgets/garaj_skeleton.dart';
 
 /// El padrón del taller. Es la libreta de clientes: quién es, qué anda, con qué teléfono se
 /// le llama y si entra o no a la app.
@@ -71,7 +72,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             child: RefreshIndicator(
               onRefresh: () async => ref.invalidate(customerSearchProvider(_search)),
               child: customers.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const GarajSkeletonList(),
                 error: (e, _) => ListView(
                   children: [
                     const SizedBox(height: 100),
