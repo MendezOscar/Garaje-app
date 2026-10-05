@@ -62,7 +62,7 @@ const statusNote = ref('')
 /** Lo que se escribe para cerrar el reclamo del que nació esta orden. */
 const resolucionReclamo = ref('')
 const noteIsInternal = ref(false)
-const newTask = ref({ title: '', laborServiceId: '' })
+const newTask = ref({ title: '', laborServiceId: '', manualPrice: '' })
 
 /** Total de mano de obra en modo manual, mientras se edita. */
 const manualLabor = ref<number | string>('')
@@ -582,13 +582,47 @@ function addTask() {
   if (!title) return
 
   return run(async () => {
+    const manual = Number(newTask.value.manualPrice)
+
     await workOrdersApi.addTask(id.value, {
       title,
       // En modo manual el paso va suelto: el precio es uno solo para toda la orden.
       laborServiceId: isCatalog.value ? newTask.value.laborServiceId || null : null,
+      // El precio escrito a mano es para el trabajo que no está en el catálogo y que no vale
+      // la pena meter en él: un destrabado, un favor, algo de una sola vez. Solo cuenta si no
+      // se eligió servicio: dos precios para el mismo paso serían dos respuestas distintas.
+      manualLaborPrice:
+        isCatalog.value && !newTask.value.laborServiceId && manual > 0 ? manual : null,
     })
-    newTask.value = { title: '', laborServiceId: '' }
+    newTask.value = { title: '', laborServiceId: '', manualPrice: '' }
   })
+}
+
+/**
+ * Lo que ya está en el catálogo con un nombre parecido al del paso que se está escribiendo.
+ *
+ * Es para no guardar dos veces el mismo trabajo. Comparación tosca a propósito —sin tildes,
+ * sin mayúsculas, y vale que uno contenga al otro—: lo que se quiere evitar es «Cambio de
+ * aceite» cuando ya existe «cambio de aceite», no adivinar sinónimos.
+ */
+const parecidosAlPaso = computed(() => {
+  const buscado = sinTildes(newTask.value.title)
+  if (buscado.length < 3 || newTask.value.laborServiceId) return []
+
+  return laborServices.value
+    .filter((s) => {
+      const nombre = sinTildes(s.name)
+      return nombre.includes(buscado) || buscado.includes(nombre)
+    })
+    .slice(0, 2)
+})
+
+function sinTildes(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
 }
 
 /**
@@ -1126,13 +1160,41 @@ onMounted(async () => {
           <form v-if="canEdit" class="inline new-task" @submit.prevent="addTask">
             <input v-model="newTask.title" placeholder="Agregar paso…" />
             <select v-if="isCatalog" v-model="newTask.laborServiceId">
-              <option value="">Sin cobro</option>
+              <option value="">Sin servicio del catálogo</option>
               <option v-for="s in laborServices" :key="s.id" :value="s.id">
                 {{ s.name }} · {{ formatMoney(s.price) }}
               </option>
             </select>
+            <!-- Sin servicio del catálogo, el precio se escribe aquí y queda en el paso: el
+                 catálogo se llenaba de entradas de un solo uso. Vacío, el paso no se cobra. -->
+            <input
+              v-if="isCatalog && !newTask.laborServiceId"
+              v-model="newTask.manualPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Precio"
+              class="precio-paso"
+            />
             <button type="submit" :disabled="busy || !newTask.title.trim()">Agregar</button>
           </form>
+          <p v-for="parecido in parecidosAlPaso" :key="parecido.id" class="muted small">
+            Ya está en el catálogo: «{{ parecido.name }}» a {{ formatMoney(parecido.price) }}.
+            <button
+              type="button"
+              class="link"
+              @click="((newTask.laborServiceId = parecido.id), (newTask.title = parecido.name))"
+            >
+              Usar ese
+            </button>
+          </p>
+          <p v-if="canEdit && isCatalog && !newTask.laborServiceId" class="muted small">
+            Sin precio el paso no se cobra. Si el trabajo se repite, conviene
+            <button type="button" class="link" @click="showNewService = true">
+              agregarlo al catálogo
+            </button>
+            y elegirlo arriba.
+          </p>
 
           <!-- El servicio que falta se agrega aquí mismo: mandar al Dueño a otra pantalla a
                media orden es la manera más segura de que el paso termine sin precio. -->
@@ -2219,6 +2281,10 @@ header p {
   flex-direction: column;
   gap: var(--space-1);
   margin: var(--space-2) 0 0;
+}
+
+.precio-paso {
+  width: 7rem;
 }
 
 .card {

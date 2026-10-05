@@ -133,6 +133,7 @@ class WorkOrderTask {
     this.laborServiceId,
     this.laborServiceName,
     this.laborPrice,
+    this.manualLaborPrice,
     this.estimatedHours,
     this.actualHours,
     this.technicianNotes,
@@ -149,6 +150,7 @@ class WorkOrderTask {
         laborServiceId: json['laborServiceId'] as String?,
         laborServiceName: json['laborServiceName'] as String?,
         laborPrice: (json['laborPrice'] as num?)?.toDouble(),
+        manualLaborPrice: (json['manualLaborPrice'] as num?)?.toDouble(),
         estimatedHours: (json['estimatedHours'] as num?)?.toDouble(),
         actualHours: (json['actualHours'] as num?)?.toDouble(),
         technicianNotes: json['technicianNotes'] as String?,
@@ -168,6 +170,10 @@ class WorkOrderTask {
   final String? laborServiceId;
   final String? laborServiceName;
   final double? laborPrice;
+
+  /// El precio escrito a mano para este paso, cuando no sale del catálogo. Sirve para poder
+  /// corregirlo sin tener que mirar el catálogo.
+  final double? manualLaborPrice;
   final double? estimatedHours;
   final double? actualHours;
   final String? technicianNotes;

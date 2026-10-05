@@ -26,11 +26,22 @@ public class WorkOrderTask : TenantEntity
     public Guid? LaborServiceId { get; set; }
 
     /// <summary>
-    /// Lo que se cobra por el paso, según el servicio del catálogo que lleve. Solo cuenta en
-    /// las órdenes en modo catálogo: en las manuales el precio es uno solo para toda la orden.
+    /// Precio escrito a mano para este paso.
+    ///
+    /// Existe para el trabajo que no está en el catálogo y que no vale la pena meter en él:
+    /// un destrabado, un favor, algo que se cobra una vez y no se repite. Antes la única
+    /// manera de ponerle precio a un paso era crear un servicio del catálogo, y el catálogo
+    /// se llenaba de entradas de un solo uso.
+    /// </summary>
+    public decimal? ManualLaborPrice { get; set; }
+
+    /// <summary>
+    /// Lo que se cobra por el paso: el precio escrito a mano si lo tiene, y si no el que sale
+    /// del servicio del catálogo. Solo cuenta en las órdenes en modo catálogo: en las manuales
+    /// el precio es uno solo para toda la orden.
     /// </summary>
     public decimal? PriceWith(LaborService? service) =>
-        service?.PriceFor(ActualHours ?? EstimatedHours);
+        ManualLaborPrice ?? service?.PriceFor(ActualHours ?? EstimatedHours);
 
     public decimal? EstimatedHours { get; set; }
     public decimal? ActualHours { get; set; }

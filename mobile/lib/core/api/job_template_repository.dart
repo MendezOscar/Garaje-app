@@ -138,7 +138,14 @@ class JobTemplateRepository {
   Future<JobTemplate> create({
     required String name,
     String? description,
-    required List<({String title, String? laborServiceId, double? estimatedHours})> tasks,
+    required List<
+            ({
+              String title,
+              String? laborServiceId,
+              double? estimatedHours,
+              double? manualLaborPrice,
+            })>
+        tasks,
     List<({String? partId, String? description, double quantity})> parts = const [],
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
@@ -154,6 +161,7 @@ class JobTemplateRepository {
               'description': null,
               'laborServiceId': paso.laborServiceId,
               'estimatedHours': paso.estimatedHours,
+              'manualLaborPrice': paso.manualLaborPrice,
             },
         ],
         // Los repuestos que el trabajo lleva siempre: el aceite, el filtro, los empaques.

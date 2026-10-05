@@ -112,7 +112,9 @@ public record WorkOrderTaskDto(
     decimal? ActualHours,
     string? TechnicianNotes,
     DateTimeOffset? StartedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt,
+    /// <summary>El precio escrito a mano, si el paso lleva uno. Sirve para poder corregirlo.</summary>
+    decimal? ManualLaborPrice = null);
 
 public record WorkOrderStatusEntryDto(
     WorkOrderStatus? FromStatus,
@@ -152,12 +154,17 @@ public record ChangeStatusRequest(
     string? Note,
     bool IsVisibleToCustomer = true);
 
+/// <param name="ManualLaborPrice">
+/// Precio escrito a mano para este paso, cuando el trabajo no sale del catálogo. Manda sobre
+/// el del servicio si los dos vienen puestos.
+/// </param>
 public record SaveWorkOrderTaskRequest(
     string Title,
     string? Description,
     Guid? AssignedTechnicianId,
     Guid? LaborServiceId,
-    decimal? EstimatedHours);
+    decimal? EstimatedHours,
+    decimal? ManualLaborPrice = null);
 
 public record CompleteTaskRequest(
     bool IsDone,

@@ -300,6 +300,11 @@ export const workOrdersApi = {
       /** El servicio del catálogo que le pone precio al paso. */
       laborServiceId?: string | null
       estimatedHours?: number
+      /**
+       * Precio escrito a mano para este paso, cuando el trabajo no sale del catálogo. Solo
+       * cuenta si no se mandó servicio: el servidor se queda con el del catálogo.
+       */
+      manualLaborPrice?: number | null
     },
   ) {
     const { data } = await api.post<WorkOrderTask>(`/api/work-orders/${id}/tasks`, body)

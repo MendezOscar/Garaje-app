@@ -1167,6 +1167,13 @@ public class WorkOrderService(
         // Sin horas indicadas se toman las estándar del servicio: así el paso queda con precio
         // desde que se crea y el Dueño ve lo que va a cobrar sin teclear nada.
         task.EstimatedHours = request.EstimatedHours ?? service?.StandardHours;
+
+        if (request.ManualLaborPrice is { } manual && manual < 0)
+            throw new AppException("El precio del paso no puede ser negativo.");
+
+        // Con servicio del catálogo el precio sale de él: guardar además uno a mano dejaría dos
+        // precios para el mismo paso y ganaría el de aquí sin que nadie lo hubiera pedido.
+        task.ManualLaborPrice = request.LaborServiceId is null ? request.ManualLaborPrice : null;
     }
 
     private async Task EnsureTechnicianAsync(Guid technicianId, Guid branchId, CancellationToken ct)
@@ -1262,7 +1269,8 @@ public class WorkOrderService(
                     t.LaborServiceId,
                     service?.Name,
                     sinPrecios ? null : t.PriceWith(service),
-                    t.EstimatedHours, t.ActualHours, t.TechnicianNotes, t.StartedAt, t.CompletedAt);
+                    t.EstimatedHours, t.ActualHours, t.TechnicianNotes, t.StartedAt, t.CompletedAt,
+                    sinPrecios ? null : t.ManualLaborPrice);
             })
             .ToList();
 
@@ -1375,7 +1383,8 @@ public class WorkOrderService(
             task.LaborServiceId, service?.Name,
             task.PriceWith(service),
             task.EstimatedHours, task.ActualHours,
-            task.TechnicianNotes, task.StartedAt, task.CompletedAt);
+            task.TechnicianNotes, task.StartedAt, task.CompletedAt,
+            task.ManualLaborPrice);
     }
 
     private static string Describe(WorkOrderStatus status) => status switch

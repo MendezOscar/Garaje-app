@@ -112,3 +112,45 @@ final laborServiceRepositoryProvider = Provider<LaborServiceRepository>(
 final laborCatalogProvider = FutureProvider.autoDispose<List<LaborService>>(
   (ref) => ref.watch(laborServiceRepositoryProvider).list(),
 );
+
+/// Crea un servicio de mano de obra con precio fijo y devuelve su id.
+///
+/// El código se arma solo —tres letras del nombre y un número— porque pedirlo en el teléfono
+/// es una pregunta que nadie sabe contestar. Si ya existe, se prueba el siguiente: el servidor
+/// exige que no se repita.
+///
+/// Vive aquí y no en una pantalla porque lo usan dos: el paso de una orden y el paso de un
+/// trabajo frecuente, y el código generado tiene que salir igual en los dos.
+Future<String> crearServicioDeManoDeObra(
+  WidgetRef ref,
+  String nombre,
+  double precio,
+) async {
+  final letras = nombre
+      .toUpperCase()
+      .replaceAll(RegExp(r'[^A-Z0-9]'), '')
+      .padRight(3, 'X')
+      .substring(0, 3);
+
+  final repo = ref.read(laborServiceRepositoryProvider);
+
+  for (var n = 1; n <= 20; n++) {
+    try {
+      final creado = await repo.save(
+        code: '$letras-${n.toString().padLeft(2, '0')}',
+        name: nombre,
+        standardHours: 0,
+        hourlyRate: 0,
+        isFixedPrice: true,
+        fixedPrice: precio,
+      );
+
+      return creado.id;
+    } on DioException catch (e) {
+      // 409 es «ese código ya está usado»: se prueba con el siguiente número.
+      if (e.response?.statusCode != 409) rethrow;
+    }
+  }
+
+  throw Exception('No se pudo crear el servicio: todos los códigos probados están usados.');
+}

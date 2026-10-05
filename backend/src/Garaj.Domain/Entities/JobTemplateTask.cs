@@ -18,6 +18,12 @@ public class JobTemplateTask : TenantEntity
     /// <summary>Servicio del catálogo que le pone precio al paso. Sin él, el paso no se cobra.</summary>
     public Guid? LaborServiceId { get; set; }
 
+    /// <summary>
+    /// Precio escrito a mano, para el paso que no sale del catálogo. Manda sobre el del
+    /// servicio cuando los dos están puestos.
+    /// </summary>
+    public decimal? ManualLaborPrice { get; set; }
+
     public decimal? EstimatedHours { get; set; }
 
     public JobTemplate JobTemplate { get; set; } = null!;
