@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, expensesApi, usersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import {
   EXPENSE_CATEGORY_LABEL,
   ExpenseCategory,
@@ -221,8 +223,8 @@ onMounted(async () => {
       </div>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading" class="muted small">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="loading" :rows="4" variant="lista" />
 
     <article v-if="statement" class="card resultado">
       <dl class="cuentas">

@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, usersApi } from '@/api/garaj'
+import EmptyState from '@/components/EmptyState.vue'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import {
   PAY_MODE_LABEL,
   TechnicianPayMode,
@@ -184,16 +187,18 @@ onMounted(async () => {
       </p>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
     <p v-if="notice" class="notice">{{ notice }}</p>
 
     <div class="layout">
       <div>
         <h2>Técnicos</h2>
-        <p v-if="loading" class="muted">Cargando…</p>
-        <p v-else-if="!technicians.length" class="muted">
-          Todavía no hay técnicos. Cree el primero en el formulario de al lado.
-        </p>
+        <SkeletonList v-if="loading" :rows="4" variant="tabla" />
+        <EmptyState
+          v-else-if="!technicians.length"
+          title="Todavía no hay técnicos"
+          hint="Cree el primero en el formulario de al lado."
+        />
 
         <table v-else>
           <thead>

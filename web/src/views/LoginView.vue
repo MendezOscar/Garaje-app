@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
+import ErrorNote from '@/components/ErrorNote.vue'
 import { homeRouteFor } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -49,7 +50,7 @@ async function submit() {
         <input v-model="password" type="password" autocomplete="current-password" required />
       </label>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <ErrorNote v-if="error" :message="error" />
 
       <button type="submit" :disabled="loading">
         {{ loading ? 'Ingresando…' : 'Ingresar' }}

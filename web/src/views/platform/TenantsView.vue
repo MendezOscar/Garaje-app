@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { platformApi } from '@/api/garaj'
+import EmptyState from '@/components/EmptyState.vue'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import type { CreatedTenant, PlatformTenant } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
@@ -131,7 +134,7 @@ onMounted(load)
       </button>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <!-- Se enseña una sola vez: la contraseña no se guarda en claro en ninguna parte. -->
     <article v-if="creado" class="card credenciales">
@@ -227,8 +230,8 @@ onMounted(load)
       </p>
     </form>
 
-    <p v-if="loading" class="muted">Cargando…</p>
-    <p v-else-if="!tenants.length" class="muted">Todavía no hay talleres.</p>
+    <SkeletonList v-if="loading" :rows="4" variant="tabla" />
+    <EmptyState v-else-if="!tenants.length" title="Todavía no hay talleres" />
 
     <table v-else>
       <thead>

@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, reportsApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import { PAYMENT_METHOD_LABEL, type Branch, type CashClose } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 
@@ -106,8 +108,8 @@ onMounted(async () => {
       <button type="button" :disabled="loading || !cierre" @click="bajarPdf">PDF</button>
     </form>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="loading" :rows="4" variant="tabla" />
 
     <template v-else-if="cierre">
       <p class="muted small dia">{{ cierre.dayLabel }}</p>

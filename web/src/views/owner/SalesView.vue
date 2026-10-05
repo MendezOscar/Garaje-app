@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, salesApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import { type Branch, type SaleListItem } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
@@ -188,8 +190,8 @@ onMounted(async () => {
       <button type="button" :disabled="cargando" @click="buscar">Aplicar</button>
     </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="cargando" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="cargando" :rows="4" variant="tabla" />
 
     <template v-else>
       <div class="resumen">

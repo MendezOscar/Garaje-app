@@ -131,6 +131,15 @@ export function errorMessage(error: unknown, fallback = 'Ocurrió un error inesp
     // exigiría await y aquí no lo hay, así que se usa el mensaje de respaldo.
     if (error.response?.data instanceof Blob) return fallback
 
+    // Sin respuesta no hubo servidor: o se cayó el internet del taller, o el servicio no
+    // contesta. Decirlo así evita el «Network Error» en inglés, que no le dice nada a nadie
+    // y hace pensar que el sistema perdió los datos.
+    if (!error.response) {
+      return navigator.onLine
+        ? 'No se pudo conectar con el servidor. Intente de nuevo en un momento.'
+        : 'Sin conexión a internet. Revise la señal y vuelva a intentar.'
+    }
+
     const problema = error.response?.data
     // La traza viene solo cuando falló el servidor, y es lo único que convierte un «me salió
     // error» en una petición concreta que puedo buscar en el log.

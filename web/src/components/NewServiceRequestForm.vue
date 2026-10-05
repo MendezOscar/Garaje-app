@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, customersApi, serviceRequestsApi, usersApi, vehiclesApi, workOrdersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   VEHICLE_TYPE_LABEL,
@@ -320,7 +321,7 @@ onMounted(async () => {
     </header>
 
     <form v-if="open" @submit.prevent="submit()">
-      <p v-if="error" class="error">{{ error }}</p>
+      <ErrorNote v-if="error" :message="error" />
 
       <!-- Los tres pasos numerados y a la vista, no uno detrás de otro: en el mostrador se
            llenan en el orden en que el cliente habla, y volver atrás a corregir el vehículo

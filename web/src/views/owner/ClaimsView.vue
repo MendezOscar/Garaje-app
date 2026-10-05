@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { claimsApi, salesApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import {
   CLAIM_STATUS_LABEL,
   ClaimStatus,
@@ -146,7 +148,7 @@ onMounted(load)
       </label>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <div class="dos-columnas">
       <article class="card">
@@ -197,7 +199,7 @@ onMounted(load)
 
       <article class="card">
         <h2>{{ soloAbiertos ? 'Abiertos' : 'Todos' }}</h2>
-        <p v-if="loading" class="muted small">Cargando…</p>
+        <SkeletonList v-if="loading" :rows="4" variant="lista" />
         <p v-else-if="!claims.length" class="muted small">
           {{ soloAbiertos ? 'No hay reclamos abiertos.' : 'Todavía no hay reclamos.' }}
         </p>

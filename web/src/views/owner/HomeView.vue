@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { customersApi, reportsApi, salesApi, workOrdersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -210,8 +212,8 @@ watch(() => auth.activeBranchId, load)
       <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">Recibir vehículo</RouterLink>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-else-if="loading" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-else-if="loading" :rows="4" variant="lista" />
 
     <!--
       Arriba del dinero mientras el taller no ha facturado nada: es lo único accionable de la

@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { workOrdersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { VEHICLE_TYPE_LABEL, type WorkOrderListItem } from '@/types/domain'
 import { relativeTime } from '@/utils/format'
@@ -33,8 +35,8 @@ onMounted(async () => {
     <h1>{{ props.title }}</h1>
     <p class="muted">{{ props.subtitle }}</p>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="loading" :rows="4" variant="lista" />
 
     <ul class="list">
       <li v-for="order in orders" :key="order.id">

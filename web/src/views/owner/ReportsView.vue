@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, reportsApi, usersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import {
   RevenueGrouping,
   WORK_ORDER_STATUS_LABEL,
@@ -122,7 +124,7 @@ onMounted(async () => {
       </select>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <!-- Tablero del día -->
     <div v-if="dashboard" class="cards">
@@ -202,7 +204,7 @@ onMounted(async () => {
         </div>
       </header>
 
-      <p v-if="loading" class="muted">Cargando…</p>
+      <SkeletonList v-if="loading" :rows="4" variant="tabla" />
 
       <template v-else-if="report">
         <div class="summary">

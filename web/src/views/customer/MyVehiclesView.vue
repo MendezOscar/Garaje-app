@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, serviceRequestsApi, vehiclesApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import OrderListView from '@/views/OrderListView.vue'
 import { SERVICE_REQUEST_STATUS_LABEL, type Branch, type ServiceRequest, type Vehicle } from '@/types/domain'
 import { relativeTime } from '@/utils/format'
@@ -89,7 +90,7 @@ async function submit() {
       </button>
     </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <form v-if="showForm" class="card" @submit.prevent="submit">
       <div class="grid">

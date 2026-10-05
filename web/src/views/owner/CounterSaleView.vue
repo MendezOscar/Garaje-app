@@ -10,6 +10,7 @@ import {
   tenantApi,
   vehiclesApi,
 } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import {
   LineType,
   PAYMENT_METHOD_LABEL,
@@ -368,7 +369,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <!-- Ya se registró: lo que queda es el comprobante y empezar la siguiente. -->
     <article v-if="hecha" class="marco recien">

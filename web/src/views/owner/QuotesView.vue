@@ -3,7 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { laborServicesApi, partsApi, quotesApi, tenantApi } from '@/api/garaj'
+import EmptyState from '@/components/EmptyState.vue'
+import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import {
   LINE_TYPE_LABEL,
   LineType,
@@ -252,14 +255,16 @@ onMounted(async () => {
       </button>
     </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <div class="layout">
       <div class="list">
-        <p v-if="loading" class="muted">Cargando…</p>
-        <p v-else-if="!quotes.length" class="muted">
-          Todavía no hay cotizaciones. Se crean desde el detalle de una orden de trabajo.
-        </p>
+        <SkeletonList v-if="loading" :rows="4" variant="tabla" />
+        <EmptyState
+          v-else-if="!quotes.length"
+          title="Todavía no hay cotizaciones"
+          hint="Se crean desde el detalle de una orden de trabajo."
+        />
 
         <button
           v-for="q in quotes"

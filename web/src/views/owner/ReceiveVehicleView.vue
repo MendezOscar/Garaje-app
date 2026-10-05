@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { workOrdersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import NewServiceRequestForm from '@/components/NewServiceRequestForm.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {
@@ -125,7 +126,7 @@ async function mandarEnlace() {
       </article>
 
       <aside>
-        <p v-if="error" class="error">{{ error }}</p>
+        <ErrorNote v-if="error" :message="error" />
 
         <!-- Ya se abrió: lo único que queda es mandarle el enlace, y eso pide un clic del
              mostrador para que el navegador deje abrir WhatsApp. -->

@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { customersApi, vehiclesApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import { useAuthStore } from '@/stores/auth'
 import { VEHICLE_TYPE_LABEL, type Customer, type Vehicle } from '@/types/domain'
 import { whatsappLink } from '@/utils/format'
@@ -141,7 +142,7 @@ watch(search, () => {
       <input v-model="search" type="search" placeholder="Nombre, teléfono o placa" />
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
     <p v-if="notice" class="notice">{{ notice }}</p>
 
     <table>

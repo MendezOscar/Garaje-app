@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { jobTemplatesApi, laborServicesApi, partsApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import type { JobTemplate, LaborService, Part } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 
@@ -210,7 +212,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <div class="layout">
       <div>
@@ -222,7 +224,7 @@ onMounted(async () => {
           </label>
         </div>
 
-        <p v-if="loading" class="muted">Cargando…</p>
+        <SkeletonList v-if="loading" :rows="4" variant="tabla" />
         <p v-else-if="!visible.length" class="muted vacio">
           Todavía no hay ninguno. El camino corto es no escribirlos aquí: abra una orden que ya
           esté armada y pulse <strong>Guardar como trabajo frecuente</strong>. Sus pasos y sus

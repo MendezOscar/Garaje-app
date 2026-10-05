@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { apiUrl, errorMessage } from '@/api/client'
 import { branchesApi, tenantApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Branch, FiscalRange, TenantSettings } from '@/types/domain'
 import { formatDate } from '@/utils/format'
@@ -234,8 +236,8 @@ onMounted(async () => {
       </p>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="loading" :rows="4" variant="tabla" />
 
     <div v-else class="layout">
       <form class="card" @submit.prevent="save">
