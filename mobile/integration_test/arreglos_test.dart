@@ -120,6 +120,9 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 
+    // Los repuestos del trabajo. Faltaban: solo estaba el de agregar paso.
+    expect(find.text('Agregar repuesto'), findsOneWidget);
+
     final nombre = 'Prueba ${DateTime.now().millisecondsSinceEpoch}';
     await tester.enterText(find.widgetWithText(TextField, 'Cómo se llama'), nombre);
     await tester.enterText(find.widgetWithText(TextField, 'Paso 1'), 'Revisar el motor');
@@ -223,8 +226,19 @@ void main() {
     // trabajo que no estuviera en el catálogo no tenía forma de llevar precio.
     expect(find.text('Nuevo paso'), findsOneWidget);
     expect(find.text('Precio a mano'), findsOneWidget);
-    expect(find.text('Del catálogo'), findsWidgets);
+    expect(find.text('Del catálogo'), findsOneWidget);
     expect(find.text('Sin cobro'), findsOneWidget);
+
+    // Del catálogo no se pregunta el nombre: lo pone el servicio elegido. Escribirlo otra vez
+    // era escribir dos veces lo mismo.
+    expect(find.widgetWithText(TextField, '¿Qué hay que hacer?'), findsNothing);
+
+    // Con precio a mano sí, porque ahí el nombre es lo único que da el concepto.
+    await tester.tap(find.text('Precio a mano'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, '¿Qué hay que hacer?'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Precio'), findsOneWidget);
   });
 
   testWidgets('los ajustes del taller se leen y se guardan desde el teléfono',
