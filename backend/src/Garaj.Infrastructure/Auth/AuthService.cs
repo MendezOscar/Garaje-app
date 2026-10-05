@@ -257,7 +257,10 @@ public class AuthService(
             // les llega null, así que ninguna pantalla puede enseñarles lo que no recibió.
             role == AppRoles.Owner
                 ? SubscriptionMessages.ToDto(SubscriptionRules.For(tenant, clock.Today()))
-                : null);
+                : null,
+            // El técnico de un taller que apagó los precios no los ve. Lo sabe desde que
+            // entra, para no pedirle un precio que el servidor no le va a aceptar.
+            role != AppRoles.Technician || tenant.TechniciansSeePrices);
     }
 
     private async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)

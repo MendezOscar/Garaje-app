@@ -181,6 +181,9 @@ export interface User {
   customerId: string | null
   branchIds: string[]
   lastLoginAt: string | null
+  /** Cómo se le paga. Solo tiene sentido en técnicos. */
+  payMode: TechnicianPayMode
+  payAmount: number
 }
 
 /** Un abono, como lo ve el cliente en su estado de cuenta: sin quién lo recibió. */
@@ -991,6 +994,8 @@ export interface TenantSettings {
   defaultPhoneCountryCode: string
   /** Días de garantía que lleva un trabajo por defecto. Cero es sin garantía. */
   defaultWarrantyDays: number
+  /** Si el técnico ve precios de repuestos, de mano de obra y los totales de la orden. */
+  techniciansSeePrices: boolean
   /** Si el taller cobra bodegaje por el vehículo que nadie retira. */
   chargesStorage: boolean
   /** Días de gracia desde el aviso de que está listo. Dentro de ellos no se cobra. */
@@ -1198,6 +1203,9 @@ export interface Expense {
   createdByName: string | null
   /** Comprobantes adjuntos. Un gasto sin comprobante se puede discutir. */
   photoCount: number
+  /** A quién se le pagó, en los gastos de salario. */
+  employeeUserId: string | null
+  employeeName: string | null
 }
 
 export interface SaveExpense {
@@ -1209,6 +1217,8 @@ export interface SaveExpense {
   supplierName?: string | null
   expenseDate?: string | null
   notes?: string | null
+  /** El empleado al que se le paga. Solo en los gastos de salario. */
+  employeeUserId?: string | null
 }
 
 export interface ExpenseGroup {
@@ -1241,4 +1251,40 @@ export interface IncomeStatement {
   netMarginPercent: number
   expenses: ExpenseGroup[]
   previous: IncomeStatementSummary | null
+}
+
+/**
+ * Cómo se le paga a un técnico. Son las tres formas que se usan en un taller; sin definir es
+ * como nace, y entonces el sistema no propone nada al pagarle.
+ */
+export const TechnicianPayMode = {
+  Undefined: 0,
+  Fixed: 1,
+  Percentage: 2,
+  Hourly: 3,
+} as const
+export type TechnicianPayMode = (typeof TechnicianPayMode)[keyof typeof TechnicianPayMode]
+
+export const PAY_MODE_LABEL: Record<TechnicianPayMode, string> = {
+  [TechnicianPayMode.Undefined]: 'Sin definir',
+  [TechnicianPayMode.Fixed]: 'Sueldo fijo',
+  [TechnicianPayMode.Percentage]: 'Porcentaje de la mano de obra',
+  [TechnicianPayMode.Hourly]: 'Por hora trabajada',
+}
+
+/** Cuánto le tocaría a un técnico por el periodo, según cómo se le paga. */
+export interface TechnicianPayProposal {
+  technicianId: string
+  technicianName: string
+  payMode: TechnicianPayMode
+  payAmount: number
+  from: string
+  to: string
+  /** La mano de obra facturada de sus órdenes en el periodo. */
+  laborRevenue: number
+  /** Las horas que registró en los pasos que completó. */
+  hours: number
+  proposal: number
+  /** Lo que ya se le pagó en el periodo, de los gastos de salario. */
+  alreadyPaid: number
 }

@@ -2,7 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, usersApi } from '@/api/garaj'
-import type { Branch, User } from '@/types/domain'
+import {
+  PAY_MODE_LABEL,
+  TechnicianPayMode,
+  type Branch,
+  type User,
+} from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 
 /**
@@ -27,6 +32,8 @@ const emptyForm = {
   password: '',
   branchIds: [] as string[],
   isActive: true,
+  payMode: TechnicianPayMode.Undefined as TechnicianPayMode,
+  payAmount: 0,
 }
 
 const form = ref({ ...emptyForm })
@@ -58,6 +65,8 @@ function edit(user: User) {
     password: '',
     branchIds: [...user.branchIds],
     isActive: user.isActive,
+    payMode: user.payMode,
+    payAmount: user.payAmount,
   }
 }
 
@@ -288,6 +297,35 @@ onMounted(async () => {
             {{ b.name }}
           </label>
         </fieldset>
+
+        <!-- Cómo se le paga. Solo al editar: al crearlo todavía no se ha acordado. -->
+        <template v-if="editing">
+          <label>
+            Cómo se le paga
+            <select v-model.number="form.payMode">
+              <option
+                v-for="(label, value) in PAY_MODE_LABEL"
+                :key="value"
+                :value="Number(value)"
+              >
+                {{ label }}
+              </option>
+            </select>
+          </label>
+          <label v-if="form.payMode !== TechnicianPayMode.Undefined">
+            {{ form.payMode === TechnicianPayMode.Percentage ? 'Porcentaje' : 'Monto' }}
+            <input v-model.number="form.payAmount" type="number" min="0" step="0.01" />
+            <small class="muted">
+              {{
+                form.payMode === TechnicianPayMode.Fixed
+                  ? 'Lo que se le paga por periodo.'
+                  : form.payMode === TechnicianPayMode.Percentage
+                    ? 'De la mano de obra que facturaron sus órdenes.'
+                    : 'Por cada hora que registre en los pasos que complete.'
+              }}
+            </small>
+          </label>
+        </template>
 
         <label v-if="editing" class="checkbox">
           <input v-model="form.isActive" type="checkbox" />
