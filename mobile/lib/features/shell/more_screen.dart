@@ -87,6 +87,12 @@ class MoreScreen extends ConsumerWidget {
                           : '${recordatorios.length} este mes',
                   route: '/recordatorios',
                 ),
+                _Row(
+                  icon: Icons.report_problem_outlined,
+                  label: 'Reclamos',
+                  foot: 'cuando el trabajo quedó mal',
+                  route: '/reclamos',
+                ),
               ],
             ),
             _Group(
