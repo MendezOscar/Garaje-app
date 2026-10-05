@@ -43,6 +43,9 @@ import type {
   WorkOrderDetail,
   WorkOrderListItem,
   WorkOrderPart,
+  ClaimDetail,
+  ClaimListItem,
+  ClaimStatus,
   VehicleReception,
   SaveVehicleReception,
   WorkOrderStatus,
@@ -910,6 +913,44 @@ export const notificationsApi = {
   },
   async markAllRead() {
     await api.post('/api/notifications/read-all')
+  },
+}
+
+/**
+ * Reclamos. Solo el Dueño: decidir si algo entra en garantía no es de quien hizo el trabajo.
+ */
+export const claimsApi = {
+  async list(query: {
+    status?: ClaimStatus
+    onlyOpen?: boolean
+    customerId?: string
+    from?: string
+    to?: string
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<ClaimListItem>>('/api/claims', { params: params(query) })
+    return data
+  },
+  async get(id: string) {
+    const { data } = await api.get<ClaimDetail>(`/api/claims/${id}`)
+    return data
+  },
+  async create(body: { saleId: string; reason: string }) {
+    const { data } = await api.post<ClaimDetail>('/api/claims', body)
+    return data
+  },
+  /** Lo cierra. Con `openRepairOrder` abre la orden de la reparación, ligada al reclamo. */
+  async resolve(
+    id: string,
+    body: { status: ClaimStatus; resolution: string; openRepairOrder?: boolean },
+  ) {
+    const { data } = await api.post<ClaimDetail>(`/api/claims/${id}/resolve`, body)
+    return data
+  },
+  async reopen(id: string) {
+    const { data } = await api.post<ClaimDetail>(`/api/claims/${id}/reopen`)
+    return data
   },
 }
 
