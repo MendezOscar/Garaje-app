@@ -139,6 +139,7 @@ class JobTemplateRepository {
     required String name,
     String? description,
     required List<({String title, String? laborServiceId, double? estimatedHours})> tasks,
+    List<({String? partId, String? description, double quantity})> parts = const [],
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/job-templates',
@@ -155,9 +156,16 @@ class JobTemplateRepository {
               'estimatedHours': paso.estimatedHours,
             },
         ],
-        // Los repuestos se agregan después, desde una orden: aquí todavía no se sabe de qué
-        // marca ni cuántos lleva este carro en concreto.
-        'parts': <Map<String, dynamic>>[],
+        // Los repuestos que el trabajo lleva siempre: el aceite, el filtro, los empaques.
+        // Los que dependen del carro se agregan después, en la orden.
+        'parts': [
+          for (final repuesto in parts)
+            {
+              'partId': repuesto.partId,
+              'description': repuesto.description,
+              'quantity': repuesto.quantity,
+            },
+        ],
       },
     );
 

@@ -192,55 +192,6 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         .assign(widget.id, elegido.isEmpty ? null : elegido));
   }
 
-  /// Las dos formas de cobrar la mano de obra son excluyentes: o cada paso lleva su servicio
-  /// del catálogo, o los pasos van sueltos y se cobra un total por toda la orden.
-  Future<void> _comoSeCobra(WorkOrderDetail order) async {
-    final modo = await showModalBottomSheet<LaborMode>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(
-                'Cómo se cobra la mano de obra',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            ListTile(
-              title: const Text('Con el catálogo'),
-              subtitle: const Text('Cada paso lleva su servicio y su precio'),
-              trailing: order.isCatalogLabor ? const Icon(Icons.check) : null,
-              onTap: () => Navigator.pop(context, LaborMode.catalog),
-            ),
-            ListTile(
-              title: const Text('A mano'),
-              subtitle: const Text('Los pasos van sueltos y se cobra un total'),
-              trailing: order.isCatalogLabor ? null : const Icon(Icons.check),
-              onTap: () => Navigator.pop(context, LaborMode.manual),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (modo == null) return;
-
-    // Pasar a «a mano» pide el total en el mismo gesto: un total en cero no es un cobro, es
-    // una factura corta esperando a que alguien se acuerde.
-    if (modo == LaborMode.manual) {
-      final total = await _askTotal(order);
-      if (total == null) return;
-      await _run(() => ref
-          .read(workOrderRepositoryProvider)
-          .setLaborMode(widget.id, LaborMode.manual, total: total));
-      return;
-    }
-
-    if (order.laborMode != modo) await _changeLaborMode(order, modo);
-  }
-
   /// Los tres mensajes de WhatsApp, en una hoja. Es el botón de la derecha de la barra fija:
   /// avisar es lo que se hace justo después de mover el estado, con el cliente esperando.
   void _avisar(WorkOrderDetail order) {
@@ -556,24 +507,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Nuevo paso', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: GarajSpace.md),
-
-                TextField(
-                  controller: titulo,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setInner(() {}),
-                  decoration: const InputDecoration(
-                    labelText: '¿Qué hay que hacer?',
-                    hintText: 'Cambiar pastillas de adelante…',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
 
                 // En modo manual el precio es uno solo para toda la orden: el paso va suelto y
                 // no hay nada que elegir.
                 if (catalogLabor) ...[
-                  const SizedBox(height: GarajSpace.lg),
+                  const SizedBox(height: GarajSpace.md),
                   Text('CÓMO SE COBRA', style: Theme.of(context).textTheme.labelSmall),
                   const SizedBox(height: GarajSpace.sm),
                   Wrap(
@@ -587,33 +525,53 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: GarajSpace.sm),
+                  const SizedBox(height: GarajSpace.md),
+                ],
 
-                  if (modo == _CobroDelPaso.catalogo)
-                    DropdownButtonFormField<String?>(
-                      initialValue: servicioId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Del catálogo',
-                        border: OutlineInputBorder(),
+                // Del catálogo no se pregunta el nombre: el del servicio es como el taller
+                // llama a ese trabajo, y escribirlo otra vez era escribir dos veces lo mismo.
+                if (catalogLabor && modo == _CobroDelPaso.catalogo)
+                  DropdownButtonFormField<String?>(
+                    initialValue: servicioId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: '¿Qué hay que hacer?',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('— elija el servicio —'),
                       ),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('— elija el servicio —'),
-                        ),
-                        for (final s in servicios)
-                          DropdownMenuItem<String?>(
-                            value: s.id,
-                            child: Text(
-                              '${s.name} · ${_money(s.price)}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      for (final s in servicios)
+                        DropdownMenuItem<String?>(
+                          value: s.id,
+                          child: Text(
+                            '${s.name} · ${_money(s.price)}',
+                            overflow: TextOverflow.ellipsis,
                           ),
-                      ],
-                      onChanged: (value) => setInner(() => servicioId = value),
-                    )
-                  else if (modo == _CobroDelPaso.aMano)
+                        ),
+                    ],
+                    onChanged: (value) => setInner(() {
+                      servicioId = value;
+                      titulo.text =
+                          value == null ? '' : servicios.firstWhere((s) => s.id == value).name;
+                    }),
+                  )
+                else ...[
+                  TextField(
+                    controller: titulo,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (_) => setInner(() {}),
+                    decoration: const InputDecoration(
+                      labelText: '¿Qué hay que hacer?',
+                      hintText: 'Cambiar pastillas de adelante…',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (catalogLabor && modo == _CobroDelPaso.aMano) ...[
+                    const SizedBox(height: GarajSpace.sm),
                     TextField(
                       controller: precio,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -626,14 +584,17 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                         helperMaxLines: 2,
                         border: OutlineInputBorder(),
                       ),
-                    )
-                  else
+                    ),
+                  ],
+                  if (catalogLabor && modo == _CobroDelPaso.sinCobro) ...[
+                    const SizedBox(height: GarajSpace.sm),
                     Text(
                       'El paso se hace pero no se cobra: va dentro de otro trabajo.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).hintColor,
                           ),
                     ),
+                  ],
                 ],
 
                 const SizedBox(height: GarajSpace.lg),
@@ -830,20 +791,14 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ));
   }
 
-  /// Elige de dónde sale el precio de la mano de obra de la orden. En manual pide el total,
-  /// porque cambiar de modo sin número dejaría la orden sin nada que cobrar.
-  Future<void> _changeLaborMode(WorkOrderDetail order, LaborMode mode) async {
-    if (order.laborMode == mode) return;
-
-    double? total;
-    if (mode == LaborMode.manual) {
-      total = await _askTotal(order);
-      if (total == null) return;
-    }
+  /// Cambia el total de la mano de obra cuando la orden se cobra a mano.
+  Future<void> _cambiarTotalAMano(WorkOrderDetail order) async {
+    final total = await _askTotal(order);
+    if (total == null) return;
 
     await _run(() => ref
         .read(workOrderRepositoryProvider)
-        .setLaborMode(widget.id, mode, total: total));
+        .setLaborMode(widget.id, LaborMode.manual, total: total));
   }
 
   Future<double?> _askTotal(WorkOrderDetail order) async {
@@ -1090,7 +1045,15 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 hasTemplates:
                     (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
                 onApplyTemplate: _applyTemplate,
-                onComoSeCobra: _isOwner ? () => _comoSeCobra(order) : null,
+                // Elegir el modo de toda la orden se quitó del teléfono: preguntaba lo mismo
+                // que ahora pregunta cada paso —«cómo se cobra»—, y con el precio a mano por
+                // paso ya no hace falta cambiar la orden entera. El modo de un total único
+                // sigue en el panel, para el taller que cobra así; aquí queda cambiar ese
+                // total.
+                onEditarTotal: _isOwner && !order.isCatalogLabor
+                    ? () => _cambiarTotalAMano(order)
+                    : null,
+                esDueno: _isOwner,
               ),
               const SizedBox(height: 12),
               if (_canEdit || order.parts.isNotEmpty)
@@ -1850,7 +1813,8 @@ class _TasksCard extends StatelessWidget {
     required this.siguienteId,
     required this.hasTemplates,
     required this.onApplyTemplate,
-    required this.onComoSeCobra,
+    required this.onEditarTotal,
+    required this.esDueno,
   });
 
   final WorkOrderDetail order;
@@ -1870,7 +1834,11 @@ class _TasksCard extends StatelessWidget {
 
   /// Cambiar si la mano de obra sale del catálogo o de un total a mano. Null para quien no
   /// puede: es del Dueño.
-  final VoidCallback? onComoSeCobra;
+  /// Cambiar el total cuando la orden se cobra a mano. Null cuando no aplica.
+  final VoidCallback? onEditarTotal;
+
+  /// Al Dueño se le dice de dónde sale el precio; al Técnico, cuánto es.
+  final bool esDueno;
   final void Function(WorkOrderTask task) onChangeLabor;
 
   @override
@@ -1950,7 +1918,7 @@ class _TasksCard extends StatelessWidget {
                 ],
               ),
             ),
-          if (mostrarManoDeObra || onComoSeCobra != null)
+          if (mostrarManoDeObra || esDueno)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Row(
@@ -1959,17 +1927,19 @@ class _TasksCard extends StatelessWidget {
                     child: Text(
                       // Al Dueño el monto ya se lo dice el total de abajo; lo que aquí hace
                       // falta es de dónde sale el precio, que es lo que se puede cambiar.
-                      onComoSeCobra != null
-                          ? 'Se cobra ${catalogo ? 'con el catálogo' : 'a mano'}'
+                      esDueno
+                          ? (catalogo
+                              ? 'Cada paso lleva su precio'
+                              : 'Se cobra un total por toda la orden')
                           : 'Mano de obra ${_money(order.laborTotal)}',
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
-                  if (onComoSeCobra != null)
+                  if (onEditarTotal != null)
                     InkWell(
-                      onTap: busy ? null : onComoSeCobra,
+                      onTap: busy ? null : onEditarTotal,
                       child: Text(
-                        'Cambiar',
+                        _money(order.manualLaborTotal ?? 0),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
