@@ -245,11 +245,15 @@ public class ExpenseService(
 
         if (branchId is { } id) q = q.Where(e => e.BranchId == id);
 
-        return await q
+        // El orden se hace en memoria a propósito: ordenar por una propiedad del DTO ya
+        // proyectado no se puede traducir a SQL, y son nueve filas como máximo —una por
+        // categoría—, así que traerlas y ordenarlas aquí no cuesta nada.
+        var grupos = await q
             .GroupBy(e => e.Category)
             .Select(g => new ExpenseGroupDto(g.Key, g.Sum(e => e.Amount), g.Count()))
-            .OrderByDescending(g => g.Amount)
             .ToListAsync(ct);
+
+        return grupos.OrderByDescending(g => g.Amount).ToList();
     }
 
     private static decimal Porcentaje(decimal parte, decimal total) =>
