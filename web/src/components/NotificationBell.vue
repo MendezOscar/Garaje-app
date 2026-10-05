@@ -85,9 +85,18 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 <template>
   <div class="bell">
-    <button type="button" class="trigger" :title="`${unread} avisos sin leer`" @click="toggle">
-      🔔
-      <span v-if="unread > 0" class="badge">{{ badge }}</span>
+    <!-- El lector de pantalla leía «emoji de campana, 3». El nombre lo da el aria-label, el
+         dibujo se oculta, y el aria-expanded dice si el panel está abierto. -->
+    <button
+      type="button"
+      class="trigger"
+      :aria-label="unread > 0 ? `Avisos, ${unread} sin leer` : 'Avisos'"
+      :aria-expanded="open"
+      :title="`${unread} avisos sin leer`"
+      @click="toggle"
+    >
+      <span aria-hidden="true">🔔</span>
+      <span v-if="unread > 0" class="badge" aria-hidden="true">{{ badge }}</span>
     </button>
 
     <!-- Capa transparente a pantalla completa: cierra el panel al hacer clic fuera sin
@@ -108,7 +117,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
       <ul v-else>
         <li v-for="item in items" :key="item.id" :class="{ unread: !item.isRead }">
           <button type="button" @click="activate(item)">
-            <span class="icon">{{ NOTIFICATION_ICON[item.type] }}</span>
+            <span class="icon" aria-hidden="true">{{ NOTIFICATION_ICON[item.type] }}</span>
             <span class="text">
               <strong>{{ item.title }}</strong>
               <span class="body">{{ item.body }}</span>

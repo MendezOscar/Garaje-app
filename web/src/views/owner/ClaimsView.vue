@@ -183,7 +183,14 @@ onMounted(load)
           <p class="elegido">
             <strong>{{ trabajoElegido?.number }}</strong>
             <span class="muted small"> · {{ trabajoElegido?.customerName ?? 'Sin cliente' }}</span>
-            <button type="button" class="quitar" @click="nuevo.saleId = ''">×</button>
+            <button
+              type="button"
+              class="quitar"
+              aria-label="Quitar la factura elegida"
+              @click="nuevo.saleId = ''"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </p>
           <textarea
             v-model="nuevo.reason"
@@ -233,7 +240,9 @@ onMounted(load)
             <template v-if="selected.vehicleLabel"> · {{ selected.vehicleLabel }}</template>
           </p>
         </div>
-        <button type="button" class="quitar" @click="selected = null">×</button>
+        <button type="button" class="quitar" aria-label="Cerrar" @click="selected = null">
+          <span aria-hidden="true">×</span>
+        </button>
       </header>
 
       <dl class="cuentas">

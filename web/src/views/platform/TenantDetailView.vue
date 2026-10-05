@@ -384,7 +384,7 @@ h1 {
 
 .situacion.grace,
 .situacion.duesoon {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 

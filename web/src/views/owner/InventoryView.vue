@@ -617,7 +617,7 @@ th {
 }
 
 .in {
-  color: var(--success, #15803d);
+  color: var(--success-text);
   font-variant-numeric: tabular-nums;
 }
 

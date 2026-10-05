@@ -26,6 +26,13 @@ class GarajColors {
   static const success = Color(0xFF1FA971); // listo, entregado, pagado
   static const danger = Color(0xFFC0392B); // cancelado, sin stock
 
+  // Los mismos colores, pero cuando el color lo lleva la letra. Sobre fondo claro el ámbar
+  // da 2,1:1 y el verde 3,0:1, los dos por debajo del 4,5:1 que pide la AA: la etiqueta
+  // «Esperando repuestos» costaba leerla con el teléfono al sol. Como fondo de un chip o
+  // como punto de color siguen valiendo los de arriba.
+  static const warningText = Color(0xFF8A5A00); // 5,93:1 sobre blanco
+  static const successText = Color(0xFF137551); // 5,69:1 sobre blanco
+
   // Variantes para fondo oscuro: los tonos claros no alcanzan el contraste mínimo sobre
   // grafito, así que suben de luminosidad.
   static const bgDark = Color(0xFF14161A);

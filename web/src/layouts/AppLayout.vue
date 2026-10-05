@@ -454,7 +454,7 @@ main {
   border-left: 3px solid var(--warning);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--warning) 14%, transparent);
-  color: var(--warning);
+  color: var(--warning-text);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -475,12 +475,12 @@ main {
 }
 
 .suscripcion.aviso {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 
 .suscripcion.urgente {
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in srgb, var(--warning) 22%, transparent);
   font-weight: 600;
 }

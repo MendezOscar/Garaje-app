@@ -67,11 +67,11 @@ const label = computed(() => WORK_ORDER_STATUS_LABEL[props.status])
    fondo: ahí el token va puro, que en oscuro ya viene aclarado. */
 @media (prefers-color-scheme: dark) {
   .badge[data-tone='blocked'] {
-    color: var(--warning);
+    color: var(--warning-text);
   }
 
   .badge[data-tone='done'] {
-    color: var(--success);
+    color: var(--success-text);
   }
 }
 </style>

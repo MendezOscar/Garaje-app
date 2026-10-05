@@ -500,7 +500,7 @@ watch(() => auth.activeBranchId, load)
 }
 
 .teja.espera strong {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .teja.alerta {

@@ -2389,7 +2389,7 @@ dd {
 .balance {
   margin: 0.25rem 0;
   font-weight: 600;
-  color: var(--warning, #b45309);
+  color: var(--warning-text);
 }
 
 .balance.overdue {
@@ -2399,7 +2399,7 @@ dd {
 .paid {
   margin: 0.25rem 0;
   font-size: 0.875rem;
-  color: var(--success, #15803d);
+  color: var(--success-text);
 }
 
 .payments {
