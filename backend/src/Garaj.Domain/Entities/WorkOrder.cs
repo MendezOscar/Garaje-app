@@ -85,6 +85,23 @@ public class WorkOrder : TenantEntity, IBranchEntity
     /// <summary>Cuándo se le recordó por última vez. Null si todavía no se le ha avisado.</summary>
     public DateTimeOffset? NextServiceRemindedAt { get; set; }
 
+    // ---------- Cuando la orden nace de un reclamo ----------
+    //
+    // Una orden de reclamo no es igual a las demás: lo que se decide en el diagnóstico es si la
+    // paga el taller o la paga el cliente, y eso hay que poder mirarlo después —al año, cuando
+    // alguien pregunte cuánto costó la garantía—.
+
+    /// <summary>El reclamo que la originó. Null en una orden normal.</summary>
+    public Guid? ClaimId { get; set; }
+
+    /// <summary>
+    /// Si la cubre la garantía. <c>null</c> mientras no se decide, que es como nace: la
+    /// decisión se toma con el vehículo en el taller y el diagnóstico hecho, no al recibir el
+    /// reclamo. <c>true</c> la paga el taller y no se le factura al cliente; <c>false</c> es
+    /// un servicio nuevo y se cobra como cualquier otro.
+    /// </summary>
+    public bool? WarrantyCovered { get; set; }
+
     public Branch Branch { get; set; } = null!;
     public Vehicle Vehicle { get; set; } = null!;
     public ICollection<WorkOrderTask> Tasks { get; set; } = new List<WorkOrderTask>();

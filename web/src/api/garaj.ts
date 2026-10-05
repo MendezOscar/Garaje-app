@@ -385,6 +385,16 @@ export const workOrdersApi = {
     )
     return data
   },
+  /**
+   * Dice si la orden de un reclamo la cubre la garantía. Cubierta la paga el taller y no se
+   * factura; no cubierta se cobra como cualquier otra.
+   */
+  async setWarrantyDecision(id: string, covered: boolean) {
+    const { data } = await api.put<WorkOrderDetail>(`/api/work-orders/${id}/warranty-decision`, {
+      covered,
+    })
+    return data
+  },
   async removePart(id: string, partLineId: string) {
     await api.delete(`/api/work-orders/${id}/parts/${partLineId}`)
   },
@@ -992,6 +1002,14 @@ export const claimsApi = {
   },
   async reopen(id: string) {
     const { data } = await api.post<ClaimDetail>(`/api/claims/${id}/reopen`)
+    return data
+  },
+  /**
+   * Abre la orden con la que se va a reparar, y deja el reclamo abierto. Si la cubre la
+   * garantía se decide después, en esa orden, con el diagnóstico hecho.
+   */
+  async openRepairOrder(id: string) {
+    const { data } = await api.post<ClaimDetail>(`/api/claims/${id}/repair-order`)
     return data
   },
 }

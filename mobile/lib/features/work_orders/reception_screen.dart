@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/work_order_repository.dart';
+import '../../core/theme/garaj_brand.dart';
 
 /// Cómo entró el vehículo: combustible, los golpes que ya traía, lo que el cliente deja
 /// adentro, y su firma.
@@ -36,6 +37,11 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
   FuelLevel _combustible = FuelLevel.unknown;
   bool _cargada = false;
   bool _busy = false;
+
+  /// Si se está reemplazando una firma que ya estaba guardada. Mientras es `false` y hay
+  /// firma guardada, se enseña la de antes en vez de un lienzo en blanco: al volver a la
+  /// hoja lo primero que se quiere ver es que la firma está ahí.
+  bool _refirmando = false;
 
   @override
   void dispose() {
@@ -87,6 +93,9 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
       ref.invalidate(receptionProvider(widget.workOrderId));
       ref.invalidate(workOrderDetailProvider(widget.workOrderId));
+      // La imagen cacheada es la de antes: sin esto, al volver a abrir la hoja se enseñaría
+      // la firma vieja.
+      ref.invalidate(receptionSignatureProvider(widget.workOrderId));
 
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -218,57 +227,15 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
           ),
           const SizedBox(height: 16),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('FIRMA', style: theme.textTheme.labelSmall),
-              if (_trazos.isNotEmpty)
-                TextButton(
-                  onPressed: () => setState(_trazos.clear),
-                  child: const Text('Borrar'),
-                ),
-            ],
+          _Firmar(
+            workOrderId: widget.workOrderId,
+            trazos: _trazos,
+            lienzo: _firma,
+            hayGuardada: hoja.value?.signatureUrl != null,
+            refirmando: _refirmando,
+            onRefirmar: () => setState(() => _refirmando = true),
+            onCambio: () => setState(() {}),
           ),
-          const SizedBox(height: 6),
-
-          // El lienzo: se firma con el dedo, que es lo que hay en el patio del taller.
-          RepaintBoundary(
-            key: _firma,
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: theme.dividerColor),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: GestureDetector(
-                onPanStart: (d) => setState(() => _trazos.add([d.localPosition])),
-                onPanUpdate: (d) => setState(() {
-                  if (_trazos.isNotEmpty) _trazos.last.add(d.localPosition);
-                }),
-                child: CustomPaint(
-                  painter: _Firma(_trazos),
-                  size: Size.infinite,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-
-          if (hoja.value?.signatureUrl != null && _trazos.isEmpty)
-            Text(
-              'Ya hay una firma guardada. Firme de nuevo solo si hay que reemplazarla.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-          else
-            Text(
-              'El cliente firma aquí con el dedo, después de leer lo anotado.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
 
           const SizedBox(height: 24),
           FilledButton(
@@ -282,6 +249,160 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 }
 
 String? _vacioEsNulo(String value) => value.trim().isEmpty ? null : value.trim();
+
+/// El recuadro de la firma: la que ya está guardada, o el lienzo para hacer una nueva.
+///
+/// Al volver a la hoja, lo primero que se quiere ver es que la firma está ahí: antes solo
+/// decía «ya hay una firma guardada» sobre un lienzo en blanco, y daba la impresión de que no
+/// se había guardado.
+class _Firmar extends ConsumerWidget {
+  const _Firmar({
+    required this.workOrderId,
+    required this.trazos,
+    required this.lienzo,
+    required this.hayGuardada,
+    required this.refirmando,
+    required this.onRefirmar,
+    required this.onCambio,
+  });
+
+  final String workOrderId;
+  final List<List<Offset>> trazos;
+  final GlobalKey lienzo;
+  final bool hayGuardada;
+  final bool refirmando;
+  final VoidCallback onRefirmar;
+  final VoidCallback onCambio;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final mostrarGuardada = hayGuardada && !refirmando;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('FIRMA', style: theme.textTheme.labelSmall),
+            if (mostrarGuardada)
+              TextButton(onPressed: onRefirmar, child: const Text('Firmar de nuevo'))
+            else if (trazos.isNotEmpty)
+              Row(
+                children: [
+                  TextButton(
+                    // Deshacer el último trazo, no toda la firma: quien se equivoca en la
+                    // última raya no tiene por qué volver a firmar entero.
+                    onPressed: () {
+                      trazos.removeLast();
+                      onCambio();
+                    },
+                    child: const Text('Deshacer'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      trazos.clear();
+                      onCambio();
+                    },
+                    child: const Text('Borrar'),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        if (mostrarGuardada)
+          _FirmaGuardada(workOrderId: workOrderId)
+        else
+          // El lienzo: se firma con el dedo, que es lo que hay en el patio del taller.
+          RepaintBoundary(
+            key: lienzo,
+            child: Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: theme.dividerColor),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              // Los dos ejes por separado y no un `onPan`: dentro de una lista que se
+              // desliza, el gesto vertical se lo quedaba la lista y la pantalla se iba para
+              // arriba mientras el dedo trataba de firmar. Declarando los dos ejes, el
+              // reconocedor de aquí gana por estar más cerca y la lista se queda quieta.
+              child: GestureDetector(
+                onVerticalDragStart: (d) => _empezar(d.localPosition),
+                onVerticalDragUpdate: (d) => _seguir(d.localPosition),
+                onHorizontalDragStart: (d) => _empezar(d.localPosition),
+                onHorizontalDragUpdate: (d) => _seguir(d.localPosition),
+                child: CustomPaint(painter: _Firma(trazos), size: Size.infinite),
+              ),
+            ),
+          ),
+        const SizedBox(height: 6),
+
+        Text(
+          mostrarGuardada
+              ? 'Firmada. «Firmar de nuevo» solo si hay que reemplazarla.'
+              : 'El cliente firma aquí con el dedo, después de leer lo anotado.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _empezar(Offset punto) {
+    trazos.add([punto]);
+    onCambio();
+  }
+
+  void _seguir(Offset punto) {
+    if (trazos.isEmpty) return;
+    trazos.last.add(punto);
+    onCambio();
+  }
+}
+
+/// La firma que ya está guardada. Los bytes vienen por la API, que es la que tiene permiso
+/// para leer el objeto privado del bucket.
+class _FirmaGuardada extends ConsumerWidget {
+  const _FirmaGuardada({required this.workOrderId});
+
+  final String workOrderId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final firma = ref.watch(receptionSignatureProvider(workOrderId));
+    final theme = Theme.of(context);
+
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: switch (firma) {
+        AsyncData(:final value?) => Padding(
+            padding: const EdgeInsets.all(8),
+            child: Image.memory(value, fit: BoxFit.contain),
+          ),
+        AsyncError() => Center(
+            child: Text(
+              'No se pudo cargar la firma.',
+              // El recuadro es blanco siempre —la firma es negra sobre blanco—, así que
+              // este texto no puede salir del tema: en modo oscuro quedaría blanco sobre
+              // blanco.
+              style: TextStyle(color: GarajColors.textMuted),
+            ),
+          ),
+        _ => const Center(child: CircularProgressIndicator()),
+      },
+    );
+  }
+}
 
 /// Dibuja los trazos de la firma. Negro sobre blanco y sin suavizados: lo que se va a
 /// guardar es una imagen chica que tiene que leerse impresa.

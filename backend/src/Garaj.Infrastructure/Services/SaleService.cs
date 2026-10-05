@@ -242,6 +242,20 @@ public class SaleService(
             throw new ConflictException(
                 "Esta orden ya tiene una venta. Anúlela antes de volver a cerrarla.");
 
+        // Una orden de reclamo que se resolvió como garantía la paga el taller: facturarla
+        // sería cobrarle al cliente el trabajo que el taller aceptó rehacer. Se entrega y se
+        // pasa a Entregada sin venta, y lo que costó queda en el reclamo.
+        if (order.WarrantyCovered == true)
+            throw new AppException(
+                "Esta orden se resolvió como garantía: no se le cobra al cliente. Entregue el "
+                + "vehículo y pásela a Entregada.");
+
+        // Sin decidir tampoco se factura: es justo la decisión que dice quién paga.
+        if (order.ClaimId is not null && order.WarrantyCovered is null)
+            throw new AppException(
+                "Antes de cobrar, diga si el reclamo lo cubre la garantía o no. Está en el "
+                + "recuadro del reclamo, arriba.");
+
         var tenant = await CurrentTenantAsync(ct);
 
         var saleDate = clock.UtcNow;

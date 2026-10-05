@@ -49,7 +49,13 @@ public record ClaimDetailDto(
     string? RepairWorkOrderNumber,
     // Lo que costó repararlo, cuando se abrió orden: repuestos y mano de obra de esa orden.
     // Es el número que dice cuánto le cuesta la garantía al taller.
-    decimal RepairCost);
+    decimal RepairCost,
+    /// <summary>
+    /// Si la orden de reparación la cubre la garantía. Null mientras no se decide —que es
+    /// como nace— o cuando no hay orden. La decisión se toma en la orden, con el diagnóstico
+    /// hecho, no aquí.
+    /// </summary>
+    bool? RepairWarrantyCovered = null);
 
 /// <param name="SaleId">
 /// El trabajo que se reclama. Va la venta y no la orden porque es la venta la que lleva la
@@ -91,4 +97,13 @@ public interface IClaimService
 
     /// <summary>Lo vuelve a abrir, cuando se cerró por error.</summary>
     Task<ClaimDetailDto> ReopenAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Abre la orden con la que se va a reparar, dejando el reclamo abierto.
+    ///
+    /// Antes la orden solo se podía abrir al cerrar el reclamo, y es al revés: primero se
+    /// recibe el carro y se repara, y hasta que se sabe qué pasó se cierra el reclamo. La
+    /// orden nace sin decidir si la cubre la garantía: eso se resuelve en el diagnóstico.
+    /// </summary>
+    Task<ClaimDetailDto> OpenRepairOrderAsync(Guid id, CancellationToken ct = default);
 }

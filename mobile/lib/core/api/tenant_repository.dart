@@ -58,6 +58,20 @@ class TenantRepository {
     return ((response.data ?? const {})['defaultWarrantyDays'] as num?)?.toInt() ?? 0;
   }
 
+  /// Los ajustes del taller, completos. Es el mismo `/api/tenant` que ya se consulta para el
+  /// ISV y la garantía; aquí viene todo porque la pantalla de ajustes los edita juntos.
+  Future<TenantSettings> settings() async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/tenant');
+    return TenantSettings.fromJson(response.data ?? const {});
+  }
+
+  /// Guarda los ajustes. El servidor reemplaza el taller completo con lo que reciba, así que
+  /// se manda todo —también lo que no se tocó—, igual que hace el panel.
+  Future<TenantSettings> saveSettings(TenantSettings s) async {
+    final response = await _dio.put<Map<String, dynamic>>('/api/tenant', data: s.toJson());
+    return TenantSettings.fromJson(response.data ?? const {});
+  }
+
   Future<List<FiscalRange>> fiscalRanges() async {
     final response = await _dio.get<List<dynamic>>('/api/tenant/fiscal-ranges');
 
@@ -66,6 +80,106 @@ class TenantRepository {
         .toList();
   }
 }
+
+/// Los ajustes del taller: lo que se imprime, lo que se cobra y lo que el técnico ve.
+class TenantSettings {
+  const TenantSettings({
+    required this.name,
+    this.legalName,
+    this.taxId,
+    this.phone,
+    this.email,
+    this.address,
+    required this.defaultTaxRate,
+    this.defaultPhoneCountryCode,
+    required this.defaultWarrantyDays,
+    required this.chargesStorage,
+    required this.storageFreeDays,
+    required this.storageDailyRate,
+    required this.techniciansSeePrices,
+  });
+
+  factory TenantSettings.fromJson(Map<String, dynamic> json) => TenantSettings(
+        name: json['name'] as String? ?? '',
+        legalName: json['legalName'] as String?,
+        taxId: json['taxId'] as String?,
+        phone: json['phone'] as String?,
+        email: json['email'] as String?,
+        address: json['address'] as String?,
+        defaultTaxRate: (json['defaultTaxRate'] as num?)?.toDouble() ?? 0,
+        defaultPhoneCountryCode: json['defaultPhoneCountryCode'] as String?,
+        defaultWarrantyDays: (json['defaultWarrantyDays'] as num?)?.toInt() ?? 0,
+        chargesStorage: json['chargesStorage'] as bool? ?? false,
+        storageFreeDays: (json['storageFreeDays'] as num?)?.toInt() ?? 3,
+        storageDailyRate: (json['storageDailyRate'] as num?)?.toDouble() ?? 0,
+        techniciansSeePrices: json['techniciansSeePrices'] as bool? ?? true,
+      );
+
+  final String name;
+  final String? legalName;
+  final String? taxId;
+  final String? phone;
+  final String? email;
+  final String? address;
+  final double defaultTaxRate;
+  final String? defaultPhoneCountryCode;
+  final int defaultWarrantyDays;
+  final bool chargesStorage;
+  final int storageFreeDays;
+  final double storageDailyRate;
+  final bool techniciansSeePrices;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'legalName': legalName,
+        'taxId': taxId,
+        'phone': phone,
+        'email': email,
+        'address': address,
+        'defaultTaxRate': defaultTaxRate,
+        'defaultPhoneCountryCode': defaultPhoneCountryCode,
+        'defaultWarrantyDays': defaultWarrantyDays,
+        'chargesStorage': chargesStorage,
+        'storageFreeDays': storageFreeDays,
+        'storageDailyRate': storageDailyRate,
+        'techniciansSeePrices': techniciansSeePrices,
+      };
+
+  TenantSettings copyWith({
+    String? name,
+    String? legalName,
+    String? taxId,
+    String? phone,
+    String? email,
+    String? address,
+    double? defaultTaxRate,
+    String? defaultPhoneCountryCode,
+    int? defaultWarrantyDays,
+    bool? chargesStorage,
+    int? storageFreeDays,
+    double? storageDailyRate,
+    bool? techniciansSeePrices,
+  }) =>
+      TenantSettings(
+        name: name ?? this.name,
+        legalName: legalName ?? this.legalName,
+        taxId: taxId ?? this.taxId,
+        phone: phone ?? this.phone,
+        email: email ?? this.email,
+        address: address ?? this.address,
+        defaultTaxRate: defaultTaxRate ?? this.defaultTaxRate,
+        defaultPhoneCountryCode: defaultPhoneCountryCode ?? this.defaultPhoneCountryCode,
+        defaultWarrantyDays: defaultWarrantyDays ?? this.defaultWarrantyDays,
+        chargesStorage: chargesStorage ?? this.chargesStorage,
+        storageFreeDays: storageFreeDays ?? this.storageFreeDays,
+        storageDailyRate: storageDailyRate ?? this.storageDailyRate,
+        techniciansSeePrices: techniciansSeePrices ?? this.techniciansSeePrices,
+      );
+}
+
+final tenantSettingsProvider = FutureProvider.autoDispose<TenantSettings>(
+  (ref) => ref.watch(tenantRepositoryProvider).settings(),
+);
 
 final tenantRepositoryProvider = Provider<TenantRepository>(
   (ref) => TenantRepository(ref.watch(apiClientProvider).dio),

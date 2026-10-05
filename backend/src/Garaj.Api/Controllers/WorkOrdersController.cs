@@ -168,6 +168,16 @@ public class WorkOrdersController(
         Guid id, Guid partLineId, SetPartPriceRequest request, CancellationToken ct)
         => Ok(await service.SetPartPriceAsync(id, partLineId, request, ct));
 
+    /// <summary>
+    /// Decide si la orden de un reclamo la cubre la garantía: cubierta la paga el taller y no
+    /// se factura, no cubierta se cobra como cualquier otra.
+    /// </summary>
+    [HttpPut("{id:guid}/warranty-decision")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<WorkOrderDetailDto>> SetWarrantyDecision(
+        Guid id, WarrantyDecisionRequest request, CancellationToken ct)
+        => Ok(await service.SetWarrantyDecisionAsync(id, request, ct));
+
     /// <summary>Lo quita de la orden, y lo devuelve a la bodega si había salido de ella.</summary>
     [HttpDelete("{id:guid}/parts/{partLineId:guid}")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]

@@ -41,6 +41,7 @@ class Claim {
     this.repairWorkOrderId,
     this.repairWorkOrderNumber,
     this.repairCost = 0,
+    this.repairWarrantyCovered,
   });
 
   factory Claim.fromJson(Map<String, dynamic> json) => Claim(
@@ -64,6 +65,7 @@ class Claim {
         repairWorkOrderId: json['repairWorkOrderId'] as String?,
         repairWorkOrderNumber: json['repairWorkOrderNumber'] as String?,
         repairCost: (json['repairCost'] as num?)?.toDouble() ?? 0,
+        repairWarrantyCovered: json['repairWarrantyCovered'] as bool?,
       );
 
   final String id;
@@ -88,6 +90,10 @@ class Claim {
 
   /// Lo que costó repararlo, cuando se abrió orden de garantía.
   final double repairCost;
+
+  /// Si la orden de reparación la cubre la garantía. Null mientras no se decide, o cuando
+  /// todavía no hay orden. Se decide en la orden, con el diagnóstico hecho.
+  final bool? repairWarrantyCovered;
 }
 
 class ClaimRepository {
@@ -131,6 +137,13 @@ class ClaimRepository {
       },
     );
 
+    return Claim.fromJson(response.data!);
+  }
+
+  /// Abre la orden con la que se va a reparar y deja el reclamo abierto: primero entra el
+  /// carro y se repara, y hasta que se sabe qué pasó se cierra el reclamo.
+  Future<Claim> openRepairOrder(String id) async {
+    final response = await _dio.post<Map<String, dynamic>>('/api/claims/$id/repair-order');
     return Claim.fromJson(response.data!);
   }
 

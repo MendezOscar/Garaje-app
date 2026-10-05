@@ -69,7 +69,27 @@ public record WorkOrderDetailDto(
     // Cómo se cobra la mano de obra de esta orden.
     LaborMode LaborMode,
     // El total escrito a mano. Solo cuenta en modo manual.
-    decimal? ManualLaborTotal);
+    decimal? ManualLaborTotal,
+    // ---------- Cuando la orden nace de un reclamo ----------
+    // El reclamo que la originó y su folio, para que la orden diga de dónde viene.
+    Guid? ClaimId = null,
+    string? ClaimNumber = null,
+    /// <summary>
+    /// Si la cubre la garantía. Null mientras no se decide: la decisión se toma con el
+    /// diagnóstico hecho. True la paga el taller y no se le factura al cliente.
+    /// </summary>
+    bool? WarrantyCovered = null,
+    /// <summary>
+    /// Si el trabajo original estaba en garantía el día que entró el reclamo. Es el dato con
+    /// el que se decide, y viene congelado de ese día.
+    /// </summary>
+    bool? ClaimWasUnderWarranty = null);
+
+/// <param name="Covered">
+/// True la paga el taller —no se le factura al cliente—, false es un servicio nuevo y se
+/// cobra como cualquier otro.
+/// </param>
+public record WarrantyDecisionRequest(bool Covered);
 
 public record WorkOrderTaskDto(
     Guid Id,
@@ -370,6 +390,16 @@ public interface IWorkOrderService
         CancellationToken ct = default);
 
     Task RemovePartAsync(Guid workOrderId, Guid partLineId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Decide si la orden de un reclamo la cubre la garantía.
+    ///
+    /// Se decide aquí y no al recibir el reclamo porque hasta que no se diagnostica no se sabe
+    /// si lo que falló es lo que el taller hizo. Cubierta la paga el taller y la orden no se
+    /// factura; no cubierta es un servicio nuevo y se cobra como cualquier otro.
+    /// </summary>
+    Task<WorkOrderDetailDto> SetWarrantyDecisionAsync(
+        Guid id, WarrantyDecisionRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// El enlace de seguimiento con el mensaje de WhatsApp ya escrito, para que en mostrador
