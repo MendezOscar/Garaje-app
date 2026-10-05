@@ -20,10 +20,11 @@ import '../../core/models/work_order.dart';
 import '../../core/theme/garaj_brand.dart';
 import '../shared/status_chip.dart';
 import 'invoice_section.dart';
-import 'photo_capture.dart';
 import 'parts_section.dart';
+import 'photo_capture.dart';
 import 'photo_gallery.dart';
 import 'quotes_section.dart';
+import 'reception_screen.dart';
 
 /// Pantalla de trabajo del técnico: ver qué hay que hacer, marcar pasos y mover el estado.
 class WorkOrderDetailScreen extends ConsumerStatefulWidget {
@@ -725,6 +726,30 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                     ),
                   ),
                 ),
+              // La recepción: cómo entró el vehículo. Va antes de los pasos porque es lo
+              // primero que pasa, y porque si no se llena en ese momento ya no se llena.
+              Consumer(
+                builder: (context, ref, _) {
+                  final hoja = ref.watch(receptionProvider(widget.id)).value;
+
+                  return _Fila(
+                    icono: Icons.fact_check_outlined,
+                    titulo: 'Recepción del vehículo',
+                    detalle: hoja == null
+                        ? 'Sin llenar: combustible, golpes que ya traía, firma'
+                        : [
+                            hoja.fuelLevel.label,
+                            if (hoja.damages != null) 'con daños anotados',
+                            if (hoja.signatureUrl != null) 'firmada',
+                          ].join(' · '),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<bool>(
+                        builder: (_) => ReceptionScreen(workOrderId: widget.id),
+                      ),
+                    ),
+                  );
+                },
+              ),
               if (_isOwner) _TotalCard(order: order),
               _TasksCard(
                 order: order,

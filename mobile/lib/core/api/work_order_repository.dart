@@ -195,6 +195,43 @@ class WorkOrderRepository {
     return response.data!['url'] as String;
   }
 
+  /// La hoja de recepción de la orden, o null si no se llenó: el backend responde 204.
+  Future<VehicleReception?> reception(String workOrderId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/reception',
+    );
+
+    return response.data == null ? null : VehicleReception.fromJson(response.data!);
+  }
+
+  /// Guarda la hoja. La firma va en base64 y solo cuando se acaba de firmar: mandarla en cada
+  /// corrección sería volver a subir la misma imagen sin motivo.
+  Future<VehicleReception> saveReception(
+    String workOrderId, {
+    required FuelLevel fuelLevel,
+    String? damages,
+    String? belongings,
+    String? notes,
+    String? deliveredByName,
+    int? mileageIn,
+    String? signature,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/reception',
+      data: {
+        'fuelLevel': fuelLevel.value,
+        'damages': damages,
+        'belongings': belongings,
+        'notes': notes,
+        'deliveredByName': deliveredByName,
+        'mileageIn': mileageIn,
+        'signature': signature,
+      },
+    );
+
+    return VehicleReception.fromJson(response.data!);
+  }
+
   /// El catálogo de mano de obra del taller. El backend se lo niega al Cliente.
   Future<List<LaborServiceOption>> laborServices() async {
     final response = await _dio.get<List<dynamic>>('/api/labor-services');
@@ -202,6 +239,63 @@ class WorkOrderRepository {
         .map((e) => LaborServiceOption.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+}
+
+/// Cuánta gasolina traía al entrar. En cuartos: es lo que se lee de la aguja.
+enum FuelLevel {
+  unknown(0, 'Sin anotar'),
+  empty(1, 'Vacío'),
+  quarter(2, 'Un cuarto'),
+  half(3, 'Medio'),
+  threeQuarters(4, 'Tres cuartos'),
+  full(5, 'Lleno');
+
+  const FuelLevel(this.value, this.label);
+
+  final int value;
+  final String label;
+
+  static FuelLevel fromValue(int value) =>
+      FuelLevel.values.firstWhere((f) => f.value == value, orElse: () => FuelLevel.unknown);
+}
+
+/// Cómo entró el vehículo al taller. Es la hoja que decide la discusión de después.
+class VehicleReception {
+  const VehicleReception({
+    required this.fuelLevel,
+    this.damages,
+    this.belongings,
+    this.notes,
+    this.deliveredByName,
+    this.signatureUrl,
+    this.mileageIn,
+    this.receivedByName,
+    required this.receivedAt,
+  });
+
+  factory VehicleReception.fromJson(Map<String, dynamic> json) => VehicleReception(
+        fuelLevel: FuelLevel.fromValue(json['fuelLevel'] as int? ?? 0),
+        damages: json['damages'] as String?,
+        belongings: json['belongings'] as String?,
+        notes: json['notes'] as String?,
+        deliveredByName: json['deliveredByName'] as String?,
+        signatureUrl: json['signatureUrl'] as String?,
+        mileageIn: (json['mileageIn'] as num?)?.toInt(),
+        receivedByName: json['receivedByName'] as String?,
+        receivedAt: DateTime.parse(json['receivedAt'] as String),
+      );
+
+  final FuelLevel fuelLevel;
+  final String? damages;
+  final String? belongings;
+  final String? notes;
+  final String? deliveredByName;
+
+  /// Ruta relativa a la base de la API, o null si no firmó.
+  final String? signatureUrl;
+  final int? mileageIn;
+  final String? receivedByName;
+  final DateTime receivedAt;
 }
 
 /// Un servicio del catálogo, con el precio ya resuelto por el backend.
@@ -382,4 +476,10 @@ final vehicleHistoryProvider =
 final workOrderDetailProvider =
     FutureProvider.autoDispose.family<WorkOrderDetail, String>(
   (ref, id) => ref.watch(workOrderRepositoryProvider).get(id),
+);
+
+/// La hoja de recepción de una orden. `autoDispose` porque se mira una vez y se vuelve.
+final receptionProvider =
+    FutureProvider.autoDispose.family<VehicleReception?, String>(
+  (ref, workOrderId) => ref.watch(workOrderRepositoryProvider).reception(workOrderId),
 );
