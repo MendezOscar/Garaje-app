@@ -5,6 +5,7 @@ import { branchesApi, partsApi, stockApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
+import { useEscape } from '@/composables/useEscape'
 import { useAuthStore } from '@/stores/auth'
 import {
   STOCK_MOVEMENT_LABEL,
@@ -34,6 +35,8 @@ const loading = ref(false)
 
 /** Panel lateral: alta de repuesto, entrada, ajuste, traslado o kardex. */
 const panel = ref<'part' | 'receive' | 'adjust' | 'transfer' | 'kardex' | null>(null)
+
+useEscape(() => (panel.value = null))
 const selected = ref<StockItem | null>(null)
 const movements = ref<StockMovement[]>([])
 

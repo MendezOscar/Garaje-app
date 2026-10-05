@@ -97,6 +97,7 @@ class _ReceivablesScreenState extends ConsumerState<ReceivablesScreen> {
                     suffixIcon: _search.text.isEmpty
                         ? null
                         : IconButton(
+                            tooltip: 'Limpiar la búsqueda',
                             icon: const Icon(Icons.close),
                             onPressed: () {
                               _search.clear();

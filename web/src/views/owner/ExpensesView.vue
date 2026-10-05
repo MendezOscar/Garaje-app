@@ -507,11 +507,15 @@ onMounted(async () => {
   margin-bottom: 1rem;
 }
 
+/* Con el ancho de la pantalla entera, «Ingresos» queda pegado al borde izquierdo y su cifra
+   al derecho, a un palmo de distancia: hay que seguir la línea con el dedo para saber cuál
+   es cuál. Topado a 34rem, la etiqueta y su número se leen juntos. */
 .cuentas {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.3rem 1rem;
+  gap: var(--space-1) var(--space-4);
   margin: 0;
+  max-width: 34rem;
 }
 
 .cuentas dt,

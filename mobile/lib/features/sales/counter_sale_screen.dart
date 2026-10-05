@@ -299,6 +299,7 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                       title: Text(cliente.fullName),
                       subtitle: Text(cliente.phone),
                       trailing: IconButton(
+                        tooltip: 'Quitar el cliente',
                         icon: const Icon(Icons.close),
                         onPressed: _busy ? null : () => setState(() => _cliente = null),
                       ),
@@ -585,7 +586,11 @@ class _LineaCard extends StatelessWidget {
                   money(total.toDouble(), 'HNL'),
                   style: theme.textTheme.titleSmall?.copyWith(fontFamily: GarajFonts.mono),
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: onQuitar),
+                IconButton(
+                  tooltip: 'Quitar de la venta',
+                  icon: const Icon(Icons.close),
+                  onPressed: onQuitar,
+                ),
               ],
             ),
             Row(

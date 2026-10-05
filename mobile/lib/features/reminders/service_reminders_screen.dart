@@ -100,6 +100,7 @@ class _ServiceRemindersScreenState extends ConsumerState<ServiceRemindersScreen>
                     suffixIcon: _search.text.isEmpty
                         ? null
                         : IconButton(
+                            tooltip: 'Limpiar la búsqueda',
                             icon: const Icon(Icons.close),
                             onPressed: () {
                               _search.clear();
