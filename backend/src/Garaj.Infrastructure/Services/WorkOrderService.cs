@@ -24,6 +24,7 @@ public class WorkOrderService(
     ITenantService tenants,
     IMediaService media,
     StockService stock,
+    IStorageService storage,
     INotificationPublisher notifications) : IWorkOrderService
 {
     public async Task<PagedResult<WorkOrderListItemDto>> ListAsync(
@@ -443,6 +444,145 @@ public class WorkOrderService(
 
         db.WorkOrderTasks.Remove(task);
         await db.SaveChangesAsync(ct);
+    }
+
+    // ---------- Recepción del vehículo ----------
+
+    public async Task<VehicleReceptionDto?> GetReceptionAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        var order = await Scoped(scope)
+            .Where(w => w.Id == workOrderId)
+            .Select(w => new { w.Id, w.MileageIn })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        var reception = await db.VehicleReceptions.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.WorkOrderId == workOrderId, ct);
+
+        return reception is null ? null : await MapReceptionAsync(reception, order.MileageIn, ct);
+    }
+
+    public async Task<VehicleReceptionDto> SaveReceptionAsync(
+        Guid workOrderId, SaveVehicleReceptionRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (scope.IsCustomer)
+            throw new ForbiddenException("Un cliente no recibe vehículos.");
+
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+
+        var reception = await db.VehicleReceptions
+            .FirstOrDefaultAsync(r => r.WorkOrderId == workOrderId, ct);
+
+        if (reception is null)
+        {
+            reception = new VehicleReception
+            {
+                WorkOrderId = order.Id,
+                ReceivedByUserId = scope.UserId,
+                ReceivedAt = clock.UtcNow
+            };
+            db.VehicleReceptions.Add(reception);
+        }
+
+        reception.FuelLevel = request.FuelLevel;
+        reception.Damages = Recortar(request.Damages, 2000);
+        reception.Belongings = Recortar(request.Belongings, 2000);
+        reception.Notes = Recortar(request.Notes, 2000);
+        reception.DeliveredByName = Recortar(request.DeliveredByName, 200);
+
+        // El kilometraje vive en la orden, que es donde ya estaba: la recepción no abre un
+        // segundo sitio donde el mismo dato pueda decir otra cosa.
+        if (request.MileageIn is { } mileage && mileage >= 0) order.MileageIn = mileage;
+
+        // La firma se manda una sola vez, al firmar. Corregir la hoja después no la reenvía.
+        if (request.Signature is { Length: > 0 } firma)
+            reception.SignatureStorageKey = await GuardarFirmaAsync(order.Id, firma, ct);
+
+        await db.SaveChangesAsync(ct);
+
+        return await MapReceptionAsync(reception, order.MileageIn, ct);
+    }
+
+    public async Task<(byte[] Bytes, string ContentType)?> ReceptionSignatureAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (!await Scoped(scope).AnyAsync(w => w.Id == workOrderId, ct))
+            throw new NotFoundException("La orden de trabajo no existe.");
+
+        var key = await db.VehicleReceptions.AsNoTracking()
+            .Where(r => r.WorkOrderId == workOrderId)
+            .Select(r => r.SignatureStorageKey)
+            .FirstOrDefaultAsync(ct);
+
+        if (key is null) return null;
+
+        using var stream = await storage.DownloadAsync(key, ct);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, ct);
+
+        return (buffer.ToArray(), "image/png");
+    }
+
+    /// <summary>Lo que escribió quien recibe, sin pasarse del largo de la columna.</summary>
+    private static string? Recortar(string? value, int max) =>
+        value?.Trim() is { Length: > 0 } text ? text[..Math.Min(text.Length, max)] : null;
+
+    /// <summary>
+    /// La firma llega en base64 y se guarda en el bucket como el logo del taller. Un PNG de
+    /// un trazo pesa unos pocos kilobytes; el tope está para que nadie mande una foto.
+    /// </summary>
+    private async Task<string> GuardarFirmaAsync(Guid orderId, string base64, CancellationToken ct)
+    {
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(base64);
+        }
+        catch (FormatException)
+        {
+            throw new AppException("La firma no llegó en un formato que se pueda leer.");
+        }
+
+        if (bytes.Length is 0 or > 512 * 1024)
+            throw new AppException("La firma no puede pasar de 512 KB.");
+
+        var key = $"tenants/{tenantContext.TenantId}/receptions/{orderId}/firma.png";
+
+        using var upload = new MemoryStream(bytes);
+        await storage.UploadAsync(key, upload, "image/png", ct);
+
+        return key;
+    }
+
+    private async Task<VehicleReceptionDto> MapReceptionAsync(
+        VehicleReception reception, int? mileageIn, CancellationToken ct)
+    {
+        var receivedBy = reception.ReceivedByUserId is { } userId
+            ? await db.Users.AsNoTracking()
+                .Where(u => u.Id == userId).Select(u => u.FullName).FirstOrDefaultAsync(ct)
+            : null;
+
+        return new VehicleReceptionDto(
+            reception.WorkOrderId,
+            reception.FuelLevel,
+            reception.Damages,
+            reception.Belongings,
+            reception.Notes,
+            reception.DeliveredByName,
+            // Por la API y no por el bucket: el objeto es privado, como las fotos.
+            reception.SignatureStorageKey is null
+                ? null
+                : $"/api/work-orders/{reception.WorkOrderId}/reception/signature",
+            mileageIn,
+            receivedBy,
+            reception.ReceivedAt);
     }
 
     public async Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(

@@ -246,6 +246,45 @@ public record ServiceReminderDto(
     int? LastMileage,
     DateTimeOffset? RemindedAt);
 
+// ---------- Recepción del vehículo ----------
+
+/// <summary>
+/// Cómo entró el vehículo. Es la hoja que decide una discusión: lo que se anotó delante del
+/// cliente, con su firma.
+/// </summary>
+/// <param name="SignatureUrl">
+/// Ruta relativa a la base de la API para ver la firma, o null si no firmó. Va por la API y
+/// no por el bucket: el objeto es privado, como las fotos.
+/// </param>
+public record VehicleReceptionDto(
+    Guid WorkOrderId,
+    FuelLevel FuelLevel,
+    string? Damages,
+    string? Belongings,
+    string? Notes,
+    string? DeliveredByName,
+    string? SignatureUrl,
+    int? MileageIn,
+    string? ReceivedByName,
+    DateTimeOffset ReceivedAt);
+
+/// <param name="MileageIn">
+/// El kilometraje con que entró. Se guarda en la orden, que es donde ya vivía: la recepción
+/// no abre un segundo sitio donde el mismo dato pueda decir otra cosa.
+/// </param>
+/// <param name="Signature">
+/// La firma en PNG, en base64 y sin el prefijo `data:`. Null la deja como esté: se manda una
+/// vez, al firmar, y después no se vuelve a subir en cada corrección de la hoja.
+/// </param>
+public record SaveVehicleReceptionRequest(
+    FuelLevel FuelLevel,
+    string? Damages,
+    string? Belongings,
+    string? Notes,
+    string? DeliveredByName,
+    int? MileageIn,
+    string? Signature);
+
 public record ServiceReminderQuery
 {
     public Guid? BranchId { get; init; }
@@ -289,6 +328,16 @@ public interface IWorkOrderService
     Task<WorkOrderTaskDto> UpdateTaskAsync(Guid workOrderId, Guid taskId, SaveWorkOrderTaskRequest request, CancellationToken ct = default);
     Task<WorkOrderTaskDto> CompleteTaskAsync(Guid workOrderId, Guid taskId, CompleteTaskRequest request, CancellationToken ct = default);
     Task DeleteTaskAsync(Guid workOrderId, Guid taskId, CancellationToken ct = default);
+
+    /// <summary>La hoja de recepción de la orden, o null si no se llenó.</summary>
+    Task<VehicleReceptionDto?> GetReceptionAsync(Guid workOrderId, CancellationToken ct = default);
+
+    Task<VehicleReceptionDto> SaveReceptionAsync(
+        Guid workOrderId, SaveVehicleReceptionRequest request, CancellationToken ct = default);
+
+    /// <summary>La firma, para enseñarla. Null si no firmó.</summary>
+    Task<(byte[] Bytes, string ContentType)?> ReceptionSignatureAsync(
+        Guid workOrderId, CancellationToken ct = default);
 
     Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(Guid workOrderId, CancellationToken ct = default);
 

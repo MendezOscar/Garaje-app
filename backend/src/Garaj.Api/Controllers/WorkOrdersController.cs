@@ -114,6 +114,32 @@ public class WorkOrdersController(
         Guid id, Guid taskId, CompleteTaskRequest request, CancellationToken ct)
         => Ok(await service.CompleteTaskAsync(id, taskId, request, ct));
 
+    /// <summary>
+    /// Cómo entró el vehículo: combustible, golpes que ya traía, lo que dejó adentro el
+    /// cliente y su firma. Null si no se llenó la hoja, que es opcional.
+    /// </summary>
+    [HttpGet("{id:guid}/reception")]
+    public async Task<ActionResult<VehicleReceptionDto>> GetReception(Guid id, CancellationToken ct)
+    {
+        var reception = await service.GetReceptionAsync(id, ct);
+        return reception is null ? NoContent() : Ok(reception);
+    }
+
+    /// <summary>Guarda o corrige la hoja de recepción. La firma se manda una sola vez.</summary>
+    [HttpPut("{id:guid}/reception")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<VehicleReceptionDto>> SaveReception(
+        Guid id, SaveVehicleReceptionRequest request, CancellationToken ct)
+        => Ok(await service.SaveReceptionAsync(id, request, ct));
+
+    /// <summary>La firma del cliente. 404 si no firmó.</summary>
+    [HttpGet("{id:guid}/reception/signature")]
+    public async Task<IActionResult> ReceptionSignature(Guid id, CancellationToken ct)
+    {
+        var firma = await service.ReceptionSignatureAsync(id, ct);
+        return firma is null ? NotFound() : File(firma.Value.Bytes, firma.Value.ContentType);
+    }
+
     [HttpGet("{id:guid}/parts")]
     public async Task<ActionResult<IReadOnlyList<WorkOrderPartDto>>> ListParts(
         Guid id, CancellationToken ct)

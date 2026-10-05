@@ -119,3 +119,23 @@ public class MediaAttachmentConfiguration : IEntityTypeConfiguration<MediaAttach
         b.HasIndex(x => x.StorageKey).IsUnique();
     }
 }
+
+public class VehicleReceptionConfiguration : IEntityTypeConfiguration<VehicleReception>
+{
+    public void Configure(EntityTypeBuilder<VehicleReception> b)
+    {
+        b.Property(x => x.Damages).HasMaxLength(2000);
+        b.Property(x => x.Belongings).HasMaxLength(2000);
+        b.Property(x => x.Notes).HasMaxLength(2000);
+        b.Property(x => x.DeliveredByName).HasMaxLength(200);
+        b.Property(x => x.SignatureStorageKey).HasMaxLength(300);
+
+        b.HasOne(x => x.WorkOrder)
+            .WithMany()
+            .HasForeignKey(x => x.WorkOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Una por orden: recibir el vehículo pasa una sola vez.
+        b.HasIndex(x => x.WorkOrderId).IsUnique();
+    }
+}
