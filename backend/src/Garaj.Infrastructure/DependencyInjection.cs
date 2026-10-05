@@ -97,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<ILaborServiceCatalog, LaborServiceCatalog>();
         services.AddScoped<IQuoteService, QuoteService>();
         services.AddScoped<IClaimService, ClaimService>();
+        services.AddScoped<IExpenseService, ExpenseService>();
 
         // Registrado también por su tipo concreto y resuelto a la misma instancia: la orden
         // de trabajo consume stock dentro de su propia transacción, y para eso necesita los

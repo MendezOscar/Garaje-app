@@ -34,6 +34,37 @@ public enum WorkOrderStatus
 }
 
 /// <summary>
+/// En qué se le va la plata al taller. Lista fija y corta a propósito: con categorías libres
+/// el mismo gasto termina escrito de tres formas —«luz», «Luz», «energía eléctrica»— y el
+/// estado de resultados deja de poder compararse contra el mes pasado.
+/// </summary>
+/// <remarks>
+/// La compra de repuestos para bodega **no** está aquí y es deliberado: eso es inventario,
+/// no gasto, y se vuelve costo recién cuando se vende. Registrarla en los dos lados contaría
+/// la misma plata dos veces y la utilidad saldría menor de lo que es.
+/// </remarks>
+public enum ExpenseCategory
+{
+    Salaries = 1,
+    Rent = 2,
+
+    /// <summary>Agua, luz, internet, teléfono.</summary>
+    Utilities = 3,
+
+    /// <summary>Herramienta y equipo del taller.</summary>
+    Tools = 4,
+
+    Transport = 5,
+    TaxesAndPermits = 6,
+    Advertising = 7,
+
+    /// <summary>Mantenimiento del local.</summary>
+    Maintenance = 8,
+
+    Other = 9
+}
+
+/// <summary>
 /// En qué va un reclamo. Nace abierto y termina de una de tres formas, porque son las tres
 /// cosas que de verdad pasan: se repara sin cobrar, se repara cobrando, o no procede.
 /// </summary>
@@ -72,7 +103,10 @@ public enum MediaOwnerType
     WorkOrderTask = 3,
 
     /// <summary>Fotos del daño que justifican el presupuesto. Las ve el cliente en su link.</summary>
-    Quote = 4
+    Quote = 4,
+
+    /// <summary>La foto del comprobante del gasto. Es lo que lo respalda.</summary>
+    Expense = 5
 }
 
 public enum StockMovementType

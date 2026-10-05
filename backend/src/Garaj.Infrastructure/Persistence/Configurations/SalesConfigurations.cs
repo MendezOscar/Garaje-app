@@ -152,3 +152,19 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
         b.HasIndex(x => x.SaleId);
     }
 }
+
+public class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
+{
+    public void Configure(EntityTypeBuilder<Expense> b)
+    {
+        b.Property(x => x.Description).HasMaxLength(300).IsRequired();
+        b.Property(x => x.SupplierName).HasMaxLength(200);
+        b.Property(x => x.Notes).HasMaxLength(1000);
+
+        b.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // El estado de resultados lee por fecha y por sucursal: es su única consulta.
+        b.HasIndex(x => new { x.TenantId, x.ExpenseDate });
+    }
+}
