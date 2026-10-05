@@ -416,7 +416,7 @@ onMounted(async () => {
             <button
               v-if="editando"
               type="button"
-              class="suave"
+              class="btn-ghost"
               @click="((editando = null), (form = vacio()))"
             >
               Cancelar
@@ -434,7 +434,7 @@ onMounted(async () => {
             puede discutir.
           </p>
           <PhotoGallery :key="conComprobante.id" :expense-id="conComprobante.id" :can-edit="true" />
-          <button type="button" class="suave" @click="conComprobante = null">Listo</button>
+          <button type="button" class="btn-ghost" @click="conComprobante = null">Listo</button>
         </template>
       </article>
 

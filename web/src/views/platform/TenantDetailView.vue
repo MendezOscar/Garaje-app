@@ -162,7 +162,7 @@ onMounted(load)
           cliente desde {{ formatDay(tenant.createdAt) }}
         </p>
       </div>
-      <button v-if="tenant.isActive" type="button" class="peligro" @click="suspender">
+      <button v-if="tenant.isActive" type="button" class="btn-danger" @click="suspender">
         Suspender
       </button>
       <button v-else type="button" @click="reactivar">Reactivar</button>
@@ -445,10 +445,6 @@ label {
   border-radius: var(--radius-sm);
   background: var(--surface-alt);
   font-size: 0.875rem;
-}
-
-.peligro {
-  background: var(--danger);
 }
 
 .credenciales {

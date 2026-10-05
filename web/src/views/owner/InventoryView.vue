@@ -276,9 +276,13 @@ onMounted(async () => {
         Solo bajo mínimo
       </label>
       <button type="submit" :disabled="loading">Buscar</button>
+      <!-- Apagados: la acción principal de la pantalla es «Nuevo repuesto», arriba. Si los
+           cuatro botones van llenos, ninguno es el principal. -->
       <template v-if="canManage">
-        <button type="button" @click="openMovement('receive')">Entrada</button>
-        <button type="button" @click="openMovement('transfer')">Traslado</button>
+        <button type="button" class="btn-ghost" @click="openMovement('receive')">Entrada</button>
+        <button type="button" class="btn-ghost" @click="openMovement('transfer')">
+          Traslado
+        </button>
       </template>
     </form>
 
@@ -359,7 +363,7 @@ onMounted(async () => {
               : 'Kardex'
             }}
           </h2>
-          <button type="button" @click="panel = null">Cerrar</button>
+          <button type="button" class="btn-ghost" @click="panel = null">Cerrar</button>
         </header>
 
         <form v-if="panel === 'part'" @submit.prevent="savePart">

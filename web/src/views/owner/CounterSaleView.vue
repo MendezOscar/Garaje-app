@@ -384,7 +384,7 @@ onMounted(async () => {
       <p class="muted small">Los repuestos ya salieron de la bodega.</p>
       <div class="acciones">
         <button type="button" @click="descargar">Bajar el comprobante</button>
-        <button type="button" class="suave" @click="otra">Otra venta</button>
+        <button type="button" class="btn-ghost" @click="otra">Otra venta</button>
       </div>
     </article>
 
@@ -409,7 +409,7 @@ onMounted(async () => {
               @input="buscar"
               @keydown.enter.prevent="buscar"
             />
-            <button type="button" class="suave" @click="buscar">Buscar</button>
+            <button type="button" class="btn-ghost" @click="buscar">Buscar</button>
           </div>
 
           <p v-if="buscando" class="muted small">Buscando…</p>
@@ -443,7 +443,7 @@ onMounted(async () => {
                   {{ s.name }} · {{ formatMoney(s.price) }}
                 </option>
               </select>
-              <button type="button" class="suave" :disabled="!servicioId" @click="agregarServicio">
+              <button type="button" class="btn-ghost" :disabled="!servicioId" @click="agregarServicio">
                 Agregar
               </button>
             </div>
@@ -463,7 +463,7 @@ onMounted(async () => {
               />
               <button
                 type="button"
-                class="suave"
+                class="btn-ghost"
                 :disabled="!trabajoLibre.descripcion.trim() || !trabajoLibre.precio"
                 @click="agregarTrabajoLibre"
               >
@@ -953,12 +953,6 @@ td input {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 1rem;
-}
-
-.suave {
-  background: var(--surface-alt);
-  color: var(--text);
-  border: 1px solid var(--border);
 }
 
 .falta {
