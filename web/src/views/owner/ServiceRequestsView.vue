@@ -212,10 +212,6 @@ h1 {
   margin: 0;
 }
 
-.muted {
-  color: var(--text-muted);
-}
-
 .list {
   list-style: none;
   margin: 1rem 0 0;
@@ -280,11 +276,4 @@ h1 {
   color: var(--text);
 }
 
-.small {
-  font-size: 0.8125rem;
-}
-
-.error {
-  color: var(--danger);
-}
 </style>

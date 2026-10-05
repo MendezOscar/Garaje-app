@@ -354,7 +354,6 @@ tfoot td {
   white-space: nowrap;
 }
 
-
 .add {
   display: flex;
   flex-direction: column;
@@ -400,15 +399,4 @@ tfoot td {
   width: 7rem;
 }
 
-.small {
-  font-size: 0.75rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
-.error {
-  color: var(--danger);
-}
 </style>

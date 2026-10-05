@@ -606,14 +606,6 @@ tr.tarde td:first-child {
   box-shadow: inset 3px 0 0 var(--danger);
 }
 
-.small {
-  font-size: 0.75rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
 .checkbox {
   display: flex;
   align-items: center;
@@ -629,7 +621,4 @@ tr.tarde td:first-child {
   color: var(--text-muted);
 }
 
-.error {
-  color: var(--danger);
-}
 </style>

@@ -607,18 +607,6 @@ watch(() => auth.activeBranchId, load)
   white-space: nowrap;
 }
 
-.muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.75rem;
-}
-
-.error {
-  color: var(--danger);
-}
-
 /* ---------------------------------------------------------------- pantalla angosta */
 
 @media (max-width: 60rem) {

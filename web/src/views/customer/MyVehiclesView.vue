@@ -238,15 +238,4 @@ label {
   font-size: 0.875rem;
 }
 
-.small {
-  font-size: 0.8125rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
-.error {
-  color: var(--danger);
-}
 </style>

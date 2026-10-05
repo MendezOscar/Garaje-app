@@ -540,14 +540,6 @@ footer {
   text-align: center;
 }
 
-.small {
-  font-size: 0.75rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
 .error {
   margin-top: 1rem;
   color: var(--danger);

@@ -751,14 +751,6 @@ textarea {
   resize: vertical;
 }
 
-.muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.75rem;
-}
-
 .error {
   margin: 0;
   color: var(--danger);

@@ -497,15 +497,4 @@ td {
   font-family: var(--font-mono);
 }
 
-.error {
-  color: var(--danger);
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.8125rem;
-}
 </style>
