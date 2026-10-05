@@ -7,6 +7,7 @@ import '../../core/api/inventory_repository.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/api/tenant_repository.dart';
+import '../../core/api/work_order_repository.dart';
 import '../../core/models/inventory.dart';
 import '../../core/theme/garaj_brand.dart';
 import '../reports/reports_screen.dart' show money;
@@ -35,6 +36,18 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
   /// facturarle con su RTN o para dejarle la compra en su historial.
   Customer? _cliente;
 
+  /// De qué vehículo fue el trabajo. Puesto, queda en el historial del carro igual que una
+  /// orden; vacío, es la venta de mostrador de siempre.
+  String? _vehiculoId;
+
+  /// Días de garantía. Nace con la del taller —que llega después de la primera pintada— y
+  /// se puede cambiar aquí. Va con controlador y no con `initialValue` justamente por eso:
+  /// un `initialValue` se fija en la primera pintada y se quedaría en cero.
+  final _garantia = TextEditingController();
+  bool _garantiaPuesta = false;
+
+  int get _garantiaDias => int.tryParse(_garantia.text.trim()) ?? 0;
+
   PaymentMethod _metodo = PaymentMethod.cash;
   bool _fiscal = false;
 
@@ -52,14 +65,16 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
     _rtn.dispose();
     _aNombreDe.dispose();
     _nota.dispose();
+    _garantia.dispose();
     super.dispose();
   }
 
   double get _base =>
       _lineas.fold<double>(0, (total, l) => total + (l.cantidad * l.precio - l.descuento));
 
-  List<_Linea> get _sinExistencia =>
-      _lineas.where((l) => l.cantidad > l.disponible).toList();
+  List<_Linea> get _sinExistencia => _lineas
+      .where((l) => l.disponible != null && l.cantidad > l.disponible!)
+      .toList();
 
   Future<void> _buscarRepuesto() async {
     final branchId = _branchId;
@@ -90,6 +105,19 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
     });
   }
 
+  /// El trabajo: del catálogo de mano de obra, o escrito a mano con su precio. Es lo que
+  /// convierte esto en un servicio rápido y no solo en la venta de una pieza.
+  Future<void> _agregarTrabajo() async {
+    final elegido = await showModalBottomSheet<_Linea>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _ElegirTrabajo(),
+    );
+
+    if (elegido == null) return;
+    setState(() => _lineas.add(elegido));
+  }
+
   Future<void> _buscarCliente() async {
     final elegido = await showModalBottomSheet<Customer>(
       context: context,
@@ -101,6 +129,8 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
 
     setState(() {
       _cliente = elegido;
+      // Los vehículos son del cliente: cambiarlo invalida el que estuviera elegido.
+      _vehiculoId = null;
       // La factura sale con lo que tenga su ficha, y se puede cambiar para esta venta.
       _rtn.text = elegido.taxId ?? '';
       _aNombreDe.text = elegido.billingName ?? elegido.fullName;
@@ -123,10 +153,15 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
             customerName: _fiscal && _aNombreDe.text.trim().isNotEmpty
                 ? _aNombreDe.text.trim()
                 : null,
+            vehicleId: _vehiculoId,
+            warrantyDays: _garantiaDias,
             lines: [
               for (final l in _lineas)
                 CounterSaleLine(
                   partId: l.partId,
+                  laborServiceId: l.laborServiceId,
+                  // El trabajo escrito a mano manda su concepto; el del catálogo lo toma de ahí.
+                  description: l.esTrabajo && l.laborServiceId == null ? l.nombre : null,
                   quantity: l.cantidad,
                   unitPrice: l.precio,
                   discount: l.descuento,
@@ -153,6 +188,7 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
       _hecha = null;
       _lineas.clear();
       _cliente = null;
+      _vehiculoId = null;
       _fiscal = false;
       _rtn.clear();
       _aNombreDe.clear();
@@ -170,6 +206,13 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
     _branchId ??= branches.isEmpty ? null : branches.first.id;
 
     final tasa = ref.watch(taxRateProvider).value ?? 0;
+
+    // La garantía del taller, la primera vez que llega. Después manda lo que se escriba.
+    final garantiaDelTaller = ref.watch(defaultWarrantyDaysProvider).value;
+    if (!_garantiaPuesta && garantiaDelTaller != null) {
+      _garantia.text = '$garantiaDelTaller';
+      _garantiaPuesta = true;
+    }
     final rango = _branchId == null
         ? null
         : ref.watch(branchFiscalRangeProvider(_branchId!)).value;
@@ -180,7 +223,7 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
     final impuesto = _fiscal && tasa > 0 ? total - total / (1 + tasa / 100) : 0.0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Vender repuesto')),
+      appBar: AppBar(title: const Text('Venta rápida')),
       body: _hecha != null
           ? _Hecha(venta: _hecha!, onOtra: _otra)
           : ListView(
@@ -209,7 +252,7 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                   ),
 
                 const SizedBox(height: 16),
-                Text('QUÉ SE VENDE', style: _rotulo(theme)),
+                Text('QUÉ SE VENDE O SE HACE', style: _rotulo(theme)),
                 const SizedBox(height: 6),
                 for (final linea in _lineas)
                   _LineaCard(
@@ -217,10 +260,24 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                     onCambio: () => setState(() {}),
                     onQuitar: () => setState(() => _lineas.remove(linea)),
                   ),
-                OutlinedButton.icon(
-                  onPressed: _busy || _branchId == null ? null : _buscarRepuesto,
-                  icon: const Icon(Icons.add),
-                  label: Text(_lineas.isEmpty ? 'Buscar el repuesto' : 'Agregar otro'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy || _branchId == null ? null : _buscarRepuesto,
+                        icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                        label: const Text('Repuesto'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _agregarTrabajo,
+                        icon: const Icon(Icons.build_outlined, size: 18),
+                        label: const Text('Trabajo'),
+                      ),
+                    ),
+                  ],
                 ),
                 if (_sinExistencia.isNotEmpty)
                   Padding(
@@ -263,6 +320,45 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                   ),
                 ],
 
+                // Con vehículo el trabajo entra en el historial del carro, como una orden.
+                if (_cliente case final cliente?)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final vehiculos =
+                          ref.watch(customerVehiclesProvider(cliente.id)).value ?? const [];
+
+                      if (vehiculos.isEmpty) return const SizedBox.shrink();
+
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: DropdownButtonFormField<String?>(
+                          initialValue: _vehiculoId,
+                          decoration: const InputDecoration(
+                            labelText: 'De qué vehículo',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Ninguno, es venta de mostrador'),
+                            ),
+                            for (final v in vehiculos)
+                              DropdownMenuItem(
+                                value: v.id,
+                                child: Text(
+                                  '${v.brand} ${v.model}'
+                                  '${v.plate != null ? ' · ${v.plate}' : ''}',
+                                ),
+                              ),
+                          ],
+                          onChanged:
+                              _busy ? null : (value) => setState(() => _vehiculoId = value),
+                        ),
+                      );
+                    },
+                  ),
+
                 const SizedBox(height: 20),
                 Text('CÓMO PAGA', style: _rotulo(theme)),
                 const SizedBox(height: 6),
@@ -278,6 +374,18 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                       DropdownMenuItem(value: m, child: Text(m.label)),
                   ],
                   onChanged: _busy ? null : (value) => setState(() => _metodo = value ?? _metodo),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _garantia,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Garantía (días)',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    helperText: 'Se imprime en el comprobante con su fecha. Cero es sin garantía.',
+                    helperMaxLines: 2,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 // Se dice explícitamente porque «Tarjeta» y «Transferencia» se pueden leer como
@@ -402,11 +510,14 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
       );
 }
 
-/// Un renglón de la venta mientras se arma. El precio y el descuento se tocan: en el
-/// mostrador se regatea.
+/// Un renglón de la venta mientras se arma: un repuesto de bodega o un trabajo. El precio y
+/// el descuento se tocan porque en el mostrador se regatea.
+///
+/// `disponible` va en null en un trabajo: no hay existencia que alcance o falte.
 class _Linea {
   _Linea({
-    required this.partId,
+    this.partId,
+    this.laborServiceId,
     required this.nombre,
     required this.sku,
     required this.unidad,
@@ -414,14 +525,17 @@ class _Linea {
     required this.precio,
   });
 
-  final String partId;
+  final String? partId;
+  final String? laborServiceId;
   final String nombre;
   final String sku;
   final String unidad;
-  final double disponible;
+  final double? disponible;
   double precio;
   double cantidad = 1;
   double descuento = 0;
+
+  bool get esTrabajo => partId == null;
 }
 
 class _LineaCard extends StatelessWidget {
@@ -451,10 +565,15 @@ class _LineaCard extends StatelessWidget {
                     children: [
                       Text(linea.nombre, style: theme.textTheme.bodyLarge),
                       Text(
-                        '${linea.sku} · quedan ${linea.disponible.toStringAsFixed(0)} '
-                        '${linea.unidad}',
+                        linea.disponible is double
+                            ? '${linea.sku} · quedan '
+                                '${linea.disponible!.toStringAsFixed(0)} ${linea.unidad}'
+                            : linea.sku.isEmpty
+                                ? 'Trabajo'
+                                : 'Trabajo · ${linea.sku}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: linea.cantidad > linea.disponible
+                          color: linea.disponible != null &&
+                                  linea.cantidad > linea.disponible!
                               ? theme.colorScheme.error
                               : theme.colorScheme.onSurfaceVariant,
                         ),
@@ -810,6 +929,126 @@ class _SinResultados extends ConsumerWidget {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// Elegir el trabajo que se va a cobrar: del catálogo de mano de obra, o escrito a mano.
+///
+/// El catálogo primero porque es lo que el taller cobra todos los días y ya trae su precio;
+/// escribirlo queda para lo que no está en ninguna lista.
+class _ElegirTrabajo extends ConsumerStatefulWidget {
+  const _ElegirTrabajo();
+
+  @override
+  ConsumerState<_ElegirTrabajo> createState() => _ElegirTrabajoState();
+}
+
+class _ElegirTrabajoState extends ConsumerState<_ElegirTrabajo> {
+  final _concepto = TextEditingController();
+  final _precio = TextEditingController();
+
+  @override
+  void dispose() {
+    _concepto.dispose();
+    _precio.dispose();
+    super.dispose();
+  }
+
+  void _libre() {
+    final nombre = _concepto.text.trim();
+    final precio = double.tryParse(_precio.text.trim().replaceAll(',', '.'));
+    if (nombre.isEmpty || precio == null || precio <= 0) return;
+
+    Navigator.pop(
+      context,
+      _Linea(
+        nombre: nombre,
+        sku: '',
+        unidad: 'trabajo',
+        disponible: null,
+        precio: precio,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final servicios = ref.watch(laborServicesProvider).value ?? const [];
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Qué trabajo se cobra', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+
+              for (final servicio in servicios)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(servicio.name),
+                  trailing: Text(
+                    money(servicio.price, 'HNL'),
+                    style: theme.textTheme.bodyMedium?.copyWith(fontFamily: GarajFonts.mono),
+                  ),
+                  onTap: () => Navigator.pop(
+                    context,
+                    _Linea(
+                      laborServiceId: servicio.id,
+                      nombre: servicio.name,
+                      sku: '',
+                      unidad: 'trabajo',
+                      disponible: null,
+                      precio: servicio.price,
+                    ),
+                  ),
+                ),
+
+              if (servicios.isEmpty)
+                Text(
+                  'El taller todavía no tiene trabajos en el catálogo. Se puede escribir aquí.',
+                  style: theme.textTheme.bodySmall,
+                ),
+
+              const Divider(height: 24),
+              Text('O escríbalo', style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _concepto,
+                autofocus: servicios.isEmpty,
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: 200,
+                decoration: const InputDecoration(
+                  labelText: 'Qué se hizo',
+                  hintText: 'Cambio de aceite, revisión de frenos…',
+                ),
+              ),
+              TextField(
+                controller: _precio,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Precio', prefixText: 'L '),
+                onSubmitted: (_) => _libre(),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(onPressed: _libre, child: const Text('Agregar')),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
