@@ -152,7 +152,7 @@ class MoreScreen extends ConsumerWidget {
                   icon: Icons.storefront_outlined,
                   label: 'Taller',
                   foot: 'ISV, garantía, bodegaje y qué ve el técnico',
-                  route: '/taller',
+                  route: '/ajustes',
                 ),
               ],
             ),

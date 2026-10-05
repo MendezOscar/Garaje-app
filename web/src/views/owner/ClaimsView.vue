@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { claimsApi, salesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
@@ -21,6 +22,7 @@ import { formatDate, formatMoney } from '@/utils/format'
  * quedó pendiente de la semana pasada.
  */
 const claims = ref<ClaimListItem[]>([])
+const router = useRouter()
 const selected = ref<ClaimDetail | null>(null)
 const soloAbiertos = ref(true)
 
@@ -112,10 +114,24 @@ function crear() {
   })
 }
 
-/** Abre la orden con la que se va a reparar, dejando el reclamo abierto. */
-function abrirOrden() {
+/**
+ * Abre la orden con la que se va a reparar y lleva a ella.
+ *
+ * Lleva, no se queda: lo siguiente que se hace con esa orden es recibir el vehículo y
+ * diagnosticarlo, y era un clic de más buscarla en la lista de órdenes.
+ */
+async function abrirOrden() {
   if (!selected.value) return
-  return run(() => claimsApi.openRepairOrder(selected.value!.id))
+
+  const actualizado = await claimsApi
+    .openRepairOrder(selected.value.id)
+    .catch((e: unknown) => {
+      error.value = errorMessage(e)
+      return null
+    })
+
+  if (!actualizado?.repairWorkOrderId) return
+  await router.push({ name: 'work-order', params: { id: actualizado.repairWorkOrderId } })
 }
 
 function resolver() {

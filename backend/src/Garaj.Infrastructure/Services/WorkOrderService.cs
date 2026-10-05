@@ -1271,7 +1271,7 @@ public class WorkOrderService(
         var reclamo = order.ClaimId is { } claimId
             ? await db.Claims.AsNoTracking()
                 .Where(c => c.Id == claimId)
-                .Select(c => new { c.Number, c.WasUnderWarranty })
+                .Select(c => new { c.Number, c.WasUnderWarranty, c.Status })
                 .FirstOrDefaultAsync(ct)
             : null;
 
@@ -1316,7 +1316,8 @@ public class WorkOrderService(
             order.ClaimId,
             reclamo?.Number,
             order.WarrantyCovered,
-            reclamo?.WasUnderWarranty);
+            reclamo?.WasUnderWarranty,
+            reclamo is null ? null : reclamo.Status == ClaimStatus.Open);
     }
 
     public async Task<WorkOrderDetailDto> SetWarrantyDecisionAsync(

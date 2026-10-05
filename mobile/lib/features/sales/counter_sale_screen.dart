@@ -773,6 +773,7 @@ class _BuscarCliente extends ConsumerStatefulWidget {
 
 class _BuscarClienteState extends ConsumerState<_BuscarCliente> {
   String _texto = '';
+  bool _registrando = false;
 
   @override
   Widget build(BuildContext context) {
@@ -811,6 +812,7 @@ class _BuscarClienteState extends ConsumerState<_BuscarCliente> {
                       child: Text('Nadie con ese nombre.', style: theme.textTheme.bodySmall),
                     )
                   : ListView.builder(
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: items.length,
                       itemBuilder: (_, i) => ListTile(
                         dense: true,
@@ -821,9 +823,90 @@ class _BuscarClienteState extends ConsumerState<_BuscarCliente> {
                     ),
             ),
           ),
+
+          // No está en el padrón: se registra aquí mismo. Antes había que salirse a Clientes,
+          // crearlo y volver a empezar la venta.
+          const Divider(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _registrando ? null : _registrar,
+              icon: const Icon(Icons.person_add_outlined),
+              label: Text(_registrando ? 'Registrando…' : '¿No está registrado? Agregarlo'),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  /// Lo registra de verdad —no es un nombre escrito en la venta— porque es lo que hace que el
+  /// trabajo le quede en su historial y que después se le pueda facturar con su RTN.
+  Future<void> _registrar() async {
+    final nombre = TextEditingController(text: _texto.trim());
+    final telefono = TextEditingController();
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setInner) => AlertDialog(
+          title: const Text('Cliente nuevo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombre,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setInner(() {}),
+                decoration: const InputDecoration(labelText: 'Nombre y apellido'),
+              ),
+              TextField(
+                controller: telefono,
+                keyboardType: TextInputType.phone,
+                onChanged: (_) => setInner(() {}),
+                decoration: const InputDecoration(labelText: 'Teléfono'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: nombre.text.trim().isEmpty || telefono.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('Registrar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (guardar != true) return;
+
+    setState(() => _registrando = true);
+    try {
+      final creado = await ref.read(customerRepositoryProvider).save(
+            fullName: nombre.text.trim(),
+            phone: telefono.text.trim(),
+          );
+
+      // El padrón cambió: la búsqueda de al lado tiene que verlo.
+      ref.invalidate(customerSearchProvider);
+
+      if (mounted) Navigator.of(context).pop(creado);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo registrar el cliente.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _registrando = false);
+    }
   }
 }
 

@@ -101,6 +101,9 @@ class _OrdersList extends ConsumerWidget {
                     : 'Ninguna orden coincide con esa búsqueda',
               )
             : ListView.separated(
+                // Arrastrar la lista baja el teclado: es el gesto con el que uno dice «ya
+                // terminé de escribir, déjame ver».
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(12),
                 itemCount: items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -168,7 +171,12 @@ class _OrdersFilterState extends ConsumerState<_OrdersFilter> {
             controller: _controller,
             textInputAction: TextInputAction.search,
             onChanged: _onChanged,
-            onSubmitted: (value) => ref.read(ordersSearchProvider.notifier).set(value),
+            // Bajar el teclado al buscar: ocupa media pantalla justo cuando lo que hay que
+            // mirar son los resultados, y no se iba nunca.
+            onSubmitted: (value) {
+              ref.read(ordersSearchProvider.notifier).set(value);
+              FocusScope.of(context).unfocus();
+            },
             decoration: InputDecoration(
               isDense: true,
               filled: true,
@@ -216,7 +224,10 @@ class _OrderCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('/ordenes/${order.id}'),
+        onTap: () {
+          FocusScope.of(context).unfocus();
+          context.push('/ordenes/${order.id}');
+        },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

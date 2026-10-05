@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/claim_repository.dart';
@@ -186,6 +187,32 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
     return ok == true && texto.isNotEmpty ? texto : null;
   }
 
+  /// Abre la orden de la reparación y lleva a ella.
+  ///
+  /// Lleva, no se queda: lo siguiente que se hace con esa orden es recibir el vehículo y
+  /// diagnosticarlo, y era un paso de más ir a buscarla a la lista de órdenes.
+  Future<void> _abrirOrden(Claim reclamo) async {
+    setState(() => _busy = true);
+    try {
+      final actualizado =
+          await ref.read(claimRepositoryProvider).openRepairOrder(reclamo.id);
+
+      ref.invalidate(claimsProvider);
+
+      if (mounted && actualizado.repairWorkOrderId != null) {
+        context.push('/ordenes/${actualizado.repairWorkOrderId}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo abrir la orden.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -245,11 +272,7 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
                     onReabrir: () => _run(() async {
                       await ref.read(claimRepositoryProvider).reopen(lista[i].id);
                     }),
-                    onAbrirOrden: () => _run(() async {
-                      await ref
-                          .read(claimRepositoryProvider)
-                          .openRepairOrder(lista[i].id);
-                    }),
+                    onAbrirOrden: () => _abrirOrden(lista[i]),
                   ),
                 ),
         ),

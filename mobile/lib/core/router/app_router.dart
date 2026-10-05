@@ -42,58 +42,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     refreshListenable: notifier,
-    routes: [
-      GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/bienvenida', builder: (_, __) => const OnboardingScreen()),
-      // El Dueño entra al armazón de cuatro destinos —Hoy, Órdenes, Caja, Más— y no a la
-      // bandeja pelada: lo primero que quiere saber al abrir la app es cómo va el día.
-      GoRoute(path: '/taller', builder: (_, __) => const OwnerShell()),
-      // El Técnico entra a su cola de trabajo, no a una bandeja de taller; el Cliente, a su
-      // vehículo. Los dos con su barra de abajo: la bandeja pelada era la misma para los tres.
-      GoRoute(path: '/mis-asignaciones', builder: (_, __) => const TechnicianShell()),
-      GoRoute(path: '/mis-vehiculos', builder: (_, __) => const CustomerShell()),
-      // La bandeja con buscador sigue existiendo, pero como destino de la lupa: es donde se
-      // busca una orden vieja, con el vehículo ya entregado.
-      GoRoute(
-        path: '/ordenes',
-        builder: (_, __) => const WorkOrderListScreen(
-          title: 'Buscar una orden',
-          emptyMessage: 'No hay órdenes abiertas.',
-        ),
-      ),
-      GoRoute(
-        path: '/ordenes/:id',
-        builder: (_, state) => WorkOrderDetailScreen(id: state.pathParameters['id']!),
-      ),
-      GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
-      GoRoute(
-        path: '/presupuesto/:id',
-        builder: (_, state) => QuoteScreen(id: state.pathParameters['id']!),
-      ),
-      GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
-      GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
-      GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
-      GoRoute(path: '/recordatorios', builder: (_, __) => const ServiceRemindersScreen()),
-      GoRoute(path: '/reclamos', builder: (_, __) => const ClaimsScreen()),
-      GoRoute(path: '/resultados', builder: (_, __) => const ExpensesScreen()),
-      GoRoute(path: '/mano-de-obra', builder: (_, __) => const LaborServicesScreen()),
-      GoRoute(path: '/trabajos-frecuentes', builder: (_, __) => const JobTemplatesScreen()),
-      GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
-      // El registro de ventas y la venta de mostrador. Pasa con el cliente enfrente, que es
-      // donde está el teléfono y no la computadora.
-      GoRoute(path: '/ventas', builder: (_, __) => const SalesScreen()),
-      GoRoute(path: '/mostrador', builder: (_, __) => const CounterSaleScreen()),
-      GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
-
-      // Los ajustes del taller: el ISV, la garantía, el bodegaje y si el técnico ve precios.
-      // Son los que el Dueño cambia con el taller abierto, y el teléfono es lo que trae
-      // encima.
-      GoRoute(path: '/taller', builder: (_, __) => const WorkshopSettingsScreen()),
-      GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
-      GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
-      GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
-    ],
+    routes: garajRoutes(),
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
       final seenWelcome = ref.read(onboardingProvider);
@@ -141,7 +90,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/ventas' ||
           location == '/mostrador' ||
           location == '/usuarios' ||
-          location == '/taller' ||
+          location == '/ajustes' ||
           location == '/clientes') {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null
@@ -169,6 +118,68 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+
+/// El árbol de rutas, aparte del router.
+///
+/// Fuera del provider para que se pueda leer sin sesión ni almacenamiento seguro: así una
+/// prueba comprueba que ninguna ruta se repite, que es una falla que no se ve —go_router se
+/// queda con la primera y la entrada del menú abre otra pantalla sin decir nada—.
+List<RouteBase> garajRoutes() => [
+      GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/bienvenida', builder: (_, __) => const OnboardingScreen()),
+      // El Dueño entra al armazón de cuatro destinos —Hoy, Órdenes, Caja, Más— y no a la
+      // bandeja pelada: lo primero que quiere saber al abrir la app es cómo va el día.
+      GoRoute(path: '/taller', builder: (_, __) => const OwnerShell()),
+      // El Técnico entra a su cola de trabajo, no a una bandeja de taller; el Cliente, a su
+      // vehículo. Los dos con su barra de abajo: la bandeja pelada era la misma para los tres.
+      GoRoute(path: '/mis-asignaciones', builder: (_, __) => const TechnicianShell()),
+      GoRoute(path: '/mis-vehiculos', builder: (_, __) => const CustomerShell()),
+      // La bandeja con buscador sigue existiendo, pero como destino de la lupa: es donde se
+      // busca una orden vieja, con el vehículo ya entregado.
+      GoRoute(
+        path: '/ordenes',
+        builder: (_, __) => const WorkOrderListScreen(
+          title: 'Buscar una orden',
+          emptyMessage: 'No hay órdenes abiertas.',
+        ),
+      ),
+      GoRoute(
+        path: '/ordenes/:id',
+        builder: (_, state) => WorkOrderDetailScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(path: '/avisos', builder: (_, __) => const NotificationsScreen()),
+      GoRoute(
+        path: '/presupuesto/:id',
+        builder: (_, state) => QuoteScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
+      GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
+      GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
+      GoRoute(path: '/recordatorios', builder: (_, __) => const ServiceRemindersScreen()),
+      GoRoute(path: '/reclamos', builder: (_, __) => const ClaimsScreen()),
+      GoRoute(path: '/resultados', builder: (_, __) => const ExpensesScreen()),
+      GoRoute(path: '/mano-de-obra', builder: (_, __) => const LaborServicesScreen()),
+      GoRoute(path: '/trabajos-frecuentes', builder: (_, __) => const JobTemplatesScreen()),
+      GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
+      // El registro de ventas y la venta de mostrador. Pasa con el cliente enfrente, que es
+      // donde está el teléfono y no la computadora.
+      GoRoute(path: '/ventas', builder: (_, __) => const SalesScreen()),
+      GoRoute(path: '/mostrador', builder: (_, __) => const CounterSaleScreen()),
+      GoRoute(path: '/usuarios', builder: (_, __) => const UsersScreen()),
+
+      // Los ajustes del taller: el ISV, la garantía, el bodegaje y si el técnico ve precios.
+      // Son los que el Dueño cambia con el taller abierto, y el teléfono es lo que trae
+      // encima.
+      //
+      // La ruta es `/ajustes` y no `/taller` porque `/taller` ya es el inicio del Dueño: con
+      // las dos iguales, go_router se quedaba con la primera y la entrada del menú llevaba a
+      // la pantalla de inicio.
+      GoRoute(path: '/ajustes', builder: (_, __) => const WorkshopSettingsScreen()),
+      GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
+      GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
+      GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
+    ];
 
 String homeRouteFor(AppRole role) => switch (role) {
       AppRole.owner => '/taller',

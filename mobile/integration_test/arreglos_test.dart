@@ -162,6 +162,71 @@ void main() {
     expect(pide || tomada, isTrue);
   });
 
+  testWidgets('se puede registrar un cliente que no está en el padrón', (tester) async {
+    final container = await conSesion();
+    addTearDown(container.dispose);
+
+    await montar(tester, container, const CounterSaleScreen());
+
+    await tester.tap(find.text('Buscar el cliente'));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    // Antes había que salirse a Clientes, crearlo y volver a empezar la venta.
+    await tester.tap(find.text('¿No está registrado? Agregarlo'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cliente nuevo'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Nombre y apellido'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Teléfono'), findsOneWidget);
+  });
+
+  testWidgets('el paso nuevo se puede cobrar con precio a mano', (tester) async {
+    final container = await conSesion();
+    addTearDown(container.dispose);
+
+    // La orden del reclamo del taller de pruebas sirve: lo que se mira es el formulario.
+    final reclamos = await container.read(claimRepositoryProvider).list(onlyOpen: false);
+    final conOrden = reclamos.firstWhere(
+      (c) => c.repairWorkOrderId != null,
+      orElse: () => throw StateError('hace falta una orden en el taller de pruebas'),
+    );
+
+    await montar(
+      tester,
+      container,
+      WorkOrderDetailScreen(id: conOrden.repairWorkOrderId!),
+    );
+
+    // La sección de repuestos existe y se llega a ella desde la orden: la queja fue que no
+    // estaba. Hay que desplazarse hasta el renglón: lo que no se ha dibujado todavía no está
+    // en el árbol, y el buscador no lo vería.
+    await tester.scrollUntilVisible(
+      find.text('Repuestos'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Repuestos'), findsOneWidget);
+
+    // Los pasos van dentro de la pantalla de la orden, no detrás de un renglón.
+    await tester.scrollUntilVisible(
+      find.text('Agregar paso'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Agregar paso'));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    // Los tres caminos. Antes solo se podía elegir del catálogo o dejarlo sin cobro: un
+    // trabajo que no estuviera en el catálogo no tenía forma de llevar precio.
+    expect(find.text('Nuevo paso'), findsOneWidget);
+    expect(find.text('Precio a mano'), findsOneWidget);
+    expect(find.text('Del catálogo'), findsWidgets);
+    expect(find.text('Sin cobro'), findsOneWidget);
+  });
+
   testWidgets('los ajustes del taller se leen y se guardan desde el teléfono',
       (tester) async {
     final container = await conSesion();

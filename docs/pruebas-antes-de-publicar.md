@@ -233,8 +233,19 @@ cd mobile && flutter test integration_test/arreglos_test.dart -d <simulador>   -
 ```
 
 Cubren el botón de gasto, la venta de un trabajo, el trabajo frecuente nuevo, los ajustes del
-taller y el recuadro del reclamo. Son los que se rompieron, así que son los que de aquí en
-adelante no se pueden volver a romper sin que se note.
+taller, el recuadro del reclamo, el cliente nuevo desde la venta y el paso con precio a mano.
+Son los que se rompieron, así que son los que de aquí en adelante no se pueden volver a romper
+sin que se note.
+
+Y dos que no necesitan ni simulador ni API, porque leen el árbol de rutas:
+
+```bash
+cd mobile && flutter test test/router_test.dart
+```
+
+Comprueban que ninguna ruta esté declarada dos veces y que todas las del menú existan. Esa
+falla no se ve —go_router se queda con la primera y la entrada abre otra pantalla sin decir
+nada—, y fue justo lo que pasó con los ajustes del taller.
 
 ---
 

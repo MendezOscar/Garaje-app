@@ -83,7 +83,12 @@ public record WorkOrderDetailDto(
     /// Si el trabajo original estaba en garantía el día que entró el reclamo. Es el dato con
     /// el que se decide, y viene congelado de ese día.
     /// </summary>
-    bool? ClaimWasUnderWarranty = null);
+    bool? ClaimWasUnderWarranty = null,
+    /// <summary>
+    /// Si el reclamo sigue abierto. Con la orden ya entregada y el reclamo abierto, la
+    /// pantalla ofrece cerrarlo: es el último paso y el que se olvida.
+    /// </summary>
+    bool? ClaimIsOpen = null);
 
 /// <param name="Covered">
 /// True la paga el taller —no se le factura al cliente—, false es un servicio nuevo y se
