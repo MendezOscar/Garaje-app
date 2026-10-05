@@ -1,4 +1,5 @@
 using Garaj.Domain.Common;
+using Garaj.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 
 namespace Garaj.Infrastructure.Identity;
@@ -22,6 +23,20 @@ public class AppUser : IdentityUser<Guid>, ITenantEntity
 
     /// <summary>Cliente asociado. Solo tiene valor en usuarios con rol Customer.</summary>
     public Guid? CustomerId { get; set; }
+
+    // ---------- Cómo se le paga (solo técnicos) ----------
+    //
+    // Vive en el usuario y no en una entidad aparte porque es un dato de la persona, no un
+    // histórico: lo que se le pagó cada quincena queda en los gastos, que es donde entra a la
+    // caja y al estado de resultados.
+
+    public TechnicianPayMode PayMode { get; set; } = TechnicianPayMode.Undefined;
+
+    /// <summary>
+    /// El monto de su modalidad: el sueldo fijo, el porcentaje, o la tarifa por hora. Cero
+    /// mientras no se defina.
+    /// </summary>
+    public decimal PayAmount { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }

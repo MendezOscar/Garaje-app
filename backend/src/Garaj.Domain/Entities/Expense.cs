@@ -35,6 +35,13 @@ public class Expense : TenantEntity, IBranchEntity
 
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// El empleado al que se le pagó, en los gastos de salario. Es lo que permite responder
+    /// cuánto se le ha pagado a cada técnico sin llevar un registro aparte: el pago es un
+    /// gasto, y en la caja entra una sola vez.
+    /// </summary>
+    public Guid? EmployeeUserId { get; set; }
+
     public Guid? CreatedByUserId { get; set; }
 
     public Branch Branch { get; set; } = null!;

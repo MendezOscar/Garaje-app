@@ -24,7 +24,22 @@ public class LaborServiceCatalog(GarajDbContext db, ITenantContext tenantContext
         var q = db.LaborServices.AsNoTracking();
         if (!includeInactive) q = q.Where(s => s.IsActive);
 
-        return await Project(q.OrderBy(s => s.Name)).ToListAsync(ct);
+        var items = await Project(q.OrderBy(s => s.Name)).ToListAsync(ct);
+
+        // El técnico elige qué trabajo es; cuando el taller no quiere que vea precios, elige
+        // por el nombre. Las tarifas se van aquí, en el servidor, no en la pantalla.
+        if (scope.IsTechnician
+            && await db.Tenants.AsNoTracking()
+                .Where(t => t.Id == tenantContext.TenantId)
+                .Select(t => (bool?)t.TechniciansSeePrices)
+                .FirstOrDefaultAsync(ct) == false)
+        {
+            return items
+                .Select(s => s with { HourlyRate = 0, FixedPrice = 0, Price = 0 })
+                .ToList();
+        }
+
+        return items;
     }
 
     public async Task<LaborServiceDto> CreateAsync(

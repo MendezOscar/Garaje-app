@@ -34,6 +34,24 @@ public enum WorkOrderStatus
 }
 
 /// <summary>
+/// Cómo se le paga a un técnico. Son las tres formas que se usan en un taller, y la cuarta
+/// —sin definir— es como nace: mientras el taller no lo decida, el sistema no propone nada.
+/// </summary>
+public enum TechnicianPayMode
+{
+    Undefined = 0,
+
+    /// <summary>Sueldo fijo por periodo.</summary>
+    Fixed = 1,
+
+    /// <summary>Un porcentaje de la mano de obra que generó.</summary>
+    Percentage = 2,
+
+    /// <summary>Por hora trabajada, de las que se registran en los pasos.</summary>
+    Hourly = 3
+}
+
+/// <summary>
 /// En qué se le va la plata al taller. Lista fija y corta a propósito: con categorías libres
 /// el mismo gasto termina escrito de tres formas —«luz», «Luz», «energía eléctrica»— y el
 /// estado de resultados deja de poder compararse contra el mes pasado.

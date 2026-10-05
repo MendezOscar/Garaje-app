@@ -87,6 +87,7 @@ public class TenantService(
         tenant.ChargesStorage = request.ChargesStorage;
         tenant.StorageFreeDays = Math.Clamp(request.StorageFreeDays, 0, 365);
         tenant.StorageDailyRate = Math.Max(0, request.StorageDailyRate);
+        tenant.TechniciansSeePrices = request.TechniciansSeePrices;
 
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
@@ -373,5 +374,6 @@ public class TenantService(
         tenant.ChargesStorage,
         tenant.StorageFreeDays,
         tenant.StorageDailyRate,
+        tenant.TechniciansSeePrices,
         tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id));
 }

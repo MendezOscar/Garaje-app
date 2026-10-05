@@ -159,6 +159,15 @@ public class WorkOrdersController(
         Guid id, AddWorkOrderPartRequest request, CancellationToken ct)
         => Ok(await service.AddPartAsync(id, request, ct));
 
+    /// <summary>
+    /// Le pone precio a una línea ya cargada. Es lo que hace el Dueño con lo que el técnico
+    /// cargó sin poder valorarlo.
+    /// </summary>
+    [HttpPut("{id:guid}/parts/{partLineId:guid}/price")]
+    public async Task<ActionResult<WorkOrderPartDto>> SetPartPrice(
+        Guid id, Guid partLineId, SetPartPriceRequest request, CancellationToken ct)
+        => Ok(await service.SetPartPriceAsync(id, partLineId, request, ct));
+
     /// <summary>Lo quita de la orden, y lo devuelve a la bodega si había salido de ella.</summary>
     [HttpDelete("{id:guid}/parts/{partLineId:guid}")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
