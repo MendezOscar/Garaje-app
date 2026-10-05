@@ -244,17 +244,19 @@ onMounted(async () => {
               <td class="num" :class="{ vencido: venta.isOverdue }">
                 {{ venta.balance ? formatMoney(venta.balance) : '—' }}
               </td>
-              <td class="acciones">
-                <button type="button" class="suave" @click="comprobante(venta)">PDF</button>
-                <button
-                  v-if="!venta.isVoided"
-                  type="button"
-                  class="suave peligro"
-                  @click="anular(venta)"
-                >
-                  Anular
-                </button>
-                <span v-else class="muted small">Anulada</span>
+              <td>
+                <div class="acciones">
+                  <button type="button" class="suave" @click="comprobante(venta)">PDF</button>
+                  <button
+                    v-if="!venta.isVoided"
+                    type="button"
+                    class="suave peligro"
+                    @click="anular(venta)"
+                  >
+                    Anular
+                  </button>
+                  <span v-else class="muted small">Anulada</span>
+                </div>
               </td>
             </tr>
           </tbody>

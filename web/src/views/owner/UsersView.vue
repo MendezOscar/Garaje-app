@@ -219,12 +219,14 @@ onMounted(async () => {
               <td class="muted small">
                 {{ u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'nunca ha entrado' }}
               </td>
-              <td class="row-actions">
-                <button type="button" class="link" @click="edit(u)">Editar</button>
-                <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
-                <button type="button" class="link danger" @click="toggleActive(u)">
-                  {{ u.isActive ? 'Dar de baja' : 'Reactivar' }}
-                </button>
+              <td class="col-acciones">
+                <div class="acciones">
+                  <button type="button" class="link" @click="edit(u)">Editar</button>
+                  <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
+                  <button type="button" class="link danger" @click="toggleActive(u)">
+                    {{ u.isActive ? 'Dar de baja' : 'Reactivar' }}
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -260,11 +262,13 @@ onMounted(async () => {
               <td class="muted small">
                 {{ u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'nunca ha entrado' }}
               </td>
-              <td class="row-actions">
-                <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
-                <button type="button" class="link danger" @click="toggleActive(u)">
-                  {{ u.isActive ? 'Quitar acceso' : 'Reactivar' }}
-                </button>
+              <td class="col-acciones">
+                <div class="acciones">
+                  <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
+                  <button type="button" class="link danger" @click="toggleActive(u)">
+                    {{ u.isActive ? 'Quitar acceso' : 'Reactivar' }}
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -410,10 +414,14 @@ th {
   opacity: 0.55;
 }
 
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+/* La columna de acciones no se estira: la tabla reparte el ancho entre nombre, sucursal y
+   último ingreso, que es lo que se lee. Las acciones van en el `div` de dentro; el `td` se
+   queda celda. */
+.col-acciones {
+  width: 1%;
+}
+
+.col-acciones .acciones {
   justify-content: flex-end;
 }
 
@@ -478,14 +486,6 @@ legend {
   gap: 0.5rem;
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 0.8125rem;
-}
 
 .link.danger {
   color: var(--danger);

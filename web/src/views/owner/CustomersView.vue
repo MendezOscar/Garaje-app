@@ -327,14 +327,6 @@ th {
   color: var(--text-muted);
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  cursor: pointer;
-}
 
 .vehicles ul {
   list-style: none;

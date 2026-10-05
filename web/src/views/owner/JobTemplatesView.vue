@@ -253,17 +253,19 @@ onMounted(async () => {
               </td>
               <td class="num">{{ formatMoney(t.total) }}</td>
               <td class="num muted">{{ t.usageCount }}</td>
-              <td class="acciones">
-                <button type="button" class="link" @click="edit(t)">Editar</button>
-                <button
-                  v-if="t.isActive"
-                  type="button"
-                  class="link"
-                  :disabled="busy"
-                  @click="deactivate(t)"
-                >
-                  Dar de baja
-                </button>
+              <td>
+                <div class="acciones">
+                  <button type="button" class="link" @click="edit(t)">Editar</button>
+                  <button
+                    v-if="t.isActive"
+                    type="button"
+                    class="link danger"
+                    :disabled="busy"
+                    @click="deactivate(t)"
+                  >
+                    Dar de baja
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -406,11 +408,6 @@ th {
   text-align: right;
 }
 
-.acciones {
-  display: flex;
-  gap: 0.75rem;
-}
-
 .inactive {
   opacity: 0.55;
 }
@@ -492,13 +489,6 @@ th {
   gap: 0.5rem;
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  cursor: pointer;
-}
 
 .muted {
   color: var(--text-muted);

@@ -228,6 +228,33 @@ button:disabled {
   border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
 }
 
+/* El botón que parece enlace: «Editar», «Corregir», «Quitar». Estaba definido en once
+   archivos con `padding: 0` y letra de 12 o 13 px, así que el blanco para el dedo medía
+   16 px de alto. El relleno le da altura sin moverlo de sitio, porque va dentro de una fila
+   con `gap`. El rojo se reserva para lo que borra: hasta hoy una pantalla entera tenía los
+   enlaces en rojo —«Cargar», «Corregir», «Cancelar» incluidos—, y así el rojo no avisaba de
+   nada. */
+.link {
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
 /* Para las filas de una tabla, donde tres botones de tamaño normal no caben. */
 .btn-sm {
   padding: 0.3125rem 0.625rem;
@@ -235,8 +262,12 @@ button:disabled {
 }
 
 /* Las acciones de una fila: juntas, sin desbordar, y envolviendo cuando la pantalla se
-   angosta en vez de empujar la tabla a lo ancho. */
-.acciones {
+   angosta en vez de empujar la tabla a lo ancho.
+
+   El `:not(td)` no es un adorno: una celda de tabla con `display: flex` deja de ser celda,
+   la columna pierde la alineación y el último botón se sale de la fila. Dentro de una tabla
+   esto va en un `div` por dentro del `td`. */
+.acciones:not(td) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -249,6 +280,7 @@ button:disabled {
   button,
   .btn-ghost,
   .btn-danger,
+  .link,
   input,
   select {
     min-height: var(--touch);

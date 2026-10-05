@@ -327,7 +327,7 @@ onMounted(async () => {
               </td>
               <td class="num">{{ formatMoney(sinIsv(line.total, selected.taxRate)) }}</td>
               <td v-if="selected.isEditable" class="num">
-                <button type="button" class="link" :disabled="busy" @click="removeLine(line.id)">
+                <button type="button" class="link danger" :disabled="busy" @click="removeLine(line.id)">
                   Quitar
                 </button>
               </td>
@@ -680,14 +680,6 @@ td {
   color: #fff;
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--danger);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
 
 .small {
   font-size: 0.75rem;

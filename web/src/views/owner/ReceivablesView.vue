@@ -522,14 +522,6 @@ td {
   white-space: nowrap;
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
 
 .small {
   font-size: 0.75rem;

@@ -455,21 +455,30 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td class="num">{{ formatMoney(gasto.amount) }}</td>
-                <td class="num">
-                  <button
-                    type="button"
-                    class="link"
-                    :disabled="busy"
-                    @click="conComprobante = gasto"
-                  >
-                    {{ gasto.photoCount > 0 ? `Comprobante (${gasto.photoCount})` : 'Comprobante' }}
-                  </button>
-                  <button type="button" class="link" :disabled="busy" @click="editar(gasto)">
-                    Corregir
-                  </button>
-                  <button type="button" class="link" :disabled="busy" @click="borrar(gasto)">
-                    Borrar
-                  </button>
+                <td class="col-acciones">
+                  <div class="acciones">
+                    <button
+                      type="button"
+                      class="link"
+                      :disabled="busy"
+                      @click="conComprobante = gasto"
+                    >
+                      {{
+                        gasto.photoCount > 0 ? `Comprobante (${gasto.photoCount})` : 'Comprobante'
+                      }}
+                    </button>
+                    <button type="button" class="link" :disabled="busy" @click="editar(gasto)">
+                      Corregir
+                    </button>
+                    <button
+                      type="button"
+                      class="link danger"
+                      :disabled="busy"
+                      @click="borrar(gasto)"
+                    >
+                      Borrar
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -522,8 +531,11 @@ onMounted(async () => {
   border-top: 1px solid var(--border, rgba(127, 127, 127, 0.25));
 }
 
+/* La utilidad neta es la razón de abrir esta pantalla: tiene que leerse desde la silla de
+   atrás, no buscarse entre las otras seis cifras. */
 .grande {
-  font-size: 1.15rem;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
 }
 
 .perdida {
@@ -557,9 +569,12 @@ onMounted(async () => {
   flex: 1;
 }
 
-.acciones {
-  display: flex;
-  gap: 0.5rem;
+.col-acciones {
+  width: 1%;
+}
+
+.col-acciones .acciones {
+  justify-content: flex-end;
 }
 
 .tabla {

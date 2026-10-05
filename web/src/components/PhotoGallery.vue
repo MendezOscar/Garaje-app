@@ -24,6 +24,25 @@ const owner = computed(() => {
   return { ownerType: MediaOwnerType.WorkOrder, ownerId: props.workOrderId! }
 })
 
+/**
+ * Cómo se llama esto según a qué se le están poniendo fotos.
+ *
+ * Antes decía «Fotos del proceso» y «Todavía no hay fotos de esta orden» también en el
+ * comprobante de un gasto, donde no hay orden ni proceso: el gasto lleva una foto del recibo
+ * y el texto no tenía nada que ver con lo que se estaba viendo.
+ */
+const titulo = computed(() => {
+  if (props.quoteId) return 'Fotos de la cotización'
+  if (props.expenseId) return 'Comprobante'
+  return 'Fotos del proceso'
+})
+
+const vacio = computed(() => {
+  if (props.quoteId) return 'Sin fotos. Las que agregue aquí las verá el cliente junto al precio.'
+  if (props.expenseId) return 'Sin comprobante. Un gasto sin recibo es el que después se discute.'
+  return 'Todavía no hay fotos de esta orden.'
+})
+
 const photos = ref<MediaAttachment[]>([])
 const error = ref('')
 const busy = ref(false)
@@ -98,9 +117,11 @@ onMounted(load)
 <template>
   <article class="card">
     <header>
-      <h2>{{ quoteId ? 'Fotos de la cotización' : 'Fotos del proceso' }}</h2>
+      <h2>{{ titulo }}</h2>
       <button v-if="canEdit" type="button" :disabled="uploading > 0" @click="fileInput?.click()">
-        {{ uploading > 0 ? `Subiendo ${uploading}…` : 'Agregar fotos' }}
+        {{
+          uploading > 0 ? `Subiendo ${uploading}…` : expenseId ? 'Agregar recibo' : 'Agregar fotos'
+        }}
       </button>
       <input
         ref="fileInput"
@@ -114,13 +135,7 @@ onMounted(load)
 
     <ErrorNote v-if="error" :message="error" />
 
-    <p v-if="!photos.length && uploading === 0" class="muted">
-      {{
-        quoteId
-          ? 'Sin fotos. Las que agregue aquí las verá el cliente junto al precio.'
-          : 'Todavía no hay fotos de esta orden.'
-      }}
-    </p>
+    <p v-if="!photos.length && uploading === 0" class="muted">{{ vacio }}</p>
 
     <div v-for="group in groups" :key="group.title" class="group">
       <h3 v-if="groups.length > 1 || group.title !== 'General'">{{ group.title }}</h3>

@@ -1410,7 +1410,12 @@ onMounted(async () => {
                   <template v-if="payment.reference"> · {{ payment.reference }}</template>
                 </span>
                 <span class="num">{{ formatMoney(payment.amount) }}</span>
-                <button type="button" class="link" :disabled="busy" @click="removePayment(sale, payment.id)">
+                <button
+                  type="button"
+                  class="link danger"
+                  :disabled="busy"
+                  @click="removePayment(sale, payment.id)"
+                >
                   Quitar
                 </button>
               </li>
@@ -2446,14 +2451,6 @@ dd {
   color: var(--accent);
 }
 
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--danger);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
 
 .sale p {
   margin-bottom: 0.5rem;
