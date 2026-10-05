@@ -124,10 +124,10 @@ onMounted(load)
       <table>
         <thead>
           <tr>
-            <th>Detalle</th>
-            <th class="num">Cant.</th>
-            <th class="num unitario">P. unit.{{ quote.taxRate > 0 ? ' sin ISV' : '' }}</th>
-            <th class="num">Total</th>
+            <th scope="col">Detalle</th>
+            <th scope="col" class="num">Cant.</th>
+            <th scope="col" class="num unitario">P. unit.{{ quote.taxRate > 0 ? ' sin ISV' : '' }}</th>
+            <th scope="col" class="num">Total</th>
           </tr>
         </thead>
         <tbody>

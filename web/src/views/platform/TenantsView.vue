@@ -236,12 +236,12 @@ onMounted(load)
     <table v-else>
       <thead>
         <tr>
-          <th>Taller</th>
-          <th>Estado</th>
-          <th>Pagado hasta</th>
-          <th class="num">Cuota</th>
-          <th>Último pago</th>
-          <th></th>
+          <th scope="col">Taller</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Pagado hasta</th>
+          <th scope="col" class="num">Cuota</th>
+          <th scope="col">Último pago</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>

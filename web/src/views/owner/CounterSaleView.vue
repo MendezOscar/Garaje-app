@@ -476,12 +476,12 @@ onMounted(async () => {
             <table>
               <thead>
                 <tr>
-                  <th>Concepto</th>
-                  <th class="num">Cantidad</th>
-                  <th class="num">Precio</th>
-                  <th class="num">Descuento</th>
-                  <th class="num">Total</th>
-                  <th></th>
+                  <th scope="col">Concepto</th>
+                  <th scope="col" class="num">Cantidad</th>
+                  <th scope="col" class="num">Precio</th>
+                  <th scope="col" class="num">Descuento</th>
+                  <th scope="col" class="num">Total</th>
+                  <th scope="col"><span class="sr-only">Acciones</span></th>
                 </tr>
               </thead>
               <tbody>

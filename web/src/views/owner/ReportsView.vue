@@ -321,12 +321,12 @@ onMounted(async () => {
           <table>
             <thead>
               <tr>
-                <th>Periodo</th>
-                <th class="num">Repuestos</th>
-                <th class="num">Mano de obra</th>
-                <th class="num">Total</th>
-                <th class="num">Margen</th>
-                <th class="num">Ventas</th>
+                <th scope="col">Periodo</th>
+                <th scope="col" class="num">Repuestos</th>
+                <th scope="col" class="num">Mano de obra</th>
+                <th scope="col" class="num">Total</th>
+                <th scope="col" class="num">Margen</th>
+                <th scope="col" class="num">Ventas</th>
               </tr>
             </thead>
             <tbody>

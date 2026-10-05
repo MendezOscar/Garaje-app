@@ -333,11 +333,11 @@ onMounted(load)
     <table v-else>
       <thead>
         <tr>
-          <th>Pagó el</th>
-          <th class="num">Monto</th>
-          <th>Forma</th>
-          <th>Referencia</th>
-          <th>Cubrió hasta</th>
+          <th scope="col">Pagó el</th>
+          <th scope="col" class="num">Monto</th>
+          <th scope="col">Forma</th>
+          <th scope="col">Referencia</th>
+          <th scope="col">Cubrió hasta</th>
         </tr>
       </thead>
       <tbody>

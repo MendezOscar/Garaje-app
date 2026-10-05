@@ -372,12 +372,12 @@ onMounted(async () => {
       <table v-if="vigentes.length" class="rangos">
         <thead>
           <tr>
-            <th>Sucursal</th>
-            <th>CAI</th>
-            <th>Rango autorizado</th>
-            <th class="num">Quedan</th>
-            <th>Vence</th>
-            <th></th>
+            <th scope="col">Sucursal</th>
+            <th scope="col">CAI</th>
+            <th scope="col">Rango autorizado</th>
+            <th scope="col" class="num">Quedan</th>
+            <th scope="col">Vence</th>
+            <th scope="col"><span class="sr-only">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
