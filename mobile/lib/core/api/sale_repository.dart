@@ -207,6 +207,7 @@ class Sale {
     this.dueDate,
     this.fiscalNumber,
     this.fiscalCai,
+    this.warrantyUntil,
   });
 
   factory Sale.fromJson(Map<String, dynamic> json) => Sale(
@@ -226,6 +227,9 @@ class Sale {
         currency: json['currency'] as String? ?? 'HNL',
         fiscalNumber: json['fiscalNumber'] as String?,
         fiscalCai: json['fiscalCai'] as String?,
+        warrantyUntil: json['warrantyUntil'] == null
+            ? null
+            : DateTime.parse(json['warrantyUntil'] as String),
         payments: ((json['payments'] as List<dynamic>?) ?? [])
             .map((p) => SalePayment.fromJson(p as Map<String, dynamic>))
             .toList(),
@@ -246,6 +250,9 @@ class Sale {
   final String? fiscalNumber;
   final String? fiscalCai;
   final String currency;
+
+  /// Hasta cuándo vale la garantía del trabajo. Null es sin garantía.
+  final DateTime? warrantyUntil;
   final List<SalePayment> payments;
 }
 
@@ -344,6 +351,7 @@ class SaleRepository {
     DateTime? nextServiceAt,
     int? nextServiceMileage,
     bool includeOutsideParts = false,
+    int? warrantyDays,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/sales/close-work-order',
@@ -368,6 +376,8 @@ class SaleRepository {
         // Los comprados en una casa de repuestos entran solo si la factura de esa compra
         // salió a nombre del taller. Cambia caso por caso, así que se pregunta al cerrar.
         'includeOutsideParts': includeOutsideParts,
+        // Días de garantía. Null toma la del taller; cero es sin garantía.
+        'warrantyDays': warrantyDays,
       },
     );
 

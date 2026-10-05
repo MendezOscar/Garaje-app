@@ -740,6 +740,8 @@ export const salesApi = {
     search?: string
     /** `true` solo vencidas, `false` solo las que aún no vencen, omitido todas. */
     overdue?: boolean
+    /** Solo los trabajos cuya garantía sigue viva. */
+    onlyUnderWarranty?: boolean
     page?: number
     pageSize?: number
   } = {}) {

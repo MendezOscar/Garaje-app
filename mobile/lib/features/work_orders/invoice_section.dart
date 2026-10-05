@@ -73,6 +73,11 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
   /// nombre de quién salió la factura de esa compra, que cambia caso por caso, así que se
   /// pregunta al cerrar y nace apagado: cobrar de más es peor que preguntar.
   bool _cobrarLosDeAfuera = false;
+
+  /// Días de garantía de este trabajo. Nace con la del taller y se cambia aquí: no es lo
+  /// mismo garantizar un cambio de aceite que una reparación de motor.
+  final _garantia = TextEditingController();
+  bool _garantiaPuesta = false;
   final _initialPayment = TextEditingController();
   DateTime? _dueDate;
 
@@ -95,6 +100,7 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
     _customerTaxId.dispose();
     _customerName.dispose();
     _nextServiceMileage.dispose();
+    _garantia.dispose();
     super.dispose();
   }
 
@@ -195,6 +201,7 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             nextServiceAt: _nextServiceAt,
             nextServiceMileage: int.tryParse(_nextServiceMileage.text.trim()),
             includeOutsideParts: _cobrarLosDeAfuera,
+            warrantyDays: int.tryParse(_garantia.text.trim()) ?? 0,
           );
     });
   }
@@ -335,6 +342,13 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
     final sales = ref.watch(workOrderSalesProvider(widget.order.id));
     final quotes = ref.watch(workOrderQuotesProvider(widget.order.id));
 
+    // La garantía del taller, la primera vez que llega. Después manda lo que se escriba.
+    final garantiaDelTaller = ref.watch(defaultWarrantyDaysProvider).value;
+    if (!_garantiaPuesta && garantiaDelTaller != null) {
+      _garantia.text = '$garantiaDelTaller';
+      _garantiaPuesta = true;
+    }
+
     return sales.maybeWhen(
       data: (list) {
         final active = list.where((s) => !s.isVoided).toList();
@@ -375,6 +389,7 @@ class _InvoiceSectionState extends ConsumerState<InvoiceSection> {
             setState(() => _fiscal = value);
             if (value) _cargarFicha();
           },
+          garantia: _garantia,
           cobrarLosDeAfuera: _cobrarLosDeAfuera,
           onCobrarLosDeAfueraChanged: (value) =>
               setState(() => _cobrarLosDeAfuera = value),
@@ -429,6 +444,7 @@ class _CloseCard extends ConsumerWidget {
     required this.customerTaxId,
     required this.customerName,
     required this.onFiscalChanged,
+    required this.garantia,
     required this.cobrarLosDeAfuera,
     required this.onCobrarLosDeAfueraChanged,
     required this.onCredit,
@@ -469,6 +485,9 @@ class _CloseCard extends ConsumerWidget {
   final TextEditingController customerTaxId;
   final TextEditingController customerName;
   final ValueChanged<bool> onFiscalChanged;
+
+  /// Días de garantía, tal como se escriben al cerrar.
+  final TextEditingController garantia;
 
   final bool cobrarLosDeAfuera;
   final ValueChanged<bool> onCobrarLosDeAfueraChanged;
@@ -596,6 +615,18 @@ class _CloseCard extends ConsumerWidget {
                 onChanged: busy ? null : (value) => onMethodChanged(value ?? method),
               ),
 
+              const SizedBox(height: 8),
+              TextField(
+                controller: garantia,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Garantía (días)',
+                  isDense: true,
+                  helperText: 'Sale impresa en la factura con su fecha. Cero es sin garantía.',
+                  helperMaxLines: 2,
+                ),
+              ),
+
               SwitchListTile(
                 value: fiscal,
                 // Apagada y con el motivo a la vista, en lugar de escondida: que se sepa que
@@ -606,8 +637,8 @@ class _CloseCard extends ConsumerWidget {
                 subtitle: Text(
                   _impedimento ??
                       'Consume el número ${fiscalRange!.nextFiscalNumber} del rango '
-                          'autorizado${tasa > 0 ? ' y le suma el ISV '
-                              '${tasa.toStringAsFixed(0)}%' : ''}.',
+                          'autorizado${tasa > 0 ? ' y desglosa el ISV '
+                              '${tasa.toStringAsFixed(0)}%, que ya va en el precio' : ''}.',
                 ),
               ),
 
@@ -800,6 +831,17 @@ class _SaleCard extends StatelessWidget {
               if (sale.fiscalNumber case final fiscal?)
                 Text(
                   'Factura fiscal $fiscal',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+
+              // La garantía, a la vista: es la primera pregunta cuando el cliente vuelve
+              // diciendo que algo quedó mal.
+              if (sale.warrantyUntil case final hasta?
+                  when hasta.isAfter(DateTime.now()))
+                Text(
+                  'En garantía hasta el ${_date(hasta)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.primary,
                   ),

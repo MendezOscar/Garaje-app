@@ -43,7 +43,9 @@ public record SaleListItemDto(
     decimal Balance,
     DateTimeOffset? DueDate,
     bool IsOverdue,
-    bool IsVoided);
+    bool IsVoided,
+    // Hasta cuándo vale la garantía del trabajo. Null es sin garantía.
+    DateTimeOffset? WarrantyUntil);
 
 public record SaleDetailDto(
     Guid Id,
@@ -190,6 +192,10 @@ public record SaleQuery : PageQuery
 
     /// <summary>Todo lo que se le hizo a un vehículo: órdenes facturadas y servicios rápidos.</summary>
     public Guid? VehicleId { get; init; }
+
+    /// <summary>Solo los trabajos cuya garantía sigue viva. Es la lista que se mira cuando
+    /// alguien vuelve con un reclamo.</summary>
+    public bool OnlyUnderWarranty { get; init; }
 
     public DateTimeOffset? From { get; init; }
     public DateTimeOffset? To { get; init; }

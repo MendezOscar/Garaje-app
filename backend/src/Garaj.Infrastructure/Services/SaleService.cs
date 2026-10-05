@@ -51,6 +51,8 @@ public class SaleService(
         // cuando salió de una. Así el historial de un carro no depende de por dónde entró.
         if (query.VehicleId is { } vehicleId)
             q = q.Where(s => s.VehicleId == vehicleId);
+
+
         // Npgsql solo escribe `timestamptz` en UTC. Una fecha con el desplazamiento del taller
         // —o sin ninguno, que el servidor interpreta en el suyo— hacía estallar la consulta:
         // se normaliza aquí, que es el único punto donde toca la base.
@@ -75,6 +77,12 @@ public class SaleService(
         // Se compara contra la medianoche de hoy y no contra la hora: el que acordó pagar hoy
         // no está atrasado hasta mañana.
         var vencidoAntesDe = clock.StartOfToday();
+
+        // Lo que todavía está en garantía: anulada no cuenta, porque esa venta no existió.
+        if (query.OnlyUnderWarranty)
+            q = q.Where(s => !s.IsVoided
+                && s.WarrantyUntil != null
+                && s.WarrantyUntil >= vencidoAntesDe);
 
         // Vencida es la que tenía fecha acordada y ya pasó. Sin fecha acordada no vence: el
         // taller la entregó sin plazo, así que no se puede decir que el cliente se atrasó.
@@ -132,7 +140,8 @@ public class SaleService(
                 s.DueDate != null
                     && s.DueDate < now
                     && s.Total > (s.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
-                s.IsVoided))
+                s.IsVoided,
+                s.WarrantyUntil))
             .ToListAsync(ct);
 
         return new PagedResult<SaleListItemDto>(items, total, query.Page, query.PageSize);
