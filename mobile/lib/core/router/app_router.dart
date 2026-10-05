@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/claims/claims_screen.dart';
+import '../../features/catalog/job_templates_screen.dart';
+import '../../features/catalog/labor_services_screen.dart';
 import '../../features/customers/customers_screen.dart';
 import '../../features/expenses/expenses_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
@@ -74,6 +76,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/recordatorios', builder: (_, __) => const ServiceRemindersScreen()),
       GoRoute(path: '/reclamos', builder: (_, __) => const ClaimsScreen()),
       GoRoute(path: '/resultados', builder: (_, __) => const ExpensesScreen()),
+      GoRoute(path: '/mano-de-obra', builder: (_, __) => const LaborServicesScreen()),
+      GoRoute(path: '/trabajos-frecuentes', builder: (_, __) => const JobTemplatesScreen()),
       GoRoute(path: '/por-cobrar', builder: (_, __) => const ReceivablesScreen()),
       // El registro de ventas y la venta de mostrador. Pasa con el cliente enfrente, que es
       // donde está el teléfono y no la computadora.
@@ -125,6 +129,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/recordatorios' ||
           location == '/reclamos' ||
           location == '/resultados' ||
+          location == '/mano-de-obra' ||
+          location == '/trabajos-frecuentes' ||
           location == '/por-cobrar' ||
           location == '/ventas' ||
           location == '/mostrador' ||
