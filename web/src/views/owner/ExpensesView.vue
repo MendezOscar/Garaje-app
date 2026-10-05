@@ -278,9 +278,15 @@ onMounted(async () => {
     </article>
 
     <div class="dos-columnas">
-      <article v-if="tecnicos.length" class="card">
+      <!-- Se enseña siempre, también sin técnicos: escondida parecía que la pantalla no
+           servía, cuando lo que pasaba era que no había a quién pagarle. -->
+      <article class="card">
         <h2>Pagarle a un técnico</h2>
-        <div class="row">
+        <p v-if="!tecnicos.length" class="muted small">
+          Todavía no hay técnicos. Cuando cree uno en Usuarios y le defina cómo se le paga
+          —fijo, porcentaje o por hora—, aquí sale cuánto le toca por el periodo.
+        </p>
+        <div v-else class="row">
           <label>
             Técnico
             <select v-model="tecnicoId" @change="verPropuesta">
