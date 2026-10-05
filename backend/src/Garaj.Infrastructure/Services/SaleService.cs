@@ -397,6 +397,27 @@ public class SaleService(
             }
         }
 
+        // El bodegaje, si el Dueño decidió cobrarlo. Llega ya calculado y revisado por él: el
+        // sistema lo propone en la pantalla, pero nunca lo cobra solo. Va como mano de obra
+        // porque es un servicio del taller, no una pieza que salga de bodega.
+        if (request.StorageCharge is { } bodegaje && bodegaje > 0)
+        {
+            var dias = request.StorageDays is { } d && d > 0 ? d : 0;
+
+            sale.Lines.Add(new SaleLine
+            {
+                LineType = LineType.Labor,
+                Description = dias > 0
+                    ? $"Bodegaje · {dias} día{(dias == 1 ? "" : "s")}"
+                    : "Bodegaje",
+                Sequence = ++sequence,
+                Quantity = 1,
+                UnitPrice = bodegaje,
+                UnitCost = 0,
+                Total = bodegaje
+            });
+        }
+
         if (sale.Lines.Count == 0)
             throw new AppException(
                 "La orden no tiene repuestos ni mano de obra que cobrar. Cargue lo trabajado antes de cerrarla.");

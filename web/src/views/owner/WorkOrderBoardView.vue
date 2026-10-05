@@ -102,6 +102,15 @@ const CARRILES: { clave: string; titulo: string; tono: string; estados: WorkOrde
   },
 ]
 
+/**
+ * Días que el vehículo lleva listo sin que nadie lo retire. Cero si todavía no está listo o
+ * si lo avisaron hoy: el distintivo es para el que ya está ocupando lugar.
+ */
+function diasSinRetirar(order: WorkOrderListItem) {
+  if (order.status !== WorkOrderStatus.Ready || !order.readyNotifiedAt) return 0
+  return Math.floor((Date.now() - new Date(order.readyNotifiedAt).getTime()) / 86_400_000)
+}
+
 const carriles = computed(() =>
   CARRILES.map((carril) => ({
     ...carril,
@@ -242,6 +251,13 @@ watch([search, branchId, verCerradas], load)
           <div class="card-head">
             <strong class="num">{{ order.number }}</strong>
             <span v-if="isLate(order)" class="late" title="Pasó la fecha prometida">Atrasada</span>
+            <span
+              v-else-if="diasSinRetirar(order) > 0"
+              class="late"
+              title="Está listo y nadie lo ha venido a traer"
+            >
+              Sin retirar · {{ diasSinRetirar(order) }} d
+            </span>
             <!-- El estado exacto: el carril agrupa, la insignia precisa. -->
             <StatusBadge :status="order.status" />
           </div>

@@ -44,6 +44,13 @@ public class WorkOrder : TenantEntity, IBranchEntity
     public DateTimeOffset? PromisedAt { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
 
+    /// <summary>
+    /// Cuándo se le avisó al cliente que el vehículo estaba listo. Se pone al pasar la orden
+    /// a «Lista para entrega» y no se vuelve a tocar: de ahí se cuentan los días que el carro
+    /// lleva ocupando el taller, y de ahí sale el bodegaje si el taller lo cobra.
+    /// </summary>
+    public DateTimeOffset? ReadyNotifiedAt { get; set; }
+
     /// <summary>Venta generada al cerrar la orden. Null mientras no se factura.</summary>
     public Guid? SaleId { get; set; }
 

@@ -136,7 +136,11 @@ public record CreateSaleRequest(
     // servicio rápido: aparece en el historial del vehículo, como una orden.
     Guid? VehicleId = null,
     // Días de garantía. Null toma el del taller; cero es sin garantía.
-    int? WarrantyDays = null);
+    int? WarrantyDays = null,
+    // Bodegaje por los días que el vehículo estuvo listo sin que nadie lo retirara. Se manda
+    // ya calculado y revisado por el Dueño: el sistema lo propone, nunca lo cobra solo.
+    decimal? StorageCharge = null,
+    int? StorageDays = null);
 
 /// <summary>
 /// Cierre de la orden: la entrega al cliente y genera la venta con lo que se le hizo.
@@ -172,7 +176,11 @@ public record CloseWorkOrderRequest(
     // taller nunca fue dueño y no puede facturarlo. Por eso se pregunta al cerrar.
     bool IncludeOutsideParts = false,
     // Días de garantía. Null toma el del taller; cero es sin garantía.
-    int? WarrantyDays = null);
+    int? WarrantyDays = null,
+    // Bodegaje por los días que el vehículo estuvo listo sin que nadie lo retirara. Se manda
+    // ya calculado y revisado por el Dueño: el sistema lo propone, nunca lo cobra solo.
+    decimal? StorageCharge = null,
+    int? StorageDays = null);
 
 /// <summary>Un abono a una venta con saldo.</summary>
 public record RegisterPaymentRequest(

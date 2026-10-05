@@ -295,6 +295,8 @@ export interface WorkOrderListItem {
   promisedAt: string | null
   taskCount: number
   tasksDone: number
+  /** Cuándo se le avisó al cliente que estaba listo. De ahí se cuentan los días sin retirar. */
+  readyNotifiedAt: string | null
 }
 
 export interface WorkOrderTask {
@@ -926,6 +928,8 @@ export interface WorkOrderDetail {
   openedAt: string
   promisedAt: string | null
   closedAt: string | null
+  /** Cuándo se le avisó al cliente que estaba listo. De ahí salen los días sin retirar. */
+  readyNotifiedAt: string | null
   serviceRequestId: string | null
   tasks: WorkOrderTask[]
   timeline: WorkOrderStatusEntry[]
@@ -985,6 +989,11 @@ export interface TenantSettings {
   defaultPhoneCountryCode: string
   /** Días de garantía que lleva un trabajo por defecto. Cero es sin garantía. */
   defaultWarrantyDays: number
+  /** Si el taller cobra bodegaje por el vehículo que nadie retira. */
+  chargesStorage: boolean
+  /** Días de gracia desde el aviso de que está listo. Dentro de ellos no se cobra. */
+  storageFreeDays: number
+  storageDailyRate: number
   /** Ruta relativa a la base de la API, o null. Se abre con `apiUrl()`. */
   logoUrl: string | null
 }

@@ -26,7 +26,10 @@ public record WorkOrderListItemDto(
     DateTimeOffset OpenedAt,
     DateTimeOffset? PromisedAt,
     int TaskCount,
-    int TasksDone);
+    int TasksDone,
+    // Cuándo se le avisó al cliente que estaba listo. De ahí se cuentan los días que el
+    // vehículo lleva ocupando el taller sin que nadie venga por él.
+    DateTimeOffset? ReadyNotifiedAt);
 
 public record WorkOrderDetailDto(
     Guid Id,
@@ -51,6 +54,9 @@ public record WorkOrderDetailDto(
     DateTimeOffset OpenedAt,
     DateTimeOffset? PromisedAt,
     DateTimeOffset? ClosedAt,
+    // Cuándo se le avisó al cliente que estaba listo. De ahí salen los días sin retirar y,
+    // si el taller lo cobra, el bodegaje.
+    DateTimeOffset? ReadyNotifiedAt,
     Guid? ServiceRequestId,
     IReadOnlyList<WorkOrderTaskDto> Tasks,
     IReadOnlyList<WorkOrderStatusEntryDto> Timeline,
@@ -143,6 +149,12 @@ public record WorkOrderQuery : PageQuery
 
     /// <summary>Solo las que siguen vivas en el taller (ni entregadas ni canceladas).</summary>
     public bool OnlyOpen { get; init; }
+
+    /// <summary>
+    /// Los vehículos que están listos y nadie retira: avisados hace estos días o más. Es la
+    /// lista de los que están ocupando el taller sin que nadie venga por ellos.
+    /// </summary>
+    public int? AwaitingPickupDays { get; init; }
 }
 
 // ---------- Seguimiento por enlace ----------
