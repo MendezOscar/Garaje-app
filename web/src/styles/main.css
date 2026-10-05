@@ -131,3 +131,181 @@ button:disabled {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* ------------------------------------------------------------------ escalas
+
+   Antes cada vista inventaba sus márgenes y sus tamaños de letra: 0,3rem aquí, 0,875rem
+   allá. Estas dos escalas son los únicos valores permitidos. Son pocas a propósito —seis
+   espacios y seis tamaños—: con más, volvemos a improvisar. */
+
+:root {
+  /* Espaciado. Todo es múltiplo de 4 px, que es lo que hace que dos tarjetas distintas se
+     vean alineadas aunque las haya escrito otra persona. */
+  --space-1: 0.25rem; /* 4px  · entre una etiqueta y su dato */
+  --space-2: 0.5rem; /* 8px  · dentro de una fila */
+  --space-3: 0.75rem; /* 12px · entre campos de un formulario */
+  --space-4: 1rem; /* 16px · relleno de tarjeta, entre tarjetas */
+  --space-5: 1.5rem; /* 24px · entre bloques de una pantalla */
+  --space-6: 2rem; /* 32px · entre secciones grandes */
+
+  /* Tipografía. El cuerpo es 15 px: el Dueño lee esto en una laptop y el técnico en el
+     teléfono, con el taller de fondo. */
+  --text-xs: 0.75rem; /* 12px · pies de nota, etiquetas de estado */
+  --text-sm: 0.875rem; /* 14px · texto secundario, tablas densas */
+  --text-md: 0.9375rem; /* 15px · cuerpo */
+  --text-lg: 1.125rem; /* 18px · título de tarjeta */
+  --text-xl: 1.5rem; /* 24px · título de pantalla */
+  --text-2xl: 1.875rem; /* 30px · la cifra que importa de un vistazo */
+
+  --leading-tight: 1.25; /* titulares */
+  --leading-normal: 1.5; /* texto corrido */
+
+  /* Una sola sombra, y suave: las tarjetas se separan con borde. La sombra queda para lo
+     que flota de verdad —menús, diálogos—, que es justo cuando hay que notarla. */
+  --shadow-pop: 0 0.5rem 1.5rem rgb(0 0 0 / 18%);
+
+  /* Cuánto tiene que medir algo para que un dedo le pegue sin fallar. */
+  --touch: 2.75rem; /* 44px */
+}
+
+/* ------------------------------------------------------------- lo compartido
+
+   Tarjeta, texto apagado, texto chico, aviso de error: lo que aparece en todas las
+   pantallas. Estaba copiado en cada vista con medidas distintas —`.small` era 12 px en una
+   y 13 px en la de al lado—, así que vive aquí. Una vista puede seguir ajustándolo en su
+   propio bloque `scoped` cuando de verdad lo necesite; lo que ya no hace falta es
+   redefinirlo para que se vea igual. */
+
+.card {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: var(--text-sm);
+}
+
+.tiny {
+  font-size: var(--text-xs);
+}
+
+.error {
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------ botones
+
+   Tres pesos, y se eligen por lo que hace el botón, no por cómo se ve: el lleno es la
+   acción principal de la pantalla —una sola por pantalla—, el apagado es todo lo demás, y
+   el rojo es lo que borra o da de baja. */
+
+.btn-ghost,
+.btn-danger {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-ghost:hover:not(:disabled),
+.btn-danger:hover:not(:disabled) {
+  background: var(--surface-alt);
+  text-decoration: none;
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+
+/* Para las filas de una tabla, donde tres botones de tamaño normal no caben. */
+.btn-sm {
+  padding: 0.3125rem 0.625rem;
+  font-size: var(--text-sm);
+}
+
+/* Las acciones de una fila: juntas, sin desbordar, y envolviendo cuando la pantalla se
+   angosta en vez de empujar la tabla a lo ancho. */
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Un dedo falla por debajo de 44 px. En el escritorio el ratón no necesita tanto, así que
+   el mínimo sube solo en pantalla angosta, que es donde se toca. */
+@media (pointer: coarse), (max-width: 60rem) {
+  button,
+  .btn-ghost,
+  .btn-danger,
+  input,
+  select {
+    min-height: var(--touch);
+  }
+
+  .btn-sm {
+    min-height: 2.25rem;
+  }
+}
+
+/* --------------------------------------------------------- carga de esqueleto
+
+   En vez de una pantalla en blanco o una ruedita, el hueco de lo que viene: así se ve de
+   una vez cuánto va a cargar y dónde, y la pantalla no salta cuando llegan los datos. */
+
+.skeleton {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-alt) 25%,
+    color-mix(in srgb, var(--surface-alt) 55%, var(--surface)) 50%,
+    var(--surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-brillo 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-brillo {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Quien pidió menos movimiento en el sistema no tiene por qué ver esto parpadeando. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Solo para lectores de pantalla: el texto está, pero no ocupa sitio. Para ponerle nombre a
+   un botón que solo lleva un icono, o para avisar de algo que se ve pero no se lee. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

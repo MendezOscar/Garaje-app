@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { laborServicesApi } from '@/api/garaj'
+import EmptyState from '@/components/EmptyState.vue'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import type { LaborService } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 
@@ -133,7 +136,7 @@ onMounted(load)
       </div>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <div class="layout">
       <div>
@@ -145,10 +148,12 @@ onMounted(load)
           </label>
         </div>
 
-        <p v-if="loading" class="muted">Cargando…</p>
-        <p v-else-if="!visible.length" class="muted">
-          No hay servicios que coincidan. Agregue el primero en el formulario de al lado.
-        </p>
+        <SkeletonList v-if="loading" :rows="4" variant="tabla" />
+        <EmptyState
+          v-else-if="!visible.length"
+          title="No hay servicios que coincidan"
+          hint="Agregue el primero en el formulario de al lado."
+        />
 
         <table v-else>
           <thead>

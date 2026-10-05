@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, salesApi, statementsApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import {
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
@@ -236,10 +238,10 @@ onMounted(async () => {
       </div>
     </form>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
     <p v-if="aviso" class="notice">{{ aviso }}</p>
 
-    <p v-if="loading" class="muted">Cargando…</p>
+    <SkeletonList v-if="loading" :rows="4" variant="tabla" />
     <p v-else-if="!sales.length" class="muted">
       {{
         search || branchId || vencimiento !== 'todas'

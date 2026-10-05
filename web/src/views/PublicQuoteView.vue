@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { apiUrl, errorMessage } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { publicQuotesApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import { LINE_TYPE_LABEL, QuoteStatus, type PublicQuote } from '@/types/domain'
 import { formatDate, sinIsv } from '@/utils/format'
 
@@ -196,7 +197,7 @@ onMounted(load)
         </div>
       </section>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <ErrorNote v-if="error" :message="error" />
 
       <!-- Respuesta del cliente -->
       <section v-if="quote.canRespond" class="respond">

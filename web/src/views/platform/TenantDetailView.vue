@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { platformApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import type { CreatedTenant, PlatformTenantDetail } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
@@ -166,7 +168,7 @@ onMounted(load)
       <button v-else type="button" @click="reactivar">Reactivar</button>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <p class="situacion" :class="tenant.state.toLowerCase()">{{ situacion }}</p>
 
@@ -350,7 +352,7 @@ onMounted(load)
     </table>
   </section>
 
-  <p v-else-if="loading" class="muted">Cargando…</p>
+  <SkeletonList v-else-if="loading" :rows="4" variant="tabla" />
   <p v-else class="error">{{ error }}</p>
 </template>
 

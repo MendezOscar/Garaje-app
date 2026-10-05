@@ -12,6 +12,7 @@ import {
   usersApi,
   workOrdersApi,
 } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
@@ -862,7 +863,7 @@ onMounted(async () => {
       </div>
     </details>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <div class="grid">
       <!-- La columna de trabajo: lo que se hace hoy con el vehículo enfrente. -->

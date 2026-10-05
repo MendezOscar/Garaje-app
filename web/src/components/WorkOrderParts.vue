@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { partsApi, workOrdersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import type { Part, WorkOrderPart } from '@/types/domain'
 import { formatMoney, formatQuantity } from '@/utils/format'
 
@@ -162,7 +163,7 @@ watch(search, () => {
       <button v-if="canEdit && !adding" type="button" @click="open">Agregar</button>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <p v-if="!parts.length && !adding" class="muted">
       Todavía no se ha cargado ningún repuesto a esta orden.

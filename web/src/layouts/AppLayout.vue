@@ -3,11 +3,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
+import { useOnline } from '@/composables/useOnline'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
 import { Roles } from '@/types/api'
 
 const auth = useAuthStore()
+const { online } = useOnline()
 const router = useRouter()
 const route = useRoute()
 
@@ -245,6 +247,14 @@ async function logout() {
       </header>
 
       <main>
+        <!-- Sin internet, lo que se guarde se pierde. Decirlo arriba y en todas las
+             pantallas evita que alguien escriba una orden entera creyendo que se está
+             guardando. -->
+        <p v-if="!online" class="sin-conexion" role="status">
+          Sin conexión a internet. Puede seguir leyendo lo que ya está en pantalla, pero no se
+          guardará nada hasta que vuelva la señal.
+        </p>
+
         <p v-if="suscripcion" class="suscripcion" :class="tonoSuscripcion">
           {{ suscripcion.message }}
         </p>
@@ -434,6 +444,19 @@ header {
 main {
   flex: 1;
   padding: 1.5rem;
+}
+
+/* El aviso de que no hay internet. Mismo sitio que el de la mensualidad y mismo peso: es algo
+   que hay que saber antes de seguir trabajando, no una notificación de esquina. */
+.sin-conexion {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 /* El aviso de la mensualidad. Va arriba del contenido y no en una esquina: el Dueño tiene que

@@ -2,6 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { usersApi, workOrdersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -218,8 +220,8 @@ watch([search, branchId, verCerradas], load)
       <span v-if="atrasadas" class="count alerta">{{ atrasadas }} atrasadas</span>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="loading" :rows="4" variant="tabla" />
 
     <!-- En pantalla angosta el carril se elige con un chip: cuatro columnas no caben. -->
     <div v-if="angosto && vista === 'tablero'" class="chips">

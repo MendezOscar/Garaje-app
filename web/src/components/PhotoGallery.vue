@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { mediaApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import { MediaOwnerType, type MediaAttachment } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 
@@ -111,7 +112,7 @@ onMounted(load)
       />
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <p v-if="!photos.length && uploading === 0" class="muted">
       {{

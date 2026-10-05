@@ -2,6 +2,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, partsApi, stockApi } from '@/api/garaj'
+import EmptyState from '@/components/EmptyState.vue'
+import ErrorNote from '@/components/ErrorNote.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   STOCK_MOVEMENT_LABEL,
@@ -245,7 +248,7 @@ onMounted(async () => {
       <button v-if="canManage" type="button" @click="openNewPart">Nuevo repuesto</button>
     </header>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <ErrorNote v-if="error" :message="error" />
 
     <div v-if="alerts.length" class="alerts">
       <strong>Reposición:</strong>
@@ -276,8 +279,8 @@ onMounted(async () => {
       </template>
     </form>
 
-    <p v-if="loading" class="muted">Cargando…</p>
-    <p v-else-if="!items.length" class="muted">No hay existencias que coincidan.</p>
+    <SkeletonList v-if="loading" :rows="4" variant="tabla" />
+    <EmptyState v-else-if="!items.length" title="No hay existencias que coincidan" />
 
     <table v-else>
       <thead>

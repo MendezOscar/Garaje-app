@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { serviceRequestsApi, usersApi } from '@/api/garaj'
+import ErrorNote from '@/components/ErrorNote.vue'
 import NewServiceRequestForm from '@/components/NewServiceRequestForm.vue'
+import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   SERVICE_REQUEST_STATUS_LABEL,
@@ -111,8 +113,8 @@ onMounted(async () => {
 
     <NewServiceRequestForm @created="load" />
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading" class="muted">Cargando…</p>
+    <ErrorNote v-if="error" :message="error" />
+    <SkeletonList v-if="loading" :rows="4" variant="lista" />
 
     <ul class="list">
       <li v-for="request in requests" :key="request.id" class="card">
