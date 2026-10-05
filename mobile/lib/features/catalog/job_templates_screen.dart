@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/job_template_repository.dart';
+import '../../core/api/labor_service_repository.dart';
 import '../../core/api/work_order_repository.dart' show LaborServiceOption, laborServicesProvider;
 import '../../core/theme/garaj_brand.dart';
 import '../../core/widgets/garaj_skeleton.dart';
@@ -420,7 +421,12 @@ String _cantidad(double value) =>
     value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
 
 /// Lo que devuelve el formulario de un trabajo nuevo.
-typedef _PasoNuevo = ({String title, String? laborServiceId, double? estimatedHours});
+typedef _PasoNuevo = ({
+  String title,
+  String? laborServiceId,
+  double? estimatedHours,
+  double? manualLaborPrice,
+});
 
 typedef _RepuestoNuevo = ({String? partId, String? description, double quantity});
 
@@ -455,7 +461,10 @@ class _FormularioTrabajo extends ConsumerStatefulWidget {
 class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
   final _nombre = TextEditingController();
   final _descripcion = TextEditingController();
-  final _pasos = <_PasoEnEdicion>[_PasoEnEdicion()];
+
+  /// Los pasos del trabajo, con el precio que se enseña mientras se arma.
+  final _pasos = <_PasoNuevo>[];
+  final _preciosDePasos = <double?>[];
 
   /// Los repuestos del trabajo, con el nombre que se enseña mientras se arma.
   final _repuestos = <_RepuestoNuevo>[];
@@ -465,14 +474,10 @@ class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
   void dispose() {
     _nombre.dispose();
     _descripcion.dispose();
-    for (final paso in _pasos) {
-      paso.dispose();
-    }
     super.dispose();
   }
 
-  bool get _sePuedeGuardar =>
-      _nombre.text.trim().isNotEmpty && _pasos.any((p) => p.titulo.text.trim().isNotEmpty);
+  bool get _sePuedeGuardar => _nombre.text.trim().isNotEmpty && _pasos.isNotEmpty;
 
   void _guardar() {
     Navigator.pop(
@@ -480,18 +485,60 @@ class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
       _NuevoTrabajo(
         nombre: _nombre.text.trim(),
         descripcion: _descripcion.text.trim().isEmpty ? null : _descripcion.text.trim(),
-        pasos: [
-          for (final paso in _pasos)
-            if (paso.titulo.text.trim().isNotEmpty)
-              (
-                title: paso.titulo.text.trim(),
-                laborServiceId: paso.servicioId,
-                estimatedHours: double.tryParse(paso.horas.text.trim()),
-              ),
-        ],
+        pasos: _pasos,
         repuestos: _repuestos,
       ),
     );
+  }
+
+  /// Agrega un paso con la misma hoja que la orden: del catálogo, con precio a mano —y la
+  /// opción de guardarlo en el catálogo— o sin cobro.
+  Future<void> _agregarPaso() async {
+    final elegido = await showModalBottomSheet<_PasoElegido>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ElegirPaso(servicios: widget.servicios),
+    );
+
+    if (elegido == null) return;
+
+    // Guardarlo en el catálogo: se crea aquí para que el paso quede apuntando al servicio y
+    // la próxima vez el trabajo ya esté.
+    var servicioId = elegido.servicioId;
+    double? manual = elegido.precio;
+
+    if (elegido.guardarEnCatalogo && elegido.precio != null) {
+      try {
+        servicioId = await crearServicioDeManoDeObra(ref, elegido.nombre, elegido.precio!);
+        manual = null;
+        ref.invalidate(laborServicesProvider);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(apiErrorMessage(e, 'No se pudo guardar en el catálogo.'))),
+          );
+        }
+        return;
+      }
+    }
+
+    setState(() {
+      _pasos.add((
+        title: elegido.nombre,
+        laborServiceId: servicioId,
+        estimatedHours: elegido.horas,
+        manualLaborPrice: servicioId == null ? manual : null,
+      ));
+      _preciosDePasos.add(elegido.precio);
+    });
+  }
+
+  /// Cómo se cobra el paso, para el renglón de la lista.
+  static String _comoSeCobraElPaso(_PasoNuevo paso, double? precio) {
+    if (paso.laborServiceId != null) return 'Del catálogo';
+    if (precio != null) return 'L ${precio.toStringAsFixed(2)} · precio a mano';
+    return 'Sin cobro';
   }
 
   static String _cantidad(double v) =>
@@ -562,88 +609,33 @@ class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
             Text('PASOS', style: theme.textTheme.labelSmall),
             const SizedBox(height: GarajSpace.xs),
             Text(
-              'Lo que hay que hacer, en orden. Si el paso sale del catálogo de mano de obra, '
-              'elíjalo ahí y el precio lo pone el catálogo.',
+              'Lo que hay que hacer, en orden. Se agregan igual que en una orden: del '
+              'catálogo, con precio a mano, o sin cobro.',
               style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
             ),
             const SizedBox(height: GarajSpace.sm),
 
-            for (final (i, paso) in _pasos.indexed) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: paso.titulo,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        labelText: 'Paso ${i + 1}',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  if (_pasos.length > 1)
-                    IconButton(
-                      tooltip: 'Quitar el paso',
-                      icon: const Icon(Icons.close),
-                      onPressed: () => setState(() {
-                        _pasos.removeAt(i).dispose();
-                      }),
-                    ),
-                ],
+            for (final (i, paso) in _pasos.indexed)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Text('${i + 1}', style: theme.textTheme.bodySmall),
+                title: Text(paso.title),
+                subtitle: Text(_comoSeCobraElPaso(paso, _preciosDePasos[i])),
+                trailing: IconButton(
+                  tooltip: 'Quitar el paso',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => setState(() {
+                    _pasos.removeAt(i);
+                    _preciosDePasos.removeAt(i);
+                  }),
+                ),
               ),
-              const SizedBox(height: GarajSpace.xs),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: paso.servicioId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Del catálogo',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('— ninguno —')),
-                        for (final s in widget.servicios)
-                          DropdownMenuItem(value: s.id, child: Text(s.name)),
-                      ],
-                      onChanged: (v) => setState(() {
-                        paso.servicioId = v;
-                        // Sin título escrito, el del catálogo sirve: es como se llama el
-                        // trabajo en el taller.
-                        if (v != null && paso.titulo.text.trim().isEmpty) {
-                          paso.titulo.text =
-                              widget.servicios.firstWhere((s) => s.id == v).name;
-                        }
-                      }),
-                    ),
-                  ),
-                  const SizedBox(width: GarajSpace.sm),
-                  Expanded(
-                    child: TextField(
-                      controller: paso.horas,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Horas',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: GarajSpace.md),
-            ],
 
             OutlinedButton.icon(
-              onPressed: () => setState(() => _pasos.add(_PasoEnEdicion())),
+              onPressed: _agregarPaso,
               icon: const Icon(Icons.add),
-              label: const Text('Otro paso'),
+              label: const Text('Agregar paso'),
             ),
             const SizedBox(height: GarajSpace.lg),
 
@@ -700,19 +692,6 @@ class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
         ),
       ),
     );
-  }
-}
-
-/// Un paso mientras se escribe. Lleva sus propios controladores para que al quitar un paso
-/// del medio no se arrastre el texto del de abajo.
-class _PasoEnEdicion {
-  final titulo = TextEditingController();
-  final horas = TextEditingController();
-  String? servicioId;
-
-  void dispose() {
-    titulo.dispose();
-    horas.dispose();
   }
 }
 
@@ -860,4 +839,296 @@ class _ElegirRepuestoState extends ConsumerState<_ElegirRepuesto> {
       ),
     );
   }
+}
+
+/// Lo que devuelve la hoja del paso: cómo se llama, de dónde sale su precio, y si el trabajo
+/// se guarda en el catálogo para la próxima vez.
+class _PasoElegido {
+  const _PasoElegido({
+    required this.nombre,
+    this.servicioId,
+    this.precio,
+    this.horas,
+    this.guardarEnCatalogo = false,
+  });
+
+  final String nombre;
+
+  /// El servicio del catálogo, cuando el paso sale de ahí.
+  final String? servicioId;
+
+  /// El precio escrito a mano. Null cuando el paso no se cobra o sale del catálogo.
+  final double? precio;
+
+  final double? horas;
+
+  /// Si el trabajo escrito a mano se guarda además en el catálogo.
+  final bool guardarEnCatalogo;
+}
+
+/// Un paso del trabajo frecuente, con la misma hoja que una orden.
+///
+/// Los mismos tres caminos: del catálogo, con precio escrito a mano —y la opción de guardarlo
+/// en el catálogo, que no es lo que pasa por defecto— o sin cobro. Y el mismo aviso cuando ya
+/// existe algo parecido, para no guardar dos veces el mismo trabajo.
+class _ElegirPaso extends ConsumerStatefulWidget {
+  const _ElegirPaso({required this.servicios});
+
+  final List<LaborServiceOption> servicios;
+
+  @override
+  ConsumerState<_ElegirPaso> createState() => _ElegirPasoState();
+}
+
+class _ElegirPasoState extends ConsumerState<_ElegirPaso> {
+  final _titulo = TextEditingController();
+  final _precio = TextEditingController();
+  final _horas = TextEditingController();
+
+  _CobroDelPasoFrecuente _modo = _CobroDelPasoFrecuente.catalogo;
+  String? _servicioId;
+  bool _guardarEnCatalogo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Sin catálogo no hay de dónde elegir: se arranca escribiendo.
+    if (widget.servicios.isEmpty) _modo = _CobroDelPasoFrecuente.aMano;
+  }
+
+  @override
+  void dispose() {
+    _titulo.dispose();
+    _precio.dispose();
+    _horas.dispose();
+    super.dispose();
+  }
+
+  bool get _sePuede {
+    if (_titulo.text.trim().isEmpty) return false;
+
+    return switch (_modo) {
+      _CobroDelPasoFrecuente.catalogo => _servicioId != null,
+      _CobroDelPasoFrecuente.aMano => (double.tryParse(_precio.text.trim()) ?? 0) > 0,
+      _CobroDelPasoFrecuente.sinCobro => true,
+    };
+  }
+
+  void _guardar() {
+    Navigator.pop(
+      context,
+      _PasoElegido(
+        nombre: _titulo.text.trim(),
+        servicioId: _modo == _CobroDelPasoFrecuente.catalogo ? _servicioId : null,
+        precio: _modo == _CobroDelPasoFrecuente.aMano
+            ? double.parse(_precio.text.trim())
+            : null,
+        horas: double.tryParse(_horas.text.trim()),
+        guardarEnCatalogo: _modo == _CobroDelPasoFrecuente.aMano && _guardarEnCatalogo,
+      ),
+    );
+  }
+
+  /// Lo que ya está en el catálogo con un nombre parecido. Misma comparación tosca que en la
+  /// orden: sin tildes, sin mayúsculas, y vale que uno contenga al otro.
+  List<LaborServiceOption> get _parecidos {
+    final buscado = _plano(_titulo.text);
+    if (_modo != _CobroDelPasoFrecuente.aMano || buscado.length < 3) return const [];
+
+    return widget.servicios
+        .where((s) {
+          final nombre = _plano(s.name);
+          return nombre.contains(buscado) || buscado.contains(nombre);
+        })
+        .take(2)
+        .toList();
+  }
+
+  static String _plano(String texto) {
+    const conTilde = 'áéíóúüñ';
+    const sinTilde = 'aeiouun';
+
+    var plano = texto.trim().toLowerCase();
+    for (var i = 0; i < conTilde.length; i++) {
+      plano = plano.replaceAll(conTilde[i], sinTilde[i]);
+    }
+
+    return plano;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: GarajSpace.md,
+        right: GarajSpace.md,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + GarajSpace.md,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Paso del trabajo', style: theme.textTheme.titleLarge),
+            const SizedBox(height: GarajSpace.md),
+
+            Text('CÓMO SE COBRA', style: theme.textTheme.labelSmall),
+            const SizedBox(height: GarajSpace.sm),
+            Wrap(
+              spacing: GarajSpace.sm,
+              children: [
+                for (final m in _CobroDelPasoFrecuente.values)
+                  ChoiceChip(
+                    label: Text(m.etiqueta),
+                    selected: _modo == m,
+                    onSelected: (_) => setState(() => _modo = m),
+                  ),
+              ],
+            ),
+            const SizedBox(height: GarajSpace.md),
+
+            // Del catálogo no se pregunta el nombre: lo pone el servicio.
+            if (_modo == _CobroDelPasoFrecuente.catalogo)
+              DropdownButtonFormField<String?>(
+                initialValue: _servicioId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: '¿Qué hay que hacer?',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('— elija el servicio —'),
+                  ),
+                  for (final s in widget.servicios)
+                    DropdownMenuItem<String?>(
+                      value: s.id,
+                      child: Text(
+                        '${s.name} · ${money(s.price, 'HNL')}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (v) => setState(() {
+                  _servicioId = v;
+                  _titulo.text =
+                      v == null ? '' : widget.servicios.firstWhere((s) => s.id == v).name;
+                }),
+              )
+            else ...[
+              TextField(
+                controller: _titulo,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: '¿Qué hay que hacer?',
+                  hintText: 'Cambiar pastillas de adelante…',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              for (final existente in _parecidos)
+                Padding(
+                  padding: const EdgeInsets.only(top: GarajSpace.xs),
+                  child: InkWell(
+                    onTap: () => setState(() {
+                      _modo = _CobroDelPasoFrecuente.catalogo;
+                      _servicioId = existente.id;
+                      _titulo.text = existente.name;
+                    }),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lightbulb_outline, size: 16),
+                        const SizedBox(width: GarajSpace.xs),
+                        Expanded(
+                          child: Text(
+                            'Ya está en el catálogo: «${existente.name}» a '
+                            '${money(existente.price, 'HNL')}. Toque para usarlo.',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: theme.colorScheme.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              if (_modo == _CobroDelPasoFrecuente.aMano) ...[
+                const SizedBox(height: GarajSpace.sm),
+                TextField(
+                  controller: _precio,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Precio del paso',
+                    prefixText: 'L ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _guardarEnCatalogo,
+                  title: const Text('Guardarlo en el catálogo'),
+                  subtitle: const Text('Para no volver a escribirlo en otra orden.'),
+                  onChanged: (v) => setState(() => _guardarEnCatalogo = v ?? false),
+                ),
+              ] else
+                Padding(
+                  padding: const EdgeInsets.only(top: GarajSpace.sm),
+                  child: Text(
+                    'El paso se hace pero no se cobra: va dentro de otro trabajo.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                  ),
+                ),
+            ],
+
+            const SizedBox(height: GarajSpace.sm),
+            TextField(
+              controller: _horas,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Horas estimadas (opcional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: GarajSpace.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: GarajSpace.sm),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _sePuede ? _guardar : null,
+                    child: const Text('Agregar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Cómo se cobra un paso de un trabajo frecuente. Los mismos tres de una orden, menos el
+/// total al final: un trabajo frecuente no es una orden y no tiene un total que fijar.
+enum _CobroDelPasoFrecuente {
+  catalogo('Del catálogo'),
+  aMano('Precio a mano'),
+  sinCobro('Sin cobro');
+
+  const _CobroDelPasoFrecuente(this.etiqueta);
+
+  final String etiqueta;
 }

@@ -321,6 +321,8 @@ export interface WorkOrderTask {
   technicianNotes: string | null
   startedAt: string | null
   completedAt: string | null
+  /** El precio escrito a mano del paso, cuando no sale del catálogo. */
+  manualLaborPrice: number | null
 }
 
 export interface WorkOrderStatusEntry {

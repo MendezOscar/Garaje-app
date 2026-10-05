@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -477,10 +476,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
   /// El paso nuevo: qué hay que hacer y cómo se cobra.
   ///
-  /// Tres caminos y uno a la vez, porque antes solo se podía elegir del catálogo o dejarlo sin
-  /// cobro: si el trabajo no estaba en el catálogo no había forma de ponerle precio desde el
-  /// teléfono. Ahora el precio a mano crea el servicio en el catálogo —con el nombre del
-  /// paso— y lo deja disponible para la próxima vez, que es lo que hace el panel.
+  /// Tres caminos y uno a la vez. Del catálogo el precio sale del servicio; a mano se escribe,
+  /// y entonces hay que decidir dos cosas más: si el precio va en este paso o si se fija un
+  /// total para toda la orden al final, y si el trabajo se guarda en el catálogo para la
+  /// próxima vez. Guardarlo **no** es lo que pasa por defecto: el catálogo se llenaba de
+  /// entradas de un solo uso.
   Future<void> _addTask(bool catalogLabor) async {
     final titulo = TextEditingController();
     final precio = TextEditingController();
@@ -490,171 +490,303 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     String? servicioId;
     var modo = catalogLabor && servicios.isNotEmpty ? _CobroDelPaso.catalogo : _CobroDelPaso.aMano;
+    var dondeVaElPrecio = _DondeVaElPrecio.enEstePaso;
+    var guardarEnCatalogo = false;
 
     final hecho = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setInner) => Padding(
-          padding: EdgeInsets.only(
-            left: GarajSpace.md,
-            right: GarajSpace.md,
-            bottom: MediaQuery.viewInsetsOf(context).bottom + GarajSpace.md,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Nuevo paso', style: Theme.of(context).textTheme.titleLarge),
+        builder: (context, setInner) {
+          final theme = Theme.of(context);
 
-                // En modo manual el precio es uno solo para toda la orden: el paso va suelto y
-                // no hay nada que elegir.
-                if (catalogLabor) ...[
-                  const SizedBox(height: GarajSpace.md),
-                  Text('CÓMO SE COBRA', style: Theme.of(context).textTheme.labelSmall),
-                  const SizedBox(height: GarajSpace.sm),
-                  Wrap(
-                    spacing: GarajSpace.sm,
-                    children: [
-                      for (final m in _CobroDelPaso.values)
-                        ChoiceChip(
-                          label: Text(m.etiqueta),
-                          selected: modo == m,
-                          onSelected: (_) => setInner(() => modo = m),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: GarajSpace.md),
-                ],
+          // Lo que ya existe en el catálogo con un nombre parecido, para no guardar dos veces
+          // el mismo trabajo. Solo se busca al escribir a mano, que es cuando se puede
+          // duplicar.
+          final parecidos = modo == _CobroDelPaso.aMano
+              ? _parecidos(titulo.text, servicios)
+              : const <LaborServiceOption>[];
 
-                // Del catálogo no se pregunta el nombre: el del servicio es como el taller
-                // llama a ese trabajo, y escribirlo otra vez era escribir dos veces lo mismo.
-                if (catalogLabor && modo == _CobroDelPaso.catalogo)
-                  DropdownButtonFormField<String?>(
-                    initialValue: servicioId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: '¿Qué hay que hacer?',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('— elija el servicio —'),
-                      ),
-                      for (final s in servicios)
-                        DropdownMenuItem<String?>(
-                          value: s.id,
-                          child: Text(
-                            '${s.name} · ${_money(s.price)}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) => setInner(() {
-                      servicioId = value;
-                      titulo.text =
-                          value == null ? '' : servicios.firstWhere((s) => s.id == value).name;
-                    }),
-                  )
-                else ...[
-                  TextField(
-                    controller: titulo,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    onChanged: (_) => setInner(() {}),
-                    decoration: const InputDecoration(
-                      labelText: '¿Qué hay que hacer?',
-                      hintText: 'Cambiar pastillas de adelante…',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  if (catalogLabor && modo == _CobroDelPaso.aMano) ...[
+          return Padding(
+            padding: EdgeInsets.only(
+              left: GarajSpace.md,
+              right: GarajSpace.md,
+              bottom: MediaQuery.viewInsetsOf(context).bottom + GarajSpace.md,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Nuevo paso', style: theme.textTheme.titleLarge),
+
+                  // En modo manual el precio es uno solo para toda la orden: el paso va suelto
+                  // y no hay nada que elegir.
+                  if (catalogLabor) ...[
+                    const SizedBox(height: GarajSpace.md),
+                    Text('CÓMO SE COBRA', style: theme.textTheme.labelSmall),
                     const SizedBox(height: GarajSpace.sm),
+                    Wrap(
+                      spacing: GarajSpace.sm,
+                      children: [
+                        for (final m in _CobroDelPaso.values)
+                          ChoiceChip(
+                            label: Text(m.etiqueta),
+                            selected: modo == m,
+                            onSelected: (_) => setInner(() => modo = m),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: GarajSpace.md),
+                  ],
+
+                  // Del catálogo no se pregunta el nombre: el del servicio es como el taller
+                  // llama a ese trabajo, y escribirlo otra vez era escribir dos veces lo mismo.
+                  if (catalogLabor && modo == _CobroDelPaso.catalogo)
+                    DropdownButtonFormField<String?>(
+                      initialValue: servicioId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: '¿Qué hay que hacer?',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('— elija el servicio —'),
+                        ),
+                        for (final s in servicios)
+                          DropdownMenuItem<String?>(
+                            value: s.id,
+                            child: Text(
+                              '${s.name} · ${_money(s.price)}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (value) => setInner(() {
+                        servicioId = value;
+                        titulo.text =
+                            value == null ? '' : servicios.firstWhere((s) => s.id == value).name;
+                      }),
+                    )
+                  else ...[
                     TextField(
-                      controller: precio,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      controller: titulo,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.sentences,
                       onChanged: (_) => setInner(() {}),
                       decoration: const InputDecoration(
-                        labelText: 'Precio',
-                        prefixText: 'L ',
-                        helperText: 'Queda en el catálogo con el nombre del paso, para la '
-                            'próxima vez.',
-                        helperMaxLines: 2,
+                        labelText: '¿Qué hay que hacer?',
+                        hintText: 'Cambiar pastillas de adelante…',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                  ],
-                  if (catalogLabor && modo == _CobroDelPaso.sinCobro) ...[
-                    const SizedBox(height: GarajSpace.sm),
-                    Text(
-                      'El paso se hace pero no se cobra: va dentro de otro trabajo.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).hintColor,
-                          ),
-                    ),
-                  ],
-                ],
 
-                const SizedBox(height: GarajSpace.lg),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancelar'),
+                    // Ya existe algo parecido en el catálogo: se ofrece usarlo en vez de
+                    // escribir otra vez el mismo trabajo con otro precio.
+                    for (final existente in parecidos)
+                      Padding(
+                        padding: const EdgeInsets.only(top: GarajSpace.xs),
+                        child: InkWell(
+                          onTap: () => setInner(() {
+                            modo = _CobroDelPaso.catalogo;
+                            servicioId = existente.id;
+                            titulo.text = existente.name;
+                          }),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.lightbulb_outline, size: 16),
+                              const SizedBox(width: GarajSpace.xs),
+                              Expanded(
+                                child: Text(
+                                  'Ya está en el catálogo: «${existente.name}» a '
+                                  '${_money(existente.price)}. Toque para usarlo.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: GarajSpace.sm),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _pasoCompleto(
-                          catalogLabor: catalogLabor,
-                          modo: modo,
-                          titulo: titulo.text,
-                          servicioId: servicioId,
-                          precio: precio.text,
-                        )
-                            ? () => Navigator.pop(context, true)
-                            : null,
-                        child: const Text('Agregar'),
+
+                    if (catalogLabor && modo == _CobroDelPaso.aMano) ...[
+                      const SizedBox(height: GarajSpace.md),
+                      Text('DÓNDE VA EL PRECIO', style: theme.textTheme.labelSmall),
+                      const SizedBox(height: GarajSpace.sm),
+                      Wrap(
+                        spacing: GarajSpace.sm,
+                        children: [
+                          for (final d in _DondeVaElPrecio.values)
+                            ChoiceChip(
+                              label: Text(d.etiqueta),
+                              selected: dondeVaElPrecio == d,
+                              onSelected: (_) => setInner(() => dondeVaElPrecio = d),
+                            ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: GarajSpace.sm),
+
+                      if (dondeVaElPrecio == _DondeVaElPrecio.enEstePaso) ...[
+                        TextField(
+                          controller: precio,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) => setInner(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Precio del paso',
+                            prefixText: 'L ',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: guardarEnCatalogo,
+                          title: const Text('Guardarlo en el catálogo'),
+                          subtitle: const Text(
+                            'Para no volver a escribirlo. Si es un trabajo de una sola vez, '
+                            'déjelo sin marcar.',
+                          ),
+                          onChanged: (v) => setInner(() => guardarEnCatalogo = v ?? false),
+                        ),
+                      ] else
+                        Text(
+                          'La orden pasa a cobrarse con un total único y se lo va a pedir al '
+                          'agregar el paso. Los pasos quedan sin precio propio.',
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                        ),
+                    ],
+
+                    if (catalogLabor && modo == _CobroDelPaso.sinCobro) ...[
+                      const SizedBox(height: GarajSpace.sm),
+                      Text(
+                        'El paso se hace pero no se cobra: va dentro de otro trabajo.',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                      ),
+                    ],
                   ],
-                ),
-              ],
+
+                  const SizedBox(height: GarajSpace.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: GarajSpace.sm),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _pasoCompleto(
+                            catalogLabor: catalogLabor,
+                            modo: modo,
+                            donde: dondeVaElPrecio,
+                            titulo: titulo.text,
+                            servicioId: servicioId,
+                            precio: precio.text,
+                          )
+                              ? () => Navigator.pop(context, true)
+                              : null,
+                          child: const Text('Agregar'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
 
     final texto = titulo.text.trim();
     if (hecho != true || texto.isEmpty) return;
 
+    // Un total para toda la orden: primero se cambia el modo —que es lo que pide el total— y
+    // después entra el paso, que en ese modo va sin precio propio.
+    if (catalogLabor && modo == _CobroDelPaso.aMano &&
+        dondeVaElPrecio == _DondeVaElPrecio.totalAlFinal) {
+      final total = await _askTotal(ref.read(workOrderDetailProvider(widget.id)).requireValue);
+      if (total == null) return;
+
+      await _run(() async {
+        await ref
+            .read(workOrderRepositoryProvider)
+            .setLaborMode(widget.id, LaborMode.manual, total: total);
+        await ref.read(workOrderRepositoryProvider).addTask(widget.id, texto);
+      });
+      return;
+    }
+
     await _run(() async {
       var servicio = servicioId;
+      double? manual;
 
-      // Precio a mano: primero el servicio en el catálogo, después el paso que lo usa.
       if (catalogLabor && modo == _CobroDelPaso.aMano) {
-        final creado = await _crearServicioDelPaso(texto, double.parse(precio.text.trim()));
-        servicio = creado;
-        ref.invalidate(laborServicesProvider);
+        final cuanto = double.parse(precio.text.trim());
+
+        if (guardarEnCatalogo) {
+          // Guardado en el catálogo, el precio sale de ahí: así la próxima vez el trabajo ya
+          // está y no hay que volver a escribirlo.
+          servicio = await crearServicioDeManoDeObra(ref, texto, cuanto);
+          ref.invalidate(laborServicesProvider);
+        } else {
+          manual = cuanto;
+        }
       }
 
       await ref.read(workOrderRepositoryProvider).addTask(
             widget.id,
             texto,
             laborServiceId: catalogLabor ? servicio : null,
+            manualPrice: manual,
           );
     });
+  }
+
+  /// Lo que ya está en el catálogo con un nombre parecido al que se está escribiendo.
+  ///
+  /// Comparación tosca a propósito —sin tildes, sin mayúsculas, y vale que uno contenga al
+  /// otro—: lo que se quiere evitar es guardar «Cambio de aceite» cuando ya existe «cambio de
+  /// aceite», no adivinar sinónimos. Desde tres letras, que es cuando deja de sugerir medio
+  /// catálogo.
+  static List<LaborServiceOption> _parecidos(
+    String texto,
+    List<LaborServiceOption> servicios,
+  ) {
+    final buscado = _plano(texto);
+    if (buscado.length < 3) return const [];
+
+    return servicios
+        .where((s) {
+          final nombre = _plano(s.name);
+          return nombre.contains(buscado) || buscado.contains(nombre);
+        })
+        .take(2)
+        .toList();
+  }
+
+  static String _plano(String texto) {
+    const conTilde = 'áéíóúüñ';
+    const sinTilde = 'aeiouun';
+
+    var plano = texto.trim().toLowerCase();
+    for (var i = 0; i < conTilde.length; i++) {
+      plano = plano.replaceAll(conTilde[i], sinTilde[i]);
+    }
+
+    return plano;
   }
 
   /// Si el formulario del paso ya se puede guardar.
   bool _pasoCompleto({
     required bool catalogLabor,
     required _CobroDelPaso modo,
+    required _DondeVaElPrecio donde,
     required String titulo,
     required String? servicioId,
     required String precio,
@@ -664,44 +796,12 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     return switch (modo) {
       _CobroDelPaso.catalogo => servicioId != null,
-      _CobroDelPaso.aMano => (double.tryParse(precio.trim()) ?? 0) > 0,
+      // Con el total al final el precio no se pide aquí: se pide al agregar, una sola vez para
+      // toda la orden.
+      _CobroDelPaso.aMano => donde == _DondeVaElPrecio.totalAlFinal ||
+          (double.tryParse(precio.trim()) ?? 0) > 0,
       _CobroDelPaso.sinCobro => true,
     };
-  }
-
-  /// Crea el servicio de mano de obra del paso y devuelve su id.
-  ///
-  /// El código se arma solo —tres letras del nombre y un número— porque pedirlo en el teléfono
-  /// es una pregunta que nadie sabe contestar. Si ya existe, se prueba el siguiente: el
-  /// servidor exige que no se repita.
-  Future<String> _crearServicioDelPaso(String nombre, double precio) async {
-    final letras = nombre
-        .toUpperCase()
-        .replaceAll(RegExp(r'[^A-Z0-9]'), '')
-        .padRight(3, 'X')
-        .substring(0, 3);
-
-    final repo = ref.read(laborServiceRepositoryProvider);
-
-    for (var n = 1; n <= 20; n++) {
-      try {
-        final creado = await repo.save(
-          code: '$letras-${n.toString().padLeft(2, '0')}',
-          name: nombre,
-          standardHours: 0,
-          hourlyRate: 0,
-          isFixedPrice: true,
-          fixedPrice: precio,
-        );
-
-        return creado.id;
-      } on DioException catch (e) {
-        // 409 es «ese código ya está usado»: se prueba con el siguiente número.
-        if (e.response?.statusCode != 409) rethrow;
-      }
-    }
-
-    throw Exception('No se pudo crear el servicio: todos los códigos probados están usados.');
   }
 
   /// Arma la orden con un trabajo frecuente: anexa sus pasos y propone sus repuestos.
@@ -2481,6 +2581,16 @@ String _hora(DateTime value) {
   final local = value.toLocal();
   return '${local.hour.toString().padLeft(2, '0')}:'
       '${local.minute.toString().padLeft(2, '0')}';
+}
+
+/// Dónde va el precio cuando se escribe a mano: en el paso, o uno solo para toda la orden.
+enum _DondeVaElPrecio {
+  enEstePaso('En este paso'),
+  totalAlFinal('Un total al final');
+
+  const _DondeVaElPrecio(this.etiqueta);
+
+  final String etiqueta;
 }
 
 /// Cómo se cobra un paso nuevo cuando la mano de obra va por catálogo.

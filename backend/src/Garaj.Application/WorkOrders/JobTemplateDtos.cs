@@ -25,8 +25,12 @@ public record JobTemplateTaskDto(
     Guid? LaborServiceId,
     string? LaborServiceName,
     decimal? EstimatedHours,
-    /// <summary>Lo que se cobraría por el paso hoy. Null si no lleva servicio del catálogo.</summary>
-    decimal? Price);
+    /// <summary>
+    /// Lo que se cobraría por el paso hoy: el precio escrito a mano si lo tiene, y si no el
+    /// del servicio del catálogo. Null cuando el paso no se cobra.
+    /// </summary>
+    decimal? Price,
+    decimal? ManualLaborPrice = null);
 
 public record JobTemplatePartDto(
     Guid Id,
@@ -49,7 +53,9 @@ public record SaveJobTemplateTaskRequest(
     string Title,
     string? Description,
     Guid? LaborServiceId,
-    decimal? EstimatedHours);
+    decimal? EstimatedHours,
+    /// <summary>Precio escrito a mano, para el paso que no sale del catálogo.</summary>
+    decimal? ManualLaborPrice = null);
 
 /// <param name="PartId">Null en una línea manual, que entonces necesita <paramref name="Description"/>.</param>
 public record SaveJobTemplatePartRequest(

@@ -122,12 +122,42 @@ void main() {
 
     // Los repuestos del trabajo. Faltaban: solo estaba el de agregar paso.
     expect(find.text('Agregar repuesto'), findsOneWidget);
+    expect(find.text('Agregar paso'), findsOneWidget);
 
     final nombre = 'Prueba ${DateTime.now().millisecondsSinceEpoch}';
     await tester.enterText(find.widgetWithText(TextField, 'Cómo se llama'), nombre);
-    await tester.enterText(find.widgetWithText(TextField, 'Paso 1'), 'Revisar el motor');
     await tester.pumpAndSettle();
 
+    // Los pasos se agregan con la misma hoja que en una orden.
+    await tester.tap(find.text('Agregar paso'));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Precio a mano'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, '¿Qué hay que hacer?'),
+      'Revisar el motor',
+    );
+    await tester.enterText(find.widgetWithText(TextField, 'Precio del paso'), '300');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Agregar'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    // El paso ya está en la lista, con su precio y sin haber tocado el catálogo.
+    expect(find.text('Revisar el motor'), findsOneWidget);
+    // El texto exacto del renglón: «precio a mano» a secas también aparece en la ayuda de
+    // arriba, y el buscador encontraba las dos.
+    expect(find.text('L 300.00 · precio a mano'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, 'Guardar'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Guardar'));
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
@@ -233,12 +263,22 @@ void main() {
     // era escribir dos veces lo mismo.
     expect(find.widgetWithText(TextField, '¿Qué hay que hacer?'), findsNothing);
 
-    // Con precio a mano sí, porque ahí el nombre es lo único que da el concepto.
+    // Con precio a mano sí, porque ahí el nombre es lo único que da el concepto. Y aparecen
+    // las dos decisiones nuevas: dónde va el precio, y si el trabajo se guarda en el catálogo
+    // —que no es lo que pasa por defecto, porque el catálogo se llenaba de entradas de un
+    // solo uso—.
     await tester.tap(find.text('Precio a mano'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(TextField, '¿Qué hay que hacer?'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Precio'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Precio del paso'), findsOneWidget);
+    expect(find.text('En este paso'), findsOneWidget);
+    expect(find.text('Un total al final'), findsOneWidget);
+
+    final guardar = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'Guardarlo en el catálogo'),
+    );
+    expect(guardar.value, isFalse, reason: 'no se guarda en el catálogo sin pedirlo');
   });
 
   testWidgets('los ajustes del taller se leen y se guardan desde el teléfono',

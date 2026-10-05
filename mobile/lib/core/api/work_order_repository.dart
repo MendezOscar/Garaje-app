@@ -109,14 +109,24 @@ class WorkOrderRepository {
     return WorkOrderDetail.fromJson(response.data!);
   }
 
+  /// Agrega un paso a la orden.
+  ///
+  /// El precio sale del catálogo con `laborServiceId`, o se escribe con `manualPrice` para el
+  /// trabajo que no está en el catálogo y que no vale la pena meter en él. Los dos a la vez no
+  /// tienen sentido y el servidor se queda con el del catálogo.
   Future<WorkOrderTask> addTask(
     String workOrderId,
     String title, {
     String? laborServiceId,
+    double? manualPrice,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/tasks',
-      data: {'title': title, 'laborServiceId': laborServiceId},
+      data: {
+        'title': title,
+        'laborServiceId': laborServiceId,
+        'manualLaborPrice': manualPrice,
+      },
     );
     return WorkOrderTask.fromJson(response.data!);
   }

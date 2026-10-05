@@ -139,7 +139,8 @@ public class JobTemplateService(
                 Description = task.Description,
                 Sequence = sequence++,
                 LaborServiceId = task.LaborServiceId,
-                EstimatedHours = task.ActualHours ?? task.EstimatedHours
+                EstimatedHours = task.ActualHours ?? task.EstimatedHours,
+                ManualLaborPrice = task.ManualLaborPrice
             });
         }
 
@@ -190,7 +191,10 @@ public class JobTemplateService(
             created.Add(await workOrders.AddTaskAsync(
                 workOrderId,
                 new SaveWorkOrderTaskRequest(
-                    task.Title, task.Description, null, task.LaborServiceId, task.EstimatedHours),
+                    task.Title, task.Description, null, task.LaborServiceId, task.EstimatedHours,
+                    // El precio a mano del paso viaja con él: si no, al aplicar la plantilla el
+                    // paso llegaría sin precio y habría que volver a ponérselo.
+                    task.ManualLaborPrice),
                 ct));
         }
 
@@ -279,7 +283,10 @@ public class JobTemplateService(
                 Description = Clean(task.Description),
                 Sequence = sequence++,
                 LaborServiceId = task.LaborServiceId,
-                EstimatedHours = task.EstimatedHours
+                EstimatedHours = task.EstimatedHours,
+                // Con servicio del catálogo el precio sale de él: dos precios para el mismo
+                // paso serían dos respuestas a la misma pregunta.
+                ManualLaborPrice = task.LaborServiceId is null ? task.ManualLaborPrice : null
             });
         }
 
@@ -348,7 +355,8 @@ public class JobTemplateService(
                 return new JobTemplateTaskDto(
                     t.Id, t.Title, t.Description, t.Sequence,
                     t.LaborServiceId, service?.Name, t.EstimatedHours,
-                    service?.PriceFor(t.EstimatedHours));
+                    t.ManualLaborPrice ?? service?.PriceFor(t.EstimatedHours),
+                    t.ManualLaborPrice);
             }).ToList();
 
             var lines = template.Parts.Select(p =>
