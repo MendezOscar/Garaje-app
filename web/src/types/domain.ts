@@ -1092,3 +1092,52 @@ export interface SaveVehicleReception {
   /** PNG en base64 sin el prefijo `data:`. Omitido deja la que ya hubiera. */
   signature?: string | null
 }
+
+/**
+ * En qué va un reclamo. Nace abierto y termina de una de tres formas, porque son las tres
+ * cosas que de verdad pasan.
+ */
+export const ClaimStatus = {
+  Open: 1,
+  RepairedUnderWarranty: 2,
+  RepairedAndCharged: 3,
+  Rejected: 4,
+} as const
+export type ClaimStatus = (typeof ClaimStatus)[keyof typeof ClaimStatus]
+
+export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
+  [ClaimStatus.Open]: 'Abierto',
+  [ClaimStatus.RepairedUnderWarranty]: 'Reparado en garantía',
+  [ClaimStatus.RepairedAndCharged]: 'Reparado y cobrado',
+  [ClaimStatus.Rejected]: 'No procede',
+}
+
+export interface ClaimListItem {
+  id: string
+  number: string
+  status: ClaimStatus
+  saleId: string
+  saleNumber: string
+  workOrderId: string | null
+  workOrderNumber: string | null
+  customerName: string | null
+  customerPhone: string | null
+  vehicleLabel: string | null
+  reason: string
+  /** Si estaba en garantía el día que se recibió. Se congela a propósito. */
+  wasUnderWarranty: boolean
+  receivedAt: string
+  resolvedAt: string | null
+  repairWorkOrderId: string | null
+  repairWorkOrderNumber: string | null
+}
+
+export interface ClaimDetail extends ClaimListItem {
+  customerId: string | null
+  warrantyUntil: string | null
+  receivedByName: string | null
+  resolution: string | null
+  resolvedByName: string | null
+  /** Lo que costó repararlo, cuando se abrió orden de garantía. */
+  repairCost: number
+}

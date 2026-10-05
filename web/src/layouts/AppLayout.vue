@@ -63,6 +63,7 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
               { to: { name: 'counter-sale' }, label: 'Venta rápida' },
               { to: { name: 'service-requests' }, label: 'Requerimientos' },
               { to: { name: 'service-reminders' }, label: 'Recordatorios' },
+              { to: { name: 'claims' }, label: 'Reclamos' },
             ],
           },
           {
