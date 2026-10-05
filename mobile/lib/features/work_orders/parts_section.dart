@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
+import '../../core/auth/auth_controller.dart';
 import '../../core/models/inventory.dart';
 import '../../core/models/work_order.dart';
 
@@ -324,6 +325,11 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
   /// Esa diferencia se pregunta y no se adivina: la comprada afuera se le cobra al cliente
   /// igual, pero no entra en la factura del taller.
   Future<void> _askManual() async {
+    // El técnico de un taller que apagó los precios no los pone: carga lo que puso y el
+    // Dueño lo valora. El servidor hace lo mismo; aquí solo se deja de pedir lo que no va.
+    final sesion = ref.read(authControllerProvider);
+    final vePrecios = sesion is! AuthSignedIn || sesion.user.seesPrices;
+
     final concepto = TextEditingController();
     final cantidad = TextEditingController(text: '1');
     final precio = TextEditingController();
@@ -352,15 +358,26 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                 decoration: const InputDecoration(labelText: 'Cantidad'),
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: precio,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Precio al cliente',
-                  prefixText: 'L ',
+              if (vePrecios) ...[
+                TextField(
+                  controller: precio,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Precio al cliente',
+                    prefixText: 'L ',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
+              ] else
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'El precio lo pone el dueño: cargue el repuesto y él lo valora antes de '
+                    'facturar.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              if (vePrecios)
               TextField(
                 controller: costo,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -407,14 +424,15 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
               final texto = concepto.text.trim();
               final cant = double.tryParse(cantidad.text.replaceAll(',', '.'));
               final unit = double.tryParse(precio.text.replaceAll(',', '.'));
-              if (texto.isEmpty || cant == null || cant <= 0 || unit == null) return;
+              if (texto.isEmpty || cant == null || cant <= 0) return;
+              if (vePrecios && unit == null) return;
 
               Navigator.pop(
                 context,
                 _Manual(
                   description: texto,
                   quantity: cant,
-                  unitPrice: unit,
+                  unitPrice: unit ?? 0,
                   unitCost: double.tryParse(costo.text.replaceAll(',', '.')),
                   boughtOutside: afuera,
                   supplierName:

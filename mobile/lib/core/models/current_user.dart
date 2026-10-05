@@ -43,6 +43,7 @@ class CurrentUser {
     this.tenantLogoUrl,
     this.customerId,
     this.subscription,
+    this.seesPrices = true,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) => CurrentUser(
@@ -57,6 +58,7 @@ class CurrentUser {
             .map((e) => BranchSummary.fromJson(e as Map<String, dynamic>))
             .toList(),
         customerId: json['customerId'] as String?,
+        seesPrices: json['seesPrices'] as bool? ?? true,
         subscription: json['subscription'] == null
             ? null
             : SubscriptionInfo.fromJson(json['subscription'] as Map<String, dynamic>),
@@ -75,6 +77,9 @@ class CurrentUser {
 
   final List<BranchSummary> branches;
   final String? customerId;
+
+  /// Si este usuario ve precios. Falso solo para el técnico de un taller que los apagó.
+  final bool seesPrices;
 
   /// Cómo va el taller con su mensualidad. **Null salvo para el Dueño**: el backend no se lo
   /// manda al Técnico ni al Cliente, así que aquí no hay que acordarse de esconderlo.

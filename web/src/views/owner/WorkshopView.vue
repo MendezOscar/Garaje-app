@@ -25,6 +25,7 @@ const form = ref({
   address: '',
   defaultTaxRate: 15,
   defaultWarrantyDays: 0,
+  techniciansSeePrices: true,
   chargesStorage: false,
   storageFreeDays: 3,
   storageDailyRate: 0,
@@ -131,6 +132,7 @@ function fill(data: TenantSettings) {
     address: data.address ?? '',
     defaultTaxRate: data.defaultTaxRate,
     defaultWarrantyDays: data.defaultWarrantyDays,
+    techniciansSeePrices: data.techniciansSeePrices,
     chargesStorage: data.chargesStorage,
     storageFreeDays: data.storageFreeDays,
     storageDailyRate: data.storageDailyRate,
@@ -166,6 +168,7 @@ async function save() {
         address: f.address.trim() || null,
         defaultTaxRate: Number(f.defaultTaxRate) || 0,
         defaultWarrantyDays: Number(f.defaultWarrantyDays) || 0,
+        techniciansSeePrices: f.techniciansSeePrices,
         chargesStorage: f.chargesStorage,
         storageFreeDays: Number(f.storageFreeDays) || 0,
         storageDailyRate: Number(f.storageDailyRate) || 0,
@@ -256,6 +259,18 @@ onMounted(async () => {
             <input v-model.number="form.defaultTaxRate" type="number" min="0" max="100" step="0.01" />
           </label>
         </div>
+        <!-- Apagarlo cambia lo que el servidor le manda al técnico, no solo lo que la
+             pantalla enseña: avísele antes de hacerlo. -->
+        <label class="checkbox">
+          <input v-model="form.techniciansSeePrices" type="checkbox" />
+          El técnico ve precios y totales
+        </label>
+        <p class="muted small">
+          Apagado, el técnico recibe la orden, agrega pasos y carga repuestos, pero no ve
+          cuánto cuestan ni cuánto suma la orden. Carga el repuesto sin precio y usted se lo
+          pone antes de facturar.
+        </p>
+
         <!-- El bodegaje nace apagado: cobrarlo es una decisión del taller, y uno que no lo
              cobra no quiere ni ver los campos. -->
         <label class="checkbox">

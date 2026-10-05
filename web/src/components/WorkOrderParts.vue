@@ -109,6 +109,27 @@ async function add() {
   }
 }
 
+/**
+ * Le pone precio a lo que el técnico cargó sin poder valorarlo. Mientras una línea esté en
+ * cero, facturar la orden se corta: cobrar así sería regalar el repuesto sin querer.
+ */
+async function ponerPrecio(line: WorkOrderPart) {
+  const escrito = prompt(`¿Cuánto se le cobra por ${line.partName}?`, '')
+  const precio = Number(escrito)
+  if (escrito === null || !Number.isFinite(precio) || precio < 0) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    await workOrdersApi.setPartPrice(props.workOrderId, line.id, { unitPrice: precio })
+    emit('changed')
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
 async function remove(line: WorkOrderPart) {
   const pregunta = line.partId
     ? `¿Quitar ${line.partName} y devolverlo a la bodega?`
@@ -171,11 +192,26 @@ watch(search, () => {
           </td>
           <td class="num">{{ formatMoney(line.total) }}</td>
           <td v-if="canEdit" class="num">
+            <button
+              v-if="showCost && line.unitPrice === 0"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="ponerPrecio(line)"
+            >
+              Poner precio
+            </button>
             <button type="button" class="link" :disabled="busy" @click="remove(line)">Quitar</button>
           </td>
         </tr>
       </tbody>
       <tfoot>
+        <tr v-if="showCost && parts.some((p) => p.unitPrice === 0)">
+          <td colspan="4" class="falta small">
+            Hay repuestos sin precio: el técnico los cargó pero no los valoró. Póngaselo antes
+            de facturar.
+          </td>
+        </tr>
         <tr>
           <td colspan="2">Total en repuestos</td>
           <td class="num"><strong>{{ formatMoney(total) }}</strong></td>

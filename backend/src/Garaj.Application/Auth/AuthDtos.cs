@@ -37,7 +37,10 @@ public record CurrentUserDto(
     string? TenantLogoUrl,
     IReadOnlyList<BranchSummaryDto> Branches,
     Guid? CustomerId,
-    SubscriptionInfoDto? Subscription = null);
+    SubscriptionInfoDto? Subscription = null,
+    // Si este usuario ve precios. Falso solo para el técnico de un taller que lo apagó: la
+    // pantalla necesita saberlo para no pedirle un precio que el servidor no le va a aceptar.
+    bool SeesPrices = true);
 
 public record BranchSummaryDto(Guid Id, string Name, string? Code);
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, expensesApi } from '@/api/garaj'
+import { branchesApi, expensesApi, usersApi } from '@/api/garaj'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import {
   EXPENSE_CATEGORY_LABEL,
@@ -9,9 +9,13 @@ import {
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
   type Branch,
+  PAY_MODE_LABEL,
+  TechnicianPayMode,
   type Expense,
   type IncomeStatement,
   type SaveExpense,
+  type TechnicianPayProposal,
+  type User,
 } from '@/types/domain'
 import { formatDate, formatMoney } from '@/utils/format'
 import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
@@ -34,6 +38,14 @@ const error = ref('')
 const loading = ref(false)
 const busy = ref(false)
 
+/**
+ * Pagarle a un técnico. El pago es un gasto de salario con su nombre, no un registro aparte:
+ * entra a la caja una sola vez y el estado de resultados ya lo cuenta.
+ */
+const tecnicos = ref<User[]>([])
+const tecnicoId = ref('')
+const propuesta = ref<TechnicianPayProposal | null>(null)
+
 const editando = ref<string | null>(null)
 
 /** El gasto recién guardado, para adjuntarle el comprobante sin ir a buscarlo. */
@@ -50,6 +62,7 @@ function vacio(): SaveExpense {
     supplierName: '',
     expenseDate: new Date().toISOString().slice(0, 10),
     notes: '',
+    employeeUserId: null,
   }
 }
 
@@ -105,6 +118,7 @@ function guardar() {
     ...form.value,
     branchId: form.value.branchId || branches.value[0]?.id || '',
     supplierName: form.value.supplierName?.trim() || null,
+    employeeUserId: form.value.employeeUserId ?? null,
     notes: form.value.notes?.trim() || null,
     // Mediodía: una fecha suelta es medianoche UTC, que en Honduras es la tarde anterior, y
     // el gasto se iba al mes equivocado los días 1.
@@ -136,6 +150,7 @@ function editar(expense: Expense) {
     supplierName: expense.supplierName ?? '',
     expenseDate: expense.expenseDate.slice(0, 10),
     notes: expense.notes ?? '',
+    employeeUserId: expense.employeeUserId,
   }
 }
 
@@ -146,8 +161,40 @@ function borrar(expense: Expense) {
   return run(() => expensesApi.remove(expense.id))
 }
 
+/** Lo que le tocaría por el periodo que se está mirando. */
+async function verPropuesta() {
+  propuesta.value = null
+  if (!tecnicoId.value) return
+
+  try {
+    propuesta.value = await usersApi.payProposal(
+      tecnicoId.value,
+      desde.value ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+      new Date().toISOString(),
+    )
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo calcular lo que le toca.')
+  }
+}
+
+/** Pasa la propuesta al formulario de gasto, ya como salario y con su nombre. */
+function pagarle() {
+  const p = propuesta.value
+  if (!p) return
+
+  form.value = {
+    ...vacio(),
+    category: ExpenseCategory.Salaries,
+    description: `Pago a ${p.technicianName}`,
+    amount: p.proposal,
+    employeeUserId: p.technicianId,
+  }
+  editando.value = null
+}
+
 onMounted(async () => {
   branches.value = await branchesApi.list().catch(() => [])
+  tecnicos.value = await usersApi.list('Technician').catch(() => [])
   form.value.branchId = branches.value[0]?.id ?? ''
   await load()
 })
@@ -231,6 +278,65 @@ onMounted(async () => {
     </article>
 
     <div class="dos-columnas">
+      <article v-if="tecnicos.length" class="card">
+        <h2>Pagarle a un técnico</h2>
+        <div class="row">
+          <label>
+            Técnico
+            <select v-model="tecnicoId" @change="verPropuesta">
+              <option value="">— elija —</option>
+              <option v-for="tecnico in tecnicos" :key="tecnico.id" :value="tecnico.id">
+                {{ tecnico.fullName }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <template v-if="propuesta">
+          <p v-if="propuesta.payMode === TechnicianPayMode.Undefined" class="muted small">
+            A {{ propuesta.technicianName }} no se le ha definido cómo se le paga. Se configura
+            en Usuarios, en su ficha.
+          </p>
+          <template v-else>
+            <dl class="cuentas">
+              <dt>Cómo se le paga</dt>
+              <dd>
+                {{ PAY_MODE_LABEL[propuesta.payMode] }}
+                <span class="muted small">
+                  ·
+                  {{
+                    propuesta.payMode === TechnicianPayMode.Percentage
+                      ? `${propuesta.payAmount}%`
+                      : formatMoney(propuesta.payAmount)
+                  }}
+                </span>
+              </dd>
+              <template v-if="propuesta.payMode === TechnicianPayMode.Percentage">
+                <dt>Mano de obra que generó</dt>
+                <dd class="num">{{ formatMoney(propuesta.laborRevenue) }}</dd>
+              </template>
+              <template v-if="propuesta.payMode === TechnicianPayMode.Hourly">
+                <dt>Horas registradas</dt>
+                <dd class="num">{{ propuesta.hours }}</dd>
+              </template>
+              <dt class="fuerte">Le toca</dt>
+              <dd class="fuerte num">{{ formatMoney(propuesta.proposal) }}</dd>
+              <template v-if="propuesta.alreadyPaid > 0">
+                <dt>Ya se le pagó en el periodo</dt>
+                <dd class="num">{{ formatMoney(propuesta.alreadyPaid) }}</dd>
+              </template>
+            </dl>
+            <button type="button" :disabled="busy" @click="pagarle">
+              Registrar el pago
+            </button>
+            <p class="muted small">
+              Pasa al formulario de gasto como salario. Ahí puede cambiar el monto antes de
+              guardarlo: lo que se le paga de verdad lo decide usted.
+            </p>
+          </template>
+        </template>
+      </article>
+
       <article class="card">
         <h2>{{ editando ? 'Corregir el gasto' : 'Registrar un gasto' }}</h2>
         <form class="gasto" @submit.prevent="guardar">
@@ -336,7 +442,8 @@ onMounted(async () => {
                   <div class="muted small">
                     {{ EXPENSE_CATEGORY_LABEL[gasto.category] }} ·
                     {{ formatDate(gasto.expenseDate) }}
-                    <template v-if="gasto.supplierName"> · {{ gasto.supplierName }}</template>
+                    <template v-if="gasto.employeeName"> · {{ gasto.employeeName }}</template>
+                    <template v-else-if="gasto.supplierName"> · {{ gasto.supplierName }}</template>
                   </div>
                 </td>
                 <td class="num">{{ formatMoney(gasto.amount) }}</td>

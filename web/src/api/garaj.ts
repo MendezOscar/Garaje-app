@@ -48,6 +48,8 @@ import type {
   ClaimStatus,
   Expense,
   ExpenseCategory,
+  TechnicianPayMode,
+  TechnicianPayProposal,
   IncomeStatement,
   SaveExpense,
   VehicleReception,
@@ -88,8 +90,25 @@ export const usersApi = {
     const { data } = await api.post<User>('/api/users', body)
     return data
   },
-  async update(id: string, body: { fullName: string; isActive: boolean; branchIds?: string[] }) {
+  async update(
+    id: string,
+    body: {
+      fullName: string
+      isActive: boolean
+      branchIds?: string[]
+      /** Cómo se le paga. Solo se aplica a técnicos. */
+      payMode?: TechnicianPayMode
+      payAmount?: number
+    },
+  ) {
     const { data } = await api.put<User>(`/api/users/${id}`, body)
+    return data
+  },
+  /** Cuánto le tocaría por el periodo. Es una propuesta: lo que se paga lo escribe el Dueño. */
+  async payProposal(id: string, from: string, to: string) {
+    const { data } = await api.get<TechnicianPayProposal>(`/api/users/${id}/pay-proposal`, {
+      params: { from, to },
+    })
     return data
   },
   /** El Dueño no conoce la contraseña actual: la reemplaza y cierra las sesiones abiertas. */
@@ -353,6 +372,14 @@ export const workOrdersApi = {
   },
   async saveReception(id: string, body: SaveVehicleReception) {
     const { data } = await api.put<VehicleReception>(`/api/work-orders/${id}/reception`, body)
+    return data
+  },
+  /** Le pone precio a lo que el técnico cargó sin poder valorarlo. */
+  async setPartPrice(id: string, partLineId: string, body: { unitPrice: number; unitCost?: number }) {
+    const { data } = await api.put<WorkOrderPart>(
+      `/api/work-orders/${id}/parts/${partLineId}/price`,
+      body,
+    )
     return data
   },
   async removePart(id: string, partLineId: string) {
@@ -1020,6 +1047,7 @@ export const tenantApi = {
     defaultTaxRate: number
     defaultPhoneCountryCode: string | null
     defaultWarrantyDays: number
+    techniciansSeePrices: boolean
     chargesStorage: boolean
     storageFreeDays: number
     storageDailyRate: number
