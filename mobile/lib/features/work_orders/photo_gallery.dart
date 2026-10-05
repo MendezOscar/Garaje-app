@@ -277,6 +277,7 @@ class _PhotoViewer extends StatelessWidget {
         actions: [
           if (onDelete != null)
             IconButton(
+              tooltip: 'Borrar la foto',
               onPressed: () {
                 Navigator.pop(context);
                 onDelete!();

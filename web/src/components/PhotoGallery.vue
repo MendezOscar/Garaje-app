@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { mediaApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useEscape } from '@/composables/useEscape'
 import { MediaOwnerType, type MediaAttachment } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 
@@ -49,6 +50,8 @@ const busy = ref(false)
 const uploading = ref(0)
 const preview = ref<MediaAttachment | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+
+useEscape(() => (preview.value = null))
 
 /** Las fotos de un paso van agrupadas bajo su título; las de la orden, juntas al principio. */
 const groups = computed(() => {

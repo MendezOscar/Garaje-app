@@ -234,6 +234,7 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                             top: -6,
                             right: -6,
                             child: IconButton(
+                              tooltip: 'Quitar la foto',
                               icon: const Icon(Icons.cancel, size: 20),
                               onPressed: () => setState(() => _photos.remove(photo)),
                             ),

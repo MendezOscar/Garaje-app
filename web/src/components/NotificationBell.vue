@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { notificationsApi } from '@/api/garaj'
+import { useEscape } from '@/composables/useEscape'
 import { NOTIFICATION_ICON, type Notification } from '@/types/domain'
 
 /**
@@ -17,6 +18,8 @@ const items = ref<Notification[]>([])
 const open = ref(false)
 const loading = ref(false)
 let timer: number | undefined
+
+useEscape(() => (open.value = false))
 
 const badge = computed(() => (unread.value > 9 ? '9+' : String(unread.value)))
 

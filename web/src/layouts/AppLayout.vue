@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
+import { useEscape } from '@/composables/useEscape'
 import { useOnline } from '@/composables/useOnline'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -126,6 +127,8 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
  * está siempre, y este estado no le afecta.
  */
 const menuAbierto = ref(false)
+
+useEscape(() => (menuAbierto.value = false))
 
 /**
  * La barra de abajo del teléfono.
