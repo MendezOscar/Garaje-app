@@ -486,7 +486,6 @@ legend {
   gap: 0.5rem;
 }
 
-
 .link.danger {
   color: var(--danger);
 }
@@ -495,15 +494,4 @@ legend {
   color: var(--success-text);
 }
 
-.muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.75rem;
-}
-
-.error {
-  color: var(--danger);
-}
 </style>

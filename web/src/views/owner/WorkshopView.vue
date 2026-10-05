@@ -627,16 +627,4 @@ h1 {
   gap: 0.5rem;
 }
 
-
-.muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.75rem;
-}
-
-.error {
-  color: var(--danger);
-}
 </style>

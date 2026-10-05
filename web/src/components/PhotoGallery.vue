@@ -290,15 +290,4 @@ figcaption {
   gap: 0.5rem;
 }
 
-.small {
-  font-size: 0.75rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
-.error {
-  color: var(--danger);
-}
 </style>

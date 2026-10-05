@@ -365,14 +365,6 @@ ol {
   font-variant-numeric: tabular-nums;
 }
 
-.muted {
-  color: var(--text-muted);
-}
-
-.small {
-  font-size: 0.875rem;
-}
-
 .error {
   margin: 0;
   color: var(--danger);

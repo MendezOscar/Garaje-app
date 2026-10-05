@@ -392,8 +392,6 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 
-
-
 th {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -448,7 +446,4 @@ td.acciones {
   margin-top: 0.75rem;
 }
 
-.error {
-  color: var(--danger);
-}
 </style>

@@ -1567,7 +1567,6 @@ onMounted(async () => {
           </div>
         </article>
 
-
         <!-- Cómo entró el vehículo. Se llena desde el teléfono con el carro delante; aquí
              se lee y se corrige, menos la firma, que se toma donde está el cliente. -->
         <article class="card">
@@ -2451,7 +2450,6 @@ dd {
   color: var(--accent);
 }
 
-
 .sale p {
   margin-bottom: 0.5rem;
 }
@@ -2620,18 +2618,6 @@ dd {
   background: var(--surface-alt);
   color: var(--text-muted);
   font-size: 0.6875rem;
-}
-
-.small {
-  font-size: 0.75rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
-.error {
-  color: var(--danger);
 }
 
 select,

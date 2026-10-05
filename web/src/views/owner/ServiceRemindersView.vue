@@ -315,19 +315,8 @@ td {
   color: var(--accent);
 }
 
-.small {
-  font-size: 0.75rem;
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
 .danger {
   color: var(--danger);
 }
 
-.error {
-  color: var(--danger);
-}
 </style>
