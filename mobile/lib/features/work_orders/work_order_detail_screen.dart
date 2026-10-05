@@ -485,6 +485,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     final titulo = TextEditingController();
     final precio = TextEditingController();
     final servicios = await ref.read(laborServicesProvider.future);
+    final orden = ref.read(workOrderDetailProvider(widget.id)).requireValue;
 
     if (!mounted) return;
 
@@ -651,12 +652,33 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                           ),
                           onChanged: (v) => setInner(() => guardarEnCatalogo = v ?? false),
                         ),
-                      ] else
+                      ] else ...[
                         Text(
-                          'La orden pasa a cobrarse con un total único y se lo va a pedir al '
-                          'agregar el paso. Los pasos quedan sin precio propio.',
+                          'La orden pasa a cobrarse con un total único, y se lo va a pedir al '
+                          'agregar el paso.',
                           style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
                         ),
+
+                        // Lo que ya está puesto y va a dejar de contar. Sin este aviso, el
+                        // Dueño que ya le puso precio a tres pasos escribe un total y no se
+                        // entera de que los tres precios quedan fuera de la factura.
+                        if (_pasosConPrecio(orden) case (final cuantos, final suman)
+                            when cuantos > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: GarajSpace.sm),
+                            child: Text(
+                              'Ojo: esta orden ya tiene $cuantos '
+                              '${cuantos == 1 ? 'paso' : 'pasos'} con precio, que '
+                              '${cuantos == 1 ? 'suma' : 'suman'} ${_money(suman)}. Con un '
+                              'total único esos precios dejan de contar —no se borran— y a la '
+                              'factura va solo el total que escriba. Volviendo a «cada paso '
+                              'lleva su precio» vuelven a contar.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.error,
+                              ),
+                            ),
+                          ),
+                      ],
                     ],
 
                     if (catalogLabor && modo == _CobroDelPaso.sinCobro) ...[
@@ -710,7 +732,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     // después entra el paso, que en ese modo va sin precio propio.
     if (catalogLabor && modo == _CobroDelPaso.aMano &&
         dondeVaElPrecio == _DondeVaElPrecio.totalAlFinal) {
-      final total = await _askTotal(ref.read(workOrderDetailProvider(widget.id)).requireValue);
+      final total = await _askTotal(orden);
       if (total == null) return;
 
       await _run(() async {
@@ -746,6 +768,17 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
             manualPrice: manual,
           );
     });
+  }
+
+  /// Cuántos pasos de la orden ya llevan precio y cuánto suman.
+  ///
+  /// Es lo que deja de contar al pasar a un total único: no se borra, pero sale de la factura.
+  static (int, double) _pasosConPrecio(WorkOrderDetail order) {
+    final conPrecio = order.tasks.where((t) => (t.laborPrice ?? 0) > 0);
+    return (
+      conPrecio.length,
+      conPrecio.fold<double>(0, (suma, t) => suma + (t.laborPrice ?? 0)),
+    );
   }
 
   /// Lo que ya está en el catálogo con un nombre parecido al que se está escribiendo.
@@ -902,8 +935,12 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   }
 
   Future<double?> _askTotal(WorkOrderDetail order) async {
+    // Viniendo del modo catálogo no hay total escrito todavía, así que se propone lo que los
+    // pasos ya suman: es el número que el Dueño tenía en la cabeza, y escribir otro sin
+    // querer cambiaría lo que se cobra.
     final controller = TextEditingController(
-      text: order.manualLaborTotal?.toStringAsFixed(2) ?? '',
+      text: (order.manualLaborTotal ?? (order.isCatalogLabor ? order.laborTotal : 0))
+          .toStringAsFixed(2),
     );
 
     return showDialog<double>(

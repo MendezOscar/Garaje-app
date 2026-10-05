@@ -279,6 +279,14 @@ void main() {
       find.widgetWithText(CheckboxListTile, 'Guardarlo en el catálogo'),
     );
     expect(guardar.value, isFalse, reason: 'no se guarda en el catálogo sin pedirlo');
+
+    // Con un total único los precios que los pasos ya tienen dejan de contar, y eso hay que
+    // decirlo antes: si no, el Dueño escribe un total y no se entera de que lo que había
+    // puesto queda fuera de la factura.
+    await tester.tap(find.text('Un total al final'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('dejan de contar'), findsOneWidget);
   });
 
   testWidgets('los ajustes del taller se leen y se guardan desde el teléfono',

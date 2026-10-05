@@ -678,12 +678,32 @@ function setTaskLabor(task: WorkOrderDetail['tasks'][number], laborServiceId: st
 const isCatalog = computed(() => order.value?.laborMode !== LaborMode.Manual)
 
 /**
+ * Cuántos pasos ya llevan precio y cuánto suman.
+ *
+ * Es lo que deja de contar al pasar a un total único: no se borra, pero sale de la factura.
+ */
+const pasosConPrecio = computed(() => {
+  const conPrecio = (order.value?.tasks ?? []).filter((t) => (t.laborPrice ?? 0) > 0)
+
+  return {
+    cuantos: conPrecio.length,
+    suman: conPrecio.reduce((suma, t) => suma + (t.laborPrice ?? 0), 0),
+  }
+})
+
+/**
  * Elige de dónde sale el precio de la mano de obra. Son excluyentes: o cada paso lleva su
  * servicio del catálogo, o los pasos van sueltos y se cobra un total escrito a mano. Mezclar
  * las dos formas deja dos maneras de sumar lo mismo y ninguna en la que confiar.
  */
 function setLaborMode(mode: LaborMode) {
   if (order.value?.laborMode === mode) return
+
+  // Sin total escrito se propone lo que los pasos ya suman: es el número que el Dueño tenía
+  // en la cabeza, y arrancar en cero dejaría la orden sin nada que cobrar.
+  if (mode === LaborMode.Manual && !Number(manualLabor.value)) {
+    manualLabor.value = String(order.value?.laborTotal ?? 0)
+  }
 
   return run(() =>
     workOrdersApi.setLaborMode(id.value, {
@@ -1297,11 +1317,24 @@ onMounted(async () => {
             </label>
             <p class="muted small">
               <template v-if="isCatalog">
-                El paso que quede sin servicio del catálogo no entra en la factura.
+                El paso que quede sin precio —ni del catálogo ni escrito— no entra en la
+                factura.
               </template>
               <template v-else>
                 Los pasos quedan como registro de lo que se hizo; a la factura va el total.
               </template>
+            </p>
+
+            <!-- Lo que ya está puesto y va a dejar de contar. Sin este aviso, quien ya le puso
+                 precio a tres pasos cambia el modo y no se entera de que esos tres precios
+                 quedan fuera de la factura. -->
+            <p v-if="isCatalog && pasosConPrecio.cuantos" class="aviso-modo">
+              Esta orden ya tiene {{ pasosConPrecio.cuantos }}
+              {{ pasosConPrecio.cuantos === 1 ? 'paso' : 'pasos' }} con precio, que
+              {{ pasosConPrecio.cuantos === 1 ? 'suma' : 'suman' }}
+              {{ formatMoney(pasosConPrecio.suman) }}. Pasando a «a mano» esos precios dejan de
+              contar —no se borran— y a la factura va solo el total. Volviendo al catálogo
+              vuelven a contar.
             </p>
           </details>
 
@@ -2281,6 +2314,18 @@ header p {
   flex-direction: column;
   gap: var(--space-1);
   margin: var(--space-2) 0 0;
+}
+
+/* El aviso de que los precios de los pasos van a dejar de contar. En ámbar porque no es un
+   error: es una consecuencia que hay que saber antes de tocar el botón. */
+.aviso-modo {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
 }
 
 .precio-paso {
