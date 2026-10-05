@@ -33,6 +33,20 @@ public enum WorkOrderStatus
     Cancelled = 9
 }
 
+/// <summary>
+/// Cuánta gasolina traía al entrar. En cuartos y no en litros: es lo que se lee de la aguja
+/// con el carro delante, y lo que después se puede comparar al entregarlo.
+/// </summary>
+public enum FuelLevel
+{
+    Unknown = 0,
+    Empty = 1,
+    Quarter = 2,
+    Half = 3,
+    ThreeQuarters = 4,
+    Full = 5
+}
+
 public enum MediaOwnerType
 {
     ServiceRequest = 1,

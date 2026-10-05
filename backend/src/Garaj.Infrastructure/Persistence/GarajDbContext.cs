@@ -29,6 +29,7 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<WorkOrderTask> WorkOrderTasks => Set<WorkOrderTask>();
     public DbSet<WorkOrderPart> WorkOrderParts => Set<WorkOrderPart>();
     public DbSet<WorkOrderStatusHistory> WorkOrderStatusHistory => Set<WorkOrderStatusHistory>();
+    public DbSet<VehicleReception> VehicleReceptions => Set<VehicleReception>();
 
     public DbSet<MediaAttachment> MediaAttachments => Set<MediaAttachment>();
 
