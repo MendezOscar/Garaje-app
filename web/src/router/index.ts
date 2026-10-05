@@ -82,6 +82,12 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        path: 'resultados',
+        name: 'income-statement',
+        component: () => import('@/views/owner/ExpensesView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         path: 'reclamos',
         name: 'claims',
         component: () => import('@/views/owner/ClaimsView.vue'),

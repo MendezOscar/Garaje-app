@@ -46,6 +46,10 @@ import type {
   ClaimDetail,
   ClaimListItem,
   ClaimStatus,
+  Expense,
+  ExpenseCategory,
+  IncomeStatement,
+  SaveExpense,
   VehicleReception,
   SaveVehicleReception,
   WorkOrderStatus,
@@ -958,6 +962,45 @@ export const claimsApi = {
   },
   async reopen(id: string) {
     const { data } = await api.post<ClaimDetail>(`/api/claims/${id}/reopen`)
+    return data
+  },
+}
+
+/** Gastos y estado de resultados. Solo el Dueño. */
+export const expensesApi = {
+  async list(query: {
+    branchId?: string
+    category?: ExpenseCategory
+    from?: string
+    to?: string
+    search?: string
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const { data } = await api.get<Paged<Expense>>('/api/expenses', { params: params(query) })
+    return data
+  },
+  async create(body: SaveExpense) {
+    const { data } = await api.post<Expense>('/api/expenses', body)
+    return data
+  },
+  async update(id: string, body: SaveExpense) {
+    const { data } = await api.put<Expense>(`/api/expenses/${id}`, body)
+    return data
+  },
+  async remove(id: string) {
+    await api.delete(`/api/expenses/${id}`)
+  },
+  /** Sin fechas, el mes corriente. */
+  async incomeStatement(query: {
+    from?: string
+    to?: string
+    branchId?: string
+    comparePrevious?: boolean
+  } = {}) {
+    const { data } = await api.get<IncomeStatement>('/api/expenses/income-statement', {
+      params: params(query),
+    })
     return data
   },
 }

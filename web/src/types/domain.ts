@@ -1150,3 +1150,93 @@ export interface ClaimDetail extends ClaimListItem {
   /** Lo que costó repararlo, cuando se abrió orden de garantía. */
   repairCost: number
 }
+
+/**
+ * En qué se le va la plata al taller. Lista fija a propósito: con categorías libres el mismo
+ * gasto termina escrito de tres formas y el mes deja de poder compararse contra el anterior.
+ *
+ * La compra de repuestos no está: eso es inventario, y se vuelve costo cuando se vende.
+ */
+export const ExpenseCategory = {
+  Salaries: 1,
+  Rent: 2,
+  Utilities: 3,
+  Tools: 4,
+  Transport: 5,
+  TaxesAndPermits: 6,
+  Advertising: 7,
+  Maintenance: 8,
+  Other: 9,
+} as const
+export type ExpenseCategory = (typeof ExpenseCategory)[keyof typeof ExpenseCategory]
+
+export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  [ExpenseCategory.Salaries]: 'Salarios',
+  [ExpenseCategory.Rent]: 'Alquiler',
+  [ExpenseCategory.Utilities]: 'Servicios (agua, luz, internet)',
+  [ExpenseCategory.Tools]: 'Herramienta y equipo',
+  [ExpenseCategory.Transport]: 'Transporte',
+  [ExpenseCategory.TaxesAndPermits]: 'Impuestos y permisos',
+  [ExpenseCategory.Advertising]: 'Publicidad',
+  [ExpenseCategory.Maintenance]: 'Mantenimiento del local',
+  [ExpenseCategory.Other]: 'Otros',
+}
+
+export interface Expense {
+  id: string
+  branchId: string
+  branchName: string
+  category: ExpenseCategory
+  description: string
+  amount: number
+  paymentMethod: PaymentMethod
+  supplierName: string | null
+  expenseDate: string
+  notes: string | null
+  createdByName: string | null
+  /** Comprobantes adjuntos. Un gasto sin comprobante se puede discutir. */
+  photoCount: number
+}
+
+export interface SaveExpense {
+  branchId: string
+  category: ExpenseCategory
+  description: string
+  amount: number
+  paymentMethod: PaymentMethod
+  supplierName?: string | null
+  expenseDate?: string | null
+  notes?: string | null
+}
+
+export interface ExpenseGroup {
+  category: ExpenseCategory
+  amount: number
+  count: number
+}
+
+/** Lo mínimo del periodo anterior para poner al lado: contra qué se compara. */
+export interface IncomeStatementSummary {
+  revenue: number
+  grossProfit: number
+  expenseTotal: number
+  netProfit: number
+}
+
+/** Qué dejó el taller en un periodo. */
+export interface IncomeStatement {
+  from: string
+  to: string
+  currency: string
+  revenue: number
+  partsRevenue: number
+  laborRevenue: number
+  costOfSales: number
+  grossProfit: number
+  grossMarginPercent: number
+  expenseTotal: number
+  netProfit: number
+  netMarginPercent: number
+  expenses: ExpenseGroup[]
+  previous: IncomeStatementSummary | null
+}

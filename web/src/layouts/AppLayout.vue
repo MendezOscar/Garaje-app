@@ -75,6 +75,8 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
               // Se abre todos los días al cerrar, así que va en el menú y no dentro de Reportes.
               { to: { name: 'cash-close' }, label: 'Caja' },
               { to: { name: 'reports' }, label: 'Reportes' },
+              // Los gastos se registran aquí, porque es donde está el número que los justifica.
+              { to: { name: 'income-statement' }, label: 'Resultados y gastos' },
             ],
           },
           {
