@@ -374,17 +374,17 @@ td {
 
 .chip.ok {
   background: color-mix(in srgb, var(--success) 15%, transparent);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .chip.aviso {
   background: color-mix(in srgb, var(--warning) 18%, transparent);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .chip.urgente {
   background: color-mix(in srgb, var(--warning) 30%, transparent);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .chip.cortado {

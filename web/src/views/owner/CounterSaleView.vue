@@ -511,7 +511,14 @@ onMounted(async () => {
                     {{ formatMoney(Math.max(0, linea.cantidad * linea.precio - linea.descuento)) }}
                   </td>
                   <td>
-                    <button type="button" class="quitar" @click="quitar(linea.clave)">×</button>
+                    <button
+                      type="button"
+                      class="quitar"
+                      aria-label="Quitar de la venta"
+                      @click="quitar(linea.clave)"
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -525,7 +532,14 @@ onMounted(async () => {
           <p v-if="cliente" class="elegido">
             <strong>{{ cliente.fullName }}</strong>
             <span class="muted small"> · {{ cliente.phone }}</span>
-            <button type="button" class="quitar" @click="elegirCliente(null)">×</button>
+            <button
+              type="button"
+              class="quitar"
+              aria-label="Quitar el cliente"
+              @click="elegirCliente(null)"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </p>
           <template v-else>
             <div class="buscador">

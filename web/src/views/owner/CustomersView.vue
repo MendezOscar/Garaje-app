@@ -291,7 +291,7 @@ watch(search, () => {
 }
 
 .notice {
-  color: var(--success, #15803d);
+  color: var(--success-text);
 }
 
 .toolbar {

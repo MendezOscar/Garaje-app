@@ -287,6 +287,12 @@ class _Tile extends StatelessWidget {
       _Tone.alarm => theme.colorScheme.error,
     };
 
+    // El borde usa el ámbar pleno; la cifra, el ámbar de texto: sobre fondo claro el pleno
+    // da 2,1:1 y es justo el número que hay que leer de un vistazo.
+    final colorCifra = tone == _Tone.waiting && theme.brightness == Brightness.light
+        ? GarajColors.warningText
+        : color;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       // El borde tira hacia el color del estado sin llegar a serlo: marca la teja de lejos y
@@ -308,7 +314,7 @@ class _Tile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 value,
-                style: theme.textTheme.titleLarge?.copyWith(color: color),
+                style: theme.textTheme.titleLarge?.copyWith(color: colorCifra),
               ),
               Text(foot, style: theme.textTheme.bodySmall),
             ],

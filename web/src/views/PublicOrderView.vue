@@ -317,7 +317,7 @@ section {
 }
 
 .pasos .hecho .marca {
-  color: var(--success, #16a34a);
+  color: var(--success-text);
 }
 
 .fotos {
@@ -371,7 +371,7 @@ section {
 
 .pagado {
   margin: 0.375rem 0 0;
-  color: var(--success, #16a34a);
+  color: var(--success-text);
 }
 
 footer {

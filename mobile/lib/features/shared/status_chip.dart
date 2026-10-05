@@ -27,6 +27,18 @@ class StatusChip extends StatelessWidget {
       _ => dark ? GarajColors.brandLight : GarajColors.brand,
     };
 
+    // El fondo lleva el tono de la marca; la letra, su versión para texto. Sobre claro el
+    // ámbar y el verde plenos no llegan al contraste mínimo, y es justo la etiqueta que se
+    // lee de reojo mientras se camina por el taller.
+    final letra = switch (status) {
+      _ when status == WorkOrderStatus.cancelled => null,
+      _ when status.isBlocked =>
+        dark ? GarajColors.warningLight : GarajColors.warningText,
+      WorkOrderStatus.ready || WorkOrderStatus.delivered =>
+        dark ? GarajColors.successLight : GarajColors.successText,
+      _ => dark ? GarajColors.brandLight : GarajColors.brand,
+    };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -38,7 +50,7 @@ class StatusChip extends StatelessWidget {
       child: Text(
         status.label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: tone ?? scheme.onSurfaceVariant,
+              color: letra ?? scheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
       ),

@@ -573,7 +573,7 @@ h1 {
 .ok {
   align-self: center;
   font-size: 0.875rem;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 /* Los mismos bloques que el resto de las pantallas del Dueño: el estilo va por vista, no

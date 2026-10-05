@@ -346,6 +346,16 @@ class _Etiqueta extends StatelessWidget {
     final theme = Theme.of(context);
     final base = color ?? theme.colorScheme.onSurfaceVariant;
 
+    // El fondo va con el color de la marca y la letra con su versión para texto: el ámbar y
+    // el verde plenos sobre fondo claro no llegan al contraste que pide la AA, y esta
+    // etiqueta es la que el cliente lee de reojo para saber si ya puede pasar por su carro.
+    final claro = theme.brightness == Brightness.light;
+    final letra = switch (base) {
+      GarajColors.warning when claro => GarajColors.warningText,
+      GarajColors.success when claro => GarajColors.successText,
+      _ => base,
+    };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -355,7 +365,7 @@ class _Etiqueta extends StatelessWidget {
       child: Text(
         texto,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: color == null ? theme.colorScheme.onSurfaceVariant : base,
+          color: color == null ? theme.colorScheme.onSurfaceVariant : letra,
           fontWeight: FontWeight.w600,
         ),
       ),

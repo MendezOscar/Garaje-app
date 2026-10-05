@@ -492,7 +492,7 @@ legend {
 }
 
 .notice {
-  color: var(--success, #15803d);
+  color: var(--success-text);
 }
 
 .muted {
