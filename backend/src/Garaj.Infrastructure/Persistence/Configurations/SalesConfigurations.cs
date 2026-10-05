@@ -134,3 +134,21 @@ public class FiscalRangeConfiguration : IEntityTypeConfiguration<FiscalRange>
             .HasFilter("is_active");
     }
 }
+
+public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
+{
+    public void Configure(EntityTypeBuilder<Claim> b)
+    {
+        b.Property(x => x.Number).HasMaxLength(30).IsRequired();
+        b.Property(x => x.Reason).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.Resolution).HasMaxLength(2000);
+
+        b.HasOne(x => x.Sale)
+            .WithMany()
+            .HasForeignKey(x => x.SaleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
+        b.HasIndex(x => x.SaleId);
+    }
+}

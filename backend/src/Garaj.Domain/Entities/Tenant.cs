@@ -39,6 +39,12 @@ public class Tenant : AuditableEntity
     public int DefaultWarrantyDays { get; set; }
 
     /// <summary>
+    /// Correlativo de los reclamos. Va en el taller y no en la sucursal: un reclamo es del
+    /// taller, y el cliente lo reclama donde le quede más cerca.
+    /// </summary>
+    public int ClaimSequence { get; set; }
+
+    /// <summary>
     /// Suspensión manual: el corte definitivo, decidido por nosotros. A diferencia del vencimiento
     /// —que solo deja el taller en modo lectura— un taller suspendido no puede ni iniciar sesión.
     /// </summary>
