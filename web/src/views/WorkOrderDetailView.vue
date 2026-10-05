@@ -838,8 +838,8 @@ onMounted(async () => {
               v-for="next in otrosEstados"
               :key="next"
               type="button"
-              class="suave"
-              :class="{ peligro: next === WorkOrderStatus.Cancelled }"
+              class="btn-ghost"
+              :class="{ 'btn-danger': next === WorkOrderStatus.Cancelled }"
               :disabled="busy"
               @click="changeStatus(next)"
             >
@@ -1442,7 +1442,9 @@ onMounted(async () => {
             </form>
 
             <div class="actions">
-              <button type="button" :disabled="busy" @click="downloadInvoice(sale)">
+              <!-- Apagado: lo que se hace aquí es registrar el abono; bajar el PDF es de
+                   después. -->
+              <button type="button" class="btn-ghost" :disabled="busy" @click="downloadInvoice(sale)">
                 Factura en PDF
               </button>
             </div>
@@ -1484,12 +1486,12 @@ onMounted(async () => {
               <button
                 v-if="ultimaCotizacion.publicUrl"
                 type="button"
-                class="suave"
+                class="btn-ghost"
                 @click="reenviarCotizacion(ultimaCotizacion.id)"
               >
                 Reenviar por WhatsApp
               </button>
-              <button type="button" class="suave" :disabled="busy" @click="quoteThisOrder">
+              <button type="button" class="btn-ghost" :disabled="busy" @click="quoteThisOrder">
                 Otra cotización
               </button>
             </div>
@@ -1550,13 +1552,13 @@ onMounted(async () => {
             <button type="button" @click="mandarPorWhatsApp('received')">
               Mandar el enlace
             </button>
-            <button type="button" class="suave" @click="mandarPorWhatsApp('ready')">
+            <button type="button" class="btn-ghost" @click="mandarPorWhatsApp('ready')">
               Avisar que está listo
             </button>
             <button
               v-if="sales.some((s) => !s.isVoided)"
               type="button"
-              class="suave"
+              class="btn-ghost"
               @click="mandarPorWhatsApp('invoice')"
             >
               Mandar la factura
@@ -1735,7 +1737,7 @@ onMounted(async () => {
             <p class="muted small">
               Una orden ya facturada no se borra: esa se anula.
             </p>
-            <button type="button" class="peligro" :disabled="busy" @click="borrarOrden">
+            <button type="button" class="btn-danger" :disabled="busy" @click="borrarOrden">
               Borrar la orden {{ order.number }}
             </button>
           </details>
@@ -1750,11 +1752,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.peligro {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
 summary h2 {
   display: inline;
 }
@@ -2444,12 +2441,6 @@ dd {
 
 /* Secundario: mandar el enlace es la acción normal, avisar que está listo y mandar la factura
    son dos momentos concretos y no compiten con ella. */
-.suave {
-  border-color: var(--border);
-  background: none;
-  color: var(--accent);
-}
-
 .sale p {
   margin-bottom: 0.5rem;
 }

@@ -246,11 +246,11 @@ onMounted(async () => {
               </td>
               <td>
                 <div class="acciones">
-                  <button type="button" class="suave" @click="comprobante(venta)">PDF</button>
+                  <button type="button" class="btn-ghost btn-sm" @click="comprobante(venta)">PDF</button>
                   <button
                     v-if="!venta.isVoided"
                     type="button"
-                    class="suave peligro"
+                    class="btn-danger btn-sm"
                     @click="anular(venta)"
                   >
                     Anular
@@ -424,19 +424,6 @@ td.num {
 td.acciones {
   display: flex;
   gap: 0.375rem;
-}
-
-.suave {
-  padding: 0.25rem 0.5rem;
-  background: var(--surface-alt);
-  color: var(--text);
-  border: 1px solid var(--border);
-  font-size: 0.8125rem;
-}
-
-.peligro:hover {
-  border-color: var(--danger);
-  color: var(--danger);
 }
 
 .paginas {
