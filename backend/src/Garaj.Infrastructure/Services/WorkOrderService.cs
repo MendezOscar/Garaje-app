@@ -52,6 +52,16 @@ public class WorkOrderService(
                 || EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%"));
         }
 
+        // Los que están listos y nadie retira. Se piden en días para que el taller decida
+        // desde cuándo le molesta: tres días en uno chico, una semana en uno grande.
+        if (query.AwaitingPickupDays is { } dias)
+        {
+            var desde = clock.UtcNow.AddDays(-Math.Clamp(dias, 0, 365));
+            q = q.Where(w => w.Status == WorkOrderStatus.Ready
+                && w.ReadyNotifiedAt != null
+                && w.ReadyNotifiedAt <= desde);
+        }
+
         var total = await q.CountAsync(ct);
 
         var items = await q
@@ -78,7 +88,8 @@ public class WorkOrderService(
                 w.OpenedAt,
                 w.PromisedAt,
                 w.Tasks.Count,
-                w.Tasks.Count(t => t.IsDone)))
+                w.Tasks.Count(t => t.IsDone),
+                w.ReadyNotifiedAt))
             .ToListAsync(ct);
 
         return new PagedResult<WorkOrderListItemDto>(items, total, query.Page, query.PageSize);
@@ -307,6 +318,12 @@ public class WorkOrderService(
 
         if (request.Status is WorkOrderStatus.Delivered or WorkOrderStatus.Cancelled)
             order.ClosedAt = clock.UtcNow;
+
+        // La primera vez que se dice que está listo, y no las siguientes: si la orden vuelve
+        // a taller y otra vez a listo, los días que lleva esperando se cuentan desde el primer
+        // aviso, que es cuando el cliente supo que podía venir por él.
+        if (request.Status == WorkOrderStatus.Ready && order.ReadyNotifiedAt is null)
+            order.ReadyNotifiedAt = clock.UtcNow;
 
         db.WorkOrderStatusHistory.Add(new WorkOrderStatusHistory
         {
@@ -1203,6 +1220,7 @@ public class WorkOrderService(
             order.OpenedAt,
             order.PromisedAt,
             order.ClosedAt,
+            order.ReadyNotifiedAt,
             order.ServiceRequestId,
             tasks,
             timeline,

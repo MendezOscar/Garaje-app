@@ -210,6 +210,8 @@ export const workOrdersApi = {
     vehicleId?: string
     search?: string
     onlyOpen?: boolean
+    /** Listos y sin retirar: avisados hace estos días o más. */
+    awaitingPickupDays?: number
     page?: number
     pageSize?: number
   } = {}) {
@@ -780,6 +782,9 @@ export const salesApi = {
     vehicleId?: string
     /** Días de garantía. Omitido toma el del taller; cero es sin garantía. */
     warrantyDays?: number
+    /** Bodegaje ya calculado y revisado: el sistema lo propone, nunca lo cobra solo. */
+    storageCharge?: number
+    storageDays?: number
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales', body)
     return data
@@ -810,6 +815,9 @@ export const salesApi = {
     includeOutsideParts?: boolean
     /** Días de garantía. Omitido toma el del taller; cero es sin garantía. */
     warrantyDays?: number
+    /** Bodegaje ya calculado y revisado: el sistema lo propone, nunca lo cobra solo. */
+    storageCharge?: number
+    storageDays?: number
   }) {
     const { data } = await api.post<SaleDetail>('/api/sales/close-work-order', body)
     return data
@@ -969,6 +977,9 @@ export const tenantApi = {
     defaultTaxRate: number
     defaultPhoneCountryCode: string | null
     defaultWarrantyDays: number
+    chargesStorage: boolean
+    storageFreeDays: number
+    storageDailyRate: number
   }): Promise<TenantSettings> {
     const { data } = await api.put<TenantSettings>('/api/tenant', body)
     return data

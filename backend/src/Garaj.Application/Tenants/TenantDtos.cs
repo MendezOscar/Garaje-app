@@ -23,6 +23,10 @@ public record TenantSettingsDto(
     string DefaultPhoneCountryCode,
     // Días de garantía que lleva un trabajo por defecto. Cero es sin garantía.
     int DefaultWarrantyDays,
+    // Bodegaje: si se cobra, cuántos días de gracia hay desde el aviso, y cuánto por día.
+    bool ChargesStorage,
+    int StorageFreeDays,
+    decimal StorageDailyRate,
     string? LogoUrl);
 
 public record UpdateTenantRequest(
@@ -34,7 +38,10 @@ public record UpdateTenantRequest(
     string? Address,
     decimal DefaultTaxRate,
     string? DefaultPhoneCountryCode,
-    int DefaultWarrantyDays = 0);
+    int DefaultWarrantyDays = 0,
+    bool ChargesStorage = false,
+    int StorageFreeDays = 3,
+    decimal StorageDailyRate = 0);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

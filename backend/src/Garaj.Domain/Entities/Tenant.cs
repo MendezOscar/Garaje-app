@@ -38,6 +38,19 @@ public class Tenant : AuditableEntity
     /// </summary>
     public int DefaultWarrantyDays { get; set; }
 
+    // ---------- Bodegaje ----------
+    //
+    // Lo que el taller cobra por el vehículo que nadie retira. Nace apagado: cobrarlo es una
+    // decisión del taller, y uno que no lo cobra no quiere ni ver la casilla.
+
+    public bool ChargesStorage { get; set; }
+
+    /// <summary>Días de gracia desde el aviso de que está listo. Dentro de ellos no se cobra.</summary>
+    public int StorageFreeDays { get; set; } = 3;
+
+    /// <summary>Lo que se cobra por día pasada la gracia.</summary>
+    public decimal StorageDailyRate { get; set; }
+
     /// <summary>
     /// Correlativo de los reclamos. Va en el taller y no en la sucursal: un reclamo es del
     /// taller, y el cliente lo reclama donde le quede más cerca.

@@ -84,6 +84,9 @@ public class TenantService(
         tenant.Address = Trim(request.Address);
         tenant.DefaultTaxRate = request.DefaultTaxRate;
         tenant.DefaultWarrantyDays = request.DefaultWarrantyDays;
+        tenant.ChargesStorage = request.ChargesStorage;
+        tenant.StorageFreeDays = Math.Clamp(request.StorageFreeDays, 0, 365);
+        tenant.StorageDailyRate = Math.Max(0, request.StorageDailyRate);
 
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
@@ -367,5 +370,8 @@ public class TenantService(
         tenant.DefaultTaxRate,
         tenant.DefaultPhoneCountryCode,
         tenant.DefaultWarrantyDays,
+        tenant.ChargesStorage,
+        tenant.StorageFreeDays,
+        tenant.StorageDailyRate,
         tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id));
 }

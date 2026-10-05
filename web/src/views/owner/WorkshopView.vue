@@ -25,6 +25,9 @@ const form = ref({
   address: '',
   defaultTaxRate: 15,
   defaultWarrantyDays: 0,
+  chargesStorage: false,
+  storageFreeDays: 3,
+  storageDailyRate: 0,
   defaultPhoneCountryCode: '504',
 })
 
@@ -128,6 +131,9 @@ function fill(data: TenantSettings) {
     address: data.address ?? '',
     defaultTaxRate: data.defaultTaxRate,
     defaultWarrantyDays: data.defaultWarrantyDays,
+    chargesStorage: data.chargesStorage,
+    storageFreeDays: data.storageFreeDays,
+    storageDailyRate: data.storageDailyRate,
     defaultPhoneCountryCode: data.defaultPhoneCountryCode,
   }
 }
@@ -160,6 +166,9 @@ async function save() {
         address: f.address.trim() || null,
         defaultTaxRate: Number(f.defaultTaxRate) || 0,
         defaultWarrantyDays: Number(f.defaultWarrantyDays) || 0,
+        chargesStorage: f.chargesStorage,
+        storageFreeDays: Number(f.storageFreeDays) || 0,
+        storageDailyRate: Number(f.storageDailyRate) || 0,
         defaultPhoneCountryCode: f.defaultPhoneCountryCode.trim() || null,
       }),
     )
@@ -247,6 +256,24 @@ onMounted(async () => {
             <input v-model.number="form.defaultTaxRate" type="number" min="0" max="100" step="0.01" />
           </label>
         </div>
+        <!-- El bodegaje nace apagado: cobrarlo es una decisión del taller, y uno que no lo
+             cobra no quiere ni ver los campos. -->
+        <label class="checkbox">
+          <input v-model="form.chargesStorage" type="checkbox" />
+          Cobrar bodegaje por el vehículo que nadie retira
+        </label>
+        <div v-if="form.chargesStorage" class="row">
+          <label>
+            Días de gracia
+            <input v-model.number="form.storageFreeDays" type="number" min="0" max="365" />
+            <small class="muted">Desde que se le avisa al cliente que está listo.</small>
+          </label>
+          <label>
+            Por día
+            <input v-model.number="form.storageDailyRate" type="number" min="0" step="0.01" />
+          </label>
+        </div>
+
         <label>
           Garantía por defecto (días)
           <input v-model.number="form.defaultWarrantyDays" type="number" min="0" max="730" />
@@ -567,6 +594,14 @@ h1 {
 .row {
   display: flex;
   gap: 0.5rem;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 .actions {

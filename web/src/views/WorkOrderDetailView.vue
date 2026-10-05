@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl, errorMessage } from '@/api/client'
 import {
@@ -38,6 +38,7 @@ import {
   type WorkOrderDetail,
   type FiscalRange,
   type SaveVehicleReception,
+  type TenantSettings,
   type VehicleReception,
   type WorkOrderListItem,
 } from '@/types/domain'
@@ -144,6 +145,14 @@ const cobrarLosDeAfuera = ref(false)
  * trabajo: no es lo mismo garantizar un cambio de aceite que una reparación de motor.
  */
 const garantiaDias = ref(0)
+
+/**
+ * Bodegaje: lo que el taller cobra por los días que el vehículo estuvo listo y nadie vino por
+ * él. El sistema lo propone con lo configurado en Taller; el Dueño lo acepta, lo cambia o lo
+ * borra. Nunca se cobra solo: es plata que el cliente no está esperando pagar.
+ */
+const bodegaje = ref(0)
+const taller = ref<TenantSettings | null>(null)
 /**
  * A nombre de quién sale la factura. Se precarga con lo que tenga la ficha y se puede
  * cambiar aquí: pasa que el cliente pide la factura a nombre de la empresa donde trabaja,
@@ -272,6 +281,26 @@ function guardarRecepcion() {
     editandoRecepcion.value = false
   })
 }
+
+/**
+ * Los días que el vehículo lleva listo sin que nadie lo retire, pasados los de gracia. Es lo
+ * que se cobra, si el taller cobra bodegaje.
+ */
+const diasDeBodegaje = computed(() => {
+  const avisado = order.value?.readyNotifiedAt
+  if (!taller.value?.chargesStorage || !avisado) return 0
+
+  const dias = Math.floor((Date.now() - new Date(avisado).getTime()) / 86_400_000)
+  return Math.max(0, dias - taller.value.storageFreeDays)
+})
+
+// Se propone el monto en cuanto se sabe cuántos días son. Solo la primera vez: si el Dueño
+// lo cambia o lo borra, manda lo que él puso.
+watch(diasDeBodegaje, (dias) => {
+  if (dias > 0 && bodegaje.value === 0) {
+    bodegaje.value = Math.round(dias * (taller.value?.storageDailyRate ?? 0) * 100) / 100
+  }
+})
 
 /**
  * Hasta cuándo vale la garantía de este trabajo, o null si no la tiene o ya venció. Sale de
@@ -434,6 +463,8 @@ function closeAndInvoice() {
       nextServiceMileage: Number(nextServiceMileage.value) || undefined,
       includeOutsideParts: cobrarLosDeAfuera.value,
       warrantyDays: garantiaDias.value,
+      storageCharge: bodegaje.value || undefined,
+      storageDays: bodegaje.value ? diasDeBodegaje.value : undefined,
     }),
   )
 }
@@ -736,9 +767,9 @@ onMounted(async () => {
   if (auth.isOwner) {
     technicians.value = await usersApi.list('Technician').catch(() => [])
 
-    const taller = await tenantApi.get().catch(() => null)
-    tasaImpuesto.value = taller?.defaultTaxRate ?? 0
-    garantiaDias.value = taller?.defaultWarrantyDays ?? 0
+    taller.value = await tenantApi.get().catch(() => null)
+    tasaImpuesto.value = taller.value?.defaultTaxRate ?? 0
+    garantiaDias.value = taller.value?.defaultWarrantyDays ?? 0
   }
   if (canEdit.value) laborServices.value = await laborServicesApi.list().catch(() => [])
   if (canEdit.value) jobTemplates.value = await jobTemplatesApi.list().catch(() => [])
@@ -1276,6 +1307,20 @@ onMounted(async () => {
             suyo y tiene que volver a salir como venta. Si salió a nombre del cliente, déjelo
             sin marcar y él la paga por su cuenta.
           </p>
+
+          <!-- El bodegaje propuesto, no cobrado: el Dueño lo acepta, lo cambia o lo borra.
+               Es plata que el cliente no está esperando pagar. -->
+          <template v-if="diasDeBodegaje > 0">
+            <label class="rtn">
+              Bodegaje
+              <input v-model.number="bodegaje" type="number" min="0" step="0.01" />
+            </label>
+            <p class="muted small">
+              El vehículo lleva {{ diasDeBodegaje }}
+              {{ diasDeBodegaje === 1 ? 'día' : 'días' }} listo pasados los
+              {{ taller?.storageFreeDays }} de gracia. Déjelo en cero si no se lo va a cobrar.
+            </p>
+          </template>
 
           <label class="rtn">
             Garantía (días)
