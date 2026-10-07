@@ -9,6 +9,7 @@ import 'core/push/push_messaging.dart';
 import 'core/router/app_router.dart';
 import 'core/sync/upload_queue.dart';
 import 'core/theme/garaj_brand.dart';
+import 'core/widgets/porton_de_version.dart';
 
 void main() {
   // Un error que no tumba la app —una excepción dentro de un build, un Future sin capturar—
@@ -115,6 +116,10 @@ class _GarajAppState extends ConsumerState<GarajApp> {
       routerConfig: router,
       theme: garajTheme,
       darkTheme: garajDarkTheme,
+      // El portón va por encima de cualquier pantalla: una app demasiado vieja para la API
+      // tiene que quedar parada esté donde esté, también la que se dejó abierta en una orden.
+      builder: (context, child) =>
+          PortonDeVersion(child: child ?? const SizedBox.shrink()),
     );
   }
 }

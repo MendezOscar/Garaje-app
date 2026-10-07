@@ -35,3 +35,13 @@ public class UnauthorizedException(string message = "Credenciales inválidas.")
 /// </summary>
 public class SubscriptionRequiredException(string message)
     : AppException(message, HttpStatusCode.PaymentRequired);
+
+/// <summary>
+/// La app que está llamando es más vieja que el mínimo que acepta esta API.
+///
+/// 426 y no 400: es un código que significa exactamente esto, y así la app puede reconocerlo
+/// sin leer el texto del mensaje —que cambia— para saber que tiene que enseñar la pantalla de
+/// actualizar.
+/// </summary>
+public class UpgradeRequiredException(string message)
+    : AppException(message, HttpStatusCode.UpgradeRequired);

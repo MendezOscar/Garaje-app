@@ -1,4 +1,5 @@
 using System.Text;
+using Garaj.Api;
 using Garaj.Api.Middleware;
 using Microsoft.AspNetCore.RateLimiting;
 using Garaj.Api.Services;
@@ -88,6 +89,9 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("Bearer", scheme);
     options.AddSecurityRequirement(new OpenApiSecurityRequirement { [scheme] = [] });
 });
+
+builder.Services.Configure<AppVersionOptions>(
+    builder.Configuration.GetSection(AppVersionOptions.SectionName));
 
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Falta la sección de configuración 'Jwt'.");
@@ -183,6 +187,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(CorsPolicy);
+// Antes que nada de lo que toca la base: si la app ya no sirve para esta API, no vale la pena
+// ni resolver de qué taller es la petición.
+app.UseMiddleware<AppVersionGuardMiddleware>();
 app.UseAuthentication();
 // Después de UseAuthentication: necesita los claims ya resueltos para fijar el tenant.
 app.UseMiddleware<TenantContextMiddleware>();

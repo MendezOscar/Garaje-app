@@ -79,6 +79,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         HttpStatusCode.Unauthorized => "No autenticado",
         HttpStatusCode.Conflict => "Conflicto",
         HttpStatusCode.PaymentRequired => "Suscripción vencida",
+        HttpStatusCode.UpgradeRequired => "Hay que actualizar la app",
         HttpStatusCode.InternalServerError => "Error interno",
         _ => "Solicitud inválida"
     };

@@ -44,6 +44,16 @@ Cada renglón lleva debajo el dato que importa hoy: «3 sin atender», «L 15,02
 Al final están **Ayuda y soporte**, **Política de privacidad**, **Califique la app**,
 **Salir** y **Eliminar mi cuenta**.
 
+## Cuando hay una versión nueva
+
+- **Una franja arriba** con *Actualizar* y *Ahora no*: hay una versión más nueva, pero se puede
+  seguir trabajando. Cerrada, no vuelve hasta la próxima vez que se abra la app.
+- **Una pantalla que no deja pasar**: esa versión ya no funciona con el sistema. El botón abre la
+  tienda; al actualizar se entra como siempre y **no se pierde nada de lo guardado**.
+
+Si le sale la pantalla de bloqueo y no puede actualizar en ese momento, el panel web sigue
+funcionando: es el mismo taller y los mismos datos.
+
 ## Dos detalles que ahorran preguntas
 
 - **La campana** de arriba a la derecha son los [avisos](21-avisos.md); el número rojo es
