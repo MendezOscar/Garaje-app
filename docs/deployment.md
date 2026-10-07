@@ -563,6 +563,42 @@ Los dos primeros son deliberadamente más estrictos que los de Google —marca m
 1,09% de fallos y 0,47% de ANR—: si se llega al umbral de Google, la ficha ya está castigada. La
 mitad de ese margen deja tiempo de reaccionar.
 
+### Forzar la actualización
+
+Ninguna tienda sabe obligar a actualizar: Google tiene su API de *In-App Updates* y Apple no
+tiene nada. Lo hace el servidor. La app manda su versión en cada petición —`X-Garaj-Cliente:
+GarajApp/1.3.0+12`— y la API decide con dos variables de Render:
+
+| Variable | Qué hace |
+| --- | --- |
+| `AppVersion__MinimumBuild` | Por debajo de esta compilación, la API responde 426 y la app enseña una pantalla que no deja pasar |
+| `AppVersion__RecommendedBuild` | Por debajo, una franja arriba que se puede cerrar; se sigue trabajando |
+| `AppVersion__Message` | Por qué hay que actualizar, con las palabras del taller. Opcional |
+
+Son **compilaciones**, no versiones: el `+12` de `1.3.0+12`. **En cero no estorban a nadie**, que
+es como vienen y como deben quedarse mientras no haga falta.
+
+Tres reglas para no dejar a un taller sin app:
+
+1. **Nunca se sube el mínimo el mismo día que se publica.** La versión tarda en llegar a los
+   teléfonos: Play la reparte por etapas y en iOS cada quien actualiza cuando quiere. Se espera a
+   ver en la consola que la mayoría ya la tiene.
+2. **Primero recomendada, después mínima.** La franja avisa sin estorbar; el bloqueo se guarda
+   para cuando de verdad no se puede seguir —una migración que rompe la compatibilidad, un error
+   que cobra mal—.
+3. **Se baja igual de rápido.** Si el bloqueo resultó de más, se pone la variable en cero y los
+   teléfonos se enteran en la siguiente petición. No hace falta publicar nada.
+
+Lo que **nunca** se bloquea, y por eso el portón no deja al taller aislado: `/api/app/version`
+—que es lo que la app bloqueada necesita preguntar—, las páginas públicas de cotización y
+seguimiento, el `/health` de Render, y todo lo que no manda la cabecera, que es el panel web.
+
+```bash
+# Ver qué está exigiendo la API ahora mismo
+curl -s https://garaje-app.onrender.com/api/app/version \
+  -H 'X-Garaj-Cliente: GarajApp/1.3.0+12'
+```
+
 ### Cuándo se detiene, sin discutirlo
 
 - Usuarios sin fallos por debajo de **99%**.

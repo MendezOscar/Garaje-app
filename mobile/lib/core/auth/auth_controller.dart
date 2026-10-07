@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
+import '../api/app_version_repository.dart';
 import '../models/current_user.dart';
 import '../push/push_messaging.dart';
 import 'token_store.dart';
@@ -12,6 +13,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     tokenStore: ref.watch(tokenStoreProvider),
     onSessionExpired: () async => ref.read(authControllerProvider.notifier).forceLogout(),
+    onUpgradeRequired: () => ref.read(versionDeLaAppProvider.notifier).bloquearAhora(),
   );
 });
 

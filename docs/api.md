@@ -17,6 +17,7 @@ marcados como anónimos. Los errores salen como `application/problem+json` con e
 | POST | `/api/auth/delete-account` | cualquiera | **Borra la cuenta de quien la pide** |
 | GET | `/api/auth/ping-owner` | Owner | Prueba de humo de las policies por rol |
 | GET | `/health` | anónimo | Estado de la API y de la base |
+| GET | `/api/app/version` | anónimo | Qué versión de la app hace falta y qué le toca a la que pregunta: `pasa`, `avisar` o `bloquear`. Nunca se bloquea: es lo que consulta la app parada |
 
 ### Borrar la propia cuenta
 
@@ -695,6 +696,17 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
 | PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
 | POST | `/api/platform/tenants/{id}/suspend` \| `/reactivate` | Plataforma | El corte definitivo |
+
+### El portón de versión
+
+La app manda su versión en cada petición (`X-Garaj-Cliente: GarajApp/1.3.0+12`). Por debajo de
+`AppVersion__MinimumBuild` la API responde **426** y la app enseña una pantalla que no deja pasar;
+por debajo de `AppVersion__RecommendedBuild`, una franja que se puede cerrar. En cero —como vienen
+las dos— no estorban a nadie.
+
+No se bloquean nunca: `/api/app/version`, `/public/*`, `/health`, y todo lo que no manda la
+cabecera, que es el panel web. Cómo y cuándo se suben los números está en
+[deployment.md](deployment.md#forzar-la-actualización).
 
 Decisiones que conviene conocer:
 

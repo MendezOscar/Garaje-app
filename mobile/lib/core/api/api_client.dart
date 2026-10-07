@@ -21,8 +21,11 @@ const apiBaseUrl = String.fromEnvironment(
 );
 
 class ApiClient {
-  ApiClient({required TokenStore tokenStore, required this.onSessionExpired})
-      : _tokenStore = tokenStore {
+  ApiClient({
+    required TokenStore tokenStore,
+    required this.onSessionExpired,
+    this.onUpgradeRequired,
+  }) : _tokenStore = tokenStore {
     dio = Dio(BaseOptions(
       baseUrl: apiBaseUrl,
       connectTimeout: const Duration(seconds: 15),
@@ -34,7 +37,7 @@ class ApiClient {
 
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: _attachToken,
-      onError: _refreshOnUnauthorized,
+      onError: _alFallar,
     ));
   }
 
@@ -43,6 +46,13 @@ class ApiClient {
 
   /// Se llama cuando el refresh falla y hay que devolver al usuario al login.
   final Future<void> Function() onSessionExpired;
+
+  /// Se llama cuando el servidor responde 426: esta versión de la app ya no le sirve.
+  ///
+  /// Hace falta además de la consulta del arranque para el teléfono que ya tenía la app
+  /// abierta cuando se subió el mínimo: ese no va a volver a arrancar, y la primera petición
+  /// que le rebote es la que lo entera.
+  final Future<void> Function()? onUpgradeRequired;
 
   /// Un solo refresh en vuelo: si varias peticiones reciben 401 a la vez y cada una
   /// intentara refrescar, la rotación del backend invalidaría las siguientes y cerraría
@@ -89,6 +99,17 @@ class ApiClient {
       if (token != null) options.headers['Authorization'] = 'Bearer $token';
     }
     handler.next(options);
+  }
+
+  Future<void> _alFallar(DioException error, ErrorInterceptorHandler handler) async {
+    // 426: la app es más vieja que el mínimo que acepta la API. Se avisa y se deja pasar el
+    // error, que la pantalla de bloqueo ya está encima de todo.
+    if (error.response?.statusCode == 426) {
+      await onUpgradeRequired?.call();
+      return handler.next(error);
+    }
+
+    return _refreshOnUnauthorized(error, handler);
   }
 
   Future<void> _refreshOnUnauthorized(DioException error, ErrorInterceptorHandler handler) async {
