@@ -577,6 +577,27 @@ function changeStatus(status: WorkOrderStatus) {
   })
 }
 
+/**
+ * Devuelve al taller una orden ya entregada, para rehacer lo que quedó mal y volver a
+ * facturarla. El plazo y la factura anulada los exige el servidor; aquí solo se pide el
+ * motivo, que es lo que después se lee en la línea de tiempo.
+ */
+function reabrir() {
+  const motivo = window.prompt(
+    `Reabrir la orden ${order.value?.number}. ¿Por qué vuelve a abrirse?\n\n` +
+      'Vuelve a «En proceso» y se puede volver a facturar. Si todavía tiene factura viva, ' +
+      'anúlela primero.',
+  )
+  if (!motivo?.trim()) return
+
+  return run(() => workOrdersApi.reopen(id.value, motivo.trim()))
+}
+
+/** La ficha de recepción en PDF, para imprimirla o mandársela al cliente. */
+function bajarFicha() {
+  return run(() => workOrdersApi.downloadReceptionPdf(id.value, order.value!.number))
+}
+
 function addTask() {
   const title = newTask.value.title.trim()
   if (!title) return
@@ -914,6 +935,18 @@ onMounted(async () => {
         <a v-else-if="auth.isOwner && sales.length" class="boton-suave" href="#cobrar-hecho">
           Ver la venta
         </a>
+
+        <!-- Entregada es el final del camino, salvo cuando el trabajo quedó mal: ahí la orden
+             vuelve al taller en vez de abrir una nueva que no diga de dónde viene. -->
+        <button
+          v-if="auth.isOwner && order.status === WorkOrderStatus.Delivered"
+          type="button"
+          class="boton-suave"
+          :disabled="busy"
+          @click="reabrir"
+        >
+          Reabrir la orden
+        </button>
 
         <details v-if="canEdit && otrosEstados.length" class="otros">
           <summary title="Otro estado">···</summary>
@@ -1780,14 +1813,27 @@ onMounted(async () => {
         <article class="card">
           <header class="titulo-con-accion">
             <h2>Recepción del vehículo</h2>
-            <button
-              v-if="canEdit"
-              type="button"
-              class="link"
-              @click="editandoRecepcion = !editandoRecepcion"
-            >
-              {{ editandoRecepcion ? 'Cancelar' : recepcion ? 'Corregir' : 'Llenar' }}
-            </button>
+            <div class="acciones">
+              <!-- Mandarla solo tiene sentido con la hoja ya guardada: lo que se baja es lo
+                   que está en el servidor. -->
+              <button
+                v-if="recepcion"
+                type="button"
+                class="link"
+                :disabled="busy"
+                @click="bajarFicha"
+              >
+                Bajar la ficha
+              </button>
+              <button
+                v-if="canEdit"
+                type="button"
+                class="link"
+                @click="editandoRecepcion = !editandoRecepcion"
+              >
+                {{ editandoRecepcion ? 'Cancelar' : recepcion ? 'Corregir' : 'Llenar' }}
+              </button>
+            </div>
           </header>
 
           <template v-if="!editandoRecepcion">

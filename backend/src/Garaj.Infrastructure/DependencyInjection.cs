@@ -14,6 +14,7 @@ using Garaj.Application.Users;
 using Garaj.Application.WorkOrders;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
+using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Garaj.Infrastructure.Persistence.Interceptors;
 using Garaj.Infrastructure.Push;
@@ -103,6 +104,7 @@ public static class DependencyInjection
         // de trabajo consume stock dentro de su propia transacción, y para eso necesita los
         // métodos internos que no están en la interfaz.
         services.AddScoped<StockService>();
+        services.AddScoped<ReceptionDocuments>();
         services.AddScoped<IStockService>(sp => sp.GetRequiredService<StockService>());
 
         services.AddScoped<ISaleService, SaleService>();

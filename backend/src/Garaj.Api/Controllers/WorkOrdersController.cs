@@ -84,6 +84,16 @@ public class WorkOrdersController(
         Guid id, ChangeStatusRequest request, CancellationToken ct)
         => Ok(await service.ChangeStatusAsync(id, request, ct));
 
+    /// <summary>
+    /// Devuelve al taller una orden entregada, para rehacerla y volver a facturarla. Pide que
+    /// la factura esté anulada antes, y solo dentro del plazo de garantía del trabajo.
+    /// </summary>
+    [HttpPost("{id:guid}/reopen")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public async Task<ActionResult<WorkOrderDetailDto>> Reopen(
+        Guid id, ReopenWorkOrderRequest request, CancellationToken ct)
+        => Ok(await service.ReopenAsync(id, request, ct));
+
     [HttpPost("{id:guid}/tasks")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
     public async Task<ActionResult<WorkOrderTaskDto>> AddTask(
@@ -138,6 +148,18 @@ public class WorkOrdersController(
     {
         var firma = await service.ReceptionSignatureAsync(id, ct);
         return firma is null ? NotFound() : File(firma.Value.Bytes, firma.Value.ContentType);
+    }
+
+    /// <summary>
+    /// La ficha de recepción en PDF: lo que traía el vehículo, firmado. 404 si no se llenó.
+    /// </summary>
+    [HttpGet("{id:guid}/reception/pdf")]
+    public async Task<IActionResult> ReceptionPdf(Guid id, CancellationToken ct)
+    {
+        var ficha = await service.ReceptionPdfAsync(id, ct);
+        return ficha is null
+            ? NotFound()
+            : File(ficha.Value.Bytes, "application/pdf", ficha.Value.FileName);
     }
 
     [HttpGet("{id:guid}/parts")]

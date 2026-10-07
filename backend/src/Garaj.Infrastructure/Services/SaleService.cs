@@ -499,8 +499,31 @@ public class SaleService(
 
         if (sale.IsVoided) throw new ConflictException("La venta ya está anulada.");
 
+        var ahora = clock.UtcNow;
+        if (!CorreccionDePostventa.SePuedeAnular(sale.SaleDate, sale.IsFiscal, ahora))
+        {
+            throw new ConflictException(sale.IsFiscal
+                ? $"La factura {sale.Number} es de un mes ya cerrado y no se puede anular: "
+                  + "eso se corrige con una nota de crédito, no aquí."
+                : $"El comprobante {sale.Number} tiene más de "
+                  + $"{CorreccionDePostventa.DiasParaAnularSinCai} días y ya no se puede anular.");
+        }
+
+        // Si el cliente ya había abonado, el dinero existe y tiene que ir a alguna parte: o se
+        // le devolvió, o se aplica a la factura nueva. Sin esa línea escrita, el descuadre de
+        // caja aparece un mes después y ya nadie se acuerda de qué pasó.
+        var abonado = await db.SalePayments.Where(p => p.SaleId == sale.Id).SumAsync(p => p.Amount, ct);
+        if (abonado > 0 && string.IsNullOrWhiteSpace(request.PaymentsNote))
+        {
+            throw new AppException(
+                $"Esta venta tiene {abonado:N2} ya cobrados. Escriba qué se hizo con ese dinero: "
+                + "si se le devolvió al cliente o si se aplica a la factura nueva.");
+        }
+
         sale.IsVoided = true;
         sale.VoidReason = Truncate(request.Reason, 500);
+        sale.VoidedAt = ahora;
+        sale.VoidPaymentsNote = abonado > 0 ? Truncate(request.PaymentsNote, 500) : null;
 
         // Solo se devuelve el stock de las ventas de mostrador: los repuestos de una orden
         // salieron al consumirlos, y su devolución se maneja quitándolos de la orden.

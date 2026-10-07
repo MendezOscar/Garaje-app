@@ -9,8 +9,10 @@ using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
+using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
+using QuestPDF.Fluent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -25,6 +27,7 @@ public class WorkOrderService(
     IMediaService media,
     StockService stock,
     IStorageService storage,
+    ReceptionDocuments receptionDocuments,
     INotificationPublisher notifications) : IWorkOrderService
 {
     public async Task<PagedResult<WorkOrderListItemDto>> ListAsync(
@@ -346,6 +349,83 @@ public class WorkOrderService(
         return await GetAsync(id, ct);
     }
 
+    public async Task<WorkOrderDetailDto> ReopenAsync(
+        Guid id, ReopenWorkOrderRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureOwner();
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            throw new AppException("Escriba por qué vuelve a abrirse la orden.");
+
+        var order = await FindEditableAsync(id, scope, ct);
+
+        if (order.Status != WorkOrderStatus.Delivered)
+            throw new ConflictException(
+                $"La orden {order.Number} no está entregada: está en {Describe(order.Status)}.");
+
+        // Con la factura viva no se reabre: quedarían dos cobros por el mismo trabajo y el
+        // libro de ventas no cuadraría con la caja.
+        var factura = await db.Sales.AsNoTracking()
+            .Where(s => s.WorkOrderId == order.Id && !s.IsVoided)
+            .Select(s => s.Number)
+            .FirstOrDefaultAsync(ct);
+
+        if (factura is not null)
+            throw new ConflictException(
+                $"Primero anule la factura {factura}. Con la factura viva no se puede reabrir "
+                + "la orden: quedarían dos cobros por el mismo trabajo.");
+
+        var entregadaEl = order.ClosedAt
+            ?? throw new ConflictException("La orden no tiene fecha de entrega.");
+
+        // La garantía que de verdad se le dio al trabajo está en la factura; la del taller es
+        // solo el valor que se propone al facturar.
+        var garantia = await db.Sales.AsNoTracking()
+            .Where(s => s.WorkOrderId == order.Id && s.WarrantyDays != null)
+            .OrderByDescending(s => s.SaleDate)
+            .Select(s => s.WarrantyDays)
+            .FirstOrDefaultAsync(ct);
+
+        if (garantia is null)
+        {
+            garantia = await db.Tenants.AsNoTracking()
+                .Where(t => t.Id == order.TenantId)
+                .Select(t => (int?)t.DefaultWarrantyDays)
+                .FirstOrDefaultAsync(ct) ?? 0;
+        }
+
+        var limite = CorreccionDePostventa.LimiteParaReabrir(entregadaEl, garantia.Value);
+        if (clock.UtcNow >= limite)
+        {
+            throw new ConflictException(
+                $"La orden {order.Number} se entregó el {entregadaEl.ToLocalTime():dd/MM/yyyy} y el "
+                + $"plazo para reabrirla venció el {limite.ToLocalTime():dd/MM/yyyy}. "
+                + "Abra una orden nueva: el trabajo de hoy ya no es el de aquella.");
+        }
+
+        order.Status = WorkOrderStatus.InProgress;
+        order.ClosedAt = null;
+
+        db.WorkOrderStatusHistory.Add(new WorkOrderStatusHistory
+        {
+            WorkOrderId = order.Id,
+            FromStatus = WorkOrderStatus.Delivered,
+            ToStatus = WorkOrderStatus.InProgress,
+            ChangedAt = clock.UtcNow,
+            ChangedByUserId = scope.UserId,
+            Note = "Reabierta: " + request.Reason.Trim(),
+            IsVisibleToCustomer = request.IsVisibleToCustomer
+        });
+
+        await db.SaveChangesAsync(ct);
+
+        if (request.IsVisibleToCustomer)
+            await NotifyCustomerOfStatusAsync(order, ct);
+
+        return await GetAsync(id, ct);
+    }
+
     private async Task NotifyCustomerOfStatusAsync(WorkOrder order, CancellationToken ct)
     {
         var customerId = await db.Vehicles
@@ -545,6 +625,21 @@ public class WorkOrderService(
         await stream.CopyToAsync(buffer, ct);
 
         return (buffer.ToArray(), "image/png");
+    }
+
+    public async Task<(byte[] Bytes, string FileName)?> ReceptionPdfAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        var numero = await Scoped(scope)
+            .Where(w => w.Id == workOrderId).Select(w => w.Number).FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        var ficha = await receptionDocuments.TryBuildAsync(workOrderId, ct);
+        if (ficha is null) return null;
+
+        return (ficha.GeneratePdf(), $"recepcion-{numero}.pdf");
     }
 
     /// <summary>Lo que escribió quien recibe, sin pasarse del largo de la columna.</summary>

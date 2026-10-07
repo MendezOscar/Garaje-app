@@ -25,6 +25,23 @@ class ExpensesScreen extends ConsumerStatefulWidget {
 class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   bool _busy = false;
 
+  /// El mes que se está mirando, siempre el día 1. Arranca en el corriente.
+  late DateTime _mes = _primeroDeEsteMes();
+
+  static DateTime _primeroDeEsteMes() {
+    final hoy = DateTime.now();
+    return DateTime(hoy.year, hoy.month);
+  }
+
+  bool get _esEsteMes => _mes == _primeroDeEsteMes();
+
+  void _mover(int meses) {
+    final destino = DateTime(_mes.year, _mes.month + meses);
+    // Hacia adelante no se pasa del mes corriente: no hay resultados del mes que viene.
+    if (destino.isAfter(_primeroDeEsteMes())) return;
+    setState(() => _mes = destino);
+  }
+
   Future<void> _registrar() async {
     // Con `ref.read` sobre un proveedor autoDispose que nadie estaba mirando, la lista venía
     // vacía y el botón se iba por el `return` sin decir nada: tocarlo no hacía absolutamente
@@ -73,6 +90,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
       ref.invalidate(expensesProvider);
       ref.invalidate(incomeStatementProvider);
+      ref.invalidate(expensesOfMonthProvider(_mes));
+      ref.invalidate(incomeStatementOfMonthProvider(_mes));
 
       // El comprobante se adjunta ahora o no se adjunta: es el único momento en que el papel
       // está en la mano.
@@ -127,13 +146,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     );
 
     ref.invalidate(expensesProvider);
+    ref.invalidate(expensesOfMonthProvider(_mes));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final resultado = ref.watch(incomeStatementProvider);
-    final gastos = ref.watch(expensesProvider);
+    final resultado = ref.watch(incomeStatementOfMonthProvider(_mes));
+    final gastos = ref.watch(expensesOfMonthProvider(_mes));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Resultados y gastos')),
@@ -144,14 +164,25 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(incomeStatementProvider);
-          ref.invalidate(expensesProvider);
+          ref.invalidate(incomeStatementOfMonthProvider(_mes));
+          ref.invalidate(expensesOfMonthProvider(_mes));
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
           children: [
+            // El mes que se mira, con las flechas para ir atrás. Sin esto, el dueño solo
+            // podía ver el mes corriente: el día 2 del mes, el taller entero parecía vacío.
+            _BarraDeMes(
+              mes: _mes,
+              esEsteMes: _esEsteMes,
+              onAnterior: () => _mover(-1),
+              onSiguiente: _esEsteMes ? null : () => _mover(1),
+              onEsteMes: _esEsteMes ? null : () => setState(() => _mes = _primeroDeEsteMes()),
+            ),
+            const SizedBox(height: 12),
+
             if (resultado.value case final r?) ...[
-              Text('ESTE MES', style: _rotulo(theme)),
+              Text(_rotuloDelMes(_mes, _esEsteMes), style: _rotulo(theme)),
               const SizedBox(height: 6),
               Card(
                 child: Padding(
@@ -181,6 +212,17 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                         fuerte: true,
                         rojo: r.netProfit < 0,
                       ),
+
+                      // Un número suelto no dice si el mes fue bueno: dice cuánto quedó. La
+                      // comparación es la que contesta la pregunta de verdad.
+                      if (r.previousNetProfit case final anterior?) ...[
+                        const SizedBox(height: 6),
+                        _Comparacion(
+                          actual: r.netProfit,
+                          anterior: anterior,
+                          currency: r.currency,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -189,8 +231,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Sin gastos registrados este mes, así que la utilidad neta es la bruta. '
-                    'Anote alquiler, salarios y servicios para que el número sea real.',
+                    'Sin gastos registrados en este mes, así que la utilidad neta es la '
+                    'bruta. Anote alquiler, salarios y servicios para que el número sea real.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -199,12 +241,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             ],
 
             const SizedBox(height: 20),
-            Text('GASTOS DEL MES', style: _rotulo(theme)),
+            Text('GASTOS DE ${_mesEnPalabras(_mes).toUpperCase()}', style: _rotulo(theme)),
             const SizedBox(height: 6),
 
             if (gastos.value case final lista?)
               if (lista.isEmpty)
-                Text('Ninguno registrado todavía.', style: theme.textTheme.bodySmall)
+                Text('Ninguno registrado en este mes.', style: theme.textTheme.bodySmall)
               else
                 for (final gasto in lista)
                   ListTile(
@@ -454,3 +496,115 @@ String _fecha(DateTime value) {
   final local = value.toLocal();
   return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}';
 }
+
+/// Las flechas para moverse de mes. Hacia adelante se apaga en el mes corriente: no hay
+/// resultados del mes que viene.
+class _BarraDeMes extends StatelessWidget {
+  const _BarraDeMes({
+    required this.mes,
+    required this.esEsteMes,
+    required this.onAnterior,
+    required this.onSiguiente,
+    required this.onEsteMes,
+  });
+
+  final DateTime mes;
+  final bool esEsteMes;
+  final VoidCallback onAnterior;
+  final VoidCallback? onSiguiente;
+  final VoidCallback? onEsteMes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        IconButton(
+          onPressed: onAnterior,
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Mes anterior',
+        ),
+        Expanded(
+          child: Text(
+            _mesEnPalabras(mes),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium,
+          ),
+        ),
+        IconButton(
+          onPressed: onSiguiente,
+          icon: const Icon(Icons.chevron_right),
+          tooltip: 'Mes siguiente',
+        ),
+        if (!esEsteMes)
+          TextButton(onPressed: onEsteMes, child: const Text('Hoy')),
+      ],
+    );
+  }
+}
+
+/// Cuánto mejor o peor que el mes pasado.
+class _Comparacion extends StatelessWidget {
+  const _Comparacion({
+    required this.actual,
+    required this.anterior,
+    required this.currency,
+  });
+
+  final double actual;
+  final double anterior;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final diferencia = actual - anterior;
+
+    // Sin mes anterior con el que comparar, el porcentaje sería una división por cero y
+    // además no significaría nada.
+    final porcentaje = anterior == 0
+        ? null
+        : (diferencia / anterior.abs() * 100).toStringAsFixed(0);
+
+    final mejor = diferencia >= 0;
+    final color = mejor ? GarajColors.successText : theme.colorScheme.error;
+
+    final texto = diferencia == 0
+        ? 'Igual que el mes pasado.'
+        : '${mejor ? '+' : '−'}${money(diferencia.abs(), currency)}'
+            '${porcentaje == null ? '' : ' · $porcentaje%'} que el mes pasado';
+
+    return Row(
+      children: [
+        Icon(
+          diferencia == 0
+              ? Icons.remove
+              : mejor
+                  ? Icons.trending_up
+                  : Icons.trending_down,
+          size: 16,
+          color: color,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(texto, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+        ),
+      ],
+    );
+  }
+}
+
+const _meses = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+String _mesEnPalabras(DateTime mes) {
+  final nombre = _meses[mes.month - 1];
+  final delMismoAno = mes.year == DateTime.now().year;
+  return delMismoAno ? nombre : '$nombre ${mes.year}';
+}
+
+String _rotuloDelMes(DateTime mes, bool esEsteMes) =>
+    esEsteMes ? 'ESTE MES' : _mesEnPalabras(mes).toUpperCase();

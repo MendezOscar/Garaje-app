@@ -6,6 +6,19 @@
 
 **Cómo llegar.** Más → Dinero → **Resultados y gastos**.
 
+## Qué mes se está mirando
+
+Arriba, las flechas mueven el mes: **‹ octubre ›**, y el botón **Hoy** vuelve al corriente.
+Hacia adelante se apaga en el mes corriente, porque no hay resultados del mes que viene.
+
+Importa porque un resultado solo se entiende con el mes terminado: el día 2, el mes corriente
+parece un taller vacío, y lo que hay que mirar es cómo cerró el mes pasado.
+
+Debajo de la utilidad neta va la **comparación con el mes anterior** —cuánto más o cuánto
+menos—, que es lo que contesta de verdad si el mes fue bueno.
+
+En el panel web es el selector de mes al lado del periodo.
+
 ## El estado del mes
 
 ```

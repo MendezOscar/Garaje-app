@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -119,6 +121,21 @@ class QuoteRepository {
     );
 
     return Quote.fromJson(response.data!);
+  }
+
+  /// El PDF del presupuesto, bajado con la sesión puesta para poder compartirlo como archivo.
+  ///
+  /// Con [includeReception] el servidor le cose delante la ficha de recepción de la orden:
+  /// el cliente recibe un archivo en vez de dos. Si la orden no tiene ficha, llega el
+  /// presupuesto solo.
+  Future<Uint8List> pdf(String id, {bool includeReception = false}) async {
+    final response = await _dio.get<List<int>>(
+      '/api/quotes/$id/pdf',
+      queryParameters: {if (includeReception) 'includeReception': true},
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    return Uint8List.fromList(response.data!);
   }
 }
 

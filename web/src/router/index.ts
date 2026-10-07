@@ -115,6 +115,15 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // Lo que se le ha hecho a un vehículo, buscándolo por placa. Es la pregunta del
+        // mostrador cuando el cliente vuelve, y hasta hoy había que dar con una orden suya
+        // para poder contestarla.
+        path: 'historial',
+        name: 'vehicle-history',
+        component: () => import('@/views/owner/VehicleHistoryView.vue'),
+        meta: { roles: [Roles.Owner, Roles.Technician] },
+      },
+      {
         // Aparte de Reportes: esto no se mira, se trabaja —se busca al cliente que llamó y
         // se le anota el abono—. En Reportes queda solo el total.
         path: 'por-cobrar',

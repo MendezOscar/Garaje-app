@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/work_order_repository.dart';
@@ -75,6 +78,48 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
     if (datos == null) return null;
 
     return base64Encode(datos.buffer.asUint8List());
+  }
+
+  /// Baja la ficha en PDF y la pasa a la hoja de compartir: de ahí sale a WhatsApp o al
+  /// correo del cliente. Lo que se anotó delante de él, en su teléfono el mismo día.
+  Future<void> _mandar() async {
+    setState(() => _busy = true);
+    try {
+      final bytes = await ref.read(workOrderRepositoryProvider).receptionPdf(widget.workOrderId);
+
+      if (bytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Guarde la recepción antes de mandarla.')),
+          );
+        }
+        return;
+      }
+
+      final file = File('${(await getTemporaryDirectory()).path}/recepcion.pdf');
+      await file.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/pdf')],
+          text: 'Ficha de recepción de su vehículo',
+          // En iPad la hoja sale anclada a un punto; sin esto revienta.
+          sharePositionOrigin: box == null
+              ? Rect.zero
+              : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo armar la ficha.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _guardar() async {
@@ -242,6 +287,17 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
             onPressed: _busy ? null : _guardar,
             child: Text(_busy ? 'Guardando…' : 'Guardar la recepción'),
           ),
+
+          // Mandarla solo tiene sentido con la hoja ya guardada: lo que se comparte es lo que
+          // está en el servidor, no lo que todavía se está escribiendo.
+          if (hoja.value != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _mandar,
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Mandarle la ficha al cliente'),
+            ),
+          ],
         ],
       ),
     );

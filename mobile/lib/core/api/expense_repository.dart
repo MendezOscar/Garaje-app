@@ -88,6 +88,8 @@ class IncomeStatement {
     required this.netProfit,
     required this.netMarginPercent,
     required this.expenses,
+    this.previousNetProfit,
+    this.previousRevenue,
   });
 
   factory IncomeStatement.fromJson(Map<String, dynamic> json) => IncomeStatement(
@@ -101,6 +103,10 @@ class IncomeStatement {
         expenses: ((json['expenses'] as List<dynamic>?) ?? [])
             .map((e) => ExpenseGroup.fromJson(e as Map<String, dynamic>))
             .toList(),
+        previousNetProfit:
+            (((json['previous'] as Map<String, dynamic>?)?['netProfit']) as num?)?.toDouble(),
+        previousRevenue:
+            (((json['previous'] as Map<String, dynamic>?)?['revenue']) as num?)?.toDouble(),
       );
 
   final String currency;
@@ -111,6 +117,10 @@ class IncomeStatement {
   final double netProfit;
   final double netMarginPercent;
   final List<ExpenseGroup> expenses;
+
+  /// Lo mismo del periodo anterior, para poner al lado. Null si el servidor no lo mandó.
+  final double? previousNetProfit;
+  final double? previousRevenue;
 }
 
 class ExpenseGroup {
@@ -130,11 +140,12 @@ class ExpenseRepository {
 
   final Dio _dio;
 
-  Future<List<Expense>> list({DateTime? from}) async {
+  Future<List<Expense>> list({DateTime? from, DateTime? to}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/expenses',
       queryParameters: {
-        if (from != null) 'from': from.toIso8601String(),
+        if (from != null) 'from': from.toUtc().toIso8601String(),
+        if (to != null) 'to': to.toUtc().toIso8601String(),
         'pageSize': 100,
       },
     );
@@ -173,11 +184,14 @@ class ExpenseRepository {
 
   Future<void> remove(String id) => _dio.delete<void>('/api/expenses/$id');
 
-  /// Sin fecha, el mes corriente, que es el periodo que el dueño mira.
-  Future<IncomeStatement> incomeStatement({DateTime? from}) async {
+  /// Sin fechas, el mes corriente, que es el periodo que el dueño mira.
+  Future<IncomeStatement> incomeStatement({DateTime? from, DateTime? to}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/expenses/income-statement',
-      queryParameters: {if (from != null) 'from': from.toIso8601String()},
+      queryParameters: {
+        if (from != null) 'from': from.toUtc().toIso8601String(),
+        if (to != null) 'to': to.toUtc().toIso8601String(),
+      },
     );
 
     return IncomeStatement.fromJson(response.data!);
@@ -194,4 +208,25 @@ final expensesProvider = FutureProvider.autoDispose<List<Expense>>(
 
 final incomeStatementProvider = FutureProvider.autoDispose<IncomeStatement>(
   (ref) => ref.watch(expenseRepositoryProvider).incomeStatement(),
+);
+
+/// El mes que se está mirando: el primer día, a las cero horas. Es una familia y no un
+/// parámetro suelto para que cada mes quede en caché por su cuenta: moverse adelante y atrás
+/// entre los últimos meses no vuelve a pedirlos.
+final incomeStatementOfMonthProvider =
+    FutureProvider.autoDispose.family<IncomeStatement, DateTime>(
+  (ref, mes) => ref.watch(expenseRepositoryProvider).incomeStatement(
+        from: mes,
+        // El último instante del mes: el día 1 del siguiente, menos un microsegundo.
+        to: DateTime(mes.year, mes.month + 1, 1).subtract(const Duration(microseconds: 1)),
+      ),
+);
+
+/// Los gastos de un mes, que es lo que se lista debajo del estado.
+final expensesOfMonthProvider =
+    FutureProvider.autoDispose.family<List<Expense>, DateTime>(
+  (ref, mes) => ref.watch(expenseRepositoryProvider).list(
+        from: mes,
+        to: DateTime(mes.year, mes.month + 1, 1).subtract(const Duration(microseconds: 1)),
+      ),
 );

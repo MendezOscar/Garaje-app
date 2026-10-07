@@ -38,3 +38,15 @@ en la pantalla.
   **Firmar de nuevo** si hizo falta rehacerla.
 
 Es opcional, pero es la prueba de en qué estado entró el vehículo.
+
+## Mandarle la ficha al cliente
+
+Con la hoja guardada aparece **Mandarle la ficha al cliente**: arma un PDF con lo que traía el
+vehículo, las fotos de entrada y la firma, y lo pasa a WhatsApp o al correo. Lo que se anotó
+delante de él, en su teléfono el mismo día; si el daño se discute un mes después, ya lo tiene.
+
+En el panel web es el botón **Bajar la ficha**, en la misma tarjeta de recepción.
+
+También se puede mandar **junto con el presupuesto**: en
+[Cotizaciones](06-cotizaciones.md) está *Con la ficha*, que saca un solo PDF con la hoja de
+recepción delante y el presupuesto detrás.

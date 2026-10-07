@@ -25,6 +25,7 @@ import '../../features/shell/customer_shell.dart';
 import '../../features/shell/owner_shell.dart';
 import '../../features/shell/technician_shell.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/work_orders/vehicle_history_lookup_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
 import '../../features/workshop/workshop_settings_screen.dart';
@@ -177,6 +178,10 @@ List<RouteBase> garajRoutes() => [
       // la pantalla de inicio.
       GoRoute(path: '/ajustes', builder: (_, __) => const WorkshopSettingsScreen()),
       GoRoute(path: '/clientes', builder: (_, __) => const CustomersScreen()),
+      GoRoute(
+        path: '/historial',
+        builder: (_, __) => const VehicleHistoryLookupScreen(),
+      ),
       GoRoute(path: '/inventario', builder: (_, __) => const InventoryScreen()),
       GoRoute(path: '/requerimientos', builder: (_, __) => const ServiceRequestsScreen()),
     ];

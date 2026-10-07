@@ -85,6 +85,7 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
             title: 'Catálogos',
             items: [
               { to: { name: 'customers' }, label: 'Clientes' },
+              { to: { name: 'vehicle-history' }, label: 'Historial' },
               { to: { name: 'inventory' }, label: 'Inventario' },
               { to: { name: 'labor-services' }, label: 'Mano de obra' },
               { to: { name: 'job-templates' }, label: 'Trabajos frecuentes' },

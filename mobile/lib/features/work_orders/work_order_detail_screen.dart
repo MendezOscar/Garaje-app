@@ -924,6 +924,53 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ));
   }
 
+  /// Devuelve al taller una orden ya entregada, para rehacer lo que quedó mal.
+  ///
+  /// El plazo y el estado de la factura los decide el servidor: aquí solo se pide el motivo,
+  /// que es lo que después se lee en la línea de tiempo.
+  Future<void> _reabrir(WorkOrderDetail order) async {
+    final controller = TextEditingController();
+
+    final motivo = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Reabrir ${order.number}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'La orden vuelve a «En proceso» y se puede volver a facturar. '
+              'Si todavía tiene factura viva, anúlela primero.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Por qué vuelve a abrirse',
+                hintText: 'Volvió con el mismo ruido, se cobró de más…',
+                helperText: 'Queda en la línea de tiempo.',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Reabrir'),
+          ),
+        ],
+      ),
+    );
+
+    if (motivo == null || motivo.isEmpty) return;
+
+    await _run(() => ref.read(workOrderRepositoryProvider).reopen(widget.id, motivo));
+  }
+
   /// Cambia el total de la mano de obra cuando la orden se cobra a mano.
   Future<void> _cambiarTotalAMano(WorkOrderDetail order) async {
     final total = await _askTotal(order);
@@ -1014,6 +1061,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                           _asignarTecnico(cargada);
                         case 'frecuente':
                           _guardarComoFrecuente(cargada);
+                        case 'reabrir':
+                          _reabrir(cargada);
                         default:
                           _changeStatus(value as WorkOrderStatus);
                       }
@@ -1043,6 +1092,17 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   const PopupMenuItem(
                     value: 'frecuente',
                     child: Text('Guardar como trabajo frecuente'),
+                  ),
+                // Entregada es el final del camino, salvo cuando el trabajo quedó mal: ahí la
+                // orden vuelve al taller en vez de abrir una nueva que no diga de dónde viene.
+                if (_isOwner && cargada.status == WorkOrderStatus.delivered)
+                  const PopupMenuItem(
+                    value: 'reabrir',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.replay_outlined),
+                      title: Text('Reabrir la orden'),
+                    ),
                   ),
               ],
             ),

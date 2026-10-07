@@ -190,7 +190,10 @@ public record RegisterPaymentRequest(
     string? Reference,
     string? Notes);
 
-public record VoidSaleRequest(string Reason);
+/// <param name="PaymentsNote">
+/// Obligatorio cuando la venta ya tenía abonos cobrados: qué se hizo con ese dinero.
+/// </param>
+public record VoidSaleRequest(string Reason, string? PaymentsNote = null);
 
 public record SaleQuery : PageQuery
 {

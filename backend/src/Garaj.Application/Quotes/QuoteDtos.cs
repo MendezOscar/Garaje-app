@@ -246,7 +246,11 @@ public interface IQuoteService
     /// <summary>El link de WhatsApp sin cambiar el estado, para reenviar.</summary>
     Task<WhatsAppLinkDto> WhatsAppLinkAsync(Guid id, CancellationToken ct = default);
 
-    Task<byte[]> PdfAsync(Guid id, CancellationToken ct = default);
+    /// <param name="includeReception">
+    /// Cose la ficha de recepción delante del presupuesto. Es lo que pide el taller cuando
+    /// manda las dos cosas juntas: el cliente recibe un archivo, no dos.
+    /// </param>
+    Task<byte[]> PdfAsync(Guid id, bool includeReception = false, CancellationToken ct = default);
 
     /// <summary>Respuesta desde dentro de la app (el Cliente autenticado o el Dueño por teléfono).</summary>
     Task<QuoteDetailDto> RespondAsync(

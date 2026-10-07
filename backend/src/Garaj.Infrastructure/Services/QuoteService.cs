@@ -8,6 +8,7 @@ using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Documents;
+using QuestPDF.Fluent;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,7 @@ public class QuoteService(
     IConfiguration configuration,
     ITenantService tenants,
     IMediaService media,
+    ReceptionDocuments receptionDocuments,
     INotificationPublisher notifications) : IQuoteService
 {
     /// <summary>
@@ -367,7 +369,8 @@ public class QuoteService(
         return await BuildLinkAsync(id, ct);
     }
 
-    public async Task<byte[]> PdfAsync(Guid id, CancellationToken ct = default)
+    public async Task<byte[]> PdfAsync(
+        Guid id, bool includeReception = false, CancellationToken ct = default)
     {
         var detail = await GetAsync(id, ct);
         var tenant = await CurrentTenantAsync(ct);
@@ -375,8 +378,18 @@ public class QuoteService(
         var photos = await media.DownloadThumbnailsAsync(
             MediaOwnerType.Quote, id, tenant.Id, PhotosInPdf, ct);
 
-        return QuotePdf.Render(
+        var presupuesto = QuotePdf.Build(
             detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
+
+        if (!includeReception || detail.WorkOrderId is not { } workOrderId)
+            return presupuesto.GeneratePdf();
+
+        // La ficha va delante: primero cómo entró el vehículo, después qué cuesta arreglarlo.
+        // Si la orden no tiene ficha llenada, sale el presupuesto solo y nadie se entera.
+        var ficha = await receptionDocuments.TryBuildAsync(workOrderId, ct);
+        return ficha is null
+            ? presupuesto.GeneratePdf()
+            : Document.Merge(ficha, presupuesto).GeneratePdf();
     }
 
     public async Task<QuoteDetailDto> RespondAsync(

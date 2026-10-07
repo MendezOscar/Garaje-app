@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
@@ -206,6 +210,36 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
     );
 
     if (!launched) _snack('No se pudo abrir el PDF.');
+  }
+
+  /// El presupuesto con la ficha de recepción cosida delante, para mandar las dos cosas en
+  /// un archivo. Va por el endpoint autenticado: la ficha lleva la firma del cliente y no
+  /// tiene por qué viajar por el enlace público, que es el que se reenvía.
+  Future<void> _compartirConLaFicha() async {
+    setState(() => _busy = true);
+    try {
+      final bytes = await ref
+          .read(quoteRepositoryProvider)
+          .pdf(widget.quote.id, includeReception: true);
+
+      final file = File('${(await getTemporaryDirectory()).path}/${widget.quote.number}.pdf');
+      await file.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/pdf')],
+          text: 'Presupuesto ${widget.quote.number}',
+          sharePositionOrigin:
+              box == null ? Rect.zero : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (e) {
+      _snack(apiErrorMessage(e, 'No se pudo armar el PDF.'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   void _snack(String message) {
@@ -671,6 +705,14 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                       onPressed: _busy ? null : _openPdf,
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                       label: const Text('PDF'),
+                    ),
+                  // Las dos cosas en un archivo: cómo entró el vehículo y qué cuesta
+                  // arreglarlo. Si la orden no tiene ficha llenada, sale el presupuesto solo.
+                  if (widget.isOwner)
+                    TextButton.icon(
+                      onPressed: _busy ? null : _compartirConLaFicha,
+                      icon: const Icon(Icons.attach_file, size: 18),
+                      label: const Text('Con la ficha'),
                     ),
                   if (widget.isOwner &&
                       quote.status != QuoteStatus.approved &&

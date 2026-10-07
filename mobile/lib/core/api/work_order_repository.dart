@@ -227,6 +227,34 @@ class WorkOrderRepository {
     return WorkOrderDetail.fromJson(response.data!);
   }
 
+  /// Devuelve al taller una orden ya entregada, para rehacerla y volver a facturarla.
+  ///
+  /// El servidor pide que la factura esté anulada antes y que no se haya pasado el plazo de
+  /// garantía del trabajo; los dos casos vuelven como 409 con el mensaje ya escrito.
+  Future<WorkOrderDetail> reopen(String id, String reason) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$id/reopen',
+      data: {'reason': reason},
+    );
+
+    return WorkOrderDetail.fromJson(response.data!);
+  }
+
+  /// La ficha de recepción en PDF, para compartirla con el cliente. Null si no se llenó.
+  Future<Uint8List?> receptionPdf(String id) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/api/work-orders/$id/reception/pdf',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return Uint8List.fromList(response.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
   /// La firma ya guardada, en bytes.
   ///
   /// Va por la API y no por el bucket —el objeto es privado—, así que necesita la cabecera de
@@ -513,6 +541,15 @@ final vehicleHistoryProvider =
   (ref, vehicleId) => ref
       .watch(workOrderRepositoryProvider)
       .list(onlyOpen: false, vehicleId: vehicleId),
+);
+
+/// Las visitas que coinciden con una búsqueda —placa, cliente o número—, entregadas
+/// incluidas. Es lo de atrás, no lo que está en el taller.
+final historyBySearchProvider =
+    FutureProvider.autoDispose.family<List<WorkOrderListItem>, String>(
+  (ref, busqueda) => ref
+      .watch(workOrderRepositoryProvider)
+      .list(onlyOpen: false, search: busqueda),
 );
 
 final workOrderDetailProvider =
