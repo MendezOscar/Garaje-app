@@ -80,35 +80,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Los reportes, lo que está por cobrar, los usuarios y el padrón de clientes son del Dueño: la API responde
       // 403 a los demás, pero rebotarlos aquí evita enseñarles una pantalla que solo puede
       // fallar. Toda ruta que no esté en esta lista termina en el inicio del perfil.
-      if (location == '/reportes' ||
-          location == '/caja' ||
-          location == '/recordatorios' ||
-          location == '/reclamos' ||
-          location == '/resultados' ||
-          location == '/mano-de-obra' ||
-          location == '/trabajos-frecuentes' ||
-          location == '/por-cobrar' ||
-          location == '/ventas' ||
-          location == '/mostrador' ||
-          location == '/usuarios' ||
-          location == '/ajustes' ||
-          location == '/clientes') {
+      if (rutasDelDueno.contains(location)) {
         return (auth as AuthSignedIn).user.role == AppRole.owner
             ? null
             : homeRouteFor(auth.user.role);
       }
 
-      // El inventario también lo ve el Técnico: necesita saber si hay existencia antes de
-      // prometer una reparación. Los movimientos se los niega el backend.
-      if (location == '/inventario') {
-        return (auth as AuthSignedIn).user.role == AppRole.customer
-            ? homeRouteFor(auth.user.role)
-            : null;
-      }
-
-      // La bandeja de requerimientos es del taller. Al Cliente no le corresponde: los suyos
-      // los ve dentro de sus vehículos.
-      if (location == '/requerimientos') {
+      if (rutasDelTaller.contains(location)) {
         return (auth as AuthSignedIn).user.role == AppRole.customer
             ? homeRouteFor(auth.user.role)
             : null;
@@ -119,6 +97,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+
+/// Lo que solo abre el Dueño. La API responde 403 a los demás, pero rebotarlos aquí evita
+/// enseñarles una pantalla que solo puede fallar.
+///
+/// **Toda ruta que no esté en estas dos listas termina en el inicio del perfil**, y sin decir
+/// por qué: es lo que le pasó a «Historial» cuando se agregó al menú y no aquí. La prueba de
+/// `test/router_test.dart` compara el menú contra estas listas justamente por eso.
+const rutasDelDueno = {
+  '/reportes',
+  '/caja',
+  '/recordatorios',
+  '/reclamos',
+  '/resultados',
+  '/mano-de-obra',
+  '/trabajos-frecuentes',
+  '/por-cobrar',
+  '/ventas',
+  '/mostrador',
+  '/usuarios',
+  '/ajustes',
+  '/clientes',
+};
+
+/// Lo del taller: el Dueño y el Técnico, el Cliente no.
+///
+/// El inventario lo necesita el Técnico para saber si hay existencia antes de prometer una
+/// reparación —los movimientos se los niega el backend—, los requerimientos son la bandeja
+/// del taller, y el historial es lo que se consulta en el mostrador cuando el cliente vuelve.
+const rutasDelTaller = {
+  '/inventario',
+  '/requerimientos',
+  '/historial',
+};
 
 /// El árbol de rutas, aparte del router.
 ///
