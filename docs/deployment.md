@@ -578,6 +578,32 @@ GarajApp/1.3.0+12`— y la API decide con dos variables de Render:
 Son **compilaciones**, no versiones: el `+12` de `1.3.0+12`. **En cero no estorban a nadie**, que
 es como vienen y como deben quedarse mientras no haga falta.
 
+#### Qué valor lleva cada una, y cuándo
+
+| Momento | `MinimumBuild` | `RecommendedBuild` | `Message` |
+| --- | --- | --- | --- |
+| El día que se publica una versión | sin poner | sin poner | sin poner |
+| Días después, con la mayoría ya actualizada | sin poner | la compilación recién publicada | una línea diciendo qué trae |
+| Algo rompe la compatibilidad de verdad | la compilación donde se arregló, **ya repartida** | la misma | por qué hay que actualizar |
+| El bloqueo resultó de más | `0` | como estaba | — |
+
+Puesto en números, con la 1.3.0 (12) recién publicada:
+
+```bash
+# Al publicar: nada. Las tres variables sin crear.
+
+# Cuando Play Console y App Store Connect muestren que la mayoría ya tiene la 12:
+AppVersion__RecommendedBuild=12
+AppVersion__Message=Hay una versión nueva, con el historial por placa y la ficha de recepción.
+
+# MinimumBuild se queda sin poner. Solo el día que algo de verdad rompa:
+AppVersion__MinimumBuild=12
+```
+
+De ahí en adelante la regla no cambia: **`RecommendedBuild` se mueve en cada entrega** —siempre la
+última publicada— y **`MinimumBuild` casi nunca**. Publicada la 13, `Recommended=13` y el mínimo
+sigue donde esté.
+
 Tres reglas para no dejar a un taller sin app:
 
 1. **Nunca se sube el mínimo el mismo día que se publica.** La versión tarda en llegar a los
