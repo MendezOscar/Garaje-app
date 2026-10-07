@@ -374,6 +374,18 @@ export const workOrdersApi = {
    * Cómo entró el vehículo. Responde 204 sin cuerpo cuando la hoja no se llenó, que es la
    * mayoría: es opcional.
    */
+  /**
+   * Devuelve al taller una orden entregada, para rehacerla y volver a facturarla. El servidor
+   * pide la factura anulada antes y el plazo de garantía vigente.
+   */
+  async reopen(id: string, reason: string) {
+    const { data } = await api.post<WorkOrderDetail>(`/api/work-orders/${id}/reopen`, { reason })
+    return data
+  },
+  /** La ficha de recepción en PDF, para mandársela al cliente o imprimirla. */
+  async downloadReceptionPdf(id: string, number: string) {
+    await download(`/api/work-orders/${id}/reception/pdf`, `recepcion-${number}.pdf`)
+  },
   async reception(id: string): Promise<VehicleReception | null> {
     const { data } = await api.get<VehicleReception | ''>(`/api/work-orders/${id}/reception`)
     return data || null
@@ -709,9 +721,17 @@ export const quotesApi = {
     const { data } = await api.get<WhatsAppLink>(`/api/quotes/${id}/whatsapp-link`)
     return data
   },
-  /** Baja el PDF con la sesión puesta. Un enlace directo respondería 401. */
-  async downloadPdf(id: string, number: string) {
-    await download(`/api/quotes/${id}/pdf`, `${number}.pdf`)
+  /**
+   * Baja el PDF con la sesión puesta. Un enlace directo respondería 401.
+   *
+   * Con `includeReception` le cose delante la ficha de recepción de la orden: el cliente
+   * recibe un archivo en vez de dos. Si la orden no tiene ficha, sale el presupuesto solo.
+   */
+  async downloadPdf(id: string, number: string, includeReception = false) {
+    await download(
+      `/api/quotes/${id}/pdf${includeReception ? '?includeReception=true' : ''}`,
+      `${number}.pdf`,
+    )
   },
   async respond(id: string, approve: boolean, note?: string) {
     const { data } = await api.post<QuoteDetail>(`/api/quotes/${id}/respond`, { approve, note })
@@ -898,8 +918,16 @@ export const salesApi = {
     const { data } = await api.delete<SaleDetail>(`/api/sales/${id}/payments/${paymentId}`)
     return data
   },
-  async void(id: string, reason: string) {
-    const { data } = await api.post<SaleDetail>(`/api/sales/${id}/void`, { reason })
+  /**
+   * Anula con su motivo. `paymentsNote` es obligatorio cuando la venta ya tenía abonos
+   * cobrados: qué se hizo con ese dinero. El servidor lo exige, y también el plazo —mismo mes
+   * fiscal con CAI, treinta días sin él—, que vuelve como 409 con el mensaje ya escrito.
+   */
+  async void(id: string, reason: string, paymentsNote?: string) {
+    const { data } = await api.post<SaleDetail>(`/api/sales/${id}/void`, {
+      reason,
+      paymentsNote: paymentsNote?.trim() || null,
+    })
     return data
   },
   /** La factura en PDF, para imprimirla o mandarla por WhatsApp. */

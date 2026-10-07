@@ -64,6 +64,16 @@ public class Sale : TenantEntity, IBranchEntity
     public bool IsVoided { get; set; }
     public string? VoidReason { get; set; }
 
+    /// <summary>Cuándo se anuló. Es lo que separa el error de hoy del arreglo de hace un mes.</summary>
+    public DateTimeOffset? VoidedAt { get; set; }
+
+    /// <summary>
+    /// Qué se hizo con lo que el cliente ya había abonado: devuelto, o aplicado a la factura
+    /// nueva. Se exige cuando la venta anulada traía pagos, porque si no el descuadre de caja
+    /// aparece un mes después y ya nadie se acuerda.
+    /// </summary>
+    public string? VoidPaymentsNote { get; set; }
+
     // ---------- Régimen de facturación (opcional) ----------
     //
     // Una venta sin CAI los deja todos en null y sigue siendo el comprobante de entrega de

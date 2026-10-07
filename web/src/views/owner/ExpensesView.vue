@@ -30,6 +30,9 @@ import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
  * una tarea sin recompensa y deja de llenarse a la semana.
  */
 const period = ref<PeriodKey>('month')
+
+/** Hasta dónde deja elegir el selector de mes: no hay resultados del mes que viene. */
+const mesCorriente = new Date().toISOString().slice(0, 7)
 const branchId = ref('')
 const branches = ref<Branch[]>([])
 
@@ -68,8 +71,37 @@ function vacio(): SaveExpense {
   }
 }
 
-/** Desde cuándo se mira. Sin fecha —«todo»— el servidor toma el mes corriente. */
-const desde = computed(() => periodFrom(period.value))
+/**
+ * Un mes cerrado, en formato `YYYY-MM`. Vacío significa «mande el periodo de arriba».
+ *
+ * Existe porque el estado de resultados de un mes solo se entiende cuando el mes terminó: el
+ * día 2, el taller corriente parece vacío, y lo que el dueño quiere ver es cómo cerró el mes
+ * pasado.
+ */
+const mes = ref('')
+
+/** El rango que se consulta: el mes elegido, o el periodo de siempre. */
+const rango = computed(() => {
+  if (!mes.value) return { from: periodFrom(period.value), to: undefined }
+
+  const [anio, numero] = mes.value.split('-').map(Number)
+  return {
+    from: new Date(anio, numero - 1, 1).toISOString(),
+    // El último instante del mes: el día 1 del siguiente, menos un milisegundo.
+    to: new Date(new Date(anio, numero, 1).getTime() - 1).toISOString(),
+  }
+})
+
+/** Cómo se llama lo que se está mirando, para los rótulos. */
+const rotuloDelPeriodo = computed(() => {
+  if (!mes.value) return 'este periodo'
+
+  const [anio, numero] = mes.value.split('-').map(Number)
+  return new Date(anio, numero - 1, 1).toLocaleDateString('es-HN', {
+    month: 'long',
+    year: 'numeric',
+  })
+})
 
 /** Cuánto cambió contra el periodo anterior, en porcentaje. Null si no hay con qué comparar. */
 function variacion(actual: number, previo: number | undefined) {
@@ -82,7 +114,8 @@ async function load() {
   error.value = ''
   try {
     const query = {
-      from: desde.value,
+      from: rango.value.from,
+      to: rango.value.to,
       branchId: branchId.value || undefined,
     }
 
@@ -171,8 +204,10 @@ async function verPropuesta() {
   try {
     propuesta.value = await usersApi.payProposal(
       tecnicoId.value,
-      desde.value ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-      new Date().toISOString(),
+      rango.value.from ??
+        new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+      // Con un mes cerrado, lo que le tocó es hasta el fin de ese mes y no hasta hoy.
+      rango.value.to ?? new Date().toISOString(),
     )
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo calcular lo que le toca.')
@@ -213,9 +248,14 @@ onMounted(async () => {
         </p>
       </div>
       <div class="filtros">
-        <select v-model="period" @change="load">
+        <select v-if="!mes" v-model="period" @change="load">
           <option v-for="p in PERIODS" :key="p.key" :value="p.key">{{ p.label }}</option>
         </select>
+        <!-- Un mes cerrado: es como se mira un resultado, con el mes terminado. -->
+        <input v-model="mes" type="month" :max="mesCorriente" @change="load" />
+        <button v-if="mes" type="button" class="btn-ghost btn-sm" @click="mes = ''; load()">
+          Volver al periodo
+        </button>
         <select v-if="branches.length > 1" v-model="branchId" @change="load">
           <option value="">Todas las sucursales</option>
           <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
@@ -274,7 +314,7 @@ onMounted(async () => {
       </p>
 
       <p v-if="!statement.expenses.length" class="muted small">
-        Todavía no hay gastos registrados en este periodo, así que la utilidad neta es la
+        Todavía no hay gastos registrados en {{ rotuloDelPeriodo }}, así que la utilidad neta es la
         bruta. Registre alquiler, salarios y servicios para que el número sea real.
       </p>
     </article>
@@ -439,7 +479,7 @@ onMounted(async () => {
       </article>
 
       <article class="card">
-        <h2>Gastos del periodo</h2>
+        <h2>Gastos de {{ rotuloDelPeriodo }}</h2>
         <p v-if="!expenses.length" class="muted small">Ninguno registrado todavía.</p>
         <div v-else class="tabla">
           <table>

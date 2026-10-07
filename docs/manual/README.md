@@ -52,11 +52,12 @@ día; no hay dibujos que se desactualicen por su cuenta.
 19. [Usuarios](19-usuarios.md)
 20. [Ajustes del taller](20-ajustes-del-taller.md)
 21. [Avisos](21-avisos.md)
+22. [Historial por vehículo](22-historial.md)
 
 **Los otros dos perfiles**
 
-22. [La app del técnico](22-el-tecnico.md)
-23. [La app del cliente](23-el-cliente.md)
+23. [La app del técnico](23-el-tecnico.md)
+24. [La app del cliente](24-el-cliente.md)
 
 ## Cómo se rehacen las capturas
 

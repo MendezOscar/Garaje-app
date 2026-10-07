@@ -27,8 +27,14 @@ public static class QuotePdf
     public static byte[] Render(
         QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId,
         byte[]? logo = null, IReadOnlyList<byte[]>? photos = null)
+        => Build(quote, tenantName, legalName, phone, taxId, logo, photos).GeneratePdf();
+
+    /// <summary>El documento sin generar, para poder coserle otro delante.</summary>
+    public static IDocument Build(
+        QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId,
+        byte[]? logo = null, IReadOnlyList<byte[]>? photos = null)
     {
-        var document = Document.Create(container =>
+        return Document.Create(container =>
         {
             container.Page(page =>
             {
@@ -42,8 +48,6 @@ public static class QuotePdf
                 page.Footer().Element(footer => Footer(footer, quote));
             });
         });
-
-        return document.GeneratePdf();
     }
 
     private static void Header(

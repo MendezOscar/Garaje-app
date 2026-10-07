@@ -188,12 +188,18 @@ async function send() {
   }
 }
 
-/** No es un enlace: el PDF va detrás de la sesión y el navegador no manda el token en un href. */
-async function downloadPdf() {
+/**
+ * No es un enlace: el PDF va detrás de la sesión y el navegador no manda el token en un href.
+ *
+ * Con `conLaFicha` sale además la hoja de recepción delante del presupuesto, para mandarle al
+ * cliente un archivo en vez de dos. Si la orden no tiene ficha llenada, llega solo el
+ * presupuesto y nadie se entera.
+ */
+async function downloadPdf(conLaFicha = false) {
   busy.value = true
   error.value = ''
   try {
-    await quotesApi.downloadPdf(selected.value!.id, selected.value!.number)
+    await quotesApi.downloadPdf(selected.value!.id, selected.value!.number, conLaFicha)
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo generar el PDF.')
   } finally {
@@ -429,7 +435,15 @@ onMounted(async () => {
             {{ selected.status === QuoteStatus.Draft ? 'Enviar por WhatsApp' : 'Reenviar por WhatsApp' }}
           </button>
           <button v-if="selected.publicUrl" type="button" @click="copyLink">Copiar enlace</button>
-          <button type="button" :disabled="busy" @click="downloadPdf">PDF</button>
+          <button type="button" :disabled="busy" @click="downloadPdf()">PDF</button>
+          <button
+            v-if="selected.workOrderId"
+            type="button"
+            :disabled="busy"
+            @click="downloadPdf(true)"
+          >
+            PDF con la ficha
+          </button>
           <template v-if="selected.status === QuoteStatus.Sent">
             <button type="button" :disabled="busy" @click="respond(true)">Aprobó por teléfono</button>
             <button type="button" :disabled="busy" @click="respond(false)">Rechazó</button>

@@ -154,6 +154,13 @@ public record ChangeStatusRequest(
     string? Note,
     bool IsVisibleToCustomer = true);
 
+/// <param name="Reason">Por qué vuelve a abrirse. Obligatorio: queda en la línea de tiempo.</param>
+/// <param name="IsVisibleToCustomer">
+/// Falso por defecto. Reabrir suele ser una corrección del taller, y avisarle al cliente de un
+/// movimiento interno es contarle un problema que todavía no tiene.
+/// </param>
+public record ReopenWorkOrderRequest(string Reason, bool IsVisibleToCustomer = false);
+
 /// <param name="ManualLaborPrice">
 /// Precio escrito a mano para este paso, cuando el trabajo no sale del catálogo. Manda sobre
 /// el del servicio si los dos vienen puestos.
@@ -371,6 +378,18 @@ public interface IWorkOrderService
     Task DeleteAsync(Guid id, CancellationToken ct = default);
     Task<WorkOrderDetailDto> ChangeStatusAsync(Guid id, ChangeStatusRequest request, CancellationToken ct = default);
 
+    /// <summary>
+    /// Devuelve al taller una orden ya entregada, para rehacer lo que quedó mal y volver a
+    /// facturarla.
+    ///
+    /// Pide que la factura esté anulada primero —dos facturas vivas por el mismo trabajo no
+    /// las cuadra nadie— y solo dentro del plazo de
+    /// <see cref="Garaj.Domain.Rules.CorreccionDePostventa"/>: dentro de la garantía que se le
+    /// dio al trabajo es la misma orden, y fuera de ella es trabajo nuevo.
+    /// </summary>
+    Task<WorkOrderDetailDto> ReopenAsync(
+        Guid id, ReopenWorkOrderRequest request, CancellationToken ct = default);
+
     Task<WorkOrderTaskDto> AddTaskAsync(Guid workOrderId, SaveWorkOrderTaskRequest request, CancellationToken ct = default);
     Task<WorkOrderTaskDto> UpdateTaskAsync(Guid workOrderId, Guid taskId, SaveWorkOrderTaskRequest request, CancellationToken ct = default);
     Task<WorkOrderTaskDto> CompleteTaskAsync(Guid workOrderId, Guid taskId, CompleteTaskRequest request, CancellationToken ct = default);
@@ -381,6 +400,13 @@ public interface IWorkOrderService
 
     Task<VehicleReceptionDto> SaveReceptionAsync(
         Guid workOrderId, SaveVehicleReceptionRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// La ficha de recepción en PDF, para mandársela al cliente o imprimirla. Null si la orden
+    /// no tiene recepción llenada: una hoja en blanco firmada por nadie no sirve de prueba.
+    /// </summary>
+    Task<(byte[] Bytes, string FileName)?> ReceptionPdfAsync(
+        Guid workOrderId, CancellationToken ct = default);
 
     /// <summary>La firma, para enseñarla. Null si no firmó.</summary>
     Task<(byte[] Bytes, string ContentType)?> ReceptionSignatureAsync(

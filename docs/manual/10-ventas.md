@@ -29,6 +29,20 @@ En los tres puntos de cada renglón:
 - **Anular.** Pide el motivo, que queda guardado. La venta **conserva su número** —no se
   borra, que para eso es fiscal— y **los repuestos vuelven a la bodega**.
 
+  Hay plazo, y no es por comodidad: es por el mes fiscal.
+
+  | | Hasta cuándo se puede anular |
+  | --- | --- |
+  | Factura con CAI | el último día del mes en que se emitió |
+  | Comprobante sin CAI | 30 días |
+
+  Pasado el plazo la app no deja: una factura de un mes ya declarado no se arregla anulando,
+  se arregla con una nota de crédito.
+
+  Si el cliente **ya había abonado**, antes de anular hay que escribir qué se hizo con ese
+  dinero —si se le devolvió o si se aplica a la factura nueva—. Sin esa línea, el descuadre de
+  caja aparece un mes después y ya nadie se acuerda.
+
 ## Dónde encaja
 
 Lo que se cobró de estas ventas aparece en el [cierre de caja](12-caja.md) del día; lo que

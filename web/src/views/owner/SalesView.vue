@@ -123,9 +123,21 @@ async function anular(venta: SaleListItem) {
   const motivo = window.prompt(`Anular la venta ${venta.number}. ¿Por qué?`)
   if (!motivo?.trim()) return
 
+  // El dinero ya cobrado existe y tiene que ir a alguna parte: o se devolvió, o se aplica a
+  // la factura nueva. Sin esa línea escrita, el descuadre aparece un mes después.
+  const abonado = venta.total - venta.balance
+  let nota: string | undefined
+  if (abonado > 0) {
+    const escrito = window.prompt(
+      `Esta venta tiene ${formatMoney(abonado)} ya cobrados. ¿Qué se hizo con ese dinero?`,
+    )
+    if (!escrito?.trim()) return
+    nota = escrito.trim()
+  }
+
   error.value = ''
   try {
-    await salesApi.void(venta.id, motivo.trim())
+    await salesApi.void(venta.id, motivo.trim(), nota)
     await cargar()
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo anular la venta.')

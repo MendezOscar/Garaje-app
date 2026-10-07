@@ -67,6 +67,8 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | PUT | `/api/work-orders/{id}/assign` | Owner | Asigna o quita el técnico |
 | PUT | `/api/work-orders/{id}/labor` | Owner | Modo de mano de obra: `1` catálogo · `2` a mano, con `total` |
 | POST | `/api/work-orders/{id}/status` | Owner o Técnico | Cambia estado; 409 si no es válida |
+| POST | `/api/work-orders/{id}/reopen` | Owner | Devuelve al taller una orden entregada. 409 con factura viva o fuera de plazo |
+| GET | `/api/work-orders/{id}/reception/pdf` | Owner o Técnico | La ficha de recepción en PDF; 404 si no se llenó |
 | POST/PUT | `/api/work-orders/{id}/tasks[/{taskId}]` | Owner o Técnico | Pasos de la reparación |
 | POST | `/api/work-orders/{id}/tasks/{taskId}/complete` | Owner o Técnico | Marca el paso |
 | DELETE | `/api/work-orders/{id}/tasks/{taskId}` | Owner | Elimina el paso |
@@ -202,7 +204,7 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | POST/PUT/DELETE | `/api/quotes/{id}/lines[/{lineId}]` | Owner | Líneas; recalcula totales |
 | POST | `/api/quotes/{id}/send` | Owner | La marca enviada y devuelve el link de WhatsApp |
 | GET | `/api/quotes/{id}/whatsapp-link` | Owner | El mismo link sin cambiar el estado |
-| GET | `/api/quotes/{id}/pdf` | Owner o Cliente | PDF |
+| GET | `/api/quotes/{id}/pdf?includeReception=` | Owner o Cliente | PDF. Con `includeReception` lleva la ficha de recepción delante |
 | POST | `/api/quotes/{id}/respond` | Owner o Cliente | Respuesta desde dentro de la app |
 | GET | `/public/quotes/{token}` | **anónimo** | La cotización que abre el cliente |
 | POST | `/public/quotes/{token}/respond` | **anónimo** | Aprobar o rechazar |
@@ -262,7 +264,8 @@ ya cobrados dejaría los reportes sin forma de cuadrar con la caja.
 | ↳ | `laborFromQuoteId` | | Cobra la mano de obra de esa cotización en vez de la de los pasos |
 | POST | `/api/sales/{id}/payments` | Owner | Registra un abono |
 | DELETE | `/api/sales/{id}/payments/{paymentId}` | Owner | Borra un abono mal capturado |
-| POST | `/api/sales/{id}/void` | Owner | Anula con motivo |
+| POST | `/api/sales/{id}/void` | Owner | Anula con motivo. 409 fuera de plazo; 400 si tiene abonos y no se dice qué se hizo con el dinero |
+| ↳ | `paymentsNote` | | Obligatorio cuando la venta ya tenía cobrado: devuelto, o aplicado a la factura nueva |
 | GET | `/api/sales/{id}/pdf` | Owner o Cliente | La factura en PDF |
 | GET | `/api/reports/revenue?from=&to=&groupBy=&branchId=&technicianId=` | Owner | Ingresos, con reparto por sucursal y por técnico |
 
@@ -786,6 +789,9 @@ python3 backend/tests/smoke/fase8_smoke.py
 
 # Fase 13: el cobro de la suscripción, el aviso, el bloqueo y el acuerdo de pago
 python3 backend/tests/smoke/fase13_smoke.py
+
+# Postventa: reabrir una orden, anular con plazo y la ficha de recepción
+python3 backend/tests/smoke/fase14_postventa.py
 ```
 
 Se pueden encadenar en ese orden sobre una base recién sembrada.

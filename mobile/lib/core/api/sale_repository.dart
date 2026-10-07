@@ -474,9 +474,18 @@ class SaleRepository {
 
   /// Anula una venta con su motivo. No borra: conserva el número —el correlativo fiscal no
   /// vuelve al rango— y devuelve los repuestos a la bodega.
-  Future<void> annul(String saleId, String reason) => _dio.post<Map<String, dynamic>>(
+  ///
+  /// [paymentsNote] es obligatorio cuando la venta ya tenía abonos cobrados: qué se hizo con
+  /// ese dinero. El servidor lo exige, y con razón: sin esa línea el descuadre de caja
+  /// aparece un mes después y ya nadie se acuerda.
+  Future<void> annul(String saleId, String reason, {String? paymentsNote}) =>
+      _dio.post<Map<String, dynamic>>(
         '/api/sales/$saleId/void',
-        data: {'reason': reason},
+        data: {
+          'reason': reason,
+          if (paymentsNote != null && paymentsNote.trim().isNotEmpty)
+            'paymentsNote': paymentsNote.trim(),
+        },
       );
 
   /// El PDF de la factura. Se baja con la sesión puesta —el endpoint pide `Authorization`,

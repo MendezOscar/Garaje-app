@@ -1,4 +1,4 @@
-# 23. La app del cliente
+# 24. La app del cliente
 
 El cliente —el que no tiene por qué saber nada del taller— abre en su vehículo. Tres
 destinos: **Mi vehículo**, **Historial** y **Más**.

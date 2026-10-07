@@ -98,16 +98,24 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
   /// Anular pide motivo y no borra: la venta conserva su número —el correlativo fiscal no
   /// vuelve al rango— y los repuestos regresan a la bodega.
   Future<void> _anular(SaleListItem venta) async {
-    final motivo = await showDialog<String>(
+    final respuesta = await showDialog<_Anulacion>(
       context: context,
-      builder: (_) => _MotivoDialog(numero: venta.number),
+      // Lo abonado no viaja en la lista, pero sale de lo que ya no se debe.
+      builder: (_) => _MotivoDialog(
+        numero: venta.number,
+        abonado: venta.total - venta.balance,
+      ),
     );
 
-    if (motivo == null || motivo.trim().isEmpty) return;
+    if (respuesta == null) return;
 
     setState(() => _busy = true);
     try {
-      await ref.read(saleRepositoryProvider).annul(venta.id, motivo.trim());
+      await ref.read(saleRepositoryProvider).annul(
+            venta.id,
+            respuesta.motivo,
+            paymentsNote: respuesta.notaDeAbonos,
+          );
       ref.invalidate(salesRegistryProvider(_filtro));
       _aviso('Venta ${venta.number} anulada.');
     } catch (e) {
@@ -408,10 +416,21 @@ class _SaleCard extends StatelessWidget {
 
 /// El motivo de la anulación. Se pide escrito porque queda en la venta para siempre: es lo
 /// que va a leer quien pregunte el mes que viene por qué esa factura no cuadra.
+/// Lo que hay que escribir para anular: el motivo, y qué se hizo con lo ya cobrado.
+class _Anulacion {
+  const _Anulacion(this.motivo, this.notaDeAbonos);
+
+  final String motivo;
+  final String? notaDeAbonos;
+}
+
 class _MotivoDialog extends StatefulWidget {
-  const _MotivoDialog({required this.numero});
+  const _MotivoDialog({required this.numero, required this.abonado});
 
   final String numero;
+
+  /// Lo que el cliente ya pagó de esta venta. Con cero no se pregunta nada más.
+  final double abonado;
 
   @override
   State<_MotivoDialog> createState() => _MotivoDialogState();
@@ -419,10 +438,14 @@ class _MotivoDialog extends StatefulWidget {
 
 class _MotivoDialogState extends State<_MotivoDialog> {
   final _motivo = TextEditingController();
+  final _abonos = TextEditingController();
+
+  bool get _hayAbonos => widget.abonado > 0;
 
   @override
   void dispose() {
     _motivo.dispose();
+    _abonos.dispose();
     super.dispose();
   }
 
@@ -448,6 +471,27 @@ class _MotivoDialogState extends State<_MotivoDialog> {
               ),
               onChanged: (_) => setState(() {}),
             ),
+
+            // El dinero ya cobrado existe y tiene que ir a alguna parte. Sin esta línea, el
+            // descuadre de caja aparece un mes después y ya nadie se acuerda.
+            if (_hayAbonos) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Esta venta tiene L ${widget.abonado.toStringAsFixed(2)} ya cobrados.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _abonos,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Qué se hizo con ese dinero',
+                  hintText: 'Se le devolvió en efectivo, se aplica a la factura nueva…',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -456,9 +500,15 @@ class _MotivoDialogState extends State<_MotivoDialog> {
             child: const Text('Dejarla'),
           ),
           FilledButton(
-            onPressed: _motivo.text.trim().isEmpty
+            onPressed: _motivo.text.trim().isEmpty ||
+                    (_hayAbonos && _abonos.text.trim().isEmpty)
                 ? null
-                : () => Navigator.of(context).pop(_motivo.text),
+                : () => Navigator.of(context).pop(
+                      _Anulacion(
+                        _motivo.text.trim(),
+                        _hayAbonos ? _abonos.text.trim() : null,
+                      ),
+                    ),
             child: const Text('Anular'),
           ),
         ],

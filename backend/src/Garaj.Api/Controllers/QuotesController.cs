@@ -106,11 +106,16 @@ public class QuotesController(IQuoteService service) : ControllerBase
     public async Task<ActionResult<WhatsAppLinkDto>> WhatsAppLink(Guid id, CancellationToken ct)
         => Ok(await service.WhatsAppLinkAsync(id, ct));
 
+    /// <param name="includeReception">
+    /// Cose la ficha de recepción delante del presupuesto, para mandar las dos en un archivo.
+    /// </param>
     [HttpGet("{id:guid}/pdf")]
-    public async Task<IActionResult> Pdf(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Pdf(
+        Guid id, CancellationToken ct, [FromQuery] bool includeReception = false)
     {
         var quote = await service.GetAsync(id, ct);
-        return File(await service.PdfAsync(id, ct), "application/pdf", $"{quote.Number}.pdf");
+        return File(
+            await service.PdfAsync(id, includeReception, ct), "application/pdf", $"{quote.Number}.pdf");
     }
 
     /// <summary>Respuesta desde dentro de la app: el Cliente autenticado, o el Dueño si le contestaron por teléfono.</summary>

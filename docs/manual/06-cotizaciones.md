@@ -27,10 +27,12 @@ respuesta **no se puede cambiar**, y el taller la ve al instante: la orden pasa 
 *Esperando aprobación* hasta que conteste.
 
 También se puede **bajar el PDF** y **reenviar por WhatsApp** si el cliente dice que no le
-llegó.
+llegó. Y **Con la ficha** saca un solo archivo con la
+[hoja de recepción](04-recibir-vehiculo.md) delante del presupuesto: cómo entró el vehículo y
+qué cuesta arreglarlo, en un PDF en vez de dos.
 
 Si el cliente tiene cuenta en la app, le llega además como aviso y la ve en
-[su pantalla](23-el-cliente.md).
+[su pantalla](24-el-cliente.md).
 
 ## Qué pasa después
 

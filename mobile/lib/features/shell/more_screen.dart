@@ -128,6 +128,12 @@ class MoreScreen extends ConsumerWidget {
               rows: [
                 _Row(icon: Icons.contacts_outlined, label: 'Clientes', route: '/clientes'),
                 _Row(
+                  icon: Icons.history,
+                  label: 'Historial',
+                  foot: 'qué se le hizo a un vehículo',
+                  route: '/historial',
+                ),
+                _Row(
                   icon: Icons.build_outlined,
                   label: 'Mano de obra',
                   foot: 'lo que se cobra por cada trabajo',

@@ -129,6 +129,24 @@ entrega**, **Pasar a Entregada**. En **Más acciones** (los tres puntos de arrib
 *Detener el trabajo* —esperando repuestos o aprobación, avisándole al cliente—, *Asignar
 técnico*, *Guardar como trabajo frecuente* y *Cancelar la orden*.
 
+## Reabrir una orden entregada
+
+Cuando el trabajo quedó mal y el vehículo vuelve, la orden se reabre en vez de abrir una nueva
+que no diga de dónde viene: **Más acciones → Reabrir la orden**. Vuelve a *En proceso*, se
+puede volver a trabajar y a facturar, y el motivo queda en la línea de tiempo.
+
+Dos cosas que la app exige antes:
+
+- **La factura tiene que estar anulada.** Con la factura viva serían dos cobros por el mismo
+  trabajo. La app lo dice y nombra cuál anular — se anula desde [Ventas](10-ventas.md).
+- **El plazo.** Se puede reabrir mientras corra la **garantía que se le dio al trabajo**, y
+  nunca menos de 15 días desde la entrega. Pasado eso, el trabajo de hoy ya no es el de
+  aquella orden: se abre una nueva.
+
+Después de rehacerlo se vuelve a facturar como siempre, con *Cerrar y facturar*. La factura
+nueva toma su propio número; la anulada queda registrada como anulada, que es lo que
+corresponde.
+
 ## Si la orden viene de un reclamo
 
 Aparece un recuadro **Viene del reclamo REC-000002** con la decisión de garantía. Mientras no

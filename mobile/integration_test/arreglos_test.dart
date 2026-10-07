@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garaj_app/core/api/claim_repository.dart';
+import 'package:garaj_app/core/api/tenant_repository.dart';
+import 'package:garaj_app/core/api/work_order_repository.dart';
 import 'package:garaj_app/core/auth/auth_controller.dart';
 import 'package:garaj_app/core/auth/token_store.dart';
 import 'package:garaj_app/core/theme/garaj_brand.dart';
@@ -31,17 +33,34 @@ void main() {
 
     final container = ProviderContainer();
     await container.read(authControllerProvider.notifier).login(
-          'dueno@local.test',
-          'Local123!',
+          'dueno@tallerdemo.hn',
+          'Garaj123!',
         );
 
     expect(
       container.read(authControllerProvider),
       isA<AuthSignedIn>(),
-      reason: 'hace falta la API local en el puerto 5199 con el taller de pruebas',
+      reason: 'hace falta la API local en el 5199 con la demostración sembrada',
     );
 
     return container;
+  }
+
+  /// La orden de reparación de un reclamo. Si en la base no hay ninguna todavía, se abre
+  /// desde el primer reclamo abierto: la prueba mira el formulario de la orden, y exigir que
+  /// alguien haya dejado una a mano la hacía depender de con qué base se corriera.
+  Future<String> ordenDeReclamo(ProviderContainer c) async {
+    final repo = c.read(claimRepositoryProvider);
+    final reclamos = await repo.list(onlyOpen: false);
+
+    final conOrden = reclamos.where((x) => x.repairWorkOrderId != null);
+    if (conOrden.isNotEmpty) return conOrden.first.repairWorkOrderId!;
+
+    final abiertos = reclamos.where((x) => x.status == ClaimStatus.open);
+    expect(abiertos, isNotEmpty, reason: 'hace falta al menos un reclamo en la base');
+
+    final abierto = await repo.openRepairOrder(abiertos.first.id);
+    return abierto.repairWorkOrderId!;
   }
 
   /// Monta una pantalla sola, con la sesión abierta y el tema de la aplicación.
@@ -91,9 +110,11 @@ void main() {
       'Prueba automática',
     );
     await tester.enterText(find.widgetWithText(TextField, 'Precio'), '150');
-    await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Agregar'));
+    // Se envía desde el campo del precio en vez de tocar «Agregar»: con el teclado arriba el
+    // botón queda debajo y el toque se iba a otro sitio. El campo hace lo mismo al enviar,
+    // que además es como lo usa quien está en el mostrador.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
@@ -169,21 +190,8 @@ void main() {
     final container = await conSesion();
     addTearDown(container.dispose);
 
-    // La orden de reclamo del taller de pruebas: la que se abrió desde el reclamo, sin
-    // cerrarlo. Si no existe, la prueba no tiene nada que mirar y lo dice.
-    final reclamos = await container.read(claimRepositoryProvider).list();
-    final conOrden = reclamos.firstWhere(
-      (c) => c.repairWorkOrderId != null,
-      orElse: () => throw StateError(
-        'hace falta un reclamo con su orden de reparación en el taller de pruebas',
-      ),
-    );
-
-    await montar(
-      tester,
-      container,
-      WorkOrderDetailScreen(id: conOrden.repairWorkOrderId!),
-    );
+    final orden = await ordenDeReclamo(container);
+    await montar(tester, container, WorkOrderDetailScreen(id: orden));
 
     expect(find.textContaining('Viene del reclamo'), findsOneWidget);
 
@@ -219,18 +227,9 @@ void main() {
     final container = await conSesion();
     addTearDown(container.dispose);
 
-    // La orden del reclamo del taller de pruebas sirve: lo que se mira es el formulario.
-    final reclamos = await container.read(claimRepositoryProvider).list(onlyOpen: false);
-    final conOrden = reclamos.firstWhere(
-      (c) => c.repairWorkOrderId != null,
-      orElse: () => throw StateError('hace falta una orden en el taller de pruebas'),
-    );
-
-    await montar(
-      tester,
-      container,
-      WorkOrderDetailScreen(id: conOrden.repairWorkOrderId!),
-    );
+    // La orden de un reclamo sirve igual que cualquier otra: lo que se mira es el formulario.
+    final orden = await ordenDeReclamo(container);
+    await montar(tester, container, WorkOrderDetailScreen(id: orden));
 
     // La sección de repuestos existe y se llega a ella desde la orden: la queja fue que no
     // estaba. Hay que desplazarse hasta el renglón: lo que no se ha dibujado todavía no está
@@ -282,11 +281,20 @@ void main() {
 
     // Con un total único los precios que los pasos ya tienen dejan de contar, y eso hay que
     // decirlo antes: si no, el Dueño escribe un total y no se entera de que lo que había
-    // puesto queda fuera de la factura.
+    // puesto queda fuera de la factura. El aviso solo aplica cuando hay pasos con precio: en
+    // una orden recién abierta no hay nada que dejar fuera, y entonces no se dice nada.
+    final detalle = await container.read(workOrderRepositoryProvider).get(orden);
+    final hayPasosConPrecio =
+        detalle.tasks.any((t) => ((t.manualLaborPrice ?? t.laborPrice) ?? 0) > 0);
+
     await tester.tap(find.text('Un total al final'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('dejan de contar'), findsOneWidget);
+    expect(
+      find.textContaining('dejan de contar'),
+      hayPasosConPrecio ? findsOneWidget : findsNothing,
+      reason: 'el aviso aparece solo cuando hay precios que quedarían fuera',
+    );
   });
 
   testWidgets('los ajustes del taller se leen y se guardan desde el teléfono',
@@ -294,10 +302,14 @@ void main() {
     final container = await conSesion();
     addTearDown(container.dispose);
 
+    // El nombre que tenga el taller de esta base: fijarlo ataba la prueba a una base
+    // concreta, y con otra sembrada fallaba sin que nada estuviera roto.
+    final ajustes = await container.read(tenantSettingsProvider.future);
+
     await montar(tester, container, const WorkshopSettingsScreen());
 
     // Lo que llegó del servidor, ya en el formulario.
-    expect(find.text('Taller Local'), findsOneWidget);
+    expect(find.text(ajustes.name), findsOneWidget);
     expect(find.text('IDENTIDAD DEL TALLER'), findsOneWidget);
     expect(find.text('CÓMO COBRA EL TALLER'), findsOneWidget);
 
