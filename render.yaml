@@ -58,6 +58,40 @@ services:
       - key: Storage__Bucket
         value: garaj-media
 
+      # ---------------------------------------------------------- portón de versión
+      #
+      # Hasta qué versión de la app se le sigue hablando. Son **compilaciones** —el `+12` de
+      # `1.3.0+12`—, no versiones.
+      #
+      #   RecommendedBuild  por debajo, una franja arriba que se puede cerrar; se sigue
+      #                     trabajando. Lleva la última compilación publicada, puesta unos
+      #                     días después de publicarla, cuando las consolas muestran que la
+      #                     mayoría ya actualizó.
+      #
+      #   MinimumBuild      por debajo, la app no deja pasar. Lleva la compilación más vieja
+      #                     que todavía funciona con esta API, y **casi nunca se mueve**: solo
+      #                     cuando algo rompe de verdad la compatibilidad —una migración que
+      #                     cambia lo que la app manda, un error que cobra mal—.
+      #
+      # **En cero no estorban a nadie, y así deben quedarse mientras no haga falta.** Subir el
+      # mínimo el mismo día de publicar deja fuera a quien todavía no recibió la versión, y a
+      # un teléfono viejo que ya no puede actualizar lo deja sin app: le queda el panel web.
+      # Se bajan igual de rápido —cero otra vez— y los teléfonos se enteran en la siguiente
+      # petición, sin publicar nada.
+      #
+      # Van en `sync: false` y no con un valor fijo a propósito: se mueven desde el panel de
+      # Render el día que haga falta, y un valor escrito aquí los pisaría en el siguiente
+      # despliegue. Sin poner valen cero, que es apagado.
+      - key: AppVersion__RecommendedBuild
+        sync: false
+      - key: AppVersion__MinimumBuild
+        sync: false
+
+      # Por qué hay que actualizar, con las palabras del taller. Sale tal cual en la franja y
+      # en la pantalla de bloqueo. Vacío deja el texto por defecto.
+      - key: AppVersion__Message
+        sync: false
+
   # ------------------------------------------------------------------ pruebas
   # Copia de la API para probar migraciones y cambios antes de que los vea el taller. Sigue la
   # rama `pruebas`: se empuja ahí, se comprueba, y hasta entonces se mezcla a `main`, que es la
