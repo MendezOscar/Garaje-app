@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/sucursal_activa.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/work_order.dart';
 import '../notifications/notifications_screen.dart';
+import '../shared/selector_de_sucursal.dart';
 import '../shared/status_chip.dart';
 import '../shared/subscription_banner.dart';
 import '../shared/tenant_logo.dart';
@@ -20,11 +22,7 @@ import '../../core/widgets/garaj_states.dart';
 /// taller) y el Cliente (las de sus vehículos): el backend ya filtra por perfil, así que
 /// solo cambia el título.
 class WorkOrderListScreen extends ConsumerWidget {
-  const WorkOrderListScreen({
-    required this.title,
-    required this.emptyMessage,
-    super.key,
-  });
+  const WorkOrderListScreen({required this.title, required this.emptyMessage, super.key});
 
   final String title;
   final String emptyMessage;
@@ -64,11 +62,15 @@ class WorkOrderListScreen extends ConsumerWidget {
       // La franja del cobro va pegada arriba de la bandeja: el Dueño tiene que toparse con
       // ella, pero sin tapar nada —con la mensualidad por vencer se sigue trabajando igual—.
       // Solo llega con datos para el Dueño: al Técnico el backend le manda null.
-      body: Column(children: [
-        if (auth is AuthSignedIn && (auth.user.subscription?.shouldWarn ?? false))
-          SubscriptionBanner(info: auth.user.subscription!),
-        Expanded(child: _OrdersList(orders: orders, emptyMessage: emptyMessage)),
-      ]),
+      body: Column(
+        children: [
+          if (auth is AuthSignedIn && (auth.user.subscription?.shouldWarn ?? false))
+            SubscriptionBanner(info: auth.user.subscription!),
+          Expanded(
+            child: _OrdersList(orders: orders, emptyMessage: emptyMessage),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -96,9 +98,15 @@ class _OrdersList extends ConsumerWidget {
             // Con una búsqueda escrita, el mensaje de "no hay nada" del perfil haría dudar
             // de la búsqueda misma.
             ? GarajEmpty(
-                title: ref.watch(ordersSearchProvider).trim().isEmpty
-                    ? emptyMessage
-                    : 'Ninguna orden coincide con esa búsqueda',
+                title: switch ((
+                  ref.watch(ordersSearchProvider).trim().isNotEmpty,
+                  ref.watch(ordersStatusProvider) != null ||
+                      ref.watch(sucursalActivaProvider) != null,
+                )) {
+                  (true, _) => 'Ninguna orden coincide con esa búsqueda',
+                  (false, true) => 'Ninguna orden con ese filtro',
+                  _ => emptyMessage,
+                },
               )
             : ListView.separated(
                 // Arrastrar la lista baja el teclado: es el gesto con el que uno dice «ya
@@ -123,15 +131,16 @@ class _OrdersFilter extends ConsumerStatefulWidget implements PreferredSizeWidge
   const _OrdersFilter();
 
   @override
-  Size get preferredSize => const Size.fromHeight(108);
+  Size get preferredSize => const Size.fromHeight(148);
 
   @override
   ConsumerState<_OrdersFilter> createState() => _OrdersFilterState();
 }
 
 class _OrdersFilterState extends ConsumerState<_OrdersFilter> {
-  late final TextEditingController _controller =
-      TextEditingController(text: ref.read(ordersSearchProvider));
+  late final TextEditingController _controller = TextEditingController(
+    text: ref.read(ordersSearchProvider),
+  );
 
   Timer? _debounce;
 
@@ -161,6 +170,11 @@ class _OrdersFilterState extends ConsumerState<_OrdersFilter> {
   Widget build(BuildContext context) {
     final onlyOpen = ref.watch(onlyOpenOrdersProvider);
     final buscando = ref.watch(ordersSearchProvider).trim().isNotEmpty;
+    final estado = ref.watch(ordersStatusProvider);
+
+    // Buscando, o con un estado pedido, el selector de arriba no manda: se apaga para no
+    // prometer un filtro que no aplica.
+    final mandaElSelector = !buscando && estado == null;
 
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
@@ -193,19 +207,76 @@ class _OrdersFilterState extends ConsumerState<_OrdersFilter> {
             ),
           ),
           const SizedBox(height: 8),
-          // Buscando, el selector no manda: se apaga para no prometer un filtro que no aplica.
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(value: true, label: Text('En el taller')),
               ButtonSegment(value: false, label: Text('Todas')),
             ],
-            selected: {buscando ? false : onlyOpen},
+            selected: {mandaElSelector ? onlyOpen : false},
             showSelectedIcon: false,
             style: const ButtonStyle(visualDensity: VisualDensity.compact),
-            onSelectionChanged: buscando
-                ? null
-                : (value) => ref.read(onlyOpenOrdersProvider.notifier).set(value.first),
+            onSelectionChanged: mandaElSelector
+                ? (value) => ref.read(onlyOpenOrdersProvider.notifier).set(value.first)
+                : null,
           ),
+          const SizedBox(height: 6),
+          // La sucursal y el estado: en un taller de dos sucursales, la bandeja completa es
+          // el doble de larga que el patio que uno tiene enfrente.
+          Row(
+            children: [
+              const SelectorDeSucursal(),
+              const SizedBox(width: 12),
+              Expanded(child: _FiltroDeEstado(estado: estado)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// El estado por el que se filtra la bandeja. «Cualquiera» es lo de siempre: lo que cambia
+/// el filtro es poder mirar solo un carril —los que están listos y nadie retira, los que
+/// esperan repuesto— sin leerse la lista entera.
+class _FiltroDeEstado extends ConsumerWidget {
+  const _FiltroDeEstado({required this.estado});
+
+  final WorkOrderStatus? estado;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return PopupMenuButton<int>(
+      // Cero y no null: null es «se salió del menú sin elegir», y ningún estado vale cero.
+      onSelected: (value) => ref
+          .read(ordersStatusProvider.notifier)
+          .set(value == 0 ? null : WorkOrderStatus.fromValue(value)),
+      itemBuilder: (_) => [
+        CheckedPopupMenuItem(
+          value: 0,
+          checked: estado == null,
+          child: const Text('Cualquier estado'),
+        ),
+        for (final s in WorkOrderStatus.values)
+          CheckedPopupMenuItem(value: s.value, checked: s == estado, child: Text(s.label)),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.filter_list, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              estado?.label ?? 'Cualquier estado',
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Icon(Icons.arrow_drop_down, size: 18, color: theme.colorScheme.primary),
         ],
       ),
     );
@@ -282,10 +353,7 @@ class _OrderCard extends StatelessWidget {
               ),
               if (order.taskCount > 0) ...[
                 const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: order.tasksDone / order.taskCount,
-                  minHeight: 4,
-                ),
+                LinearProgressIndicator(value: order.tasksDone / order.taskCount, minHeight: 4),
                 const SizedBox(height: 4),
                 Text(
                   '${order.tasksDone} de ${order.taskCount} pasos',
@@ -299,4 +367,3 @@ class _OrderCard extends StatelessWidget {
     );
   }
 }
-
