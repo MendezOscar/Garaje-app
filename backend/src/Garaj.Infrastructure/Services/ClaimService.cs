@@ -23,9 +23,14 @@ public class ClaimService(
     public async Task<PagedResult<ClaimListItemDto>> ListAsync(
         ClaimQuery query, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         var q = db.Claims.AsNoTracking();
+
+        // El reclamo no tiene sucursal propia: la hereda de la factura que lo originó, que es
+        // la sucursal que hizo el trabajo y la que tiene que responder por él.
+        if (scope.BranchFilter() is { } suyas) q = q.Where(c => suyas.Contains(c.Sale.BranchId));
 
         if (query.Status is { } status) q = q.Where(c => c.Status == status);
         if (query.OnlyOpen) q = q.Where(c => c.Status == ClaimStatus.Open);
@@ -72,12 +77,16 @@ public class ClaimService(
 
     public async Task<ClaimDetailDto> GetAsync(Guid id, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         var claim = await db.Claims.AsNoTracking()
             .Include(c => c.Sale)
             .FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new NotFoundException("El reclamo no existe.");
+
+        // La sucursal del reclamo es la de su factura: al Encargado de otra, 404.
+        scope.EnsureBranchAllowed(claim.Sale.BranchId);
 
         return await MapAsync(claim, ct);
     }
@@ -85,7 +94,8 @@ public class ClaimService(
     public async Task<ClaimDetailDto> CreateAsync(
         CreateClaimRequest request, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         var motivo = request.Reason?.Trim();
         if (string.IsNullOrWhiteSpace(motivo))
@@ -93,6 +103,8 @@ public class ClaimService(
 
         var sale = await db.Sales.FirstOrDefaultAsync(s => s.Id == request.SaleId, ct)
             ?? throw new NotFoundException("El trabajo no existe.");
+
+        scope.EnsureBranchAllowed(sale.BranchId);
 
         if (sale.IsVoided)
             throw new AppException("Esa venta está anulada: no hay trabajo que reclamar.");
@@ -121,7 +133,8 @@ public class ClaimService(
     public async Task<ClaimDetailDto> ResolveAsync(
         Guid id, ResolveClaimRequest request, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         if (request.Status == ClaimStatus.Open)
             throw new AppException("Para dejarlo abierto no hace falta resolverlo.");
@@ -134,6 +147,9 @@ public class ClaimService(
             .Include(c => c.Sale)
             .FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new NotFoundException("El reclamo no existe.");
+
+        // La sucursal del reclamo es la de su factura: al Encargado de otra, 404.
+        scope.EnsureBranchAllowed(claim.Sale.BranchId);
 
         claim.Status = request.Status;
         claim.Resolution = resolucion[..Math.Min(resolucion.Length, 2000)];
@@ -150,12 +166,16 @@ public class ClaimService(
 
     public async Task<ClaimDetailDto> ReopenAsync(Guid id, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         var claim = await db.Claims
             .Include(c => c.Sale)
             .FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new NotFoundException("El reclamo no existe.");
+
+        // La sucursal del reclamo es la de su factura: al Encargado de otra, 404.
+        scope.EnsureBranchAllowed(claim.Sale.BranchId);
 
         claim.Status = ClaimStatus.Open;
         claim.ResolvedAt = null;
@@ -170,12 +190,16 @@ public class ClaimService(
 
     public async Task<ClaimDetailDto> OpenRepairOrderAsync(Guid id, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         var claim = await db.Claims
             .Include(c => c.Sale)
             .FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new NotFoundException("El reclamo no existe.");
+
+        // La sucursal del reclamo es la de su factura: al Encargado de otra, 404.
+        scope.EnsureBranchAllowed(claim.Sale.BranchId);
 
         if (claim.RepairWorkOrderId is not null)
             throw new ConflictException("Este reclamo ya tiene su orden de reparación.");

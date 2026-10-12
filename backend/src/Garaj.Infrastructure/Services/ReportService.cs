@@ -39,7 +39,7 @@ public class ReportService(
         RevenueQuery query, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var (from, to) = ResolveRange(query);
         var sales = ScopedSales(scope, query.BranchId, from, to, query.TechnicianId);
@@ -179,7 +179,7 @@ public class ReportService(
     public async Task<DashboardDto> DashboardAsync(Guid? branchId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         if (branchId is { } id) scope.EnsureBranchAllowed(id);
 
@@ -196,8 +196,12 @@ public class ReportService(
             select new { sale.SaleDate, line.Total, line.Quantity, line.UnitCost, line.LineType }
         ).ToListAsync(ct);
 
+        // Lo que el Encargado puede mirar: sus sucursales. El Dueño, null, que es «todas».
+        var suyas = scope.BranchFilter();
+
         var orders = db.WorkOrders.AsNoTracking();
         if (branchId is { } b) orders = orders.Where(w => w.BranchId == b);
+        if (suyas is not null) orders = orders.Where(w => suyas.Contains(w.BranchId));
 
         var byStatus = await orders
             .Where(w => w.Status != WorkOrderStatus.Delivered && w.Status != WorkOrderStatus.Cancelled)
@@ -212,11 +216,13 @@ public class ReportService(
 
         var pendingRequests = await db.ServiceRequests.AsNoTracking()
             .CountAsync(r => r.Status == ServiceRequestStatus.Pending
-                             && (branchId == null || r.BranchId == branchId), ct);
+                             && (branchId == null || r.BranchId == branchId)
+                             && (suyas == null || suyas.Contains(r.BranchId)), ct);
 
         var awaitingQuotes = await db.Quotes.AsNoTracking()
             .CountAsync(q => q.Status == QuoteStatus.Sent && q.RespondedAt == null
-                             && (branchId == null || q.BranchId == branchId), ct);
+                             && (branchId == null || q.BranchId == branchId)
+                             && (suyas == null || suyas.Contains(q.BranchId)), ct);
 
         // Cuentas por cobrar: lo facturado que todavía no entró en caja. Se calcula en SQL
         // sobre las ventas vivas; las anuladas ya no se cobran.
@@ -231,7 +237,8 @@ public class ReportService(
 
         var belowMinimum = await db.StockItems.AsNoTracking()
             .CountAsync(s => s.MinQuantity > 0 && s.Quantity <= s.MinQuantity
-                             && (branchId == null || s.BranchId == branchId), ct);
+                             && (branchId == null || s.BranchId == branchId)
+                             && (suyas == null || suyas.Contains(s.BranchId)), ct);
 
         // Los últimos 14 días para la mini gráfica del tablero.
         var chartFrom = todayStart.AddDays(-13);
@@ -345,6 +352,10 @@ public class ReportService(
         int year, int month, Guid? branchId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
+
+        // El libro de ventas es del taller, no de una sucursal: es lo que se le entrega al
+        // contador y lleva los números anulados. Queda en el Dueño aunque el Encargado sí vea
+        // los ingresos de su sucursal.
         scope.EnsureOwner();
 
         if (month is < 1 or > 12) throw new AppException("El mes tiene que estar entre 1 y 12.");
@@ -435,7 +446,7 @@ public class ReportService(
         DateTimeOffset? day, Guid? branchId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         // El día es el del taller: un abono de las 7 de la noche cae en la caja de ese día, y
         // agrupando por la fecha UTC caería en la del siguiente.
@@ -447,6 +458,9 @@ public class ReportService(
             .Where(p => p.PaidAt >= utcFrom && p.PaidAt < utcTo);
 
         if (branchId is { } id) payments = payments.Where(p => p.Sale.BranchId == id);
+
+        if (scope.BranchFilter() is { } suyas)
+            payments = payments.Where(p => suyas.Contains(p.Sale.BranchId));
 
         var rows = await payments
             .OrderBy(p => p.PaidAt)
@@ -550,6 +564,10 @@ public class ReportService(
             .Where(s => !s.IsVoided && s.SaleDate >= utcFrom && s.SaleDate <= utcTo);
 
         if (branchId is { } id) q = q.Where(s => s.BranchId == id);
+
+        // El Encargado solo cuenta lo de sus sucursales, haya pedido una o no: sin esto,
+        // «todas las sucursales» le enseñaría los ingresos del taller entero.
+        if (scope.BranchFilter() is { } suyas) q = q.Where(s => suyas.Contains(s.BranchId));
 
         // Filtrar por técnico deja fuera el mostrador a propósito: esas ventas no pasaron
         // por nadie, y sumárselas a alguien sería inventarle trabajo.

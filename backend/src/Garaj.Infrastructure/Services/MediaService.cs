@@ -314,7 +314,7 @@ public class MediaService(
         // el filtro global del tenant ya acota el gasto al taller de quien pregunta.
         if (ownerType == MediaOwnerType.Expense)
         {
-            scope.EnsureOwner();
+            scope.EnsureManagement();
 
             if (!await db.Expenses.AsNoTracking().AnyAsync(e => e.Id == ownerId, ct))
                 throw new NotFoundException("El gasto no existe.");

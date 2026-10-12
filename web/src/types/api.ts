@@ -3,6 +3,8 @@
 
 export const Roles = {
   Owner: 'Owner',
+  /** Encargado de sucursal: manda en la suya como el Dueño manda en el taller. */
+  Manager: 'Manager',
   Technician: 'Technician',
   Customer: 'Customer',
   /** Nosotros: damos de alta talleres y les cobramos. No pertenece a ningún taller. */

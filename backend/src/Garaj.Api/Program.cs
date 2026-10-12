@@ -6,8 +6,10 @@ using Garaj.Api.Services;
 using Garaj.Application.Common;
 using Garaj.Infrastructure;
 using Garaj.Infrastructure.Auth;
+using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -121,8 +123,11 @@ builder.Services
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AppPolicies.OwnerOnly, p => p.RequireRole(AppRoles.Owner))
-    .AddPolicy(AppPolicies.TechnicianOrOwner, p => p.RequireRole(AppRoles.Owner, AppRoles.Technician))
-    .AddPolicy(AppPolicies.StaffOnly, p => p.RequireRole(AppRoles.Owner, AppRoles.Technician))
+    .AddPolicy(AppPolicies.ManagementOnly, p => p.RequireRole(AppRoles.Owner, AppRoles.Manager))
+    .AddPolicy(AppPolicies.TechnicianOrOwner,
+        p => p.RequireRole(AppRoles.Owner, AppRoles.Manager, AppRoles.Technician))
+    .AddPolicy(AppPolicies.StaffOnly,
+        p => p.RequireRole(AppRoles.Owner, AppRoles.Manager, AppRoles.Technician))
     .AddPolicy(AppPolicies.PlatformOnly, p => p.RequireRole(AppRoles.Platform));
 
 const string CorsPolicy = "garaj-clients";
@@ -208,6 +213,11 @@ static async Task MigrateAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<GarajDbContext>().Database.MigrateAsync();
+
+    // Los roles de Identity son estructura, no datos de demostración: el seeder de abajo solo
+    // corre en Development, así que sin esto un perfil nuevo —el Encargado— no tendría su fila
+    // en un taller que ya existe y darlo de alta fallaría. Es idempotente.
+    await RoleSeeder.EnsureAsync(scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>());
 }
 
 static async Task SeedAsync(WebApplication app)

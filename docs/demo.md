@@ -65,6 +65,7 @@ Accesos:
 | Perfil | Correo |
 | --- | --- |
 | Dueño | `dueno@tallerdemo.hn` — Mario Alvarado |
+| Encargado (Puerto) | `encargado@tallerdemo.hn` — Sandra Interiano |
 | Técnico (Centro y Sur) | `tecnico1@tallerdemo.hn` — Kevin Discua |
 | Técnico (Sur) | `tecnico2@tallerdemo.hn` — Nelson Aguilar |
 | Técnico (Puerto) | `tecnico3@tallerdemo.hn` — Wilmer Castellanos |

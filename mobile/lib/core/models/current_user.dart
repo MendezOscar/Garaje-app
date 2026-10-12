@@ -4,6 +4,10 @@
 
 enum AppRole {
   owner('Owner'),
+
+  /// Encargado de sucursal: manda en la suya como el Dueño manda en el taller.
+  manager('Manager'),
+
   technician('Technician'),
   customer('Customer');
 
@@ -84,6 +88,15 @@ class CurrentUser {
   /// Cómo va el taller con su mensualidad. **Null salvo para el Dueño**: el backend no se lo
   /// manda al Técnico ni al Cliente, así que aquí no hay que acordarse de esconderlo.
   final SubscriptionInfo? subscription;
+
+  /// Quien manda: el Dueño en todo el taller, el Encargado en sus sucursales. Es lo que
+  /// preguntan casi todas las pantallas del negocio —facturar, cobrar, cotizar, ver precios—,
+  /// y la sucursal ya la decide el backend con las del token.
+  bool get manda => role == AppRole.owner || role == AppRole.manager;
+
+  /// Lo que es del taller entero y de nadie más: los ajustes, los catálogos de mano de obra y
+  /// trabajos frecuentes, los gastos, las sucursales y el alta de usuarios.
+  bool get esDueno => role == AppRole.owner;
 }
 
 /// El aviso de cobro, ya resuelto por el backend —el texto incluido— para que el panel y la

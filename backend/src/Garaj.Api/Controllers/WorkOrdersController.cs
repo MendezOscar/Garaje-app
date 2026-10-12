@@ -30,7 +30,7 @@ public class WorkOrdersController(
         => Ok(await service.GetAsync(id, ct));
 
     [HttpPost]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WorkOrderDetailDto>> Create(
         CreateWorkOrderRequest request, CancellationToken ct)
     {
@@ -50,7 +50,7 @@ public class WorkOrdersController(
     /// requerimiento que la mencionaban. Devuelve 409 si ya se facturó.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         await service.DeleteAsync(id, ct);
@@ -59,7 +59,7 @@ public class WorkOrdersController(
 
     /// <summary>Asigna o desasigna el técnico responsable. Pase null para dejarla sin asignar.</summary>
     [HttpPut("{id:guid}/assign")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WorkOrderDetailDto>> Assign(
         Guid id, AssignTechnicianRequest request, CancellationToken ct)
         => Ok(await service.AssignAsync(id, request, ct));
@@ -69,7 +69,7 @@ public class WorkOrdersController(
     /// a mano para toda la orden. Es del Dueño porque decide lo que se le cobra al cliente.
     /// </summary>
     [HttpPut("{id:guid}/labor")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WorkOrderDetailDto>> SetLaborMode(
         Guid id, SetLaborModeRequest request, CancellationToken ct)
         => Ok(await service.SetLaborModeAsync(id, request, ct));
@@ -89,7 +89,7 @@ public class WorkOrdersController(
     /// la factura esté anulada antes, y solo dentro del plazo de garantía del trabajo.
     /// </summary>
     [HttpPost("{id:guid}/reopen")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WorkOrderDetailDto>> Reopen(
         Guid id, ReopenWorkOrderRequest request, CancellationToken ct)
         => Ok(await service.ReopenAsync(id, request, ct));
@@ -195,7 +195,7 @@ public class WorkOrdersController(
     /// se factura, no cubierta se cobra como cualquier otra.
     /// </summary>
     [HttpPut("{id:guid}/warranty-decision")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WorkOrderDetailDto>> SetWarrantyDecision(
         Guid id, WarrantyDecisionRequest request, CancellationToken ct)
         => Ok(await service.SetWarrantyDecisionAsync(id, request, ct));
@@ -210,7 +210,7 @@ public class WorkOrdersController(
     }
 
     [HttpDelete("{id:guid}/tasks/{taskId:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<IActionResult> DeleteTask(Guid id, Guid taskId, CancellationToken ct)
     {
         await service.DeleteTaskAsync(id, taskId, ct);
@@ -235,7 +235,7 @@ public class WorkOrdersController(
     /// se pierde por no acordarse.
     /// </summary>
     [HttpGet("reminders")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<IReadOnlyList<ServiceReminderDto>>> Reminders(
         [FromQuery] ServiceReminderQuery query, CancellationToken ct)
         => Ok(await service.ServiceRemindersAsync(query, ct));
@@ -245,7 +245,7 @@ public class WorkOrdersController(
     /// avisó: así el mismo cliente no recibe dos llamadas la misma semana.
     /// </summary>
     [HttpPost("{id:guid}/service-reminder")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WhatsAppLinkDto>> ServiceReminder(Guid id, CancellationToken ct)
         => Ok(await service.ServiceReminderLinkAsync(id, ct));
 }

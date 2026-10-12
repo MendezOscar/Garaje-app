@@ -25,7 +25,7 @@ public class PartsController(IPartService service) : ControllerBase
         => Ok(await service.GetAsync(id, ct));
 
     [HttpPost]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<PartDto>> Create(SavePartRequest request, CancellationToken ct)
     {
         var part = await service.CreateAsync(request, ct);
@@ -33,7 +33,7 @@ public class PartsController(IPartService service) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<PartDto>> Update(
         Guid id, SavePartRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
@@ -67,28 +67,28 @@ public class StockController(IStockService service) : ControllerBase
         => Ok(await service.MovementsAsync(query, ct));
 
     [HttpPost("receive")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<StockItemDto>> Receive(
         ReceiveStockRequest request, CancellationToken ct)
         => Ok(await service.ReceiveAsync(request, ct));
 
     /// <summary>Ajuste por conteo físico. Se envía lo contado, no la diferencia.</summary>
     [HttpPost("adjust")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<StockItemDto>> Adjust(
         AdjustStockRequest request, CancellationToken ct)
         => Ok(await service.AdjustAsync(request, ct));
 
     /// <summary>Traslado entre sucursales. Devuelve el saldo de origen y destino.</summary>
     [HttpPost("transfer")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<IReadOnlyList<StockItemDto>>> Transfer(
         TransferStockRequest request, CancellationToken ct)
         => Ok(await service.TransferAsync(request, ct));
 
     /// <summary>Mínimo de reposición y ubicación. No mueve existencias.</summary>
     [HttpPut("settings")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<StockItemDto>> SaveSettings(
         SaveStockSettingsRequest request, CancellationToken ct)
         => Ok(await service.SaveSettingsAsync(request, ct));

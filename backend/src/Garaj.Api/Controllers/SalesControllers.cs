@@ -26,7 +26,7 @@ public class SalesController(ISaleService service) : ControllerBase
 
     /// <summary>Venta directa de mostrador. Descuenta los repuestos de la bodega.</summary>
     [HttpPost]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<SaleDetailDto>> Create(
         CreateSaleRequest request, CancellationToken ct)
     {
@@ -39,7 +39,7 @@ public class SalesController(ISaleService service) : ControllerBase
     /// y, si se pide, la marca como entregada.
     /// </summary>
     [HttpPost("close-work-order")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<SaleDetailDto>> CloseWorkOrder(
         CloseWorkOrderRequest request, CancellationToken ct)
     {
@@ -49,14 +49,14 @@ public class SalesController(ISaleService service) : ControllerBase
 
     /// <summary>Registra un abono a una venta con saldo.</summary>
     [HttpPost("{id:guid}/payments")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<SaleDetailDto>> RegisterPayment(
         Guid id, RegisterPaymentRequest request, CancellationToken ct)
         => Ok(await service.RegisterPaymentAsync(id, request, ct));
 
     /// <summary>Borra un abono mal capturado. Para devolver dinero se anula la venta.</summary>
     [HttpDelete("{id:guid}/payments/{paymentId:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<SaleDetailDto>> RemovePayment(
         Guid id, Guid paymentId, CancellationToken ct)
         => Ok(await service.RemovePaymentAsync(id, paymentId, ct));
@@ -70,7 +70,7 @@ public class SalesController(ISaleService service) : ControllerBase
     }
 
     [HttpPost("{id:guid}/void")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<SaleDetailDto>> Void(
         Guid id, VoidSaleRequest request, CancellationToken ct)
         => Ok(await service.VoidAsync(id, request, ct));
@@ -81,7 +81,7 @@ public class SalesController(ISaleService service) : ControllerBase
 /// la venta, así que siempre cuadra con lo facturado.
 /// </summary>
 [ApiController]
-[Authorize(Policy = AppPolicies.OwnerOnly)]
+[Authorize(Policy = AppPolicies.ManagementOnly)]
 [Route("api/reports")]
 public class ReportsController(IReportService service) : ControllerBase
 {
@@ -117,6 +117,7 @@ public class ReportsController(IReportService service) : ControllerBase
     /// Sin <c>year</c> y <c>month</c>, el mes en curso.
     /// </summary>
     [HttpGet("sales-book.csv")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<IActionResult> SalesBook(
         [FromQuery] int? year, [FromQuery] int? month, [FromQuery] Guid? branchId,
         CancellationToken ct)

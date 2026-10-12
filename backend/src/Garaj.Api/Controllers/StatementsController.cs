@@ -17,7 +17,7 @@ namespace Garaj.Api.Controllers;
 /// es asunto del técnico.
 /// </remarks>
 [ApiController]
-[Authorize(Policy = AppPolicies.OwnerOnly)]
+[Authorize(Policy = AppPolicies.ManagementOnly)]
 [Route("api/customers/{customerId:guid}/statement")]
 public class StatementsController(ISaleService service) : ControllerBase
 {

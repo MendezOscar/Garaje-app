@@ -37,16 +37,26 @@ public class BranchesController(IBranchService service) : ControllerBase
 }
 
 [ApiController]
-[Authorize(Policy = AppPolicies.OwnerOnly)]
+// La policy va por acción y no en la clase: las de la clase y las de la acción se **suman**,
+// así que con OwnerOnly arriba el Encargado quedaba fuera aunque la acción dijera otra cosa.
+// Él necesita la lista para saber a qué técnico asignarle una orden; el alta, el pago y las
+// contraseñas siguen siendo del Dueño.
+[Authorize]
 [Route("api/users")]
 public class UsersController(IUserService service) : ControllerBase
 {
+    /// <summary>
+    /// El personal del taller. Al Encargado se le devuelven solo los técnicos de sus
+    /// sucursales, y sin lo que se les paga.
+    /// </summary>
     [HttpGet]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<IReadOnlyList<UserDto>>> List(
         [FromQuery] string? role, CancellationToken ct)
         => Ok(await service.ListAsync(role, ct));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<UserDto>> Get(Guid id, CancellationToken ct)
         => Ok(await service.GetAsync(id, ct));
 
@@ -55,12 +65,14 @@ public class UsersController(IUserService service) : ControllerBase
     /// propuesta para la pantalla de pago: lo que se le paga de verdad lo escribe el Dueño.
     /// </summary>
     [HttpGet("{id:guid}/pay-proposal")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<TechnicianPayProposalDto>> PayProposal(
         Guid id, [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to,
         CancellationToken ct)
         => Ok(await service.PayProposalAsync(id, from, to, ct));
 
     [HttpPost]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<UserDto>> Create(CreateUserRequest request, CancellationToken ct)
     {
         var user = await service.CreateAsync(request, ct);
@@ -68,11 +80,13 @@ public class UsersController(IUserService service) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<ActionResult<UserDto>> Update(Guid id, UpdateUserRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
 
     /// <summary>Restablece la contraseña y cierra las sesiones abiertas de ese usuario.</summary>
     [HttpPost("{id:guid}/password")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
     public async Task<IActionResult> ResetPassword(Guid id, ResetPasswordRequest request, CancellationToken ct)
     {
         await service.ResetPasswordAsync(id, request, ct);

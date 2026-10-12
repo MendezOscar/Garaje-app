@@ -62,7 +62,7 @@ const routes: RouteRecordRaw[] = [
         path: 'inicio',
         name: 'home',
         component: () => import('@/views/owner/HomeView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // Recibir el vehículo que ya está en el patio: abre la orden de una vez, sin pasar
@@ -70,7 +70,7 @@ const routes: RouteRecordRaw[] = [
         path: 'recibir',
         name: 'receive-vehicle',
         component: () => import('@/views/owner/ReceiveVehicleView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // Vender un repuesto sin recibir el vehículo: la venta de mostrador. Antes había que
@@ -79,7 +79,7 @@ const routes: RouteRecordRaw[] = [
         path: 'mostrador',
         name: 'counter-sale',
         component: () => import('@/views/owner/CounterSaleView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         path: 'resultados',
@@ -91,13 +91,13 @@ const routes: RouteRecordRaw[] = [
         path: 'reclamos',
         name: 'claims',
         component: () => import('@/views/owner/ClaimsView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         path: 'ordenes',
         name: 'work-orders',
         component: () => import('@/views/owner/WorkOrderBoardView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // El Técnico también entra: es quien muchas veces recibe la moto en el mostrador y
@@ -106,13 +106,13 @@ const routes: RouteRecordRaw[] = [
         path: 'requerimientos',
         name: 'service-requests',
         component: () => import('@/views/owner/ServiceRequestsView.vue'),
-        meta: { roles: [Roles.Owner, Roles.Technician] },
+        meta: { roles: [Roles.Owner, Roles.Manager, Roles.Technician] },
       },
       {
         path: 'clientes',
         name: 'customers',
         component: () => import('@/views/owner/CustomersView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // Lo que se le ha hecho a un vehículo, buscándolo por placa. Es la pregunta del
@@ -121,7 +121,7 @@ const routes: RouteRecordRaw[] = [
         path: 'historial',
         name: 'vehicle-history',
         component: () => import('@/views/owner/VehicleHistoryView.vue'),
-        meta: { roles: [Roles.Owner, Roles.Technician] },
+        meta: { roles: [Roles.Owner, Roles.Manager, Roles.Technician] },
       },
       {
         // Aparte de Reportes: esto no se mira, se trabaja —se busca al cliente que llamó y
@@ -129,20 +129,20 @@ const routes: RouteRecordRaw[] = [
         path: 'por-cobrar',
         name: 'receivables',
         component: () => import('@/views/owner/ReceivablesView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         path: 'reportes',
         name: 'reports',
         component: () => import('@/views/owner/ReportsView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // A quién le toca servicio. Es trabajo que se pierde por no acordarse.
         path: 'recordatorios',
         name: 'service-reminders',
         component: () => import('@/views/owner/ServiceRemindersView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // Lo cobrado en el día, que no es lo facturado: se abre al cerrar, con el efectivo
@@ -150,7 +150,7 @@ const routes: RouteRecordRaw[] = [
         path: 'caja',
         name: 'cash-close',
         component: () => import('@/views/owner/CashCloseView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // La ficha del taller: lo que sale impreso en la cotización y en la factura.
@@ -183,13 +183,13 @@ const routes: RouteRecordRaw[] = [
         path: 'ventas',
         name: 'sales',
         component: () => import('@/views/owner/SalesView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         path: 'cotizaciones',
         name: 'quotes',
         component: () => import('@/views/owner/QuotesView.vue'),
-        meta: { roles: [Roles.Owner] },
+        meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
         // El Técnico también entra: necesita saber si hay existencia antes de prometer una
@@ -197,7 +197,7 @@ const routes: RouteRecordRaw[] = [
         path: 'inventario',
         name: 'inventory',
         component: () => import('@/views/owner/InventoryView.vue'),
-        meta: { roles: [Roles.Owner, Roles.Technician] },
+        meta: { roles: [Roles.Owner, Roles.Manager, Roles.Technician] },
       },
       {
         // El detalle es la misma pantalla para los tres perfiles: el backend decide qué
@@ -250,6 +250,7 @@ export const router = createRouter({
 export function homeRouteFor(role: Role | null): string {
   switch (role) {
     case Roles.Owner:
+    case Roles.Manager:
       return 'home'
     case Roles.Technician:
       return 'my-assignments'

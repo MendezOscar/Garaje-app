@@ -29,6 +29,17 @@ public sealed class AccessScope
     public IReadOnlyCollection<Guid> BranchIds { get; }
 
     public bool IsOwner => Role == AppRoles.Owner;
+
+    /// <summary>Encargado de sucursal: manda, pero solo dentro de <see cref="BranchIds"/>.</summary>
+    public bool IsManager => Role == AppRoles.Manager;
+
+    /// <summary>
+    /// Quien manda: el Dueño en todo el taller, el Encargado en las suyas. Es la pregunta que
+    /// se hacen casi todas las operaciones del negocio —facturar, cobrar, cotizar, anular—,
+    /// y la sucursal la sigue decidiendo <see cref="EnsureBranchAllowed"/>.
+    /// </summary>
+    public bool IsManagement => IsOwner || IsManager;
+
     public bool IsTechnician => Role == AppRoles.Technician;
     public bool IsCustomer => Role == AppRoles.Customer;
 
@@ -55,6 +66,25 @@ public sealed class AccessScope
         if (IsOwner || BranchIds.Contains(branchId)) return;
 
         throw new NotFoundException();
+    }
+
+    /// <summary>
+    /// Las sucursales por las que hay que filtrar una consulta, o <c>null</c> si no hay que
+    /// filtrar nada —el Dueño, que ve el taller entero—.
+    /// </summary>
+    /// <remarks>
+    /// Devuelve una <see cref="List{T}"/> materializada porque EF no traduce
+    /// <c>Contains</c> sobre <see cref="IReadOnlyCollection{T}"/>.
+    /// </remarks>
+    public List<Guid>? BranchFilter() => IsOwner ? null : BranchIds.ToList();
+
+    /// <summary>
+    /// Lanza si el usuario no manda: el Dueño y el Encargado pasan, los demás no.
+    /// </summary>
+    public void EnsureManagement()
+    {
+        if (!IsManagement)
+            throw new ForbiddenException("Solo el Dueño o el Encargado pueden realizar esta operación.");
     }
 
     /// <summary>Solo el Dueño administra catálogos y configuración del taller.</summary>

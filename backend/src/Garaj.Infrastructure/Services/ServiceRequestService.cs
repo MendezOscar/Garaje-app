@@ -62,7 +62,7 @@ public class ServiceRequestService(
         // El taller también los registra: en el mostrador el vehículo llega antes que el
         // cliente a la aplicación, y las primeras veces nadie la trae instalada. El técnico
         // solo puede hacerlo en las sucursales que tiene asignadas.
-        if (scope.IsTechnician) scope.EnsureBranchAllowed(request.BranchId);
+        if (scope.IsTechnician || scope.IsManager) scope.EnsureBranchAllowed(request.BranchId);
 
         var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == request.VehicleId, ct)
             ?? throw new NotFoundException("El vehículo no existe.");
@@ -116,7 +116,7 @@ public class ServiceRequestService(
         Guid id, ApproveServiceRequestRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var serviceRequest = await db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id, ct)
             ?? throw new NotFoundException("El requerimiento no existe.");
@@ -152,7 +152,7 @@ public class ServiceRequestService(
     public async Task<ServiceRequestDto> RejectAsync(
         Guid id, RejectServiceRequestRequest request, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         var serviceRequest = await db.ServiceRequests.FirstOrDefaultAsync(r => r.Id == id, ct)
             ?? throw new NotFoundException("El requerimiento no existe.");
@@ -180,12 +180,10 @@ public class ServiceRequestService(
         if (scope.IsCustomer)
             return q.Where(r => r.Vehicle.CustomerId == scope.CustomerId);
 
-        if (scope.IsTechnician)
-        {
-            // Materializado: EF no traduce Contains sobre IReadOnlyCollection.
-            var branchIds = scope.BranchIds.ToList();
-            return q.Where(r => branchIds.Contains(r.BranchId));
-        }
+        // El Técnico y el Encargado, los de sus sucursales. Materializado: EF no traduce
+        // Contains sobre IReadOnlyCollection.
+        if (scope.BranchFilter() is { } suyas)
+            return q.Where(r => suyas.Contains(r.BranchId));
 
         return q;
     }
