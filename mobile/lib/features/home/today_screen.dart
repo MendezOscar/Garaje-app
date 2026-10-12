@@ -12,6 +12,7 @@ import '../../core/theme/garaj_brand.dart';
 import '../notifications/notifications_screen.dart';
 import 'primeros_pasos.dart';
 import '../reports/reports_screen.dart' show money;
+import '../shared/selector_de_sucursal.dart';
 import '../shared/subscription_banner.dart';
 import '../shared/tenant_logo.dart';
 
@@ -63,59 +64,74 @@ class TodayScreen extends ConsumerWidget {
               SubscriptionBanner(info: auth.user.subscription!),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-              child: resumen.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 64),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48),
-                  child: Column(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // El taller y, cuando tiene más de una, la sucursal que se está mirando.
+                  // Fuera del `when` a propósito: el selector tiene que seguir ahí mientras
+                  // las cifras de la sucursal recién elegida vienen en camino.
+                  Row(
                     children: [
-                      Text(
-                        apiErrorMessage(e, 'No se pudo cargar el resumen del día.'),
-                        textAlign: TextAlign.center,
+                      Expanded(
+                        child: Text(
+                          auth.user.tenantName,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      FilledButton.tonal(
-                        onPressed: () => ref.invalidate(dashboardProvider),
-                        child: const Text('Reintentar'),
-                      ),
+                      const SelectorDeSucursal(),
                     ],
                   ),
-                ),
-                data: (d) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      auth.user.tenantName,
-                      style: Theme.of(context).textTheme.bodySmall,
+                  const SizedBox(height: 10),
+                  resumen.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 64),
+                      child: Center(child: CircularProgressIndicator()),
                     ),
-                    const SizedBox(height: 10),
-                    // Arriba del dinero mientras el taller no ha facturado nada: es lo único
-                    // accionable de la pantalla cuando todo lo demás está en cero. En cuanto
-                    // hay movimiento del mes, ni siquiera se pregunta.
-                    if (d.month == 0 && d.receivables == 0) ...[
-                      PrimerosPasosCard(onVerOrdenes: onVerOrdenes),
-                      const SizedBox(height: 12),
-                    ],
-                    _MoneyCard(summary: d, cobrado: caja.value),
-                    const SizedBox(height: 12),
-                    _Tiles(summary: d, onVerOrdenes: onVerOrdenes),
-                    const SizedBox(height: 12),
-                    _Yard(summary: d, onVerOrdenes: onVerOrdenes),
-                    const SizedBox(height: 12),
-                    const _RemindersCard(),
-                    const SizedBox(height: 16),
-                    // Recibir un vehículo es lo que más se hace en el mostrador y hasta hoy
-                    // estaba a dos pantallas de distancia.
-                    FilledButton.icon(
-                      onPressed: () => context.push('/nueva-cita'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Recibir vehículo'),
+                    error: (e, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 48),
+                      child: Column(
+                        children: [
+                          Text(
+                            apiErrorMessage(e, 'No se pudo cargar el resumen del día.'),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.tonal(
+                            onPressed: () => ref.invalidate(dashboardProvider),
+                            child: const Text('Reintentar'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                    data: (d) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Arriba del dinero mientras el taller no ha facturado nada: es lo único
+                        // accionable de la pantalla cuando todo lo demás está en cero. En cuanto
+                        // hay movimiento del mes, ni siquiera se pregunta.
+                        if (d.month == 0 && d.receivables == 0) ...[
+                          PrimerosPasosCard(onVerOrdenes: onVerOrdenes),
+                          const SizedBox(height: 12),
+                        ],
+                        _MoneyCard(summary: d, cobrado: caja.value),
+                        const SizedBox(height: 12),
+                        _Tiles(summary: d, onVerOrdenes: onVerOrdenes),
+                        const SizedBox(height: 12),
+                        _Yard(summary: d, onVerOrdenes: onVerOrdenes),
+                        const SizedBox(height: 12),
+                        const _RemindersCard(),
+                        const SizedBox(height: 16),
+                        // Recibir un vehículo es lo que más se hace en el mostrador y hasta hoy
+                        // estaba a dos pantallas de distancia.
+                        FilledButton.icon(
+                          onPressed: () => context.push('/nueva-cita'),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Recibir vehículo'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -169,8 +185,7 @@ class _MoneyCard extends StatelessWidget {
                     Text('FACTURADO', style: _label(theme)),
                     Text(
                       money(summary.today, moneda),
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontFamily: GarajFonts.mono),
+                      style: theme.textTheme.titleMedium?.copyWith(fontFamily: GarajFonts.mono),
                     ),
                   ],
                 ),
@@ -299,7 +314,9 @@ class _Tile extends StatelessWidget {
       // deja el color pleno para la cifra.
       shape: RoundedRectangleBorder(
         side: BorderSide(
-          color: color == null ? theme.dividerColor : Color.lerp(theme.dividerColor, color, 0.45)!,
+          color: color == null
+              ? theme.dividerColor
+              : Color.lerp(theme.dividerColor, color, 0.45)!,
         ),
         borderRadius: const BorderRadius.all(Radius.circular(10)),
       ),
@@ -312,10 +329,7 @@ class _Tile extends StatelessWidget {
             children: [
               Text(title, style: _label(theme)),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.titleLarge?.copyWith(color: colorCifra),
-              ),
+              Text(value, style: theme.textTheme.titleLarge?.copyWith(color: colorCifra)),
               Text(foot, style: theme.textTheme.bodySmall),
             ],
           ),
@@ -355,11 +369,7 @@ class _Yard extends StatelessWidget {
         summary.count([WorkOrderStatus.waitingApproval, WorkOrderStatus.waitingParts]),
         GarajColors.warning,
       ),
-      (
-        'Listas para entrega',
-        summary.count([WorkOrderStatus.ready]),
-        GarajColors.success,
-      ),
+      ('Listas para entrega', summary.count([WorkOrderStatus.ready]), GarajColors.success),
     ];
 
     return Card(
@@ -387,12 +397,14 @@ class _Yard extends StatelessWidget {
                     Expanded(child: Text(nombre)),
                     Text(
                       '$cantidad',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontFamily: GarajFonts.mono),
+                      style: theme.textTheme.titleMedium?.copyWith(fontFamily: GarajFonts.mono),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right,
-                        size: 18, color: theme.colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ],
                 ),
               ),
@@ -424,8 +436,7 @@ class _RemindersCard extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              Icon(Icons.directions_car_outlined,
-                  color: theme.colorScheme.onSurfaceVariant),
+              Icon(Icons.directions_car_outlined, color: theme.colorScheme.onSurfaceVariant),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -445,8 +456,7 @@ class _RemindersCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 18, color: theme.colorScheme.onSurfaceVariant),
+              Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -456,6 +466,6 @@ class _RemindersCard extends ConsumerWidget {
 }
 
 TextStyle? _label(ThemeData theme) => theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-      letterSpacing: 0.6,
-    );
+  color: theme.colorScheme.onSurfaceVariant,
+  letterSpacing: 0.6,
+);

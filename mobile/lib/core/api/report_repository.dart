@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
 import 'sale_repository.dart' show PaymentMethod;
+import 'sucursal_activa.dart';
 
 /// Reporte de ingresos del taller, el mismo que se ve en el panel web.
 ///
@@ -386,7 +387,11 @@ final revenueReportProvider =
   (ref, filter) => ref.watch(reportRepositoryProvider).revenue(filter),
 );
 
-/// Lo cobrado en el día que se esté mirando. `null` es hoy.
+/// Lo cobrado en el día que se esté mirando. `null` es hoy. La sucursal es la que esté
+/// elegida arriba: el cierre de caja de un taller de dos sucursales se hace por sucursal.
 final cashCloseProvider = FutureProvider.autoDispose.family<CashClose, DateTime?>(
-  (ref, day) => ref.watch(reportRepositoryProvider).cashClose(day: day),
+  (ref, day) => ref.watch(reportRepositoryProvider).cashClose(
+        day: day,
+        branchId: ref.watch(sucursalActivaProvider),
+      ),
 );

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/work_order.dart';
+import 'sucursal_activa.dart';
 
 final workOrderRepositoryProvider = Provider<WorkOrderRepository>(
   (ref) => WorkOrderRepository(ref.watch(apiClientProvider).dio),
@@ -21,6 +22,8 @@ class WorkOrderRepository {
     bool onlyOpen = true,
     String? vehicleId,
     String? search,
+    String? branchId,
+    WorkOrderStatus? status,
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/work-orders',
@@ -28,6 +31,8 @@ class WorkOrderRepository {
         'onlyOpen': onlyOpen,
         'pageSize': 100,
         if (vehicleId != null) 'vehicleId': vehicleId,
+        if (branchId != null) 'branchId': branchId,
+        if (status != null) 'status': status.value,
         // El backend busca por número, por placa normalizada y por nombre del cliente.
         if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
       },
@@ -150,6 +155,35 @@ class WorkOrderRepository {
     );
     return WorkOrderTask.fromJson(response.data!);
   }
+
+  /// Corrige un paso ya agregado: cómo se llama y, cuando el precio no sale del catálogo,
+  /// cuánto se cobra por él.
+  ///
+  /// El servicio del catálogo se reenvía tal cual porque el endpoint reemplaza el paso
+  /// entero: omitirlo dejaría sin precio un paso que sí lo tenía.
+  Future<WorkOrderTask> editTask(
+    String workOrderId,
+    WorkOrderTask task, {
+    required String title,
+    double? manualPrice,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/tasks/${task.id}',
+      data: {
+        'title': title,
+        'description': task.description,
+        'laborServiceId': task.laborServiceId,
+        'estimatedHours': task.estimatedHours,
+        // Con servicio del catálogo el servidor lo ignora: el precio sale de él.
+        'manualLaborPrice': manualPrice,
+      },
+    );
+    return WorkOrderTask.fromJson(response.data!);
+  }
+
+  /// Quita un paso de la orden. Solo el Dueño: la API se lo niega al Técnico.
+  Future<void> deleteTask(String workOrderId, String taskId) =>
+      _dio.delete<void>('/api/work-orders/$workOrderId/tasks/$taskId');
 
   /// Elige si la mano de obra sale del catálogo o de un total escrito a mano. Solo el Dueño:
   /// decide lo que se le cobra al cliente.
@@ -511,17 +545,37 @@ class OrdersSearch extends Notifier<String> {
   void set(String value) => state = value;
 }
 
+/// El estado por el que se filtra la bandeja. `null` es «cualquiera».
+///
+/// Vive fuera de la pantalla, como el buscador: el mostrador deja puesto «Lista para entrega»
+/// mientras llama a los clientes, y entrar a una orden y volver no tiene por qué deshacerlo.
+final ordersStatusProvider =
+    NotifierProvider<OrdersStatus, WorkOrderStatus?>(OrdersStatus.new);
+
+class OrdersStatus extends Notifier<WorkOrderStatus?> {
+  @override
+  WorkOrderStatus? build() => null;
+
+  void set(WorkOrderStatus? value) => state = value;
+}
+
 /// Lista de órdenes del usuario. `autoDispose` para que al volver a la pantalla se recargue:
 /// el técnico necesita ver lo que el dueño le asignó mientras estaba en otra vista.
 final myWorkOrdersProvider = FutureProvider.autoDispose<List<WorkOrderListItem>>(
   (ref) {
     final search = ref.watch(ordersSearchProvider);
+    final estado = ref.watch(ordersStatusProvider);
 
     return ref.watch(workOrderRepositoryProvider).list(
           // Buscando se deja de filtrar: quien teclea una placa la quiere encontrar aunque
-          // el vehículo ya haya salido del taller.
-          onlyOpen: search.trim().isEmpty && ref.watch(onlyOpenOrdersProvider),
+          // el vehículo ya haya salido del taller. Y pedir un estado manda sobre «en el
+          // taller»: con los dos puestos, «Entregada» no devolvería nunca nada.
+          onlyOpen: search.trim().isEmpty &&
+              estado == null &&
+              ref.watch(onlyOpenOrdersProvider),
           search: search,
+          branchId: ref.watch(sucursalActivaProvider),
+          status: estado,
         );
   },
 );

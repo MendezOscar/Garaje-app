@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/work_order.dart';
+import 'sucursal_activa.dart';
 
 /// Resumen de ingresos del taller. Es lo que el Dueño quiere ver de un vistazo desde el
 /// teléfono, sin abrir el panel web.
@@ -75,14 +76,20 @@ class DashboardRepository {
 
   final Dio _dio;
 
-  Future<DashboardSummary> get() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/reports/dashboard');
+  Future<DashboardSummary> get({String? branchId}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/reports/dashboard',
+      queryParameters: {if (branchId != null) 'branchId': branchId},
+    );
     return DashboardSummary.fromJson(response.data!);
   }
 }
 
 /// Solo lo puede pedir el Dueño; a los demás la API responde 403, así que la pantalla
 /// comprueba el perfil antes de leer este provider.
+/// Sigue la sucursal elegida: con «todas» el resumen es el del taller completo.
 final dashboardProvider = FutureProvider.autoDispose<DashboardSummary>(
-  (ref) => ref.watch(dashboardRepositoryProvider).get(),
+  (ref) => ref
+      .watch(dashboardRepositoryProvider)
+      .get(branchId: ref.watch(sucursalActivaProvider)),
 );

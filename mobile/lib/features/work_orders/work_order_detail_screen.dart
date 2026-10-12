@@ -80,7 +80,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   /// —cargar un repuesto, guardar el diagnóstico— se ve sin volver atrás.
   void _abrirSeccion(Widget Function(WorkOrderDetail order) contenido) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _SeccionPagina(id: widget.id, contenido: contenido)),
+      MaterialPageRoute(
+        builder: (_) => _SeccionPagina(id: widget.id, contenido: contenido),
+      ),
     );
   }
 
@@ -134,17 +136,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     if (ok != true || nombre.text.trim().isEmpty) return;
 
     await _run(() async {
-      await ref.read(jobTemplateRepositoryProvider).fromWorkOrder(
-            workOrderId: order.id,
-            name: nombre.text.trim(),
-          );
+      await ref
+          .read(jobTemplateRepositoryProvider)
+          .fromWorkOrder(workOrderId: order.id, name: nombre.text.trim());
 
       ref.invalidate(jobTemplatesProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Guardado como trabajo frecuente.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Guardado como trabajo frecuente.')));
       }
     });
   }
@@ -175,8 +176,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
             for (final tecnico in tecnicos)
               ListTile(
                 title: Text(tecnico.name),
-                trailing:
-                    order.assignedTechnicianId == tecnico.id ? const Icon(Icons.check) : null,
+                trailing: order.assignedTechnicianId == tecnico.id
+                    ? const Icon(Icons.check)
+                    : null,
                 onTap: () => Navigator.pop(context, tecnico.id),
               ),
           ],
@@ -186,9 +188,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     if (elegido == null) return;
     // Cadena vacía es «sin asignar»: null significaría que la hoja se cerró sin elegir.
-    await _run(() => ref
-        .read(workOrderRepositoryProvider)
-        .assign(widget.id, elegido.isEmpty ? null : elegido));
+    await _run(
+      () => ref
+          .read(workOrderRepositoryProvider)
+          .assign(widget.id, elegido.isEmpty ? null : elegido),
+    );
   }
 
   /// Los tres mensajes de WhatsApp, en una hoja. Es el botón de la derecha de la barra fija:
@@ -214,9 +218,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
       ref.invalidate(myWorkOrdersProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiErrorMessage(e))),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -229,10 +231,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     WorkOrderDetail order,
     List<WorkOrderStatus> permitidos,
   ) {
-    final candidatos = permitidos
-        .where((s) => !s.isBlocked && s != WorkOrderStatus.cancelled)
-        .toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+    final candidatos =
+        permitidos.where((s) => !s.isBlocked && s != WorkOrderStatus.cancelled).toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
 
     if (candidatos.isEmpty) return null;
 
@@ -242,19 +243,18 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     );
   }
 
-  Future<void> _completeTask(WorkOrderTask task) =>
-      _run(() => ref
-          .read(workOrderRepositoryProvider)
-          .completeTask(widget.id, task.id, isDone: true));
+  Future<void> _completeTask(WorkOrderTask task) => _run(
+    () => ref.read(workOrderRepositoryProvider).completeTask(widget.id, task.id, isDone: true),
+  );
 
   Future<void> _tomarFoto() async {
     setState(() => _busy = true);
     try {
       final tomada = await capturarFoto(ref, ownerId: widget.id);
       if (tomada && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto guardada en la orden.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Foto guardada en la orden.')));
       }
     } catch (e) {
       if (mounted) {
@@ -358,11 +358,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     if (confirmado != true) return;
 
     final nota = controller.text.trim();
-    await _run(() => ref.read(workOrderRepositoryProvider).changeStatus(
-          widget.id,
-          elegido,
-          note: nota.isEmpty ? null : nota,
-        ));
+    await _run(
+      () => ref
+          .read(workOrderRepositoryProvider)
+          .changeStatus(widget.id, elegido, note: nota.isEmpty ? null : nota),
+    );
   }
 
   Future<void> _changeStatus(WorkOrderStatus status) async {
@@ -370,11 +370,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     if (note == null) return; // canceló
 
     await _run(() async {
-      await ref.read(workOrderRepositoryProvider).changeStatus(
-            widget.id,
-            status,
-            note: note.isEmpty ? null : note,
-          );
+      await ref
+          .read(workOrderRepositoryProvider)
+          .changeStatus(widget.id, status, note: note.isEmpty ? null : note);
     });
   }
 
@@ -429,10 +427,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 maxLength: 2000,
                 textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => setInner(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Qué se hizo',
-                  counterText: '',
-                ),
+                decoration: const InputDecoration(labelText: 'Qué se hizo', counterText: ''),
               ),
               const SizedBox(height: GarajSpace.sm),
               Text(
@@ -462,7 +457,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     if (guardar != true) return;
 
     await _run(() async {
-      await ref.read(claimRepositoryProvider).resolve(
+      await ref
+          .read(claimRepositoryProvider)
+          .resolve(
             order.claimId!,
             status: order.warrantyCovered == true
                 ? ClaimStatus.repairedUnderWarranty
@@ -490,7 +487,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     if (!mounted) return;
 
     String? servicioId;
-    var modo = catalogLabor && servicios.isNotEmpty ? _CobroDelPaso.catalogo : _CobroDelPaso.aMano;
+    var modo = catalogLabor && servicios.isNotEmpty
+        ? _CobroDelPaso.catalogo
+        : _CobroDelPaso.aMano;
     var dondeVaElPrecio = _DondeVaElPrecio.enEstePaso;
     var guardarEnCatalogo = false;
 
@@ -567,8 +566,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                       ],
                       onChanged: (value) => setInner(() {
                         servicioId = value;
-                        titulo.text =
-                            value == null ? '' : servicios.firstWhere((s) => s.id == value).name;
+                        titulo.text = value == null
+                            ? ''
+                            : servicios.firstWhere((s) => s.id == value).name;
                       }),
                     )
                   else ...[
@@ -662,8 +662,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                         // Lo que ya está puesto y va a dejar de contar. Sin este aviso, el
                         // Dueño que ya le puso precio a tres pasos escribe un total y no se
                         // entera de que los tres precios quedan fuera de la factura.
-                        if (_pasosConPrecio(orden) case (final cuantos, final suman)
-                            when cuantos > 0)
+                        if (_pasosConPrecio(orden) case (
+                          final cuantos,
+                          final suman,
+                        ) when cuantos > 0)
                           Padding(
                             padding: const EdgeInsets.only(top: GarajSpace.sm),
                             child: Text(
@@ -702,14 +704,15 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                       const SizedBox(width: GarajSpace.sm),
                       Expanded(
                         child: FilledButton(
-                          onPressed: _pasoCompleto(
-                            catalogLabor: catalogLabor,
-                            modo: modo,
-                            donde: dondeVaElPrecio,
-                            titulo: titulo.text,
-                            servicioId: servicioId,
-                            precio: precio.text,
-                          )
+                          onPressed:
+                              _pasoCompleto(
+                                catalogLabor: catalogLabor,
+                                modo: modo,
+                                donde: dondeVaElPrecio,
+                                titulo: titulo.text,
+                                servicioId: servicioId,
+                                precio: precio.text,
+                              )
                               ? () => Navigator.pop(context, true)
                               : null,
                           child: const Text('Agregar'),
@@ -730,7 +733,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     // Un total para toda la orden: primero se cambia el modo —que es lo que pide el total— y
     // después entra el paso, que en ese modo va sin precio propio.
-    if (catalogLabor && modo == _CobroDelPaso.aMano &&
+    if (catalogLabor &&
+        modo == _CobroDelPaso.aMano &&
         dondeVaElPrecio == _DondeVaElPrecio.totalAlFinal) {
       final total = await _askTotal(orden);
       if (total == null) return;
@@ -761,7 +765,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         }
       }
 
-      await ref.read(workOrderRepositoryProvider).addTask(
+      await ref
+          .read(workOrderRepositoryProvider)
+          .addTask(
             widget.id,
             texto,
             laborServiceId: catalogLabor ? servicio : null,
@@ -787,10 +793,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   /// otro—: lo que se quiere evitar es guardar «Cambio de aceite» cuando ya existe «cambio de
   /// aceite», no adivinar sinónimos. Desde tres letras, que es cuando deja de sugerir medio
   /// catálogo.
-  static List<LaborServiceOption> _parecidos(
-    String texto,
-    List<LaborServiceOption> servicios,
-  ) {
+  static List<LaborServiceOption> _parecidos(String texto, List<LaborServiceOption> servicios) {
     final buscado = _plano(texto);
     if (buscado.length < 3) return const [];
 
@@ -831,8 +834,8 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
       _CobroDelPaso.catalogo => servicioId != null,
       // Con el total al final el precio no se pide aquí: se pide al agregar, una sola vez para
       // toda la orden.
-      _CobroDelPaso.aMano => donde == _DondeVaElPrecio.totalAlFinal ||
-          (double.tryParse(precio.trim()) ?? 0) > 0,
+      _CobroDelPaso.aMano =>
+        donde == _DondeVaElPrecio.totalAlFinal || (double.tryParse(precio.trim()) ?? 0) > 0,
       _CobroDelPaso.sinCobro => true,
     };
   }
@@ -917,11 +920,127 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     if (choice == null) return;
 
-    await _run(() => ref.read(workOrderRepositoryProvider).setTaskLabor(
-          widget.id,
-          task,
-          laborServiceId: choice.isEmpty ? null : choice,
-        ));
+    await _run(
+      () => ref
+          .read(workOrderRepositoryProvider)
+          .setTaskLabor(widget.id, task, laborServiceId: choice.isEmpty ? null : choice),
+    );
+  }
+
+  /// Corrige un paso ya agregado: cómo se llama y, cuando el precio no sale del catálogo,
+  /// cuánto se cobra por él. Quitarlo es del Dueño: borra lo que se iba a facturar.
+  ///
+  /// El precio del catálogo se cambia donde ya se cambiaba —tocando el precio azul de la
+  /// fila—, así que aquí ese campo ni aparece: serían dos precios para el mismo paso.
+  Future<void> _editarPaso(WorkOrderTask task, WorkOrderDetail order) async {
+    final titulo = TextEditingController(text: task.title);
+    final precio = TextEditingController(
+      text: task.manualLaborPrice == null ? '' : task.manualLaborPrice!.toStringAsFixed(2),
+    );
+
+    final aMano = order.isCatalogLabor && task.laborServiceId == null;
+
+    final accion = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Corregir el paso', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            TextField(
+              controller: titulo,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              maxLength: 200,
+              decoration: const InputDecoration(labelText: 'Qué hay que hacer'),
+            ),
+            if (aMano)
+              TextField(
+                controller: precio,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Precio del paso',
+                  prefixText: 'L ',
+                  helperText: 'Vacío o cero: el paso se hace pero no se cobra.',
+                  helperMaxLines: 2,
+                ),
+              ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                if (_isOwner)
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, 'quitar'),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Quitar'),
+                  ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, 'guardar'),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (accion == 'quitar') {
+      if (!mounted) return;
+
+      final seguro = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('¿Quitar «${task.title}»?'),
+          content: const Text(
+            'El paso sale de la orden y con él lo que se iba a cobrar por ese trabajo.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Quitar'),
+            ),
+          ],
+        ),
+      );
+
+      if (seguro != true) return;
+
+      await _run(() => ref.read(workOrderRepositoryProvider).deleteTask(widget.id, task.id));
+      return;
+    }
+
+    if (accion != 'guardar') return;
+
+    final texto = titulo.text.trim();
+    if (texto.isEmpty) return;
+
+    await _run(
+      () => ref
+          .read(workOrderRepositoryProvider)
+          .editTask(
+            widget.id,
+            task,
+            title: texto,
+            // Con servicio del catálogo el servidor ignora el precio a mano; se reenvía el que
+            // ya tenía para no borrarlo si después se le quita el servicio.
+            manualPrice: aMano
+                ? double.tryParse(precio.text.trim().replaceAll(',', '.'))
+                : task.manualLaborPrice,
+          ),
+    );
   }
 
   /// Devuelve al taller una orden ya entregada, para rehacer lo que quedó mal.
@@ -976,9 +1095,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     final total = await _askTotal(order);
     if (total == null) return;
 
-    await _run(() => ref
-        .read(workOrderRepositoryProvider)
-        .setLaborMode(widget.id, LaborMode.manual, total: total));
+    await _run(
+      () => ref
+          .read(workOrderRepositoryProvider)
+          .setLaborMode(widget.id, LaborMode.manual, total: total),
+    );
   }
 
   Future<double?> _askTotal(WorkOrderDetail order) async {
@@ -1031,11 +1152,12 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     // Para el Técnico la acción del día no es mover el estado, es marcar el paso que está
     // haciendo: el estado lo mueve el mostrador, o él mismo cuando ya no queda ningún paso.
-    final pendientes = (cargada?.tasks ?? const <WorkOrderTask>[])
-        .where((t) => !t.isDone)
-        .toList()
-      ..sort((a, b) => a.sequence.compareTo(b.sequence));
-    final siguientePaso = _canEdit && !_isOwner && pendientes.isNotEmpty ? pendientes.first : null;
+    final pendientes =
+        (cargada?.tasks ?? const <WorkOrderTask>[]).where((t) => !t.isDone).toList()
+          ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    final siguientePaso = _canEdit && !_isOwner && pendientes.isNotEmpty
+        ? pendientes.first
+        : null;
 
     // El botón fijo lleva el paso natural hacia adelante, no el primero de la lista: desde
     // «En proceso» el backend permite antes «Esperando repuestos», que es un frenazo y no un
@@ -1140,11 +1262,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              _Header(
-                order: order,
-                atraso: _atraso(order),
-                mostrarTecnico: !_isTechnician,
-              ),
+              _Header(order: order, atraso: _atraso(order), mostrarTecnico: !_isTechnician),
 
               // Las órdenes que nacen de un reclamo, arriba de todo: lo primero que hay que
               // saber de esta orden es quién la va a pagar, y hasta que no se decide el
@@ -1175,7 +1293,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                       canEdit: _canEdit,
                       busy: _busy,
                       onSave: (text) => _run(() async {
-                        await ref.read(workOrderRepositoryProvider).saveDiagnosis(
+                        await ref
+                            .read(workOrderRepositoryProvider)
+                            .saveDiagnosis(
                               widget.id,
                               description: order.description,
                               diagnosis: text.isEmpty ? null : text,
@@ -1229,18 +1349,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 canEdit: _canEdit,
                 busy: _busy,
                 onChangeLabor: _changeTaskLabor,
+                onEditar: (task) => _editarPaso(task, order),
                 onToggle: (task, value) => _run(() async {
-                  await ref.read(workOrderRepositoryProvider).completeTask(
-                        widget.id,
-                        task.id,
-                        isDone: value,
-                      );
+                  await ref
+                      .read(workOrderRepositoryProvider)
+                      .completeTask(widget.id, task.id, isDone: value);
                 }),
                 onAdd: () => _addTask(order.isCatalogLabor),
                 mostrarManoDeObra: _canEdit && !_isOwner,
                 siguienteId: siguientePaso?.id,
-                hasTemplates:
-                    (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
+                hasTemplates: (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
                 onApplyTemplate: _applyTemplate,
                 // Elegir el modo de toda la orden se quitó del teléfono: preguntaba lo mismo
                 // que ahora pregunta cada paso —«cómo se cobra»—, y con el precio a mano por
@@ -1260,15 +1378,14 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   detalle: order.parts.isEmpty
                       ? 'Sin repuestos cargados'
                       : '${order.parts.length} '
-                          '${order.parts.length == 1 ? 'línea' : 'líneas'}'
-                          ' · ${_money(order.partsTotal)}',
+                            '${order.parts.length == 1 ? 'línea' : 'líneas'}'
+                            ' · ${_money(order.partsTotal)}',
                   onTap: () => _abrirSeccion(
                     (order) => PartsSection(
                       order: order,
                       canEdit: _canEdit,
                       busy: _busy,
-                      onChanged: () async =>
-                          ref.invalidate(workOrderDetailProvider(widget.id)),
+                      onChanged: () async => ref.invalidate(workOrderDetailProvider(widget.id)),
                     ),
                   ),
                 ),
@@ -1276,9 +1393,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 _FilaCotizaciones(
                   workOrderId: order.id,
                   isOwner: _isOwner,
-                  onTap: () => _abrirSeccion(
-                    (order) => QuotesSection(workOrderId: order.id),
-                  ),
+                  onTap: () => _abrirSeccion((order) => QuotesSection(workOrderId: order.id)),
                 ),
               _FilaFotos(
                 workOrderId: order.id,
@@ -1313,11 +1428,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
               _Fila(
                 icono: Icons.history_outlined,
                 titulo: 'Línea de tiempo',
-                detalle: '${order.timeline.length} '
+                detalle:
+                    '${order.timeline.length} '
                     '${order.timeline.length == 1 ? 'cambio de estado' : 'cambios de estado'}',
-                onTap: () => _abrirSeccion(
-                  (order) => _TimelineSection(entries: order.timeline),
-                ),
+                onTap: () =>
+                    _abrirSeccion((order) => _TimelineSection(entries: order.timeline)),
               ),
             ],
           ),
@@ -1431,9 +1546,11 @@ class _NotifySectionState extends ConsumerState<_NotifySection> {
   Widget build(BuildContext context) {
     // Las ventas solo las ve el Dueño: al Técnico la API le responde 403, así que ni se
     // preguntan y él no ve el botón de la factura.
-    final conFactura = widget.isOwner &&
-        (ref.watch(workOrderSalesProvider(widget.order.id)).value ?? const [])
-            .any((s) => !s.isVoided);
+    final conFactura =
+        widget.isOwner &&
+        (ref.watch(workOrderSalesProvider(widget.order.id)).value ?? const []).any(
+          (s) => !s.isVoided,
+        );
 
     return _Section(
       title: 'Avisar al cliente',
@@ -1500,8 +1617,7 @@ class _Header extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             StatusChip(status: order.status),
-            if (atraso != null)
-              _ChipAtraso(dias: atraso!),
+            if (atraso != null) _ChipAtraso(dias: atraso!),
           ],
         ),
         const SizedBox(height: 10),
@@ -1523,10 +1639,7 @@ class _Header extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (order.plate != null) ...[
-              const SizedBox(width: 8),
-              _Placa(order.plate!),
-            ],
+            if (order.plate != null) ...[const SizedBox(width: 8), _Placa(order.plate!)],
           ],
         ),
         const SizedBox(height: 4),
@@ -1541,8 +1654,7 @@ class _Header extends StatelessWidget {
         Text(
           [
             order.branchName,
-            if (mostrarTecnico)
-              'técnico ${order.assignedTechnicianName ?? 'sin asignar'}',
+            if (mostrarTecnico) 'técnico ${order.assignedTechnicianName ?? 'sin asignar'}',
             if (order.mileageIn != null) '${order.mileageIn} km',
             'abierta el ${_fechaCorta(order.openedAt)}',
           ].join(' · '),
@@ -1581,10 +1693,7 @@ class _Placa extends StatelessWidget {
         border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(3),
       ),
-      child: Text(
-        plate,
-        style: theme.textTheme.labelSmall?.merge(monoStyle),
-      ),
+      child: Text(plate, style: theme.textTheme.labelSmall?.merge(monoStyle)),
     );
   }
 }
@@ -1761,8 +1870,9 @@ class _DiagnosisSection extends StatefulWidget {
 }
 
 class _DiagnosisSectionState extends State<_DiagnosisSection> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.order.diagnosis ?? '');
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.order.diagnosis ?? '',
+  );
 
   @override
   void didUpdateWidget(_DiagnosisSection oldWidget) {
@@ -1841,11 +1951,9 @@ class _SuggestedPartsSheetState extends ConsumerState<_SuggestedPartsSheet> {
   Future<void> _cargar(int i, SuggestedPart part) async {
     setState(() => _cargando = i);
     try {
-      await ref.read(inventoryRepositoryProvider).addPart(
-            widget.workOrderId,
-            partId: part.partId!,
-            quantity: part.quantity,
-          );
+      await ref
+          .read(inventoryRepositoryProvider)
+          .addPart(widget.workOrderId, partId: part.partId!, quantity: part.quantity);
       if (mounted) setState(() => _cargados.add(i));
     } catch (e) {
       if (mounted) {
@@ -1883,19 +1991,19 @@ class _SuggestedPartsSheetState extends ConsumerState<_SuggestedPartsSheet> {
               subtitle: part.partId == null
                   ? const Text('Fuera del catálogo: se carga aparte, con su precio')
                   : part.isShort
-                      ? Text(
-                          'Quedan ${_cantidad(part.available)}',
-                          style: TextStyle(color: theme.colorScheme.error),
-                        )
-                      : null,
+                  ? Text(
+                      'Quedan ${_cantidad(part.available)}',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    )
+                  : null,
               trailing: part.partId == null
                   ? null
                   : _cargados.contains(i)
-                      ? Icon(Icons.check, color: theme.colorScheme.primary)
-                      : TextButton(
-                          onPressed: _cargando != null ? null : () => _cargar(i, part),
-                          child: const Text('Cargar'),
-                        ),
+                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  : TextButton(
+                      onPressed: _cargando != null ? null : () => _cargar(i, part),
+                      child: const Text('Cargar'),
+                    ),
             ),
         ],
       ),
@@ -2006,6 +2114,7 @@ class _TasksCard extends StatelessWidget {
     required this.onToggle,
     required this.onAdd,
     required this.onChangeLabor,
+    required this.onEditar,
     required this.mostrarManoDeObra,
     required this.siguienteId,
     required this.hasTemplates,
@@ -2037,6 +2146,9 @@ class _TasksCard extends StatelessWidget {
   /// Al Dueño se le dice de dónde sale el precio; al Técnico, cuánto es.
   final bool esDueno;
   final void Function(WorkOrderTask task) onChangeLabor;
+
+  /// Corregir el paso: el nombre con el que entró, su precio a mano, o quitarlo.
+  final void Function(WorkOrderTask task) onEditar;
 
   @override
   Widget build(BuildContext context) {
@@ -2093,6 +2205,7 @@ class _TasksCard extends StatelessWidget {
               tocaAhora: task.id == siguienteId,
               onToggle: (value) => onToggle(task, value),
               onChangeLabor: () => onChangeLabor(task),
+              onEditar: () => onEditar(task),
             ),
           // Las dos maneras de armar la orden, donde se arman: uno a uno, o de golpe con un
           // trabajo frecuente. Estaban en el menú y allí nadie las encontraba.
@@ -2126,8 +2239,8 @@ class _TasksCard extends StatelessWidget {
                       // falta es de dónde sale el precio, que es lo que se puede cambiar.
                       esDueno
                           ? (catalogo
-                              ? 'Cada paso lleva su precio'
-                              : 'Se cobra un total por toda la orden')
+                                ? 'Cada paso lleva su precio'
+                                : 'Se cobra un total por toda la orden')
                           : 'Mano de obra ${_money(order.laborTotal)}',
                       style: theme.textTheme.bodySmall,
                     ),
@@ -2163,6 +2276,7 @@ class _FilaPaso extends StatelessWidget {
     required this.tocaAhora,
     required this.onToggle,
     required this.onChangeLabor,
+    required this.onEditar,
   });
 
   final WorkOrderTask task;
@@ -2172,6 +2286,7 @@ class _FilaPaso extends StatelessWidget {
   final bool tocaAhora;
   final void Function(bool value) onToggle;
   final VoidCallback onChangeLabor;
+  final VoidCallback onEditar;
 
   @override
   Widget build(BuildContext context) {
@@ -2216,8 +2331,8 @@ class _FilaPaso extends StatelessWidget {
                           task.isDone && task.completedAt != null
                               ? 'hecho a las ${_hora(task.completedAt!)}'
                               : tocaAhora
-                                  ? 'toca ahora'
-                                  : task.assignedTechnicianName ?? 'Sin asignar',
+                              ? 'toca ahora'
+                              : task.assignedTechnicianName ?? 'Sin asignar',
                           style: theme.textTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -2246,6 +2361,14 @@ class _FilaPaso extends StatelessWidget {
                 ],
               ),
             ),
+            // El lápiz, y no un toque largo escondido: el paso se escribe con el cliente
+            // enfrente y el nombre sale mal a cada rato.
+            if (canEdit)
+              IconButton(
+                tooltip: 'Corregir el paso',
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: busy ? null : onEditar,
+              ),
           ],
         ),
       ),
@@ -2270,9 +2393,7 @@ class _Casilla extends StatelessWidget {
         border: marcada ? null : Border.all(color: theme.dividerColor, width: 1.5),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: marcada
-          ? Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)
-          : null,
+      child: marcada ? Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary) : null,
     );
   }
 }
@@ -2337,10 +2458,7 @@ class _TotalCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  _money(base),
-                  style: theme.textTheme.titleLarge?.merge(monoStyle),
-                ),
+                Text(_money(base), style: theme.textTheme.titleLarge?.merge(monoStyle)),
                 const SizedBox(height: 2),
                 Text(
                   'Trabajo ${_money(order.laborTotal)} · '
@@ -2359,9 +2477,9 @@ class _TotalCard extends ConsumerWidget {
                   Text(
                     afuera > 0
                         ? 'La factura CAI no cambia ese monto '
-                            '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})'
+                              '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})'
                         : 'Con factura CAI es el mismo total '
-                            '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})',
+                              '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -2398,8 +2516,11 @@ class _TotalCard extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.lock_outline, size: 14,
-                          color: theme.colorScheme.onSurfaceVariant),
+                      Icon(
+                        Icons.lock_outline,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 6),
                       Text('Ganancia estimada', style: theme.textTheme.bodyMedium),
                     ],
@@ -2555,8 +2676,9 @@ class _FilaFotos extends ConsumerWidget {
       detalle: switch (fotos) {
         null => 'del proceso',
         0 => pendientes > 0 ? '$pendientes por subir' : 'Todavía no hay fotos',
-        final n => '$n del proceso'
-            '${pendientes > 0 ? ' · $pendientes por subir' : ''}',
+        final n =>
+          '$n del proceso'
+              '${pendientes > 0 ? ' · $pendientes por subir' : ''}',
       },
       onTap: onTap,
     );
@@ -2615,7 +2737,7 @@ class _FilaCobro extends ConsumerWidget {
       detalle: vigentes.isEmpty
           ? 'Cobrar, entregar y anotar el próximo servicio'
           : '${vigentes.first.number} · ${_money(vigentes.first.total)}'
-              '${deuda > 0 ? ' · debe ${_money(deuda)}' : ' · pagada'}',
+                '${deuda > 0 ? ' · debe ${_money(deuda)}' : ' · pagada'}',
       onTap: onTap,
     );
   }
@@ -2736,10 +2858,7 @@ class _Reclamo extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Viene del reclamo ${order.claimNumber}',
-              style: theme.textTheme.titleSmall,
-            ),
+            Text('Viene del reclamo ${order.claimNumber}', style: theme.textTheme.titleSmall),
             const SizedBox(height: GarajSpace.xs),
             Text(
               order.claimWasUnderWarranty == true
@@ -2780,7 +2899,7 @@ class _Reclamo extends StatelessWidget {
               Text(
                 order.warrantyCovered!
                     ? 'La paga el taller. No se factura: entregue el vehículo y pase la orden '
-                        'a Entregada.'
+                          'a Entregada.'
                     : 'Es un servicio nuevo: se le cobra al cliente.',
                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
