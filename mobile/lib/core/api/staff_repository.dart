@@ -66,6 +66,9 @@ class StaffUser {
   final DateTime? lastLoginAt;
 
   bool get isTechnician => role == 'Technician';
+
+  /// Encargado de sucursal: manda en la suya, pero no en el taller.
+  bool get isManager => role == 'Manager';
 }
 
 final staffRepositoryProvider = Provider<StaffRepository>(
@@ -102,19 +105,21 @@ class StaffRepository {
         .toList();
   }
 
-  /// Da de alta un técnico. Sin sucursal no vería ninguna orden, así que la API la exige.
-  Future<StaffUser> createTechnician({
+  /// Da de alta a alguien del taller: un técnico o un encargado de sucursal. Sin sucursal
+  /// ninguno de los dos vería nada, así que la API la exige para ambos.
+  Future<StaffUser> createStaff({
     required String email,
     required String fullName,
     required String password,
     required List<String> branchIds,
+    String role = 'Technician',
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/users',
       data: {
         'email': email,
         'fullName': fullName,
-        'role': 'Technician',
+        'role': role,
         'password': password,
         'branchIds': branchIds,
       },

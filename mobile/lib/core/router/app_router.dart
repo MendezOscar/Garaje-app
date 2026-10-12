@@ -77,13 +77,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Los reportes, lo que está por cobrar, los usuarios y el padrón de clientes son del Dueño: la API responde
-      // 403 a los demás, pero rebotarlos aquí evita enseñarles una pantalla que solo puede
-      // fallar. Toda ruta que no esté en esta lista termina en el inicio del perfil.
+      // Lo del negocio —facturar, cobrar, cotizar, los reportes— lo abren el Dueño y el
+      // Encargado; lo que es del taller entero, solo el Dueño. La API responde 403 a los
+      // demás, pero rebotarlos aquí evita enseñarles una pantalla que solo puede fallar.
+      // Toda ruta que no esté en estas listas termina en el inicio del perfil.
       if (rutasDelDueno.contains(location)) {
-        return (auth as AuthSignedIn).user.role == AppRole.owner
-            ? null
-            : homeRouteFor(auth.user.role);
+        return (auth as AuthSignedIn).user.esDueno ? null : homeRouteFor(auth.user.role);
+      }
+
+      if (rutasDelMando.contains(location)) {
+        return (auth as AuthSignedIn).user.manda ? null : homeRouteFor(auth.user.role);
       }
 
       if (rutasDelTaller.contains(location)) {
@@ -98,25 +101,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Lo que solo abre el Dueño. La API responde 403 a los demás, pero rebotarlos aquí evita
-/// enseñarles una pantalla que solo puede fallar.
+/// Lo que solo abre el Dueño: los ajustes del taller, los catálogos, los gastos y el
+/// personal. Ni siquiera el Encargado, que manda en su sucursal pero no en el taller.
 ///
 /// **Toda ruta que no esté en estas dos listas termina en el inicio del perfil**, y sin decir
 /// por qué: es lo que le pasó a «Historial» cuando se agregó al menú y no aquí. La prueba de
 /// `test/router_test.dart` compara el menú contra estas listas justamente por eso.
 const rutasDelDueno = {
+  '/resultados',
+  '/mano-de-obra',
+  '/trabajos-frecuentes',
+  '/usuarios',
+  '/ajustes',
+};
+
+/// Lo que abren el Dueño y el Encargado. Es el negocio del día: facturar, cobrar, cotizar,
+/// atender reclamos y ver cómo va. El Encargado lo ve solo de sus sucursales —eso lo decide
+/// el backend con las sucursales del token—, así que aquí la ruta es la misma.
+const rutasDelMando = {
   '/reportes',
   '/caja',
   '/recordatorios',
   '/reclamos',
-  '/resultados',
-  '/mano-de-obra',
-  '/trabajos-frecuentes',
   '/por-cobrar',
   '/ventas',
   '/mostrador',
-  '/usuarios',
-  '/ajustes',
   '/clientes',
 };
 
@@ -198,7 +207,7 @@ List<RouteBase> garajRoutes() => [
     ];
 
 String homeRouteFor(AppRole role) => switch (role) {
-      AppRole.owner => '/taller',
+      AppRole.owner || AppRole.manager => '/taller',
       AppRole.technician => '/mis-asignaciones',
       AppRole.customer => '/mis-vehiculos',
     };

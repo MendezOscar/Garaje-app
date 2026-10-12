@@ -13,6 +13,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => user.value !== null)
   const role = computed<Role | null>(() => user.value?.role ?? null)
   const isOwner = computed(() => role.value === Roles.Owner)
+  const isManager = computed(() => role.value === Roles.Manager)
+
+  /**
+   * Quien manda: el Dueño en todo el taller, el Encargado en sus sucursales. Es lo que
+   * pregunta casi todo el panel —facturar, cobrar, cotizar—; lo que es del taller entero
+   * pregunta por `isOwner`.
+   */
+  const isManagement = computed(() => isOwner.value || isManager.value)
   const isTechnician = computed(() => role.value === Roles.Technician)
   const isCustomer = computed(() => role.value === Roles.Customer)
 
@@ -67,6 +75,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     role,
     isOwner,
+    isManager,
+    isManagement,
     isTechnician,
     isCustomer,
     login,

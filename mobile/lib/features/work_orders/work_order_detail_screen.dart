@@ -48,9 +48,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
     return auth is AuthSignedIn && auth.user.role != AppRole.customer;
   }
 
+  /// Quien manda sobre esta orden: el Dueño, o el Encargado de su sucursal —el backend ya
+  /// le niega las de las otras—.
   bool get _isOwner {
     final auth = ref.read(authControllerProvider);
-    return auth is AuthSignedIn && auth.user.role == AppRole.owner;
+    return auth is AuthSignedIn && auth.user.manda;
+  }
+
+  bool get _esDueno {
+    final auth = ref.read(authControllerProvider);
+    return auth is AuthSignedIn && auth.user.esDueno;
   }
 
   bool get _isTechnician {
@@ -1210,7 +1217,9 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   const PopupMenuItem(value: 'tecnico', child: Text('Asignar técnico')),
                 // Guardar la orden como trabajo frecuente: los pasos y los repuestos ya
                 // están ahí y ya están bien, porque salieron de un trabajo real.
-                if (_isOwner && cargada.tasks.isNotEmpty)
+                // Solo el Dueño: el catálogo de trabajos frecuentes es del taller entero,
+                // igual que el de mano de obra, y la API se lo niega al Encargado.
+                if (_esDueno && cargada.tasks.isNotEmpty)
                   const PopupMenuItem(
                     value: 'frecuente',
                     child: Text('Guardar como trabajo frecuente'),

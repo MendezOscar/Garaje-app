@@ -34,7 +34,7 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
 
     /// <summary>Convierte el requerimiento en orden de trabajo y devuelve su id.</summary>
     [HttpPost("{id:guid}/approve")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<object>> Approve(
         Guid id, ApproveServiceRequestRequest request, CancellationToken ct)
     {
@@ -43,7 +43,7 @@ public class ServiceRequestsController(IServiceRequestService service) : Control
     }
 
     [HttpPost("{id:guid}/reject")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<ServiceRequestDto>> Reject(
         Guid id, RejectServiceRequestRequest request, CancellationToken ct)
         => Ok(await service.RejectAsync(id, request, ct));

@@ -67,7 +67,12 @@ void main() {
     // Lo que el redirect deja pasar: lo del Dueño, lo del taller, y las que valen para
     // cualquier perfil porque la pantalla decide adentro qué enseña.
     const deCualquiera = {'/avisos', '/nueva-cita', '/ordenes'};
-    final permitidas = {...rutasDelDueno, ...rutasDelTaller, ...deCualquiera};
+    final permitidas = {
+      ...rutasDelDueno,
+      ...rutasDelMando,
+      ...rutasDelTaller,
+      ...deCualquiera,
+    };
 
     const delMenu = [
       '/requerimientos',
@@ -95,6 +100,23 @@ void main() {
         contains(ruta),
         reason: '$ruta no está en las listas del redirect: el menú la abre y cae en el inicio',
       );
+    }
+  });
+
+  test('lo del Encargado y lo del Dueño no se mezclan', () {
+    // El Encargado manda en su sucursal, pero no en el taller: lo que configura el taller
+    // entero —los catálogos, los gastos, el personal, los ajustes— no puede estar también en
+    // la lista que él abre, porque entonces la pantalla se abriría para fallar con un 403.
+    expect(rutasDelDueno.intersection(rutasDelMando), isEmpty);
+
+    for (final ruta in const ['/ajustes', '/usuarios', '/mano-de-obra', '/trabajos-frecuentes',
+        '/resultados']) {
+      expect(rutasDelDueno, contains(ruta), reason: '$ruta es del Dueño');
+      expect(rutasDelMando, isNot(contains(ruta)));
+    }
+
+    for (final ruta in const ['/ventas', '/caja', '/por-cobrar', '/reclamos', '/reportes']) {
+      expect(rutasDelMando, contains(ruta), reason: '$ruta también la abre el Encargado');
     }
   });
 }

@@ -37,12 +37,15 @@ const emptyForm = {
   isActive: true,
   payMode: TechnicianPayMode.Undefined as TechnicianPayMode,
   payAmount: 0,
+  /** `Technician` o `Manager`: qué se está dando de alta. Solo cuenta al crear. */
+  role: 'Technician' as 'Technician' | 'Manager',
 }
 
 const form = ref({ ...emptyForm })
 const editing = ref(false)
 
 const technicians = computed(() => users.value.filter((u) => u.role === 'Technician'))
+const managers = computed(() => users.value.filter((u) => u.role === 'Manager'))
 const owners = computed(() => users.value.filter((u) => u.role === 'Owner'))
 const customers = computed(() => users.value.filter((u) => u.role === 'Customer'))
 
@@ -70,6 +73,7 @@ function edit(user: User) {
     isActive: user.isActive,
     payMode: user.payMode,
     payAmount: user.payAmount,
+    role: user.role === 'Manager' ? 'Manager' : 'Technician',
   }
 }
 
@@ -100,20 +104,26 @@ async function save() {
       // Sin sucursal el técnico no vería ninguna orden: su bandeja filtra por asignación,
       // pero todo lo demás de la app filtra por sucursal.
       if (!f.branchIds.length) {
-        error.value = 'Elija al menos una sucursal donde trabaja el técnico.'
+        error.value =
+          f.role === 'Manager'
+            ? 'Elija al menos una sucursal que vaya a manejar el encargado.'
+            : 'Elija al menos una sucursal donde trabaja el técnico.'
         return
       }
 
       await usersApi.create({
         email: f.email.trim(),
         fullName: f.fullName.trim(),
-        role: 'Technician',
+        role: f.role,
         password: f.password,
         branchIds: f.branchIds,
         payMode: f.payMode,
         payAmount: f.payAmount,
       })
-      notice.value = 'Técnico creado. Entrégale el correo y la contraseña.'
+      notice.value =
+        f.role === 'Manager'
+          ? 'Encargado creado. Entrégale el correo y la contraseña.'
+          : 'Técnico creado. Entrégale el correo y la contraseña.'
     }
 
     reset()
@@ -192,6 +202,22 @@ onMounted(async () => {
 
     <div class="layout">
       <div>
+        <template v-if="managers.length">
+          <h2>Encargados</h2>
+          <p class="muted small">
+            Mandan en su sucursal: facturan, cobran, cotizan y mueven bodega.
+          </p>
+          <ul class="plain">
+            <li v-for="u in managers" :key="u.id" :class="{ inactive: !u.isActive }">
+              {{ u.fullName }} · {{ branchNames(u.branchIds) }}
+              <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
+              <button type="button" class="link danger" @click="toggleActive(u)">
+                {{ u.isActive ? 'Quitar acceso' : 'Reactivar' }}
+              </button>
+            </li>
+          </ul>
+        </template>
+
         <h2>Técnicos</h2>
         <SkeletonList v-if="loading" :rows="4" variant="tabla" />
         <EmptyState
@@ -276,7 +302,35 @@ onMounted(async () => {
       </div>
 
       <form class="card" @submit.prevent="save">
-        <h2>{{ editing ? 'Editar usuario' : 'Nuevo técnico' }}</h2>
+        <h2>
+          {{
+            editing
+              ? 'Editar usuario'
+              : form.role === 'Manager'
+                ? 'Nuevo encargado'
+                : 'Nuevo técnico'
+          }}
+        </h2>
+
+        <!--
+          Qué se está dando de alta. El técnico trabaja las órdenes que le asignan; el
+          encargado manda en sus sucursales —factura, cobra, cotiza y mueve bodega— pero no
+          toca los ajustes del taller, los catálogos, los gastos ni al personal.
+        -->
+        <label v-if="!editing">
+          Perfil
+          <select v-model="form.role">
+            <option value="Technician">Técnico</option>
+            <option value="Manager">Encargado de sucursal</option>
+          </select>
+          <small class="muted">
+            {{
+              form.role === 'Manager'
+                ? 'Manda en sus sucursales: factura, cobra, cotiza y mueve bodega. No ve los ajustes del taller, los catálogos, los gastos ni al personal.'
+                : 'Trabaja las órdenes que se le asignen en sus sucursales.'
+            }}
+          </small>
+        </label>
 
         <label>
           Nombre
@@ -304,7 +358,7 @@ onMounted(async () => {
         </p>
 
         <fieldset>
-          <legend>Sucursales donde trabaja</legend>
+          <legend>{{ form.role === 'Manager' ? 'Sucursales que maneja' : 'Sucursales donde trabaja' }}</legend>
           <label v-for="b in branches" :key="b.id" class="checkbox">
             <input v-model="form.branchIds" type="checkbox" :value="b.id" />
             {{ b.name }}

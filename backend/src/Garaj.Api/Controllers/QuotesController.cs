@@ -52,7 +52,7 @@ public class QuotesController(IQuoteService service) : ControllerBase
         => Ok(await service.GetAsync(id, ct));
 
     [HttpPost]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<QuoteDetailDto>> Create(
         CreateQuoteRequest request, CancellationToken ct)
     {
@@ -62,7 +62,7 @@ public class QuotesController(IQuoteService service) : ControllerBase
 
     /// <summary>Arma la cotización con lo que la orden ya tiene: repuestos y pasos.</summary>
     [HttpPost("from-work-order")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<QuoteDetailDto>> CreateFromWorkOrder(
         QuoteFromWorkOrderRequest request, CancellationToken ct)
     {
@@ -71,38 +71,38 @@ public class QuotesController(IQuoteService service) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<QuoteDetailDto>> Update(
         Guid id, UpdateQuoteRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
 
     [HttpPost("{id:guid}/lines")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<QuoteDetailDto>> AddLine(
         Guid id, SaveQuoteLineRequest request, CancellationToken ct)
         => Ok(await service.AddLineAsync(id, request, ct));
 
     [HttpPut("{id:guid}/lines/{lineId:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<QuoteDetailDto>> UpdateLine(
         Guid id, Guid lineId, SaveQuoteLineRequest request, CancellationToken ct)
         => Ok(await service.UpdateLineAsync(id, lineId, request, ct));
 
     [HttpDelete("{id:guid}/lines/{lineId:guid}")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<QuoteDetailDto>> RemoveLine(
         Guid id, Guid lineId, CancellationToken ct)
         => Ok(await service.RemoveLineAsync(id, lineId, ct));
 
     /// <summary>La marca como enviada y devuelve el link de WhatsApp con el mensaje armado.</summary>
     [HttpPost("{id:guid}/send")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WhatsAppLinkDto>> Send(Guid id, CancellationToken ct)
         => Ok(await service.SendAsync(id, ct));
 
     /// <summary>El mismo link sin cambiar el estado, para volver a mandarlo.</summary>
     [HttpGet("{id:guid}/whatsapp-link")]
-    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WhatsAppLinkDto>> WhatsAppLink(Guid id, CancellationToken ct)
         => Ok(await service.WhatsAppLinkAsync(id, ct));
 

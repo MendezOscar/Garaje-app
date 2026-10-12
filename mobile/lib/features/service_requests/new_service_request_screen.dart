@@ -478,7 +478,7 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
 
   bool get _isOwner {
     final auth = ref.read(authControllerProvider);
-    return auth is AuthSignedIn && auth.user.role == AppRole.owner;
+    return auth is AuthSignedIn && auth.user.manda;
   }
 
   @override

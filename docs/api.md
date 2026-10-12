@@ -6,6 +6,35 @@ Todos los endpoints bajo `/api` requieren `Authorization: Bearer <accessToken>`,
 marcados como anónimos. Los errores salen como `application/problem+json` con el mensaje en
 `detail`.
 
+## Perfiles
+
+| Perfil | Qué alcanza |
+| --- | --- |
+| `Owner` | El Dueño: todo el taller, todas las sucursales |
+| `Manager` | **Encargado de sucursal**: manda como el Dueño, pero solo en las sucursales que tiene asignadas |
+| `Technician` | Sus asignaciones, las existencias de sus sucursales y los cambios de estado |
+| `Customer` | Sus vehículos, sus órdenes y sus facturas |
+| `Platform` | Nosotros. No pertenece a ningún taller y no lee datos de ninguno |
+
+**En las tablas de abajo, `Owner` quiere decir «quien manda»**: el Dueño en todo el taller y el
+Encargado dentro de sus sucursales. Lo que el Encargado **no** alcanza, y va marcado *solo
+Dueño*:
+
+- los ajustes del taller y su ficha fiscal (`/api/tenant`),
+- las sucursales (`POST/PUT /api/branches`),
+- los catálogos de mano de obra y trabajos frecuentes,
+- los gastos y el estado de resultados,
+- el libro de ventas del mes,
+- el alta, la edición y las contraseñas de los usuarios.
+
+Dentro de lo suyo, el Encargado factura, cobra, anula dentro del plazo, cotiza, reabre órdenes,
+atiende reclamos, mueve bodega y ve los reportes de su sucursal. Las sucursales ajenas le
+responden **404**, no 403: un 403 confirmaría que esa sucursal existe. El token lleva sus
+sucursales, así que la API no depende de que la pantalla filtre bien.
+
+El **estado de cuenta de un cliente** es la excepción conocida: sale completo —es lo que el
+cliente mismo ve con su enlace—, aunque alguna de sus facturas sea de otra sucursal.
+
 ## Implementado
 
 | Método | Ruta | Auth | Qué hace |
@@ -46,10 +75,10 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
 | GET | `/api/branches` | cualquiera | Sucursales visibles; el Técnico solo ve las suyas |
-| POST/PUT | `/api/branches[/{id}]` | Owner | Alta y edición; el código debe ser único |
-| GET | `/api/users?role=` | Owner | Usuarios del taller |
-| POST/PUT | `/api/users[/{id}]` | Owner | Alta y edición, con asignación a sucursales |
-| POST | `/api/users/{id}/password` | Owner | Reemplaza la contraseña y cierra sus sesiones |
+| POST/PUT | `/api/branches[/{id}]` | solo Dueño | Alta y edición; el código debe ser único |
+| GET | `/api/users?role=` | Owner | Usuarios del taller. Al Encargado solo los técnicos de sus sucursales, y sin lo que se les paga |
+| POST/PUT | `/api/users[/{id}]` | solo Dueño | Alta y edición, con asignación a sucursales |
+| POST | `/api/users/{id}/password` | solo Dueño | Reemplaza la contraseña y cierra sus sesiones |
 | GET | `/api/customers?search=` | cualquiera | Busca por nombre, teléfono o placa |
 | POST | `/api/customers` | Owner o Técnico | Lo registra quien recibe el vehículo |
 | PUT | `/api/customers/{id}` | Owner | Edición |
@@ -196,7 +225,7 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
 | GET | `/api/labor-services?includeInactive=` | taller | Catálogo de mano de obra |
-| POST/PUT | `/api/labor-services[/{id}]` | Owner | Alta y edición; el código es único |
+| POST/PUT | `/api/labor-services[/{id}]` | solo Dueño | Alta y edición; el código es único |
 | GET | `/api/quotes?status=&customerId=&workOrderId=&from=&to=` | Owner o Cliente | Cotizaciones visibles; `from`/`to` por fecha de creación |
 | GET | `/api/quotes/{id}` | Owner o Cliente | Detalle con líneas y totales |
 | POST | `/api/quotes` | Owner | Cotización en blanco para un cliente |
@@ -404,10 +433,10 @@ operan sobre el taller de la sesión.
 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
-| GET | `/api/tenant` | Owner | Nombre, razón social, RTN, teléfonos, moneda e ISV por defecto |
-| PUT | `/api/tenant` | Owner | Los guarda. Nombre obligatorio, ISV entre 0 y 100 |
-| POST | `/api/tenant/logo` | Owner | `multipart/form-data` con `file`. PNG o JPEG, hasta 2 MB |
-| DELETE | `/api/tenant/logo` | Owner | Quita el logo |
+| GET | `/api/tenant` | solo Dueño | Nombre, razón social, RTN, teléfonos, moneda e ISV por defecto |
+| PUT | `/api/tenant` | solo Dueño | Los guarda. Nombre obligatorio, ISV entre 0 y 100 |
+| POST | `/api/tenant/logo` | solo Dueño | `multipart/form-data` con `file`. PNG o JPEG, hasta 2 MB |
+| DELETE | `/api/tenant/logo` | solo Dueño | Quita el logo |
 | GET | `/api/tenants/{tenantId}/logo` | **ninguna** | Los bytes del logo, o 404 |
 | GET | `/public/quotes/{token}/logo` | **ninguna** | El mismo logo, bajo el token de la cotización |
 
@@ -442,9 +471,9 @@ del cliente, desglose de exento y gravado, valor en letras y «Original: Cliente
 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
-| GET | `/api/tenant/fiscal-ranges` | Owner | Rangos del taller, el vigente de cada sucursal primero |
-| POST | `/api/tenant/fiscal-ranges` | Owner | Registra uno y desactiva el anterior de esa sucursal |
-| DELETE | `/api/tenant/fiscal-ranges/{id}` | Owner | Deja de emitir con él |
+| GET | `/api/tenant/fiscal-ranges` | solo Dueño | Rangos del taller, el vigente de cada sucursal primero |
+| POST | `/api/tenant/fiscal-ranges` | solo Dueño | Registra uno y desactiva el anterior de esa sucursal |
+| DELETE | `/api/tenant/fiscal-ranges/{id}` | solo Dueño | Deja de emitir con él |
 
 `POST /api/sales` y `POST /api/sales/close-work-order` aceptan `fiscal` (falso por defecto),
 `customerTaxId` y `customerName`.
@@ -541,7 +570,7 @@ del cliente y el ISV.
 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
-| GET | `/api/reports/sales-book.csv?year=&month=&branchId=` | Owner | El mes en CSV. Sin fechas, el mes en curso |
+| GET | `/api/reports/sales-book.csv?year=&month=&branchId=` | solo Dueño | El mes en CSV. Sin fechas, el mes en curso |
 
 Decisiones que conviene conocer:
 
@@ -649,10 +678,10 @@ los días que el irrepetible.
 | --- | --- | --- | --- |
 | GET | `/api/job-templates?includeInactive=` | Owner o Técnico | La lista, el más usado primero |
 | GET | `/api/job-templates/{id}` | Owner o Técnico | Uno, con sus pasos y repuestos |
-| POST | `/api/job-templates` | Owner | Alta a mano |
-| POST | `/api/job-templates/from-work-order` | Owner | **Guarda una orden ya hecha como plantilla** |
-| PUT | `/api/job-templates/{id}` | Owner | Reemplaza la plantilla entera |
-| DELETE | `/api/job-templates/{id}` | Owner | La da de baja (no la borra) |
+| POST | `/api/job-templates` | solo Dueño | Alta a mano |
+| POST | `/api/job-templates/from-work-order` | solo Dueño | **Guarda una orden ya hecha como plantilla** |
+| PUT | `/api/job-templates/{id}` | solo Dueño | Reemplaza la plantilla entera |
+| DELETE | `/api/job-templates/{id}` | solo Dueño | La da de baja (no la borra) |
 | POST | `/api/work-orders/{id}/apply-template` | Owner o Técnico | Anexa los pasos y propone los repuestos |
 
 Decisiones que conviene conocer:

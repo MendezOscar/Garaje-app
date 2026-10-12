@@ -22,6 +22,9 @@ Future<void> confirmarEliminarCuenta(
     AppRole.owner =>
       'Perderá el acceso al taller. Si es el único Dueño, nadie más podrá entrar a administrarlo '
           'y habrá que comunicarse con GarajApp para recuperarlo.',
+    AppRole.manager =>
+      'Perderá el acceso a su sucursal. Lo que ya registró se queda en el taller, y el Dueño '
+          'puede nombrar a otro encargado.',
     AppRole.technician =>
       'Perderá el acceso. El trabajo que ya registró se queda en el taller, sin su nombre.',
     AppRole.customer =>

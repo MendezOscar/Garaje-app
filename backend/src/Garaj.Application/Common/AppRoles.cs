@@ -1,10 +1,18 @@
 namespace Garaj.Application.Common;
 
-/// <summary>Los tres perfiles del sistema. Constantes, no enum, porque ASP.NET Identity trabaja con strings.</summary>
+/// <summary>Los perfiles del sistema. Constantes, no enum, porque ASP.NET Identity trabaja con strings.</summary>
 public static class AppRoles
 {
     /// <summary>Dueño: recibe requerimientos, asigna tareas, cotiza y ve las ventas.</summary>
     public const string Owner = "Owner";
+
+    /// <summary>
+    /// Encargado de sucursal: manda en la suya como el Dueño manda en el taller —recibe,
+    /// cotiza, factura, cobra y mueve bodega—, pero solo con lo de sus sucursales y sin
+    /// tocar lo que es de todo el taller: los ajustes, el CAI, los catálogos de mano de obra
+    /// y trabajos frecuentes, los gastos, las sucursales y el alta de usuarios.
+    /// </summary>
+    public const string Manager = "Manager";
 
     /// <summary>Técnico: solo sus asignaciones, fotos del proceso y cambios de estado.</summary>
     public const string Technician = "Technician";
@@ -20,7 +28,14 @@ public static class AppRoles
     /// </summary>
     public const string Platform = "Platform";
 
-    public static readonly string[] All = [Owner, Technician, Customer, Platform];
+    public static readonly string[] All = [Owner, Manager, Technician, Customer, Platform];
+
+    /// <summary>
+    /// Los que un Dueño puede crear desde su taller. Platform queda fuera a propósito: se
+    /// crea solo por línea de comandos, y es el único perfil que ve los datos de cobro de
+    /// todos los talleres.
+    /// </summary>
+    public static readonly string[] DelTaller = [Owner, Manager, Technician, Customer];
 }
 
 /// <summary>Claims propios del token, además de los estándar de JWT.</summary>
@@ -39,6 +54,9 @@ public static class AppClaims
 public static class AppPolicies
 {
     public const string OwnerOnly = "OwnerOnly";
+
+    /// <summary>El Dueño y el Encargado: quien manda en el taller o en su sucursal.</summary>
+    public const string ManagementOnly = "ManagementOnly";
     public const string PlatformOnly = "PlatformOnly";
     public const string StaffOnly = "StaffOnly";
     public const string TechnicianOrOwner = "TechnicianOrOwner";

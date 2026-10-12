@@ -165,7 +165,7 @@ public class SaleService(
         CreateSaleRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         if (request.Lines.Count == 0)
             throw new AppException("La venta necesita al menos una línea.");
@@ -226,13 +226,15 @@ public class SaleService(
         CloseWorkOrderRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders
             .Include(w => w.Vehicle)
             .Include(w => w.Tasks)
             .FirstOrDefaultAsync(w => w.Id == request.WorkOrderId, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
+
+        scope.EnsureBranchAllowed(order.BranchId);
 
         if (order.Status == WorkOrderStatus.Cancelled)
             throw new ConflictException("La orden está cancelada: no se puede facturar.");
@@ -489,13 +491,16 @@ public class SaleService(
         Guid id, VoidSaleRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new AppException("Una anulación necesita motivo.");
 
         var sale = await db.Sales.Include(s => s.Lines).FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("La venta no existe.");
+
+        // Al Encargado de otra sucursal, 404: la factura no es suya.
+        scope.EnsureBranchAllowed(sale.BranchId);
 
         if (sale.IsVoided) throw new ConflictException("La venta ya está anulada.");
 
@@ -545,11 +550,13 @@ public class SaleService(
         Guid id, RegisterPaymentRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var sale = await db.Sales.Include(s => s.Payments)
             .FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("La venta no existe.");
+
+        scope.EnsureBranchAllowed(sale.BranchId);
 
         if (sale.IsVoided)
             throw new ConflictException("La venta está anulada: no admite abonos.");
@@ -593,11 +600,15 @@ public class SaleService(
     public async Task<SaleDetailDto> RemovePaymentAsync(
         Guid id, Guid paymentId, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         var payment = await db.SalePayments
+            .Include(p => p.Sale)
             .FirstOrDefaultAsync(p => p.Id == paymentId && p.SaleId == id, ct)
             ?? throw new NotFoundException("El abono no existe.");
+
+        scope.EnsureBranchAllowed(payment.Sale.BranchId);
 
         logger.LogWarning(
             "Abono borrado: {Monto} del {Fecha:yyyy-MM-dd} en la venta {VentaId}. "
@@ -669,7 +680,7 @@ public class SaleService(
     public async Task<CustomerStatementDto> StatementAsync(
         Guid customerId, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         var customer = await db.Customers.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == customerId, ct)
@@ -694,7 +705,7 @@ public class SaleService(
     public async Task<WhatsAppLinkDto> StatementLinkAsync(
         Guid customerId, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         var customer = await db.Customers.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == customerId, ct)
@@ -847,7 +858,12 @@ public class SaleService(
 
         var q = db.Sales.AsNoTracking();
 
-        return scope.IsCustomer ? q.Where(s => s.CustomerId == scope.CustomerId) : q;
+        if (scope.IsCustomer) return q.Where(s => s.CustomerId == scope.CustomerId);
+
+        // El Encargado cobra y anula lo de sus sucursales; las de las otras no las ve.
+        if (scope.BranchFilter() is { } suyas) return q.Where(s => suyas.Contains(s.BranchId));
+
+        return q;
     }
 
     private async Task<int> AddLineAsync(

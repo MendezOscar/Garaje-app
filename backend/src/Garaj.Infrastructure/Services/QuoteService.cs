@@ -99,7 +99,7 @@ public class QuoteService(
         CreateQuoteRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == request.CustomerId, ct)
             ?? throw new NotFoundException("El cliente no existe.");
@@ -137,7 +137,7 @@ public class QuoteService(
         QuoteFromWorkOrderRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders
             .Include(w => w.Vehicle)
@@ -327,7 +327,7 @@ public class QuoteService(
     public async Task<WhatsAppLinkDto> SendAsync(Guid id, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var quote = await db.Quotes.Include(q => q.Lines).FirstOrDefaultAsync(q => q.Id == id, ct)
             ?? throw new NotFoundException("La cotización no existe.");
@@ -361,7 +361,7 @@ public class QuoteService(
 
     public async Task<WhatsAppLinkDto> WhatsAppLinkAsync(Guid id, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         if (!await db.Quotes.AnyAsync(q => q.Id == id, ct))
             throw new NotFoundException("La cotización no existe.");
@@ -469,12 +469,14 @@ public class QuoteService(
         if (scope.IsCustomer) return q.Where(x => x.CustomerId == scope.CustomerId);
         if (scope.IsTechnician) return q.Where(_ => false);
 
+        if (scope.BranchFilter() is { } suyas) return q.Where(x => suyas.Contains(x.BranchId));
+
         return q;
     }
 
     private async Task<Quote> FindEditableAsync(Guid id, CancellationToken ct)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         var quote = await db.Quotes.FirstOrDefaultAsync(q => q.Id == id, ct)
             ?? throw new NotFoundException("La cotización no existe.");

@@ -61,7 +61,7 @@ class _QuotesSectionState extends ConsumerState<QuotesSection> {
     if (role == AppRole.technician) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final isOwner = role == AppRole.owner;
+    final isOwner = role == AppRole.owner || role == AppRole.manager;
     final quotes = ref.watch(workOrderQuotesProvider(widget.workOrderId));
     final list = quotes.value ?? const <Quote>[];
 

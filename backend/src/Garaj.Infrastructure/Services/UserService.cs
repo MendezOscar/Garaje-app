@@ -17,7 +17,8 @@ public class UserService(
 {
     public async Task<IReadOnlyList<UserDto>> ListAsync(string? role, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
 
         // UsersInTenant en vez de db.Users: AppUser no lleva global query filter, así que
         // esta es la única forma segura de no listar usuarios de otro taller.
@@ -52,11 +53,23 @@ public class UserService(
 
         var result = new List<UserDto>(users.Count);
 
+        // Lo que ve el Encargado: los técnicos de sus sucursales, para poder asignarles una
+        // orden. Ni al Dueño, ni a los de otra sucursal, ni cuánto gana nadie.
+        var suyas = scope.BranchFilter();
+
         foreach (var user in users)
         {
             var userRole = rolePorUsuario.GetValueOrDefault(user.Id, string.Empty);
             if (role is not null && !string.Equals(userRole, role, StringComparison.OrdinalIgnoreCase))
                 continue;
+
+            var sucursalesDelUsuario = sucursalesPorUsuario.GetValueOrDefault(user.Id, []);
+
+            if (suyas is not null)
+            {
+                if (userRole != AppRoles.Technician) continue;
+                if (!sucursalesDelUsuario.Any(suyas.Contains)) continue;
+            }
 
             result.Add(new UserDto(
                 user.Id,
@@ -65,10 +78,12 @@ public class UserService(
                 userRole,
                 user.IsActive,
                 user.CustomerId,
-                sucursalesPorUsuario.GetValueOrDefault(user.Id, []),
+                sucursalesDelUsuario,
                 user.LastLoginAt,
-                user.PayMode,
-                user.PayAmount));
+                // Lo que gana cada técnico es del Dueño: el Encargado reparte el trabajo, no
+                // la planilla.
+                suyas is null ? user.PayMode : TechnicianPayMode.Undefined,
+                suyas is null ? user.PayAmount : 0));
         }
 
         return result;
@@ -89,11 +104,17 @@ public class UserService(
         var scope = AccessScope.From(tenantContext);
         scope.EnsureOwner();
 
-        if (!AppRoles.All.Contains(request.Role))
+        // DelTaller y no All: el perfil de plataforma se crea solo por línea de comandos, y
+        // dejarlo pasar aquí sería que un taller se creara un usuario nuestro.
+        if (!AppRoles.DelTaller.Contains(request.Role))
             throw new AppException($"El perfil '{request.Role}' no existe.");
 
         if (request.Role == AppRoles.Customer && request.CustomerId is null)
             throw new AppException("Un usuario con perfil Cliente necesita un cliente asociado.");
+
+        // Un Encargado sin sucursal no vería nada: su alcance son justamente sus sucursales.
+        if (request.Role == AppRoles.Manager && (request.BranchIds is null || request.BranchIds.Count == 0))
+            throw new AppException("Un Encargado necesita al menos una sucursal.");
 
         var tenantId = tenantContext.TenantId!.Value;
         var email = request.Email.Trim().ToLowerInvariant();
@@ -184,6 +205,9 @@ public class UserService(
             user.PayMode = request.PayMode;
             user.PayAmount = request.PayAmount;
         }
+
+        if (role == AppRoles.Manager && (request.BranchIds is null || request.BranchIds.Count == 0))
+            throw new AppException("Un Encargado necesita al menos una sucursal.");
 
         await ReplaceBranchesAsync(user, role, request.BranchIds, user.TenantId, ct);
         await db.SaveChangesAsync(ct);

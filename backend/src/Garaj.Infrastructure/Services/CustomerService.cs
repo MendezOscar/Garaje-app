@@ -19,7 +19,7 @@ public class CustomerService(
     public async Task<CustomerDto> GrantAppAccessAsync(
         Guid id, GrantAppAccessRequest request, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new NotFoundException("El cliente no existe.");
@@ -110,7 +110,7 @@ public class CustomerService(
 
     public async Task<CustomerDto> UpdateAsync(Guid id, SaveCustomerRequest request, CancellationToken ct = default)
     {
-        AccessScope.From(tenantContext).EnsureOwner();
+        AccessScope.From(tenantContext).EnsureManagement();
 
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new NotFoundException("El cliente no existe.");

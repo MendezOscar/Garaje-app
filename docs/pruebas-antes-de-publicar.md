@@ -237,6 +237,18 @@ taller, el recuadro del reclamo, el cliente nuevo desde la venta y el paso con p
 Son los que se rompieron, así que son los que de aquí en adelante no se pueden volver a romper
 sin que se note.
 
+El perfil de **Encargado de sucursal** se prueba por los dos lados, porque lo que hay que
+comprobar de un permiso no es que funcione sino que **no** funcione lo que no le toca:
+
+```bash
+# el servidor: lo que alcanza y lo que le responde 404 o 403
+python3 backend/tests/smoke/fase15_encargado.py
+
+# la app: su perfil, su sucursal y que el menú no le ofrezca lo del Dueño
+cd mobile && flutter test integration_test/encargado_test.dart -d <simulador> \
+  --dart-define=API_URL=http://localhost:5199
+```
+
 Y dos que no necesitan ni simulador ni API, porque leen el árbol de rutas:
 
 ```bash

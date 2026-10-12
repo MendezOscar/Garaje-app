@@ -5,7 +5,6 @@ import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/auth/auth_controller.dart';
-import '../../core/models/current_user.dart';
 import '../../core/models/inventory.dart';
 import '../../core/widgets/garaj_skeleton.dart';
 import '../../core/widgets/garaj_states.dart';
@@ -29,7 +28,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   bool get _isOwner {
     final auth = ref.read(authControllerProvider);
-    return auth is AuthSignedIn && auth.user.role == AppRole.owner;
+    return auth is AuthSignedIn && auth.user.manda;
   }
 
   Future<void> _run(Future<void> Function() action) async {

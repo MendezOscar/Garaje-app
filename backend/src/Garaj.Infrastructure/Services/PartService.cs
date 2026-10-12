@@ -55,7 +55,7 @@ public class PartService(GarajDbContext db, ITenantContext tenantContext) : IPar
     public async Task<PartDto> CreateAsync(SavePartRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var sku = NormalizeSku(request.Sku);
         await EnsureSkuIsFreeAsync(sku, null, ct);
@@ -72,7 +72,7 @@ public class PartService(GarajDbContext db, ITenantContext tenantContext) : IPar
     public async Task<PartDto> UpdateAsync(Guid id, SavePartRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var part = await db.Parts.FirstOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("El repuesto no existe.");

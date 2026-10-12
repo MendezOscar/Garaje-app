@@ -57,13 +57,15 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
 
     setState(() => _busyId = 'new');
     await _run(
-      () => ref.read(staffRepositoryProvider).createTechnician(
+      () => ref.read(staffRepositoryProvider).createStaff(
             email: draft.email,
             fullName: draft.fullName,
             password: draft.password,
             branchIds: draft.branchIds,
+            role: draft.role,
           ),
-      'Técnico creado. Entréguele el correo y la contraseña.',
+      '${draft.role == 'Manager' ? 'Encargado' : 'Técnico'} creado. Entréguele el correo y la '
+          'contraseña.',
     );
   }
 
@@ -150,7 +152,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _busyId != null ? null : _create,
         icon: const Icon(Icons.person_add_alt),
-        label: const Text('Nuevo técnico'),
+        label: const Text('Dar de alta'),
       ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(staffUsersProvider),
@@ -172,7 +174,9 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
           ),
           data: (list) {
             final technicians = list.where((u) => u.isTechnician).toList();
-            final others = list.where((u) => !u.isTechnician).toList();
+            final encargados = list.where((u) => u.isManager).toList();
+            final others =
+                list.where((u) => !u.isTechnician && !u.isManager).toList();
 
             return ListView(
               // Hueco abajo para que el botón flotante no tape la última tarjeta.
@@ -189,6 +193,19 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                     onPassword: () => _resetPassword(user),
                     onToggle: () => _toggleActive(user),
                   ),
+                if (encargados.isNotEmpty) ...[
+                  const _GroupTitle(
+                    'Encargados',
+                    subtitle: 'mandan en su sucursal: facturan, cobran y mueven bodega',
+                  ),
+                  for (final user in encargados)
+                    _UserCard(
+                      user: user,
+                      busy: _busyId == user.id,
+                      onPassword: () => _resetPassword(user),
+                      onToggle: () => _toggleActive(user),
+                    ),
+                ],
                 const _GroupTitle('Dueños y clientes'),
                 for (final user in others)
                   _UserCard(
@@ -316,12 +333,16 @@ class _TechnicianDraft {
     required this.fullName,
     required this.password,
     required this.branchIds,
+    required this.role,
   });
 
   final String email;
   final String fullName;
   final String password;
   final List<String> branchIds;
+
+  /// `Technician` o `Manager`, tal como los nombra la API.
+  final String role;
 }
 
 class _NewTechnicianSheet extends StatefulWidget {
@@ -339,6 +360,9 @@ class _NewTechnicianSheetState extends State<_NewTechnicianSheet> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _branchIds = <String>{};
+
+  /// Arranca en técnico porque es el que se da de alta casi siempre.
+  bool _encargado = false;
 
   @override
   void initState() {
@@ -366,6 +390,7 @@ class _NewTechnicianSheetState extends State<_NewTechnicianSheet> {
         fullName: _name.text.trim(),
         password: _password.text.trim(),
         branchIds: _branchIds.toList(),
+        role: _encargado ? 'Manager' : 'Technician',
       ),
     );
   }
@@ -384,7 +409,34 @@ class _NewTechnicianSheetState extends State<_NewTechnicianSheet> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            Text('Técnico nuevo', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              _encargado ? 'Encargado nuevo' : 'Técnico nuevo',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+
+            // Qué va a ser: el técnico trabaja las órdenes que le asignan; el encargado manda
+            // en su sucursal —factura, cobra, cotiza y mueve bodega— pero no toca los ajustes
+            // del taller, los catálogos, los gastos ni al personal.
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Técnico')),
+                ButtonSegment(value: true, label: Text('Encargado')),
+              ],
+              selected: {_encargado},
+              showSelectedIcon: false,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              onSelectionChanged: (v) => setState(() => _encargado = v.first),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _encargado
+                  ? 'Manda en las sucursales que le marque: factura, cobra, cotiza y mueve '
+                      'bodega. No toca los ajustes del taller, los catálogos, los gastos ni '
+                      'al personal.'
+                  : 'Trabaja las órdenes que se le asignen en sus sucursales.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
 
             TextFormField(
@@ -419,7 +471,7 @@ class _NewTechnicianSheetState extends State<_NewTechnicianSheet> {
             // Sin sucursal no vería ninguna orden: su bandeja filtra por asignación, pero
             // todo lo demás de la app filtra por sucursal.
             Text(
-              'Sucursales donde trabaja',
+              _encargado ? 'Sucursales que maneja' : 'Sucursales donde trabaja',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             for (final branch in widget.branches)

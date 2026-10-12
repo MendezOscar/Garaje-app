@@ -192,7 +192,7 @@ public class WorkOrderService(
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
@@ -251,7 +251,7 @@ public class WorkOrderService(
         Guid id, AssignTechnicianRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
@@ -276,7 +276,7 @@ public class WorkOrderService(
         Guid id, SetLaborModeRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
@@ -353,7 +353,7 @@ public class WorkOrderService(
         Guid id, ReopenWorkOrderRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new AppException("Escriba por qué vuelve a abrirse la orden.");
@@ -534,7 +534,7 @@ public class WorkOrderService(
     public async Task DeleteTaskAsync(Guid workOrderId, Guid taskId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         await FindEditableAsync(workOrderId, scope, ct);
         var task = await FindTaskAsync(workOrderId, taskId, ct);
@@ -816,7 +816,7 @@ public class WorkOrderService(
         CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         if (request.UnitPrice < 0)
             throw new AppException("El precio no puede ser negativo.");
@@ -1044,7 +1044,7 @@ public class WorkOrderService(
         ServiceReminderQuery query, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var ahora = clock.UtcNow;
         var hasta = ahora.AddDays(Math.Clamp(query.WithinDays, 1, 365));
@@ -1137,7 +1137,7 @@ public class WorkOrderService(
         Guid workOrderId, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders
             .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
@@ -1215,6 +1215,11 @@ public class WorkOrderService(
 
         if (scope.IsCustomer)
             return q.Where(w => w.Vehicle.CustomerId == scope.CustomerId);
+
+        // El Encargado manda en lo suyo: todas las órdenes de sus sucursales, no solo las que
+        // él abrió. Materializado porque EF no traduce Contains sobre IReadOnlyCollection.
+        if (scope.BranchFilter() is { } suyas)
+            return q.Where(w => suyas.Contains(w.BranchId));
 
         return q;
     }
@@ -1427,7 +1432,7 @@ public class WorkOrderService(
         Guid id, WarrantyDecisionRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
 
         var order = await db.WorkOrders.FirstOrDefaultAsync(w => w.Id == id, ct)
             ?? throw new NotFoundException("La orden no existe.");

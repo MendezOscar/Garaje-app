@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garaj_app/core/api/claim_repository.dart';
+import 'package:garaj_app/core/api/sale_repository.dart';
 import 'package:garaj_app/core/api/tenant_repository.dart';
 import 'package:garaj_app/core/api/work_order_repository.dart';
 import 'package:garaj_app/core/auth/auth_controller.dart';
@@ -56,10 +57,28 @@ void main() {
     final conOrden = reclamos.where((x) => x.repairWorkOrderId != null);
     if (conOrden.isNotEmpty) return conOrden.first.repairWorkOrderId!;
 
-    final abiertos = reclamos.where((x) => x.status == ClaimStatus.open);
-    expect(abiertos, isNotEmpty, reason: 'hace falta al menos un reclamo en la base');
+    // Solo sirven los reclamos de una orden: a la factura de mostrador no se le puede abrir
+    // una reparación porque no hay vehículo al que abrírsela, y el servidor responde 400.
+    final abiertos = reclamos
+        .where((x) => x.status == ClaimStatus.open && x.workOrderId != null)
+        .toList();
 
-    final abierto = await repo.openRepairOrder(abiertos.first.id);
+    // La demostración no siembra reclamos, así que si no hay ninguno se levanta uno sobre una
+    // factura cualquiera: lo que la prueba mira es la orden de reparación, no de dónde salió
+    // el reclamo. Tiene que ser una factura **de una orden**: a una venta de mostrador no se
+    // le puede abrir la reparación porque no hay vehículo al que abrírsela.
+    final facturas = await c.read(saleRepositoryProvider).list(pageSize: 50);
+    final deOrden = facturas.items.where((v) => !v.deMostrador && !v.isVoided);
+    expect(deOrden, isNotEmpty, reason: 'hace falta una factura de una orden en la base');
+
+    final reclamo = abiertos.isNotEmpty
+        ? abiertos.first
+        : await repo.create(
+            saleId: deOrden.first.id,
+            reason: 'Volvió con el mismo ruido (prueba automática)',
+          );
+
+    final abierto = await repo.openRepairOrder(reclamo.id);
     return abierto.repairWorkOrderId!;
   }
 

@@ -112,7 +112,8 @@ public class StockService(
     public async Task<StockItemDto> ReceiveAsync(ReceiveStockRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
+        scope.EnsureBranchAllowed(request.BranchId);
         EnsurePositive(request.Quantity);
 
         var item = await GetOrCreateItemAsync(request.BranchId, request.PartId, ct);
@@ -147,7 +148,8 @@ public class StockService(
     public async Task<StockItemDto> AdjustAsync(AdjustStockRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
+        scope.EnsureBranchAllowed(request.BranchId);
 
         if (request.CountedQuantity < 0)
             throw new AppException("La cantidad contada no puede ser negativa.");
@@ -185,11 +187,16 @@ public class StockService(
         TransferStockRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
         EnsurePositive(request.Quantity);
 
         if (request.FromBranchId == request.ToBranchId)
             throw new AppException("El origen y el destino no pueden ser la misma sucursal.");
+
+        // Las dos puntas: el Encargado mueve entre sus bodegas, no desde la de otro ni hacia
+        // la de otro —una transferencia es una salida y una entrada, y las dos son suyas—.
+        scope.EnsureBranchAllowed(request.FromBranchId);
+        scope.EnsureBranchAllowed(request.ToBranchId);
 
         var origin = await GetOrCreateItemAsync(request.FromBranchId, request.PartId, ct);
         var destination = await GetOrCreateItemAsync(request.ToBranchId, request.PartId, ct);
@@ -242,7 +249,8 @@ public class StockService(
         SaveStockSettingsRequest request, CancellationToken ct = default)
     {
         var scope = AccessScope.From(tenantContext);
-        scope.EnsureOwner();
+        scope.EnsureManagement();
+        scope.EnsureBranchAllowed(request.BranchId);
 
         if (request.MinQuantity < 0)
             throw new AppException("El mínimo no puede ser negativo.");

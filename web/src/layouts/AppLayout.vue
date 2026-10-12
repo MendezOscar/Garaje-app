@@ -55,7 +55,11 @@ onUnmounted(() => document.removeEventListener('visibilitychange', alVolverALaPe
 const navGroups = computed<{ title: string | null; items: { to: object; label: string }[] }[]>(
   () => {
     switch (auth.role) {
+      // El Encargado ve el mismo menú menos lo que es del taller entero: los catálogos de
+      // mano de obra y trabajos frecuentes, los gastos, el personal y los ajustes. Lo que sí
+      // ve, lo ve de sus sucursales: eso ya lo decide la API con las del token.
       case Roles.Owner:
+      case Roles.Manager:
         return [
           {
             title: 'Trabajo',
@@ -78,7 +82,9 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
               { to: { name: 'cash-close' }, label: 'Caja' },
               { to: { name: 'reports' }, label: 'Reportes' },
               // Los gastos se registran aquí, porque es donde está el número que los justifica.
-              { to: { name: 'income-statement' }, label: 'Resultados y gastos' },
+              ...(auth.isOwner
+                ? [{ to: { name: 'income-statement' }, label: 'Resultados y gastos' }]
+                : []),
             ],
           },
           {
@@ -87,17 +93,25 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
               { to: { name: 'customers' }, label: 'Clientes' },
               { to: { name: 'vehicle-history' }, label: 'Historial' },
               { to: { name: 'inventory' }, label: 'Inventario' },
-              { to: { name: 'labor-services' }, label: 'Mano de obra' },
-              { to: { name: 'job-templates' }, label: 'Trabajos frecuentes' },
+              ...(auth.isOwner
+                ? [
+                    { to: { name: 'labor-services' }, label: 'Mano de obra' },
+                    { to: { name: 'job-templates' }, label: 'Trabajos frecuentes' },
+                  ]
+                : []),
             ],
           },
-          {
-            title: 'Administración',
-            items: [
-              { to: { name: 'users' }, label: 'Usuarios' },
-              { to: { name: 'workshop' }, label: 'Taller' },
-            ],
-          },
+          ...(auth.isOwner
+            ? [
+                {
+                  title: 'Administración',
+                  items: [
+                    { to: { name: 'users' }, label: 'Usuarios' },
+                    { to: { name: 'workshop' }, label: 'Taller' },
+                  ],
+                },
+              ]
+            : []),
         ]
       case Roles.Technician:
         // Tres entradas no necesitan títulos de grupo: nombrarlos sería más ruido que ayuda.
@@ -141,6 +155,7 @@ useEscape(() => (menuAbierto.value = false))
 const barraAbajo = computed<{ to: object; label: string }[]>(() => {
   switch (auth.role) {
     case Roles.Owner:
+    case Roles.Manager:
       return [
         { to: { name: 'home' }, label: 'Inicio' },
         { to: { name: 'work-orders' }, label: 'Órdenes' },

@@ -30,10 +30,13 @@ class MoreScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final role = auth.user.role;
 
-    // El resumen es del Dueño: a los demás la API responde 403, así que ni se pide.
-    final d = role == AppRole.owner ? ref.watch(dashboardProvider).value : null;
-    final recordatorios =
-        role == AppRole.owner ? ref.watch(remindersDueProvider).value : null;
+    // Quien manda: el Dueño en todo el taller, el Encargado en sus sucursales. Al Técnico y
+    // al Cliente la API les responde 403, así que ni se pide.
+    final manda = auth.user.manda;
+    final esDueno = auth.user.esDueno;
+
+    final d = manda ? ref.watch(dashboardProvider).value : null;
+    final recordatorios = manda ? ref.watch(remindersDueProvider).value : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Más')),
@@ -63,7 +66,7 @@ class MoreScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
 
-          if (role == AppRole.owner) ...[
+          if (manda) ...[
             _Group(
               title: 'Trabajo',
               rows: [
@@ -115,12 +118,15 @@ class MoreScreen extends ConsumerWidget {
                   route: '/ventas',
                 ),
                 _Row(icon: Icons.insights_outlined, label: 'Reportes', route: '/reportes'),
-                _Row(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Resultados y gastos',
-                  foot: 'qué dejó el mes',
-                  route: '/resultados',
-                ),
+                // Lo que dejó el mes es del taller entero, y los gastos los carga el Dueño:
+                // el Encargado ve lo que entra por su sucursal, no lo que queda.
+                if (esDueno)
+                  _Row(
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: 'Resultados y gastos',
+                    foot: 'qué dejó el mes',
+                    route: '/resultados',
+                  ),
               ],
             ),
             _Group(
@@ -133,18 +139,22 @@ class MoreScreen extends ConsumerWidget {
                   foot: 'qué se le hizo a un vehículo',
                   route: '/historial',
                 ),
-                _Row(
-                  icon: Icons.build_outlined,
-                  label: 'Mano de obra',
-                  foot: 'lo que se cobra por cada trabajo',
-                  route: '/mano-de-obra',
-                ),
-                _Row(
-                  icon: Icons.bolt_outlined,
-                  label: 'Trabajos frecuentes',
-                  foot: 'lo que el taller repite',
-                  route: '/trabajos-frecuentes',
-                ),
+                // Los catálogos son del taller: lo que se cobra por cada trabajo es el
+                // mismo precio en las tres sucursales, y lo pone el Dueño.
+                if (esDueno) ...[
+                  _Row(
+                    icon: Icons.build_outlined,
+                    label: 'Mano de obra',
+                    foot: 'lo que se cobra por cada trabajo',
+                    route: '/mano-de-obra',
+                  ),
+                  _Row(
+                    icon: Icons.bolt_outlined,
+                    label: 'Trabajos frecuentes',
+                    foot: 'lo que el taller repite',
+                    route: '/trabajos-frecuentes',
+                  ),
+                ],
                 _Row(
                   icon: Icons.inventory_2_outlined,
                   label: 'Inventario',
@@ -153,13 +163,15 @@ class MoreScreen extends ConsumerWidget {
                       : '${d.partsBelowMinimum} bajo mínimo',
                   route: '/inventario',
                 ),
-                _Row(icon: Icons.group_outlined, label: 'Usuarios', route: '/usuarios'),
-                _Row(
-                  icon: Icons.storefront_outlined,
-                  label: 'Taller',
-                  foot: 'ISV, garantía, bodegaje y qué ve el técnico',
-                  route: '/ajustes',
-                ),
+                if (esDueno) ...[
+                  _Row(icon: Icons.group_outlined, label: 'Usuarios', route: '/usuarios'),
+                  _Row(
+                    icon: Icons.storefront_outlined,
+                    label: 'Taller',
+                    foot: 'ISV, garantía, bodegaje y qué ve el técnico',
+                    route: '/ajustes',
+                  ),
+                ],
               ],
             ),
           ],
@@ -296,6 +308,7 @@ Future<void> _abrir(String url) =>
 
 String _perfil(AppRole role) => switch (role) {
       AppRole.owner => 'Dueño',
+      AppRole.manager => 'Encargado',
       AppRole.technician => 'Mecánico',
       AppRole.customer => 'Cliente',
     };

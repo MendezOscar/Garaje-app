@@ -224,6 +224,13 @@ public class DemoSeeder(
         var owner = await CreateUserAsync(
             "dueno@tallerdemo.hn", "Mario Alvarado", AppRoles.Owner, tenantId);
 
+        // Un encargado de la sucursal del Puerto: es la que está lejos del Dueño, que es
+        // justo para lo que sirve el perfil. Entrando con él se ve el taller como lo ve un
+        // encargado —solo su sucursal, y sin ajustes ni catálogos—.
+        await CreateUserAsync(
+            "encargado@tallerdemo.hn", "Sandra Interiano", AppRoles.Manager, tenantId,
+            [puerto.Id]);
+
         // El primero cubre las dos sucursales de San Pedro: un técnico puede estar asignado
         // a varias, y en la práctica se mueve entre ellas.
         var tecnico1 = await CreateUserAsync(

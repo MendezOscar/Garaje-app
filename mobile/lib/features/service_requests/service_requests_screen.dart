@@ -7,7 +7,6 @@ import '../../core/api/service_request_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
-import '../../core/models/current_user.dart';
 import '../../core/period.dart';
 import '../../core/widgets/garaj_skeleton.dart';
 
@@ -34,7 +33,7 @@ class _ServiceRequestsScreenState extends ConsumerState<ServiceRequestsScreen> {
 
   bool get _isOwner {
     final auth = ref.read(authControllerProvider);
-    return auth is AuthSignedIn && auth.user.role == AppRole.owner;
+    return auth is AuthSignedIn && auth.user.manda;
   }
 
   Future<void> _approve(ServiceRequestItem request) async {
