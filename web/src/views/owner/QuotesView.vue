@@ -27,7 +27,75 @@ const selected = ref<QuoteDetail | null>(null)
 const parts = ref<Part[]>([])
 const services = ref<LaborService[]>([])
 
-const statusFilter = ref<QuoteStatus | ''>('')
+/**
+ * Las pestañas. «Pendientes» es lo que de verdad se trabaja: enviadas que el cliente no ha
+ * contestado y que todavía no se vencieron.
+ */
+const pestana = ref<'pendientes' | 'aprobadas' | 'rechazadas' | 'vencidas' | 'todas'>(
+  'pendientes',
+)
+
+function esPendiente(q: QuoteListItem) {
+  return q.status === QuoteStatus.Sent && !q.isExpired
+}
+
+function esVencida(q: QuoteListItem) {
+  return q.isExpired || q.status === QuoteStatus.Expired
+}
+
+const visibles = computed(() => {
+  switch (pestana.value) {
+    case 'pendientes':
+      return quotes.value.filter(esPendiente)
+    case 'aprobadas':
+      return quotes.value.filter((q) => q.status === QuoteStatus.Approved)
+    case 'rechazadas':
+      return quotes.value.filter((q) => q.status === QuoteStatus.Rejected)
+    case 'vencidas':
+      return quotes.value.filter(esVencida)
+    default:
+      return quotes.value
+  }
+})
+
+const pestanas = computed(() => [
+  {
+    clave: 'pendientes' as const,
+    titulo: 'Pendientes',
+    cuantas: quotes.value.filter(esPendiente).length,
+  },
+  {
+    clave: 'aprobadas' as const,
+    titulo: 'Aprobadas',
+    cuantas: quotes.value.filter((q) => q.status === QuoteStatus.Approved).length,
+  },
+  {
+    clave: 'rechazadas' as const,
+    titulo: 'Rechazadas',
+    cuantas: quotes.value.filter((q) => q.status === QuoteStatus.Rejected).length,
+  },
+  {
+    clave: 'vencidas' as const,
+    titulo: 'Vencidas',
+    cuantas: quotes.value.filter(esVencida).length,
+    tono: 'alerta',
+  },
+  { clave: 'todas' as const, titulo: 'Todas', cuantas: quotes.value.length },
+])
+
+/** Las cifras de arriba: lo que está en la mesa y lo que ya se cerró. */
+const cifras = computed(() => {
+  const pendientes = quotes.value.filter(esPendiente)
+  const aprobadas = quotes.value.filter((q) => q.status === QuoteStatus.Approved)
+
+  return {
+    pendientes: pendientes.length,
+    montoPendiente: pendientes.reduce((suma, q) => suma + q.total, 0),
+    aprobadas: aprobadas.length,
+    montoAprobado: aprobadas.reduce((suma, q) => suma + q.total, 0),
+    vencidas: quotes.value.filter(esVencida).length,
+  }
+})
 
 /** Filtro de fechas, por cuándo se hizo la cotización. */
 const period = ref<PeriodKey>('month')
@@ -61,7 +129,6 @@ async function load() {
   error.value = ''
   try {
     const page = await quotesApi.list({
-      status: statusFilter.value || undefined,
       from: periodFrom(period.value),
       pageSize: 100,
     })
@@ -240,13 +307,45 @@ onMounted(async () => {
           El cliente las abre desde WhatsApp y responde sin necesidad de cuenta.
         </p>
       </div>
-      <select v-model="statusFilter" @change="load">
-        <option value="">Todas</option>
-        <option v-for="(label, value) in QUOTE_STATUS_LABEL" :key="value" :value="Number(value)">
-          {{ label }}
-        </option>
-      </select>
     </header>
+
+    <div class="cifras">
+      <article class="cifra">
+        <span class="rotulo">Esperando respuesta</span>
+        <strong class="num">{{ cifras.pendientes }}</strong>
+        <span class="muted small">{{ formatMoney(cifras.montoPendiente) }} en la mesa</span>
+      </article>
+      <article class="cifra">
+        <span class="rotulo">Aprobadas</span>
+        <strong class="num">{{ cifras.aprobadas }}</strong>
+        <span class="muted small">{{ formatMoney(cifras.montoAprobado) }} para facturar</span>
+      </article>
+      <article class="cifra" :class="{ alerta: cifras.vencidas > 0 }">
+        <span class="rotulo">Vencidas</span>
+        <strong class="num">{{ cifras.vencidas }}</strong>
+        <span class="muted small">sin contestar a tiempo</span>
+      </article>
+      <article class="cifra">
+        <span class="rotulo">En el periodo</span>
+        <strong class="num">{{ quotes.length }}</strong>
+        <span class="muted small">cotizaciones hechas</span>
+      </article>
+    </div>
+
+    <div class="pestanas" role="tablist">
+      <button
+        v-for="p in pestanas"
+        :key="p.clave"
+        type="button"
+        role="tab"
+        :aria-selected="pestana === p.clave"
+        :class="{ on: pestana === p.clave }"
+        @click="pestana = p.clave"
+      >
+        {{ p.titulo }}
+        <span class="cuenta" :class="p.tono">{{ p.cuantas }}</span>
+      </button>
+    </div>
 
     <div class="periods">
       <button
@@ -267,13 +366,17 @@ onMounted(async () => {
       <div class="list">
         <SkeletonList v-if="loading" :rows="4" variant="tabla" />
         <EmptyState
-          v-else-if="!quotes.length"
-          title="Todavía no hay cotizaciones"
-          hint="Se crean desde el detalle de una orden de trabajo."
+          v-else-if="!visibles.length"
+          :title="quotes.length ? 'Nada en esta pestaña' : 'Todavía no hay cotizaciones'"
+          :hint="
+            quotes.length
+              ? 'Pruebe con otra pestaña o con otro periodo.'
+              : 'Se crean desde el detalle de una orden de trabajo.'
+          "
         />
 
         <button
-          v-for="q in quotes"
+          v-for="q in visibles"
           :key="q.id"
           type="button"
           class="item"
@@ -483,6 +586,88 @@ onMounted(async () => {
   color: #fff;
 }
 
+.cifras {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  margin-bottom: 1rem;
+}
+
+.cifra {
+  display: grid;
+  justify-items: start;
+  gap: 0.125rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cifra .rotulo {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.cifra strong {
+  font-size: 1.375rem;
+  font-family: var(--font-mono);
+}
+
+.cifra.alerta strong {
+  color: var(--danger);
+}
+
+.pestanas {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pestanas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.pestanas button:hover {
+  color: var(--text);
+}
+
+.pestanas button.on {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+  font-weight: 600;
+}
+
+.cuenta {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.pestanas button.on .cuenta {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
+}
+
+.cuenta.alerta {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
 .top {
   display: flex;
   align-items: flex-start;
@@ -519,21 +704,30 @@ h1 {
   min-width: 0;
 }
 
+/* `color` explícito: el botón del estilo global es el azul de acción —letra blanca—, así
+   que sin esto el folio, el estado y el monto salían en blanco sobre blanco. */
 .item {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   width: 100%;
-  padding: 0.625rem 0.75rem;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
+  color: var(--text);
   text-align: left;
   cursor: pointer;
 }
 
+.item:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  background: var(--surface-alt);
+}
+
 .item.active {
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .row {
@@ -579,6 +773,11 @@ h1 {
   border: 1px solid var(--border);
   font-size: 0.6875rem;
   white-space: nowrap;
+}
+
+.badge.s2 {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  color: var(--brand);
 }
 
 .badge.s3 {
