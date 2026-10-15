@@ -11,7 +11,7 @@ import {
   type Branch,
   type User,
 } from '@/types/domain'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatMoney } from '@/utils/format'
 
 /**
  * Usuarios del taller. Los da de alta el Dueño y nadie más: son las llaves del negocio.
@@ -48,6 +48,57 @@ const technicians = computed(() => users.value.filter((u) => u.role === 'Technic
 const managers = computed(() => users.value.filter((u) => u.role === 'Manager'))
 const owners = computed(() => users.value.filter((u) => u.role === 'Owner'))
 const customers = computed(() => users.value.filter((u) => u.role === 'Customer'))
+
+/** Cómo se llama cada perfil en pantalla. */
+const ROL_LABEL: Record<string, string> = {
+  Owner: 'Dueño',
+  Manager: 'Encargado',
+  Technician: 'Técnico',
+  Customer: 'Cliente',
+}
+
+/**
+ * Qué grupo se está mirando y con qué filtro.
+ *
+ * Antes la pantalla eran cuatro listas una debajo de otra: para llegar a los clientes con
+ * acceso había que pasar por todo el equipo. Con pestañas, cada grupo está a un clic y la
+ * tabla es siempre la misma.
+ */
+const grupo = ref<'Technician' | 'Manager' | 'Owner' | 'Customer'>('Technician')
+const busqueda = ref('')
+
+const pestanas = computed(() => [
+  { key: 'Technician' as const, label: 'Técnicos', cuantos: technicians.value.length },
+  { key: 'Manager' as const, label: 'Encargados', cuantos: managers.value.length },
+  { key: 'Owner' as const, label: 'Dueños', cuantos: owners.value.length },
+  { key: 'Customer' as const, label: 'Clientes con acceso', cuantos: customers.value.length },
+])
+
+const visibles = computed(() => {
+  const texto = busqueda.value.trim().toLowerCase()
+  return users.value.filter(
+    (u) =>
+      u.role === grupo.value &&
+      (!texto ||
+        u.fullName.toLowerCase().includes(texto) ||
+        u.email.toLowerCase().includes(texto)),
+  )
+})
+
+/** Las iniciales del círculo: dos letras, que es lo que cabe. */
+function iniciales(nombre: string) {
+  return nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase() ?? '')
+    .join('')
+}
+
+/** El color del perfil: el encargado y el dueño tienen que distinguirse de un vistazo. */
+function claseDeRol(role: string) {
+  return `rol-${role.toLowerCase()}`
+}
 
 async function load() {
   loading.value = true
@@ -124,6 +175,10 @@ async function save() {
         f.role === 'Manager'
           ? 'Encargado creado. Entrégale el correo y la contraseña.'
           : 'Técnico creado. Entrégale el correo y la contraseña.'
+
+      // Que se vea el que acaba de crear: si se dio de alta un encargado estando en la
+      // pestaña de técnicos, la lista parecería no haber cambiado.
+      grupo.value = f.role
     }
 
     reset()
@@ -189,112 +244,136 @@ onMounted(async () => {
 
 <template>
   <section>
-    <header class="top">
-      <h1>Usuarios</h1>
-      <p class="muted small">
-        Quién entra a la aplicación y qué ve. El Técnico solo trabaja en las sucursales que se
-        le asignen aquí.
-      </p>
+    <header class="cabecera">
+      <div>
+        <h1>
+          Usuarios
+          <span v-if="users.length" class="cuantos num">{{ users.length }}</span>
+        </h1>
+        <p class="muted small">
+          Quién entra a la aplicación y qué ve. El Técnico solo trabaja en las sucursales que
+          se le asignen aquí.
+        </p>
+      </div>
     </header>
 
     <ErrorNote v-if="error" :message="error" />
     <p v-if="notice" class="notice">{{ notice }}</p>
 
     <div class="layout">
-      <div>
-        <template v-if="managers.length">
-          <h2>Encargados</h2>
-          <p class="muted small">
-            Mandan en su sucursal: facturan, cobran, cotizan y mueven bodega.
-          </p>
-          <ul class="plain">
-            <li v-for="u in managers" :key="u.id" :class="{ inactive: !u.isActive }">
-              {{ u.fullName }} · {{ branchNames(u.branchIds) }}
-              <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
-              <button type="button" class="link danger" @click="toggleActive(u)">
-                {{ u.isActive ? 'Quitar acceso' : 'Reactivar' }}
-              </button>
-            </li>
-          </ul>
-        </template>
+      <div class="panel">
+        <div class="pestanas">
+          <button
+            v-for="p in pestanas"
+            :key="p.key"
+            type="button"
+            class="pestana"
+            :class="{ activa: grupo === p.key }"
+            @click="grupo = p.key"
+          >
+            {{ p.label }}
+            <span class="num">{{ p.cuantos }}</span>
+          </button>
 
-        <h2>Técnicos</h2>
-        <SkeletonList v-if="loading" :rows="4" variant="tabla" />
+          <span class="buscador">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
+            </svg>
+            <input v-model="busqueda" type="search" placeholder="Nombre o correo" />
+          </span>
+        </div>
+
+        <p v-if="grupo === 'Customer'" class="aviso muted small">
+          El acceso del cliente se abre desde su ficha en
+          <RouterLink :to="{ name: 'customers' }">Clientes</RouterLink>, para que todo acceso
+          corresponda a alguien del padrón.
+        </p>
+
+        <SkeletonList v-if="loading" :rows="5" variant="tabla" />
         <EmptyState
-          v-else-if="!technicians.length"
-          title="Todavía no hay técnicos"
-          hint="Cree el primero en el formulario de al lado."
+          v-else-if="!visibles.length"
+          :title="busqueda ? 'Nadie coincide con esa búsqueda' : 'Todavía no hay nadie aquí'"
+          :hint="busqueda ? 'Pruebe con el nombre o el correo.' : 'Dé de alta al primero en el formulario de al lado.'"
         />
 
         <table v-else>
           <thead>
             <tr>
               <th scope="col">Nombre</th>
+              <th scope="col">Perfil</th>
               <th scope="col">Sucursales</th>
               <th scope="col">Último ingreso</th>
               <th scope="col"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="u in technicians" :key="u.id" :class="{ inactive: !u.isActive }">
+            <tr v-for="u in visibles" :key="u.id" :class="{ baja: !u.isActive }">
               <td>
-                {{ u.fullName }}
-                <div class="muted small">{{ u.email }}</div>
+                <span class="persona">
+                  <span class="avatar" :class="claseDeRol(u.role)">{{ iniciales(u.fullName) }}</span>
+                  <span class="persona-texto">
+                    <strong>{{ u.fullName }}</strong>
+                    <span class="muted small">{{ u.email }}</span>
+                  </span>
+                </span>
               </td>
-              <td class="muted small">{{ branchNames(u.branchIds) }}</td>
-              <td class="muted small">
-                {{ u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'nunca ha entrado' }}
-              </td>
-              <td class="col-acciones">
-                <div class="acciones">
-                  <button type="button" class="link" @click="edit(u)">Editar</button>
-                  <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
-                  <button type="button" class="link danger" @click="toggleActive(u)">
-                    {{ u.isActive ? 'Dar de baja' : 'Reactivar' }}
-                  </button>
+              <td>
+                <span class="pastilla" :class="claseDeRol(u.role)">{{ ROL_LABEL[u.role] ?? u.role }}</span>
+                <span v-if="!u.isActive" class="pastilla inactiva">dado de baja</span>
+                <div v-if="u.role === 'Technician' && u.payMode !== TechnicianPayMode.Undefined" class="muted small">
+                  {{ PAY_MODE_LABEL[u.payMode] }} ·
+                  {{ u.payMode === TechnicianPayMode.Percentage ? `${u.payAmount}%` : formatMoney(u.payAmount) }}
                 </div>
               </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h2>Dueños</h2>
-        <ul class="plain">
-          <li v-for="u in owners" :key="u.id">
-            {{ u.fullName }} <span class="muted small">{{ u.email }}</span>
-          </li>
-        </ul>
-
-        <h2>Clientes con acceso</h2>
-        <p class="muted small">
-          Se les abre desde su ficha en <RouterLink :to="{ name: 'customers' }">Clientes</RouterLink>,
-          para que todo acceso corresponda a alguien del padrón.
-        </p>
-        <p v-if="!customers.length" class="muted">Ningún cliente usa la app todavía.</p>
-        <table v-else>
-          <thead>
-            <tr>
-              <th scope="col">Cliente</th>
-              <th scope="col">Último ingreso</th>
-              <th scope="col"><span class="sr-only">Acciones</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="u in customers" :key="u.id" :class="{ inactive: !u.isActive }">
-              <td>
-                {{ u.fullName }}
-                <div class="muted small">{{ u.email }}</div>
+              <td class="muted small">
+                {{ u.role === 'Owner' || u.role === 'Customer' ? '—' : branchNames(u.branchIds) }}
               </td>
               <td class="muted small">
                 {{ u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'nunca ha entrado' }}
               </td>
               <td class="col-acciones">
-                <div class="acciones">
-                  <button type="button" class="link" @click="resetPassword(u)">Contraseña</button>
-                  <button type="button" class="link danger" @click="toggleActive(u)">
-                    {{ u.isActive ? 'Quitar acceso' : 'Reactivar' }}
+                <div v-if="u.role !== 'Owner'" class="acciones">
+                  <button
+                    v-if="u.role === 'Technician' || u.role === 'Manager'"
+                    type="button"
+                    class="icono"
+                    title="Editar"
+                    :disabled="busy"
+                    @click="edit(u)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="M4 20h4L19 9l-4-4L4 16z" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="icono"
+                    title="Cambiarle la contraseña"
+                    :disabled="busy"
+                    @click="resetPassword(u)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <circle cx="8" cy="12" r="3.5" /><path d="M11.5 12H20v3m-3-3v2.5" stroke-linecap="round" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="icono peligro"
+                    :title="u.isActive ? 'Dar de baja' : 'Reactivar'"
+                    :disabled="busy"
+                    @click="toggleActive(u)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path
+                        v-if="u.isActive"
+                        d="M16 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M4 20c0-3.3 3.6-5 8-5m3 4h6"
+                        stroke-linecap="round"
+                      />
+                      <path v-else d="M16 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M4 20c0-3.3 3.6-5 8-5m3 4h6m-3-3 3 3-3 3" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
                   </button>
                 </div>
+                <span v-else class="muted small">—</span>
               </td>
             </tr>
           </tbody>
@@ -317,12 +396,26 @@ onMounted(async () => {
           encargado manda en sus sucursales —factura, cobra, cotiza y mueve bodega— pero no
           toca los ajustes del taller, los catálogos, los gastos ni al personal.
         -->
-        <label v-if="!editing">
-          Perfil
-          <select v-model="form.role">
-            <option value="Technician">Técnico</option>
-            <option value="Manager">Encargado de sucursal</option>
-          </select>
+        <div v-if="!editing" class="perfil">
+          <span class="rotulo">Perfil</span>
+          <div class="opciones">
+            <button
+              type="button"
+              class="opcion"
+              :class="{ activa: form.role === 'Technician' }"
+              @click="form.role = 'Technician'"
+            >
+              Técnico
+            </button>
+            <button
+              type="button"
+              class="opcion"
+              :class="{ activa: form.role === 'Manager' }"
+              @click="form.role = 'Manager'"
+            >
+              Encargado
+            </button>
+          </div>
           <small class="muted">
             {{
               form.role === 'Manager'
@@ -330,7 +423,7 @@ onMounted(async () => {
                 : 'Trabaja las órdenes que se le asignen en sus sucursales.'
             }}
           </small>
-        </label>
+        </div>
 
         <label>
           Nombre
@@ -358,7 +451,9 @@ onMounted(async () => {
         </p>
 
         <fieldset>
-          <legend>{{ form.role === 'Manager' ? 'Sucursales que maneja' : 'Sucursales donde trabaja' }}</legend>
+          <legend>
+            {{ form.role === 'Manager' ? 'Sucursales que maneja' : 'Sucursales donde trabaja' }}
+          </legend>
           <label v-for="b in branches" :key="b.id" class="checkbox">
             <input v-model="form.branchIds" type="checkbox" :value="b.id" />
             {{ b.name }}
@@ -400,8 +495,10 @@ onMounted(async () => {
         </label>
 
         <div class="actions">
-          <button type="submit" :disabled="busy">{{ editing ? 'Guardar' : 'Crear técnico' }}</button>
-          <button v-if="editing" type="button" class="link" @click="reset">Cancelar</button>
+          <button type="submit" :disabled="busy">
+            {{ editing ? 'Guardar' : form.role === 'Manager' ? 'Crear encargado' : 'Crear técnico' }}
+          </button>
+          <button v-if="editing" type="button" class="btn-ghost" @click="reset">Cancelar</button>
         </div>
 
         <p class="muted small">
@@ -414,77 +511,264 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.cabecera {
+  margin-bottom: 1.25rem;
+}
+
 h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0;
+  font-size: 1.625rem;
 }
 
-.top {
-  margin-bottom: 1rem;
+.cabecera p {
+  margin: 0.25rem 0 0;
 }
 
-h2 {
-  margin: 1.25rem 0 0.5rem;
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.cuantos {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
   color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.notice {
+  color: var(--success-text);
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 20rem;
+  grid-template-columns: minmax(0, 1fr) 22rem;
   gap: 1rem;
   align-items: start;
 }
 
-@media (max-width: 60rem) {
+@media (max-width: 68rem) {
   .layout {
     grid-template-columns: 1fr;
   }
 }
 
+/* ------------------------------------------------------------------ panel y pestañas */
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.pestanas {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pestana {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.pestana .num {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.pestana:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.pestana.activa {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.buscador {
+  position: relative;
+  margin-left: auto;
+  width: min(16rem, 100%);
+}
+
+.buscador svg {
+  position: absolute;
+  top: 50%;
+  left: 0.625rem;
+  translate: 0 -50%;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-muted);
+}
+
+.buscador input {
+  width: 100%;
+  padding-left: 2.125rem;
+}
+
+.aviso {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+/* ------------------------------------------------------------------ tabla */
+
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
 }
 
 th,
 td {
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 0.875rem;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 th {
   font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
+  background: var(--surface-alt);
 }
 
-.inactive {
+tbody tr {
+  border-top: 1px solid var(--border);
+}
+
+tbody tr:hover {
+  background: var(--surface-alt);
+}
+
+/* Dado de baja no se esconde: su trabajo sigue en el histórico y a veces hay que
+   reactivarlo. Se apaga, nada más. */
+.baja .persona,
+.baja td:not(.col-acciones) {
   opacity: 0.55;
 }
 
-/* La columna de acciones no se estira: la tabla reparte el ancho entre nombre, sucursal y
-   último ingreso, que es lo que se lee. Las acciones van en el `div` de dentro; el `td` se
-   queda celda. */
+.persona {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.avatar.rol-manager {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning-text);
+}
+
+.avatar.rol-owner {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success-text);
+}
+
+.avatar.rol-customer {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.persona-texto {
+  display: grid;
+  min-width: 0;
+}
+
+.pastilla {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pastilla.rol-manager {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  color: var(--warning-text);
+}
+
+.pastilla.rol-owner {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  color: var(--success-text);
+}
+
+.pastilla.inactiva {
+  margin-left: 0.25rem;
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  color: var(--danger);
+}
+
 .col-acciones {
   width: 1%;
 }
 
-.col-acciones .acciones {
+.acciones {
+  display: flex;
   justify-content: flex-end;
+  gap: 0.25rem;
 }
 
-.plain {
-  list-style: none;
-  margin: 0;
+.icono {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
-  font-size: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
 }
+
+.icono svg {
+  width: 1.0625rem;
+  height: 1.0625rem;
+}
+
+.icono:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.icono.peligro:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ------------------------------------------------------------------ formulario */
 
 .card {
   display: flex;
@@ -492,12 +776,13 @@ th {
   gap: 0.5rem;
   padding: 1rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 
 .card h2 {
   margin: 0;
+  font-size: 1rem;
 }
 
 .card label {
@@ -508,8 +793,44 @@ th {
   color: var(--text-muted);
 }
 
-.card input {
+.card input,
+.card select {
   width: 100%;
+}
+
+.perfil {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.rotulo {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.opciones {
+  display: flex;
+  gap: 0.375rem;
+}
+
+/* El perfil se elige, no se despliega: son dos, y de la elección depende la mitad de lo que
+   dice el resto del formulario. */
+.opcion {
+  flex: 1;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.opcion.activa {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
+  font-weight: 600;
 }
 
 fieldset {
@@ -539,13 +860,4 @@ legend {
   align-items: center;
   gap: 0.5rem;
 }
-
-.link.danger {
-  color: var(--danger);
-}
-
-.notice {
-  color: var(--success-text);
-}
-
 </style>
