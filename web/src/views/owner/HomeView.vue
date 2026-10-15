@@ -7,6 +7,7 @@ import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import {
+  WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
   type CashClose,
   type Dashboard,
@@ -21,8 +22,9 @@ import { formatMoney, relativeTime } from '@/utils/format'
  * respuesta, lo vencido— vivían dentro de Reportes, que es una pantalla a la que se entra a
  * mirar y no a trabajar. Aquí cada cifra es un enlace al trabajo que la resuelve.
  *
- * Sin backend nuevo: `/api/reports/dashboard` ya devolvía todo esto, incluido el conteo por
- * estado, y el cierre de caja da lo cobrado, que no es lo mismo que lo facturado.
+ * Sin backend nuevo: `/api/reports/dashboard` ya devolvía todo esto —incluido el conteo por
+ * estado y los últimos catorce días para la gráfica—, y el cierre de caja da lo cobrado, que
+ * no es lo mismo que lo facturado.
  */
 const auth = useAuthStore()
 
@@ -52,6 +54,15 @@ const hoy = new Intl.DateTimeFormat('es-HN', {
   day: 'numeric',
   month: 'long',
 }).format(new Date())
+
+/** Saludar por el nombre cuesta nada y la pantalla deja de parecer un reporte. */
+const saludo = computed(() => {
+  const hora = new Date().getHours()
+  const momento = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const nombre = auth.user?.fullName?.split(' ')[0]
+
+  return nombre ? `${momento}, ${nombre}` : momento
+})
 
 /** Los nueve estados agrupados en cuatro carriles, como en el tablero. */
 const CARRILES: { titulo: string; tono: string; estados: WorkOrderStatus[] }[] = [
@@ -84,48 +95,111 @@ const patio = computed(() =>
   })),
 )
 
-/** Lo que pide atención. En cero se pinta en gris: si todo grita, nada avisa. */
+/** El patio como una sola barra: de un vistazo se ve si el taller está trabado atrás. */
+const barra = computed(() => {
+  const total = patio.value.reduce((suma, c) => suma + c.cantidad, 0)
+  if (!total) return []
+
+  return patio.value
+    .filter((c) => c.cantidad > 0)
+    .map((c) => ({ ...c, parte: (c.cantidad / total) * 100 }))
+})
+
+/** Cuántas hay en cada estado, para el pie del patio. */
+const detallePorEstado = computed(() =>
+  (dashboard.value?.workOrdersByStatus ?? [])
+    .filter((x) => x.count > 0)
+    .map((x) => `${x.count} ${WORK_ORDER_STATUS_LABEL[x.status].toLowerCase()}`)
+    .join(' · '),
+)
+
+/**
+ * La gráfica de los últimos catorce días, dibujada a mano en SVG.
+ *
+ * Sin librería a propósito: son catorce puntos y una línea, y traer una de gráficas costaría
+ * más kilobytes que todo el panel. `preserveAspectRatio="none"` deja que el trazo se estire
+ * al ancho que tenga la tarjeta.
+ */
+const grafica = computed(() => {
+  const puntos = dashboard.value?.lastDays ?? []
+  if (puntos.length < 2) return null
+
+  const alto = 60
+  const max = Math.max(...puntos.map((p) => p.total), 1)
+  const paso = 100 / (puntos.length - 1)
+
+  const coords = puntos.map((p, i) => ({
+    x: i * paso,
+    y: alto - (p.total / max) * (alto - 6),
+    punto: p,
+  }))
+
+  const linea = coords.map((c, i) => `${i ? 'L' : 'M'}${c.x.toFixed(2)} ${c.y.toFixed(2)}`).join(' ')
+
+  return {
+    linea,
+    area: `${linea} L100 ${alto} L0 ${alto} Z`,
+    alto,
+    total: puntos.reduce((suma, p) => suma + p.total, 0),
+    dias: puntos.length,
+    conVenta: puntos.filter((p) => p.total > 0).length,
+    ultimo: coords[coords.length - 1],
+  }
+})
+
+/**
+ * Lo que pide atención, en renglones y no en tejas: cada uno dice qué pasa y lleva a donde se
+ * resuelve. Lo que está en cero no se pinta —una lista de ceros no avisa de nada—, y si no
+ * queda ninguno la tarjeta lo celebra en una línea.
+ */
 const atencion = computed(() => {
   const d = dashboard.value
   if (!d) return []
 
-  return [
+  const filas = [
     {
-      rotulo: 'Por atender',
-      valor: `${d.pendingRequests}`,
-      pie: 'requerimientos',
-      tono: d.pendingRequests > 0 ? 'espera' : '',
-      to: { name: 'service-requests' },
-    },
-    {
-      rotulo: 'Atrasadas',
-      valor: `${d.lateWorkOrders}`,
-      pie: 'pasó la fecha prometida',
-      tono: d.lateWorkOrders > 0 ? 'alerta' : '',
+      clave: 'atrasadas',
+      icono: 'reloj',
+      tono: 'alerta',
+      texto: `${d.lateWorkOrders} ${d.lateWorkOrders === 1 ? 'orden pasó' : 'órdenes pasaron'} su fecha de entrega.`,
+      cuantos: d.lateWorkOrders,
       to: { name: 'work-orders' },
     },
     {
-      rotulo: 'Sin respuesta',
-      valor: `${d.quotesAwaitingResponse}`,
-      pie: 'cotizaciones enviadas',
-      tono: d.quotesAwaitingResponse > 0 ? 'espera' : '',
+      clave: 'requerimientos',
+      icono: 'bandeja',
+      tono: 'espera',
+      texto: `${d.pendingRequests} ${d.pendingRequests === 1 ? 'requerimiento' : 'requerimientos'} sin atender.`,
+      cuantos: d.pendingRequests,
+      to: { name: 'service-requests' },
+    },
+    {
+      clave: 'cotizaciones',
+      icono: 'papel',
+      tono: 'espera',
+      texto: `${d.quotesAwaitingResponse} ${d.quotesAwaitingResponse === 1 ? 'cotización' : 'cotizaciones'} sin respuesta del cliente.`,
+      cuantos: d.quotesAwaitingResponse,
       to: { name: 'quotes' },
     },
     {
-      rotulo: 'Vencido',
-      valor: formatMoney(d.overdueReceivables),
-      pie: `de ${formatMoney(d.receivables)} por cobrar`,
-      tono: d.overdueReceivables > 0 ? 'alerta' : '',
+      clave: 'vencido',
+      icono: 'dinero',
+      tono: 'alerta',
+      texto: `${formatMoney(d.overdueReceivables)} vencidos, de ${formatMoney(d.receivables)} por cobrar.`,
+      cuantos: d.overdueReceivables,
       to: { name: 'receivables' },
     },
     {
-      rotulo: 'Bajo mínimo',
-      valor: `${d.partsBelowMinimum}`,
-      pie: 'repuestos en bodega',
-      tono: d.partsBelowMinimum > 0 ? 'espera' : '',
+      clave: 'bodega',
+      icono: 'caja',
+      tono: 'espera',
+      texto: `${d.partsBelowMinimum} ${d.partsBelowMinimum === 1 ? 'repuesto' : 'repuestos'} en o por debajo del mínimo.`,
+      cuantos: d.partsBelowMinimum,
       to: { name: 'inventory' },
     },
   ]
+
+  return filas.filter((f) => f.cuantos > 0)
 })
 
 async function load() {
@@ -205,11 +279,21 @@ watch(() => auth.activeBranchId, load)
   <section>
     <header class="cabecera">
       <div>
-        <h1>Hoy en el taller</h1>
-        <p class="muted small">{{ auth.user?.tenantName }} · {{ hoy }}</p>
+        <h1>{{ saludo }}</h1>
+        <p class="muted small cabecera-pie">
+          <span class="fecha">{{ hoy }}</span> · así va {{ auth.user?.tenantName }} hoy
+        </p>
       </div>
-      <!-- La acción más frecuente del mostrador, y hasta hoy estaba a dos pantallas. -->
-      <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">Recibir vehículo</RouterLink>
+      <div class="cabecera-acciones">
+        <RouterLink class="boton fantasma" :to="{ name: 'cash-close' }">Cerrar la caja</RouterLink>
+        <!-- La acción más frecuente del mostrador, y hasta hoy estaba a dos pantallas. -->
+        <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+          </svg>
+          Recibir vehículo
+        </RouterLink>
+      </div>
     </header>
 
     <ErrorNote v-if="error" :message="error" />
@@ -249,57 +333,169 @@ watch(() => auth.activeBranchId, load)
     </article>
 
     <template v-if="dashboard">
-      <div class="dinero">
-        <article class="panel principal">
-          <p class="rotulo">Cobrado hoy</p>
-          <strong class="cifra num">{{ caja ? formatMoney(caja.total) : '—' }}</strong>
-          <p class="muted small">
-            {{ caja ? `${caja.paymentCount} abono(s)` : 'sin datos de caja' }} ·
-            <RouterLink :to="{ name: 'cash-close' }">cerrar la caja</RouterLink>
-          </p>
-        </article>
-
-        <article class="panel">
-          <p class="rotulo">Facturado</p>
-          <div class="tres">
-            <div>
-              <span class="muted small">Hoy</span>
-              <strong class="num">{{ formatMoney(dashboard.revenueToday) }}</strong>
-            </div>
-            <div>
-              <span class="muted small">Semana</span>
-              <strong class="num">{{ formatMoney(dashboard.revenueWeek) }}</strong>
-            </div>
-            <div>
-              <span class="muted small">Mes</span>
-              <strong class="num">{{ formatMoney(dashboard.revenueMonth) }}</strong>
-            </div>
-          </div>
-          <p class="muted small">
-            Lo facturado no es lo cobrado: una venta a crédito suma el día que se emite.
-            <RouterLink :to="{ name: 'reports' }">Ver reportes</RouterLink>
-          </p>
-        </article>
-      </div>
-
-      <h2 class="titulo">Lo que pide atención</h2>
+      <!-- ------------------------------------------------------------ las cuatro cifras -->
       <div class="tejas">
-        <RouterLink
-          v-for="teja in atencion"
-          :key="teja.rotulo"
-          class="teja"
-          :class="teja.tono"
-          :to="teja.to"
-        >
-          <span class="rotulo">{{ teja.rotulo }}</span>
-          <strong class="num">{{ teja.valor }}</strong>
-          <span class="muted small">{{ teja.pie }}</span>
+        <RouterLink class="teja" :to="{ name: 'cash-close' }">
+          <span class="teja-icono cobro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="2.5" y="6.5" width="19" height="12" rx="2" />
+              <circle cx="12" cy="12.5" r="2.5" />
+            </svg>
+          </span>
+          <span class="rotulo">Cobrado hoy</span>
+          <strong class="cifra num">{{ caja ? formatMoney(caja.total) : '—' }}</strong>
+          <span class="muted small">
+            {{ caja ? `${caja.paymentCount} ${caja.paymentCount === 1 ? 'abono' : 'abonos'}` : 'sin datos de caja' }}
+          </span>
+        </RouterLink>
+
+        <RouterLink class="teja" :to="{ name: 'reports' }">
+          <span class="teja-icono factura">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 20V8m5 12V4m5 16v-7m5 7V10" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="rotulo">Facturado del mes</span>
+          <strong class="cifra num">{{ formatMoney(dashboard.revenueMonth) }}</strong>
+          <span class="muted small">
+            hoy {{ formatMoney(dashboard.revenueToday) }} · margen
+            {{ formatMoney(dashboard.marginMonth) }}
+          </span>
+        </RouterLink>
+
+        <RouterLink class="teja" :to="{ name: 'work-orders' }">
+          <span class="teja-icono taller">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M3 13.5 5 8h14l2 5.5V18h-3v-1.5H6V18H3z" stroke-linejoin="round" />
+              <circle cx="7.5" cy="13.5" r="1.2" />
+              <circle cx="16.5" cy="13.5" r="1.2" />
+            </svg>
+          </span>
+          <span class="rotulo">En el taller</span>
+          <strong class="cifra num">{{ dashboard.openWorkOrders }}</strong>
+          <span class="muted small">{{ detallePorEstado || 'sin órdenes abiertas' }}</span>
+        </RouterLink>
+
+        <RouterLink class="teja" :class="{ alerta: dashboard.overdueReceivables > 0 }" :to="{ name: 'receivables' }">
+          <span class="teja-icono cobrar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M12 7.5v5l3 2" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="rotulo">Por cobrar</span>
+          <strong class="cifra num">{{ formatMoney(dashboard.receivables) }}</strong>
+          <span class="muted small">
+            {{ dashboard.overdueReceivables > 0
+              ? `${formatMoney(dashboard.overdueReceivables)} ya vencidos`
+              : 'nada vencido' }}
+          </span>
         </RouterLink>
       </div>
 
+      <!-- ------------------------------------------------------------ gráfica y atención -->
+      <div class="medio">
+        <article class="panel">
+          <header class="panel-cabecera">
+            <div>
+              <h2>Ingresos</h2>
+              <p class="muted small">Lo facturado en los últimos {{ grafica?.dias ?? 14 }} días</p>
+            </div>
+            <RouterLink class="ver" :to="{ name: 'reports' }">Ver reportes</RouterLink>
+          </header>
+
+          <div v-if="grafica" class="grafica">
+            <div class="grafica-cifras">
+              <div>
+                <span class="muted small">Total del periodo</span>
+                <strong class="num">{{ formatMoney(grafica.total) }}</strong>
+              </div>
+              <div>
+                <span class="muted small">Días con ingresos</span>
+                <strong class="num">{{ grafica.conVenta }}</strong>
+              </div>
+            </div>
+
+            <svg class="trazo" :viewBox="`0 0 100 ${grafica.alto}`" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="relleno" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--brand)" stop-opacity="0.28" />
+                  <stop offset="100%" stop-color="var(--brand)" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path :d="grafica.area" fill="url(#relleno)" />
+              <path :d="grafica.linea" fill="none" stroke="var(--brand)" stroke-width="1.5"
+                    vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
+
+            <div class="grafica-pie muted small">
+              <span>{{ dashboard.lastDays[0]?.periodLabel }}</span>
+              <span>{{ dashboard.lastDays[dashboard.lastDays.length - 1]?.periodLabel }}</span>
+            </div>
+          </div>
+          <p v-else class="muted small">Todavía no hay movimiento que graficar.</p>
+        </article>
+
+        <article class="panel">
+          <header class="panel-cabecera">
+            <h2>Pide atención</h2>
+          </header>
+
+          <p v-if="!atencion.length" class="al-dia">
+            <span class="al-dia-marca">✓</span>
+            Nada pendiente: ni órdenes atrasadas, ni cotizaciones sin contestar, ni saldos
+            vencidos.
+          </p>
+
+          <RouterLink v-for="fila in atencion" :key="fila.clave" class="fila" :to="fila.to">
+            <span class="fila-icono" :class="fila.tono">
+              <svg v-if="fila.icono === 'reloj'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5l3 2" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="fila.icono === 'bandeja'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M3.5 13.5h4l1.5 3h6l1.5-3h4M4 13.5 6.5 5h11L20 13.5V19H4z" stroke-linejoin="round" />
+              </svg>
+              <svg v-else-if="fila.icono === 'papel'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M6 3.5h8l4 4V20.5H6z" stroke-linejoin="round" /><path d="M9 11h6M9 15h4" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="fila.icono === 'dinero'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="2.5" y="6.5" width="19" height="12" rx="2" /><circle cx="12" cy="12.5" r="2.5" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M4 8.5 12 5l8 3.5v7L12 19l-8-3.5z" stroke-linejoin="round" /><path d="M4 8.5 12 12l8-3.5M12 12v7" />
+              </svg>
+            </span>
+            <span class="fila-texto">{{ fila.texto }}</span>
+            <svg class="fila-flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </RouterLink>
+        </article>
+      </div>
+
+      <!-- ------------------------------------------------------------ patio y entradas -->
       <div class="abajo">
         <article class="panel">
-          <h2 class="titulo">El patio</h2>
+          <header class="panel-cabecera">
+            <div>
+              <h2>El patio</h2>
+              <p class="muted small">
+                {{ dashboard.openWorkOrders }}
+                {{ dashboard.openWorkOrders === 1 ? 'orden abierta' : 'órdenes abiertas' }}
+              </p>
+            </div>
+            <RouterLink class="ver" :to="{ name: 'work-orders' }">Ver el tablero</RouterLink>
+          </header>
+
+          <div v-if="barra.length" class="barra" aria-hidden="true">
+            <span
+              v-for="tramo in barra"
+              :key="tramo.titulo"
+              :class="tramo.tono"
+              :style="{ width: `${tramo.parte}%` }"
+            />
+          </div>
+
           <RouterLink
             v-for="carril in patio"
             :key="carril.titulo"
@@ -310,14 +506,14 @@ watch(() => auth.activeBranchId, load)
             <span class="nombre">{{ carril.titulo }}</span>
             <strong class="num">{{ carril.cantidad }}</strong>
           </RouterLink>
-          <p class="muted small total">
-            {{ dashboard.openWorkOrders }}
-            {{ dashboard.openWorkOrders === 1 ? 'orden abierta' : 'órdenes abiertas' }} en total
-          </p>
         </article>
 
         <article class="panel">
-          <h2 class="titulo">Últimas que entraron</h2>
+          <header class="panel-cabecera">
+            <h2>Últimas que entraron</h2>
+            <RouterLink class="ver" :to="{ name: 'work-orders' }">Ver todas</RouterLink>
+          </header>
+
           <p v-if="!recientes.length" class="muted small">No hay órdenes abiertas.</p>
           <RouterLink
             v-for="order in recientes"
@@ -340,37 +536,104 @@ watch(() => auth.activeBranchId, load)
 </template>
 
 <style scoped>
+/* ------------------------------------------------------------------ cabecera */
+
 .cabecera {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .cabecera h1 {
   margin: 0;
+  font-size: 1.625rem;
+}
+
+.cabecera-pie {
+  margin: 0.25rem 0 0;
+}
+
+/* `es-HN` devuelve el día en minúscula —«jueves, 15 de octubre»— y arriba de todo se lee
+   mejor con mayúscula. El nombre del taller se queda como lo escribió su dueño. */
+.fecha::first-letter {
+  text-transform: uppercase;
+}
+
+.cabecera-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .boton {
-  padding: 0.5rem 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: #fff;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .boton:hover {
   text-decoration: none;
+  background: var(--brand-deep);
 }
 
+.boton svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.boton.fantasma {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.boton.fantasma:hover {
+  background: var(--surface-alt);
+  border-color: var(--brand);
+}
+
+/* ------------------------------------------------------------------ paneles */
+
 .panel {
-  padding: 1rem;
+  padding: 1.125rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
 }
+
+.panel-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-cabecera h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.panel-cabecera p {
+  margin: 0.125rem 0 0;
+}
+
+.ver {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ primeros pasos */
 
 .pasos {
   margin-bottom: 1rem;
@@ -416,137 +679,235 @@ watch(() => auth.activeBranchId, load)
   text-decoration: line-through;
 }
 
-.rotulo {
-  margin: 0 0 0.25rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-/* ---------------------------------------------------------------- dinero */
-
-.dinero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-/* Lo cobrado va en grande y a la izquierda: es la pregunta de verdad del día. */
-.principal .cifra {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 2rem;
-  line-height: 1.15;
-}
-
-.tres {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.tres div {
-  display: flex;
-  flex-direction: column;
-}
-
-.tres strong {
-  font-size: 1.125rem;
-}
-
-/* ---------------------------------------------------------------- tejas */
-
-.titulo {
-  margin: 0 0 0.625rem;
-  font-size: 0.9375rem;
-}
+/* ------------------------------------------------------------------ tejas */
 
 .tejas {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: 0.875rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  margin-bottom: 0.875rem;
 }
 
 .teja {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0.125rem;
-  padding: 0.75rem;
+  padding: 1.125rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  color: inherit;
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .teja:hover {
-  border-color: var(--accent);
   text-decoration: none;
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  box-shadow: 0 10px 24px -20px var(--brand);
 }
 
-.teja strong {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
-  line-height: 1.1;
+.teja-icono {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 0.625rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
 }
 
-/* El borde tira hacia el color del estado sin llegar a serlo: marca la teja de lejos y deja
-   el color pleno para la cifra. */
-.teja.espera {
-  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+.teja-icono svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
-.teja.espera strong {
+.teja-icono.cobro {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success-text);
+}
+
+.teja-icono.cobrar {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
   color: var(--warning-text);
 }
 
-.teja.alerta {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+.teja .rotulo {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
-.teja.alerta strong {
+.cifra {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-family: var(--font-mono);
+}
+
+.teja.alerta .cifra {
   color: var(--danger);
 }
 
-/* ---------------------------------------------------------------- abajo */
+/* ------------------------------------------------------------------ medio */
 
+.medio,
 .abajo {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 0.875rem;
+  margin-bottom: 0.875rem;
+}
+
+@media (min-width: 62rem) {
+  .medio {
+    grid-template-columns: 1.6fr 1fr;
+  }
+
+  .abajo {
+    grid-template-columns: 1fr 1.4fr;
+  }
+}
+
+.grafica-cifras {
+  display: flex;
+  gap: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.grafica-cifras span {
+  display: block;
+}
+
+.grafica-cifras strong {
+  font-size: 1.25rem;
+}
+
+.trazo {
+  display: block;
+  width: 100%;
+  height: 8.5rem;
+}
+
+.grafica-pie {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.375rem;
+}
+
+/* ------------------------------------------------------------------ pide atención */
+
+.fila {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
-  align-items: start;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+
+.fila:first-of-type {
+  border-top: 0;
+}
+
+.fila:hover {
+  text-decoration: none;
+}
+
+.fila:hover .fila-texto {
+  color: var(--brand);
+}
+
+.fila-icono {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.fila-icono svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.fila-icono.alerta {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.fila-icono.espera {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning-text);
+}
+
+.fila-texto {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.fila-flecha {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.al-dia {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.al-dia-marca {
+  color: var(--success-text);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ patio */
+
+.barra {
+  display: flex;
+  gap: 2px;
+  height: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barra span {
+  display: block;
+  background: var(--brand);
+}
+
+.barra .detenido {
+  background: var(--warning);
+}
+
+.barra .listo {
+  background: var(--success);
 }
 
 .carril {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-  color: inherit;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
 }
 
 .carril:hover {
   text-decoration: none;
-  color: var(--accent);
-}
-
-.carril .nombre {
-  flex: 1;
+  color: var(--brand);
 }
 
 .punto {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--text-muted);
-}
-
-.punto.activo {
-  background: var(--accent);
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--brand);
 }
 
 .punto.detenido {
@@ -557,94 +918,57 @@ watch(() => auth.activeBranchId, load)
   background: var(--success);
 }
 
-.total {
-  margin: 0.625rem 0 0;
+.nombre {
+  flex: 1;
 }
+
+/* ------------------------------------------------------------------ últimas órdenes */
 
 .orden {
   display: grid;
-  grid-template-columns: 7.5rem minmax(0, 1fr) auto 5rem;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-  color: inherit;
-}
-
-.orden:last-of-type {
-  border-bottom: none;
+  gap: 0.25rem 0.75rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
 }
 
 .orden:hover {
   text-decoration: none;
-  color: var(--accent);
+  background: var(--surface-alt);
 }
 
 .folio {
-  font-size: 0.8125rem;
-  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 
 .vehiculo {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .placa {
-  padding: 0 0.25rem;
+  padding: 0.05rem 0.35rem;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   font-size: 0.75rem;
 }
 
 .cuando {
-  text-align: right;
-  white-space: nowrap;
+  grid-column: 2 / -1;
 }
 
-/* ---------------------------------------------------------------- pantalla angosta */
-
-@media (max-width: 60rem) {
-  .dinero,
-  .abajo {
-    grid-template-columns: 1fr;
-  }
-
-  .tres {
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  /* En el teléfono el folio y el tiempo se van a su propia línea: cuatro columnas en 390 px
-     dejan el vehículo en dos letras. */
+@media (min-width: 48rem) {
   .orden {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      'folio estado'
-      'vehiculo cuando';
-    row-gap: 0.125rem;
-  }
-
-  .folio {
-    grid-area: folio;
-  }
-
-  .estado {
-    grid-area: estado;
-    justify-self: end;
-  }
-
-  .vehiculo {
-    grid-area: vehiculo;
+    grid-template-columns: auto 1fr auto auto;
   }
 
   .cuando {
-    grid-area: cuando;
+    grid-column: auto;
   }
 }
 </style>

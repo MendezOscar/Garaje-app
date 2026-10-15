@@ -20,7 +20,16 @@ const orders = ref<WorkOrderListItem[]>([])
 const technicians = ref<User[]>([])
 const search = ref('')
 const branchId = ref<string>('')
-const verCerradas = ref(false)
+const tecnicoId = ref<string>('')
+
+/**
+ * La pestaña que se está mirando. «Todas» es la única que pide al servidor las entregadas y
+ * las canceladas: en un taller con historia son miles y no se traen para contarlas.
+ */
+const pestana = ref<'taller' | 'listas' | 'atrasadas' | 'todas'>('taller')
+
+/** Cuántas hay en total según el servidor, para el renglón de «Todas». */
+const totalDelServidor = ref(0)
 const loading = ref(false)
 const error = ref('')
 
@@ -35,7 +44,7 @@ watch(vista, (valor) => localStorage.setItem('garaj.vista-ordenes', valor))
  * apagado: quien escribe una placa la quiere encontrar aunque el carro ya salió del taller,
  * y hasta ahora no aparecía por ningún lado.
  */
-const soloAbiertas = computed(() => !verCerradas.value && !search.value.trim())
+const soloAbiertas = computed(() => pestana.value !== 'todas' && !search.value.trim())
 
 /**
  * Trae las órdenes de una vez y agrupa en memoria. Un taller tiene decenas de órdenes vivas,
@@ -53,6 +62,7 @@ async function load() {
       pageSize: 200,
     })
     orders.value = result.items
+    totalDelServidor.value = result.total
   } catch (e) {
     error.value = errorMessage(e, 'No se pudieron cargar las órdenes.')
   } finally {
@@ -116,7 +126,7 @@ function diasSinRetirar(order: WorkOrderListItem) {
 const carriles = computed(() =>
   CARRILES.map((carril) => ({
     ...carril,
-    items: orders.value.filter((o) => carril.estados.includes(o.status)),
+    items: filtradas.value.filter((o) => carril.estados.includes(o.status)),
   })).filter((carril) => carril.clave !== 'cerradas' || carril.items.length > 0),
 )
 
@@ -138,20 +148,60 @@ const visibles = computed(() =>
     : carriles.value,
 )
 
-/** La lista densa: todas las órdenes en una tabla, ordenadas por lo que urge. */
+/** Lo que cada pestaña enseña de lo ya cargado. */
+const porPestana = computed(() => {
+  const todas = orders.value
+
+  switch (pestana.value) {
+    case 'listas':
+      return todas.filter((o) => o.status === WorkOrderStatus.Ready)
+    case 'atrasadas':
+      return todas.filter(isLate)
+    default:
+      return todas
+  }
+})
+
+/**
+ * Lo que se está mirando: la pestaña y el técnico elegidos. Lo comparten el tablero y la
+ * tabla, para que cambiar de vista no cambie lo que se ve.
+ */
+const filtradas = computed(() =>
+  porPestana.value.filter((o) => !tecnicoId.value || o.assignedTechnicianId === tecnicoId.value),
+)
+
+/** La lista densa: las órdenes de la pestaña en una tabla, ordenadas por lo que urge. */
 const filas = computed(() =>
-  [...orders.value].sort((a, b) => {
+  [...filtradas.value]
+    .sort((a, b) => {
     const atrasoA = isLate(a) ? 0 : 1
     const atrasoB = isLate(b) ? 0 : 1
     if (atrasoA !== atrasoB) return atrasoA - atrasoB
 
-    return (a.promisedAt ?? '9999').localeCompare(b.promisedAt ?? '9999')
-  }),
+      return (a.promisedAt ?? '9999').localeCompare(b.promisedAt ?? '9999')
+    }),
 )
 
-const abiertas = computed(
-  () => orders.value.filter((o) => !CERRADAS.includes(o.status)).length,
-)
+/** Los renglones de las pestañas, con su cuenta. */
+const pestanas = computed(() => [
+  {
+    clave: 'taller' as const,
+    titulo: 'En el taller',
+    cuantas: orders.value.filter((o) => !CERRADAS.includes(o.status)).length,
+  },
+  {
+    clave: 'listas' as const,
+    titulo: 'Listas para entrega',
+    cuantas: orders.value.filter((o) => o.status === WorkOrderStatus.Ready).length,
+  },
+  {
+    clave: 'atrasadas' as const,
+    titulo: 'Atrasadas',
+    cuantas: atrasadas.value,
+    tono: 'alerta',
+  },
+  { clave: 'todas' as const, titulo: 'Todas', cuantas: totalDelServidor.value },
+])
 
 const atrasadas = computed(() => orders.value.filter(isLate).length)
 
@@ -186,39 +236,78 @@ onMounted(async () => {
 
 onUnmounted(() => consulta.removeEventListener('change', alCambiarAncho))
 
-watch([search, branchId, verCerradas], load)
+// La pestaña «Todas» cambia lo que se le pide al servidor; las demás filtran lo ya cargado.
+watch([search, branchId], load)
+watch(pestana, (ahora, antes) => {
+  if (ahora === 'todas' || antes === 'todas') load()
+})
 </script>
 
 <template>
   <section>
-    <header class="toolbar">
-      <h1>Órdenes de trabajo</h1>
+    <header class="cabecera">
+      <div>
+        <h1>Órdenes de trabajo</h1>
+        <p class="muted small">Todo lo que entra al taller, desde que se recibe hasta que se entrega.</p>
+      </div>
+      <div class="cabecera-acciones">
+        <!-- Tablero para ver el patio; lista para cuando hay treinta órdenes vivas. -->
+        <div class="segmento">
+          <button type="button" :class="{ on: vista === 'lista' }" @click="vista = 'lista'">
+            Lista
+          </button>
+          <button type="button" :class="{ on: vista === 'tablero' }" @click="vista = 'tablero'">
+            Tablero
+          </button>
+        </div>
+        <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+          </svg>
+          Nueva orden
+        </RouterLink>
+      </div>
+    </header>
 
-      <input v-model="search" type="search" placeholder="Número, placa o cliente" />
+    <div class="pestanas" role="tablist">
+      <button
+        v-for="p in pestanas"
+        :key="p.clave"
+        type="button"
+        role="tab"
+        :aria-selected="pestana === p.clave"
+        :class="{ on: pestana === p.clave }"
+        @click="pestana = p.clave"
+      >
+        {{ p.titulo }}
+        <span class="cuenta" :class="p.tono">{{ p.cuantas }}</span>
+      </button>
+    </div>
+
+    <div class="filtros">
+      <span class="buscador">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
+        </svg>
+        <input v-model="search" type="search" placeholder="Número, placa o cliente" />
+      </span>
 
       <select v-if="branches.length > 1" v-model="branchId">
         <option value="">Todas las sucursales</option>
         <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
 
-      <label class="checkbox" title="Las entregadas y las canceladas salen del tablero">
-        <input v-model="verCerradas" type="checkbox" />
-        Ver entregadas
-      </label>
+      <select v-model="tecnicoId">
+        <option value="">Todos los técnicos</option>
+        <option v-for="t in technicians.filter((x) => x.isActive)" :key="t.id" :value="t.id">
+          {{ t.fullName }}
+        </option>
+      </select>
 
-      <!-- Tablero para ver el patio; lista para cuando hay treinta órdenes vivas. -->
-      <div class="segmento">
-        <button type="button" :class="{ on: vista === 'tablero' }" @click="vista = 'tablero'">
-          Tablero
-        </button>
-        <button type="button" :class="{ on: vista === 'lista' }" @click="vista = 'lista'">
-          Lista
-        </button>
-      </div>
-
-      <span class="count">{{ abiertas }} abiertas</span>
-      <span v-if="atrasadas" class="count alerta">{{ atrasadas }} atrasadas</span>
-    </header>
+      <span v-if="search" class="muted small">
+        Buscando también entre las entregadas.
+      </span>
+    </div>
 
     <ErrorNote v-if="error" :message="error" />
     <SkeletonList v-if="loading" :rows="4" variant="tabla" />
@@ -311,30 +400,57 @@ watch([search, branchId, verCerradas], load)
       <table>
         <thead>
           <tr>
-            <th scope="col">Folio</th>
+            <th scope="col">Orden</th>
             <th scope="col">Vehículo</th>
-            <th scope="col">Cliente</th>
+            <th scope="col">Cliente y motivo</th>
             <th scope="col">Estado</th>
             <th scope="col">Técnico</th>
-            <th scope="col">Prometida</th>
+            <th scope="col">Entrega</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filas" :key="order.id" :class="{ tarde: isLate(order) }">
-            <td class="num">
-              <RouterLink :to="{ name: 'work-order', params: { id: order.id } }">
+          <tr v-for="order in filas" :key="order.id">
+            <td>
+              <RouterLink class="folio num" :to="{ name: 'work-order', params: { id: order.id } }">
                 {{ order.number }}
               </RouterLink>
+              <span class="muted small bloque">{{ relativeTime(order.openedAt) }}</span>
             </td>
             <td>
-              {{ order.vehicleLabel }}
               <span v-if="order.plate" class="plate num">{{ order.plate }}</span>
+              <span class="muted small bloque">
+                {{ order.vehicleLabel }} · {{ VEHICLE_TYPE_LABEL[order.vehicleType] }}
+              </span>
             </td>
-            <td>{{ order.customerName }}</td>
-            <td><StatusBadge :status="order.status" /></td>
+            <td class="motivo">
+              <strong>{{ order.customerName }}</strong>
+              <span class="muted small bloque">{{ order.description }}</span>
+            </td>
+            <td>
+              <StatusBadge :status="order.status" />
+              <!-- El avance en tramos: cuántos pasos van de los que lleva la orden. -->
+              <span v-if="order.taskCount > 0" class="tramos" :title="`${order.tasksDone} de ${order.taskCount} pasos`">
+                <span
+                  v-for="n in order.taskCount"
+                  :key="n"
+                  :class="{ hecho: n <= order.tasksDone }"
+                />
+              </span>
+            </td>
             <td class="muted">{{ order.assignedTechnicianName ?? 'Sin asignar' }}</td>
-            <td class="muted small">
-              {{ order.promisedAt ? formatDateTime(order.promisedAt) : '—' }}
+            <td>
+              <template v-if="order.promisedAt">
+                <span :class="{ tarde: isLate(order) }">{{ formatDateTime(order.promisedAt) }}</span>
+                <span v-if="isLate(order)" class="muted small bloque tarde">Atrasada</span>
+                <span
+                  v-else-if="diasSinRetirar(order) > 0"
+                  class="muted small bloque"
+                  title="Está listo y nadie lo ha venido a traer"
+                >
+                  Sin retirar · {{ diasSinRetirar(order) }} d
+                </span>
+              </template>
+              <span v-else class="muted">—</span>
             </td>
           </tr>
           <tr v-if="!filas.length && !loading">
@@ -342,22 +458,141 @@ watch([search, branchId, verCerradas], load)
           </tr>
         </tbody>
       </table>
+      <p class="pie-tabla muted small">
+        {{ filas.length }} {{ filas.length === 1 ? 'orden' : 'órdenes' }}
+      </p>
     </div>
+
   </section>
 </template>
 
 <style scoped>
-.toolbar {
+.cabecera {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
-.toolbar h1 {
+.cabecera h1 {
   margin: 0;
-  margin-right: auto;
+  font-size: 1.625rem;
+}
+
+.cabecera p {
+  margin: 0.25rem 0 0;
+}
+
+.cabecera-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.boton:hover {
+  text-decoration: none;
+  background: var(--brand-deep);
+}
+
+.boton svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ------------------------------------------------------------------ pestañas */
+
+.pestanas {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.pestanas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.pestanas button:hover {
+  color: var(--text);
+}
+
+.pestanas button.on {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+  font-weight: 600;
+}
+
+.cuenta {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.pestanas button.on .cuenta {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
+}
+
+.cuenta.alerta {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------ filtros */
+
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  padding: 0.875rem 0;
+}
+
+.buscador {
+  position: relative;
+  display: block;
+  width: min(22rem, 100%);
+}
+
+.buscador svg {
+  position: absolute;
+  top: 50%;
+  left: 0.625rem;
+  translate: 0 -50%;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-muted);
+}
+
+.buscador input {
+  width: 100%;
+  padding-left: 2.125rem;
 }
 
 .segmento {
@@ -580,8 +815,8 @@ table {
 }
 
 th {
-  padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 0.875rem;
+  background: var(--surface-alt);
   text-align: left;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -592,26 +827,71 @@ th {
 }
 
 td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 0.875rem;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
 }
 
-tbody tr:last-child td {
-  border-bottom: none;
+tbody tr:hover td {
+  background: var(--surface-alt);
 }
 
-/* La fila atrasada se marca en el borde y no en el fondo: con veinte atrasadas, veinte
-   franjas rojas dejan de decir nada. */
-tr.tarde td:first-child {
-  box-shadow: inset 3px 0 0 var(--danger);
+.folio {
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.checkbox {
+/* La fecha prometida no se parte en dos renglones: «11-oct, 11:57 a. m.» leído en dos
+   líneas parecen dos datos. */
+tbody td:last-child {
+  white-space: nowrap;
+}
+
+.bloque {
+  display: block;
+  margin-top: 0.125rem;
+}
+
+.motivo .bloque {
+  max-width: 24rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* El avance en tramos, uno por paso: con cuatro pasos dice más que una barra que avanza
+   a saltos del 25%. */
+.tramos {
   display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
+  gap: 2px;
+  margin-top: 0.4rem;
+  max-width: 7rem;
+}
+
+.tramos span {
+  height: 0.25rem;
+  flex: 1;
+  min-width: 0.375rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.tramos span.hecho {
+  background: var(--brand);
+}
+
+/* El atraso se dice con el color de la fecha y una línea debajo: con veinte atrasadas,
+   veinte franjas rojas dejan de decir nada. */
+.tarde {
+  color: var(--danger);
+}
+
+.pie-tabla {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-top: 1px solid var(--border);
 }
 
 .empty {

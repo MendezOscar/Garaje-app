@@ -66,6 +66,22 @@ const moveForm = ref({
 
 const canManage = computed(() => auth.isOwner)
 
+/**
+ * Las cifras de arriba, calculadas sobre lo que se está mirando: no hay endpoint de totales
+ * de bodega, y pedir uno para pintar cuatro números sería un viaje más por pantalla.
+ */
+const cifras = computed(() => {
+  const lista = items.value
+
+  return {
+    valor: lista.reduce((suma, i) => suma + i.quantity * i.costPrice, 0),
+    precioVenta: lista.reduce((suma, i) => suma + i.quantity * i.salePrice, 0),
+    renglones: lista.length,
+    bajos: lista.filter((i) => i.isBelowMinimum).length,
+    agotados: lista.filter((i) => i.quantity <= 0).length,
+  }
+})
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -253,16 +269,70 @@ onMounted(async () => {
 
     <ErrorNote v-if="error" :message="error" />
 
-    <div v-if="alerts.length" class="alerts">
-      <strong>Reposición:</strong>
-      <span v-for="a in alerts.slice(0, 6)" :key="a.partId + a.branchId">
-        {{ a.partName }} ({{ formatQuantity(a.quantity) }} {{ a.unit }} en {{ a.branchName }})
-      </span>
-      <span v-if="alerts.length > 6" class="muted">y {{ alerts.length - 6 }} más</span>
+    <div class="cifras">
+      <article v-if="canManage" class="cifra">
+        <span class="rotulo">Valor de lo que hay</span>
+        <strong class="num">{{ formatMoney(cifras.valor) }}</strong>
+        <span class="muted small">{{ formatMoney(cifras.precioVenta) }} a precio de venta</span>
+      </article>
+      <article class="cifra">
+        <span class="rotulo">Repuestos</span>
+        <strong class="num">{{ cifras.renglones }}</strong>
+        <span class="muted small">con existencia en esta vista</span>
+      </article>
+      <article class="cifra" :class="{ espera: cifras.bajos > 0 }">
+        <span class="rotulo">Bajo mínimo</span>
+        <strong class="num">{{ cifras.bajos }}</strong>
+        <span class="muted small">hay que reponerlos</span>
+      </article>
+      <article class="cifra" :class="{ alerta: cifras.agotados > 0 }">
+        <span class="rotulo">Agotados</span>
+        <strong class="num">{{ cifras.agotados }}</strong>
+        <span class="muted small">sin una sola unidad</span>
+      </article>
     </div>
 
+    <!-- Lo que hay que comprar, con el botón de la entrada al lado: es la lista con la que
+         se va a la casa de repuestos. -->
+    <article v-if="alerts.length" class="reponer">
+      <header>
+        <h2>Por reponer</h2>
+        <span class="muted small">en o por debajo del mínimo</span>
+      </header>
+      <ul>
+        <li v-for="a in alerts.slice(0, 8)" :key="a.partId + a.branchId">
+          <span class="reponer-nombre">
+            <strong>{{ a.partName }}</strong>
+            <span class="muted small">{{ a.sku }} · {{ a.branchName }}</span>
+          </span>
+          <span class="reponer-cuanto">
+            <strong class="num" :class="{ cero: a.quantity <= 0 }">
+              {{ formatQuantity(a.quantity) }}
+            </strong>
+            <span class="muted small">mín. {{ formatQuantity(a.minQuantity) }}</span>
+          </span>
+          <button
+            v-if="canManage"
+            type="button"
+            class="btn-ghost btn-sm"
+            @click="openMovement('receive', a)"
+          >
+            Entrada
+          </button>
+        </li>
+      </ul>
+      <p v-if="alerts.length > 8" class="muted small mas">
+        y {{ alerts.length - 8 }} más. Filtre por «solo bajo mínimo» para verlos todos.
+      </p>
+    </article>
+
     <form class="filters" @submit.prevent="load">
-      <input v-model="search" placeholder="SKU, nombre o marca…" />
+      <span class="buscador">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
+        </svg>
+        <input v-model="search" placeholder="SKU, nombre o marca…" />
+      </span>
       <select v-model="branchId">
         <option value="">Todas las sucursales</option>
         <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
@@ -289,7 +359,10 @@ onMounted(async () => {
     <SkeletonList v-if="loading" :rows="4" variant="tabla" />
     <EmptyState v-else-if="!items.length" title="No hay existencias que coincidan" />
 
-    <table v-else>
+    <!-- La tabla en su propio marco con scroll: con las acciones a la derecha, en pantalla
+         angosta es más honesto deslizarla que apilar cuatro botones por fila. -->
+    <div v-else class="marco-tabla">
+    <table>
       <thead>
         <tr>
           <th scope="col">Repuesto</th>
@@ -309,8 +382,10 @@ onMounted(async () => {
             <div class="muted small">{{ item.sku }} · {{ item.brand ?? '—' }}</div>
           </td>
           <td>{{ item.branchName }}</td>
-          <td class="num" :class="{ low: item.isBelowMinimum }">
-            {{ formatQuantity(item.quantity) }} {{ item.unit }}
+          <td class="num">
+            <span class="existencia" :class="{ low: item.isBelowMinimum, cero: item.quantity <= 0 }">
+              {{ formatQuantity(item.quantity) }} {{ item.unit }}
+            </span>
           </td>
           <td class="num muted">{{ formatQuantity(item.minQuantity) }}</td>
           <!-- El costo es del negocio: se le enseña al Dueño, no al técnico que consulta
@@ -349,6 +424,7 @@ onMounted(async () => {
         </tr>
       </tbody>
     </table>
+    </div>
 
     <!-- Panel lateral -->
     <div v-if="panel" class="drawer-backdrop" @click.self="panel = null">
@@ -478,30 +554,167 @@ onMounted(async () => {
 
 h1 {
   margin: 0;
+  font-size: 1.625rem;
 }
 
 .top p {
   margin: 0.25rem 0 0;
 }
 
-.alerts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.625rem 0.875rem;
+/* ------------------------------------------------------------------ cifras */
+
+.cifras {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  margin-bottom: 1rem;
+}
+
+.cifra {
+  display: grid;
+  justify-items: start;
+  gap: 0.125rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cifra .rotulo {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.cifra strong {
+  font-size: 1.375rem;
+  font-family: var(--font-mono);
+}
+
+.cifra.espera strong {
+  color: var(--warning-text);
+}
+
+.cifra.alerta strong {
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------ por reponer */
+
+.reponer {
   margin-bottom: 1rem;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--danger);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--surface);
-  font-size: 0.875rem;
+  overflow: hidden;
 }
+
+.reponer header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.reponer h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.reponer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reponer li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem 0.875rem;
+  border-top: 1px solid var(--border);
+}
+
+.reponer li:first-child {
+  border-top: 0;
+}
+
+.reponer-nombre {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.reponer-cuanto {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+
+.reponer-cuanto strong {
+  font-size: 1rem;
+  color: var(--warning-text);
+}
+
+.reponer-cuanto strong.cero {
+  color: var(--danger);
+}
+
+.mas {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ------------------------------------------------------------------ filtros */
 
 .filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+.buscador {
+  position: relative;
+  display: block;
+  width: min(20rem, 100%);
+}
+
+.buscador svg {
+  position: absolute;
+  top: 50%;
+  left: 0.625rem;
+  translate: 0 -50%;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-muted);
+}
+
+.buscador input {
+  width: 100%;
+  padding-left: 2.125rem;
+}
+
+/* La existencia, en pastilla: el número suelto en una columna de veinte no se distingue. */
+.existencia {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+}
+
+.existencia.low {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.existencia.cero {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
 }
 
 .filters input[type='text'],
@@ -546,6 +759,31 @@ th {
 
 .col-acciones .acciones {
   justify-content: flex-end;
+  /* Sin envolver: la columna es estrecha y envolviendo salían cuatro renglones de botones
+     que estiraban la fila a cien píxeles de alto. */
+  flex-wrap: nowrap;
+}
+
+.marco-tabla {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.marco-tabla th {
+  background: var(--surface-alt);
+  border-bottom: 0;
+}
+
+.marco-tabla td {
+  border-bottom: 0;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.marco-tabla tbody tr:hover td {
+  background: var(--surface-alt);
 }
 
 .drawer-backdrop {
