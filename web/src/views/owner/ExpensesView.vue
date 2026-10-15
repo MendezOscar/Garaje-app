@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, expensesApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
@@ -52,6 +52,15 @@ const tecnicoId = ref('')
 const propuesta = ref<TechnicianPayProposal | null>(null)
 
 const editando = ref<string | null>(null)
+
+/**
+ * Qué ventana está abierta encima de la pantalla.
+ *
+ * Los formularios vivían en una columna al lado, siempre a la vista y siempre lejos de lo que
+ * se está mirando. Registrar un gasto es un acto puntual —se hace con el recibo en la mano—,
+ * así que se abre cuando se pide y se quita cuando termina.
+ */
+const modal = ref<'gasto' | 'tecnico' | 'comprobante' | null>(null)
 
 /** El gasto recién guardado, para adjuntarle el comprobante sin ir a buscarlo. */
 const conComprobante = ref<Expense | null>(null)
@@ -170,12 +179,13 @@ function guardar() {
 
     editando.value = null
     form.value = vacio()
+    modal.value = 'comprobante'
   })
 }
 
 function editar(expense: Expense) {
   editando.value = expense.id
-  conComprobante.value = expense
+  modal.value = 'gasto'
   form.value = {
     branchId: expense.branchId,
     category: expense.category,
@@ -227,6 +237,33 @@ function pagarle() {
     employeeUserId: p.technicianId,
   }
   editando.value = null
+  modal.value = 'gasto'
+}
+
+/** Un gasto nuevo, en blanco y en la sucursal de siempre. */
+function nuevoGasto() {
+  editando.value = null
+  form.value = { ...vacio(), branchId: branches.value[0]?.id ?? '' }
+  modal.value = 'gasto'
+}
+
+function cerrar() {
+  if (modal.value === 'gasto') {
+    editando.value = null
+    form.value = vacio()
+  }
+  if (modal.value === 'comprobante') conComprobante.value = null
+  modal.value = null
+}
+
+function verComprobante(expense: Expense) {
+  conComprobante.value = expense
+  modal.value = 'comprobante'
+}
+
+/** Escape cierra, como en cualquier ventana. */
+function alTeclear(e: KeyboardEvent) {
+  if (e.key === 'Escape' && modal.value) cerrar()
 }
 
 /** Cuánto cambió la utilidad neta contra el periodo anterior. Null si no hay con qué. */
@@ -261,11 +298,14 @@ const composicion = computed(() => {
 })
 
 onMounted(async () => {
+  window.addEventListener('keydown', alTeclear)
   branches.value = await branchesApi.list().catch(() => [])
   tecnicos.value = await usersApi.list('Technician').catch(() => [])
   form.value.branchId = branches.value[0]?.id ?? ''
   await load()
 })
+
+onUnmounted(() => window.removeEventListener('keydown', alTeclear))
 </script>
 
 <template>
@@ -334,34 +374,45 @@ onMounted(async () => {
       </div>
 
       <article class="card resultado">
-        <div class="cuentas-lado">
+        <div>
           <p class="rotulo">Cómo se llega a esa utilidad</p>
           <dl class="cuentas">
-            <dt>Ingresos</dt>
-            <dd class="num">{{ formatMoney(statement.revenue) }}</dd>
-
-            <dt class="sangria">Repuestos</dt>
-            <dd class="num muted">{{ formatMoney(statement.partsRevenue) }}</dd>
-            <dt class="sangria">Mano de obra</dt>
-            <dd class="num muted">{{ formatMoney(statement.laborRevenue) }}</dd>
-
-            <dt>Costo de lo vendido</dt>
-            <dd class="num">−{{ formatMoney(statement.costOfSales) }}</dd>
-
-            <dt class="fuerte">Utilidad bruta</dt>
-            <dd class="fuerte num">
-              {{ formatMoney(statement.grossProfit) }}
-              <span class="muted small">· {{ statement.grossMarginPercent }}%</span>
-            </dd>
-
-            <dt>Gastos</dt>
-            <dd class="num">−{{ formatMoney(statement.expenseTotal) }}</dd>
-
-            <dt class="fuerte">Utilidad neta</dt>
-            <dd class="fuerte num grande" :class="{ perdida: esPerdida }">
-              {{ formatMoney(statement.netProfit) }}
-              <span class="muted small">· {{ statement.netMarginPercent }}%</span>
-            </dd>
+            <div class="renglon">
+              <dt>Ingresos</dt>
+              <dd class="num">{{ formatMoney(statement.revenue) }}</dd>
+            </div>
+            <div class="renglon sangria">
+              <dt>Repuestos</dt>
+              <dd class="num">{{ formatMoney(statement.partsRevenue) }}</dd>
+            </div>
+            <div class="renglon sangria">
+              <dt>Mano de obra</dt>
+              <dd class="num">{{ formatMoney(statement.laborRevenue) }}</dd>
+            </div>
+            <div class="renglon">
+              <dt>Costo de lo vendido</dt>
+              <dd class="num">−{{ formatMoney(statement.costOfSales) }}</dd>
+            </div>
+            <div class="renglon suma">
+              <dt>Utilidad bruta</dt>
+              <dd class="num">
+                {{ formatMoney(statement.grossProfit) }}
+                <span class="pct muted small">{{ statement.grossMarginPercent }}% de margen</span>
+              </dd>
+            </div>
+            <div class="renglon">
+              <dt>Gastos</dt>
+              <dd class="num">−{{ formatMoney(statement.expenseTotal) }}</dd>
+            </div>
+            <div class="renglon suma total">
+              <dt>{{ esPerdida ? 'Pérdida' : 'Utilidad neta' }}</dt>
+              <dd class="num" :class="{ perdida: esPerdida }">
+                {{ formatMoney(statement.netProfit) }}
+                <span class="pct muted small">
+                  {{ statement.netMarginPercent }}% de lo que entró
+                </span>
+              </dd>
+            </div>
           </dl>
         </div>
 
@@ -400,83 +451,180 @@ onMounted(async () => {
       </article>
     </template>
 
-    <div class="layout">
-      <article class="panel">
-        <header class="panel-top">
-          <h2>Gastos de {{ rotuloDelPeriodo }}</h2>
-          <span v-if="expenses.length" class="cuantos num">{{ expenses.length }}</span>
+    <article class="panel">
+      <header class="panel-top">
+        <h2>Gastos de {{ rotuloDelPeriodo }}</h2>
+        <span v-if="expenses.length" class="cuantos num">{{ expenses.length }}</span>
+        <div class="panel-acciones">
+          <button type="button" class="btn-ghost btn-sm" @click="modal = 'tecnico'">
+            Pagarle a un técnico
+          </button>
+          <button type="button" class="btn-sm" @click="nuevoGasto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+            </svg>
+            Registrar un gasto
+          </button>
+        </div>
+      </header>
+
+      <p v-if="!expenses.length" class="vacio muted">
+        Ninguno registrado en {{ rotuloDelPeriodo }}. Sin alquiler, salarios y servicios, la
+        utilidad neta de arriba no es la de verdad.
+      </p>
+      <ul v-else class="gastos">
+        <li v-for="gasto in expenses" :key="gasto.id" :class="{ abierto: conComprobante?.id === gasto.id }">
+          <span class="etiqueta">{{ EXPENSE_CATEGORY_LABEL[gasto.category] }}</span>
+          <span class="gasto-texto">
+            <strong>{{ gasto.description }}</strong>
+            <span class="muted small">
+              {{ formatDate(gasto.expenseDate) }}
+              <template v-if="gasto.employeeName"> · {{ gasto.employeeName }}</template>
+              <template v-else-if="gasto.supplierName"> · {{ gasto.supplierName }}</template>
+            </span>
+          </span>
+          <span class="monto num">{{ formatMoney(gasto.amount) }}</span>
+          <span class="acciones">
+            <button
+              type="button"
+              class="icono"
+              :class="{ tiene: gasto.photoCount > 0 }"
+              :disabled="busy"
+              :title="gasto.photoCount > 0 ? `Comprobante (${gasto.photoCount})` : 'Adjuntar comprobante'"
+              @click="verComprobante(gasto)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M3 8h3.5L8 6h8l1.5 2H21v11H3z" stroke-linejoin="round" />
+                <circle cx="12" cy="13" r="3.2" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icono"
+              :disabled="busy"
+              title="Corregir"
+              @click="editar(gasto)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M4 20h4L19 9l-4-4L4 16z" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icono peligro"
+              :disabled="busy"
+              title="Borrar"
+              @click="borrar(gasto)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </span>
+        </li>
+      </ul>
+    </article>
+
+    <!-- ---------------------------------------------------------------- las ventanas -->
+
+    <div v-if="modal" class="fondo" @click.self="cerrar">
+      <div class="ventana" role="dialog" aria-modal="true">
+        <header class="ventana-top">
+          <h2>
+            {{
+              modal === 'comprobante'
+                ? 'Comprobante'
+                : modal === 'tecnico'
+                  ? 'Pagarle a un técnico'
+                  : editando
+                    ? 'Corregir el gasto'
+                    : 'Registrar un gasto'
+            }}
+          </h2>
+          <button type="button" class="icono" title="Cerrar" @click="cerrar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" stroke-linecap="round" />
+            </svg>
+          </button>
         </header>
 
-        <p v-if="!expenses.length" class="vacio muted">Ninguno registrado todavía.</p>
-        <ul v-else class="gastos">
-          <li v-for="gasto in expenses" :key="gasto.id" :class="{ abierto: conComprobante?.id === gasto.id }">
-            <span class="etiqueta">{{ EXPENSE_CATEGORY_LABEL[gasto.category] }}</span>
-            <span class="gasto-texto">
-              <strong>{{ gasto.description }}</strong>
-              <span class="muted small">
-                {{ formatDate(gasto.expenseDate) }}
-                <template v-if="gasto.employeeName"> · {{ gasto.employeeName }}</template>
-                <template v-else-if="gasto.supplierName"> · {{ gasto.supplierName }}</template>
-              </span>
-            </span>
-            <span class="monto num">{{ formatMoney(gasto.amount) }}</span>
-            <span class="acciones">
-              <button
-                type="button"
-                class="icono"
-                :class="{ tiene: gasto.photoCount > 0 }"
-                :disabled="busy"
-                :title="gasto.photoCount > 0 ? `Comprobante (${gasto.photoCount})` : 'Adjuntar comprobante'"
-                @click="conComprobante = gasto"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path d="M3 8h3.5L8 6h8l1.5 2H21v11H3z" stroke-linejoin="round" />
-                  <circle cx="12" cy="13" r="3.2" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                class="icono"
-                :disabled="busy"
-                title="Corregir"
-                @click="editar(gasto)"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path d="M4 20h4L19 9l-4-4L4 16z" stroke-linejoin="round" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                class="icono peligro"
-                :disabled="busy"
-                title="Borrar"
-                @click="borrar(gasto)"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                  <path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-            </span>
-          </li>
-        </ul>
-      </article>
+        <div class="ventana-cuerpo">
+          <!-- Se abre solo al guardar un gasto: es cuando se tiene el recibo en la mano y el
+               único momento en que de verdad se le va a tomar la foto. -->
+          <template v-if="modal === 'comprobante' && conComprobante">
+            <p class="muted small">
+              {{ conComprobante.description }} · {{ formatMoney(conComprobante.amount) }}.
+              Un gasto sin comprobante se puede discutir.
+            </p>
+            <PhotoGallery
+              :key="conComprobante.id"
+              :expense-id="conComprobante.id"
+              :can-edit="true"
+            />
+          </template>
 
-      <aside class="columna">
-        <!-- Se queda a la vista el recién registrado: es cuando se tiene el comprobante en la
-             mano y el único momento en que de verdad se le va a tomar la foto. -->
-        <article v-if="conComprobante" class="card">
-          <h2>Comprobante</h2>
-          <p class="muted small">
-            {{ conComprobante.description }} · {{ formatMoney(conComprobante.amount) }}.
-            Un gasto sin comprobante se puede discutir.
-          </p>
-          <PhotoGallery :key="conComprobante.id" :expense-id="conComprobante.id" :can-edit="true" />
-          <button type="button" class="btn-ghost" @click="conComprobante = null">Listo</button>
-        </article>
+          <template v-else-if="modal === 'tecnico'">
+            <p v-if="!tecnicos.length" class="muted small">
+              Todavía no hay técnicos. Cuando cree uno en Usuarios y le defina cómo se le paga
+              —fijo, porcentaje o por hora—, aquí sale cuánto le toca por el periodo.
+            </p>
+            <label v-else>
+              Técnico
+              <select v-model="tecnicoId" @change="verPropuesta">
+                <option value="">— elija —</option>
+                <option v-for="tecnico in tecnicos" :key="tecnico.id" :value="tecnico.id">
+                  {{ tecnico.fullName }}
+                </option>
+              </select>
+            </label>
 
-        <article class="card">
-          <h2>{{ editando ? 'Corregir el gasto' : 'Registrar un gasto' }}</h2>
-          <form class="gasto" @submit.prevent="guardar">
+            <template v-if="propuesta">
+              <p v-if="propuesta.payMode === TechnicianPayMode.Undefined" class="muted small">
+                A {{ propuesta.technicianName }} no se le ha definido cómo se le paga. Se
+                configura en Usuarios, en su ficha.
+              </p>
+              <template v-else>
+                <dl class="cuentas">
+                  <div class="renglon">
+                    <dt>Cómo se le paga</dt>
+                    <dd>
+                      {{ PAY_MODE_LABEL[propuesta.payMode] }}
+                      <span class="muted small">
+                        ·
+                        {{
+                          propuesta.payMode === TechnicianPayMode.Percentage
+                            ? `${propuesta.payAmount}%`
+                            : formatMoney(propuesta.payAmount)
+                        }}
+                      </span>
+                    </dd>
+                  </div>
+                  <div v-if="propuesta.payMode === TechnicianPayMode.Percentage" class="renglon">
+                    <dt>Mano de obra que generó</dt>
+                    <dd class="num">{{ formatMoney(propuesta.laborRevenue) }}</dd>
+                  </div>
+                  <div v-if="propuesta.payMode === TechnicianPayMode.Hourly" class="renglon">
+                    <dt>Horas registradas</dt>
+                    <dd class="num">{{ propuesta.hours }}</dd>
+                  </div>
+                  <div class="renglon suma">
+                    <dt>Le toca</dt>
+                    <dd class="num">{{ formatMoney(propuesta.proposal) }}</dd>
+                  </div>
+                  <div v-if="propuesta.alreadyPaid > 0" class="renglon">
+                    <dt>Ya se le pagó en el periodo</dt>
+                    <dd class="num">{{ formatMoney(propuesta.alreadyPaid) }}</dd>
+                  </div>
+                </dl>
+                <p class="muted small">
+                  Pasa al formulario de gasto como salario. Ahí puede cambiar el monto antes de
+                  guardarlo: lo que se le paga de verdad lo decide usted.
+                </p>
+              </template>
+            </template>
+          </template>
+
+          <form v-else id="form-gasto" class="gasto" @submit.prevent="guardar">
             <div class="row">
               <label>
                 Categoría
@@ -538,84 +686,34 @@ onMounted(async () => {
               costo cuando se vende. Registrarlo en los dos lados contaría la misma plata dos
               veces.
             </p>
-
-            <div class="acciones-form">
-              <button type="submit" :disabled="busy || !form.description.trim() || !form.amount">
-                {{ editando ? 'Guardar' : 'Registrar' }}
-              </button>
-              <button
-                v-if="editando"
-                type="button"
-                class="btn-ghost"
-                @click="((editando = null), (form = vacio()))"
-              >
-                Cancelar
-              </button>
-            </div>
           </form>
-        </article>
+        </div>
 
-        <!-- Se enseña siempre, también sin técnicos: escondida parecía que la pantalla no
-             servía, cuando lo que pasaba era que no había a quién pagarle. -->
-        <article class="card">
-          <h2>Pagarle a un técnico</h2>
-          <p v-if="!tecnicos.length" class="muted small">
-            Todavía no hay técnicos. Cuando cree uno en Usuarios y le defina cómo se le paga
-            —fijo, porcentaje o por hora—, aquí sale cuánto le toca por el periodo.
-          </p>
-          <label v-else>
-            Técnico
-            <select v-model="tecnicoId" @change="verPropuesta">
-              <option value="">— elija —</option>
-              <option v-for="tecnico in tecnicos" :key="tecnico.id" :value="tecnico.id">
-                {{ tecnico.fullName }}
-              </option>
-            </select>
-          </label>
-
-          <template v-if="propuesta">
-            <p v-if="propuesta.payMode === TechnicianPayMode.Undefined" class="muted small">
-              A {{ propuesta.technicianName }} no se le ha definido cómo se le paga. Se
-              configura en Usuarios, en su ficha.
-            </p>
-            <template v-else>
-              <dl class="cuentas">
-                <dt>Cómo se le paga</dt>
-                <dd>
-                  {{ PAY_MODE_LABEL[propuesta.payMode] }}
-                  <span class="muted small">
-                    ·
-                    {{
-                      propuesta.payMode === TechnicianPayMode.Percentage
-                        ? `${propuesta.payAmount}%`
-                        : formatMoney(propuesta.payAmount)
-                    }}
-                  </span>
-                </dd>
-                <template v-if="propuesta.payMode === TechnicianPayMode.Percentage">
-                  <dt>Mano de obra que generó</dt>
-                  <dd class="num">{{ formatMoney(propuesta.laborRevenue) }}</dd>
-                </template>
-                <template v-if="propuesta.payMode === TechnicianPayMode.Hourly">
-                  <dt>Horas registradas</dt>
-                  <dd class="num">{{ propuesta.hours }}</dd>
-                </template>
-                <dt class="fuerte">Le toca</dt>
-                <dd class="fuerte num">{{ formatMoney(propuesta.proposal) }}</dd>
-                <template v-if="propuesta.alreadyPaid > 0">
-                  <dt>Ya se le pagó en el periodo</dt>
-                  <dd class="num">{{ formatMoney(propuesta.alreadyPaid) }}</dd>
-                </template>
-              </dl>
-              <button type="button" :disabled="busy" @click="pagarle">Registrar el pago</button>
-              <p class="muted small">
-                Pasa al formulario de gasto como salario. Ahí puede cambiar el monto antes de
-                guardarlo: lo que se le paga de verdad lo decide usted.
-              </p>
-            </template>
+        <footer class="ventana-pie">
+          <template v-if="modal === 'gasto'">
+            <button
+              type="submit"
+              form="form-gasto"
+              :disabled="busy || !form.description.trim() || !form.amount"
+            >
+              {{ editando ? 'Guardar' : 'Registrar' }}
+            </button>
+            <button type="button" class="btn-ghost" @click="cerrar">Cancelar</button>
           </template>
-        </article>
-      </aside>
+          <template v-else-if="modal === 'tecnico'">
+            <button
+              v-if="propuesta && propuesta.payMode !== TechnicianPayMode.Undefined"
+              type="button"
+              :disabled="busy"
+              @click="pagarle"
+            >
+              Registrar el pago
+            </button>
+            <button type="button" class="btn-ghost" @click="cerrar">Cerrar</button>
+          </template>
+          <button v-else type="button" @click="cerrar">Listo</button>
+        </footer>
+      </div>
     </div>
   </section>
 </template>
@@ -704,13 +802,13 @@ h1 {
 
 .resultado {
   display: grid;
-  gap: 2rem;
+  gap: 2.5rem;
   margin-bottom: 1rem;
 }
 
-@media (min-width: 60rem) {
+@media (min-width: 64rem) {
   .resultado {
-    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+    grid-template-columns: minmax(24rem, 30rem) minmax(0, 1fr);
   }
 }
 
@@ -723,33 +821,51 @@ h1 {
   color: var(--text-muted);
 }
 
+/* Cada cuenta es su propia fila: con una rejilla de dos columnas, «Costo de lo vendido»
+   partía en dos renglones y su cifra quedaba a media altura de la etiqueta. */
 .cuentas {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-1) var(--space-4);
   margin: 0;
 }
 
-.cuentas dt,
-.cuentas dd {
+.renglon {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.4rem 0;
+}
+
+.renglon dt,
+.renglon dd {
   margin: 0;
 }
 
-.sangria {
-  padding-left: 1rem;
+.renglon dd {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.renglon.sangria {
+  padding: 0.15rem 0 0.15rem 1rem;
   font-size: 0.875rem;
   color: var(--text-muted);
 }
 
-.fuerte {
-  font-weight: 600;
-  padding-top: 0.3rem;
+.renglon.suma {
+  margin-top: 0.3rem;
+  padding-top: 0.6rem;
   border-top: 1px solid var(--border);
+  font-weight: 600;
 }
 
-.grande {
+.renglon.total dd {
   font-size: var(--text-xl);
   line-height: var(--leading-tight);
+}
+
+.pct {
+  display: block;
+  font-weight: 400;
 }
 
 .perdida {
@@ -795,26 +911,7 @@ h1 {
   border-top: 1px solid var(--border);
 }
 
-/* ------------------------------------------------------------------ gastos y formularios */
-
-.layout {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1fr) 24rem;
-  align-items: start;
-}
-
-@media (max-width: 68rem) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.columna {
-  display: grid;
-  gap: 1rem;
-  align-content: start;
-}
+/* ------------------------------------------------------------------ los gastos */
 
 .panel {
   border: 1px solid var(--border);
@@ -827,7 +924,8 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.875rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.875rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-alt);
 }
@@ -835,6 +933,19 @@ h1 {
 .panel-top h2 {
   margin: 0;
   font-size: 1rem;
+}
+
+.panel-acciones {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.panel-acciones svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: 0.3rem;
+  vertical-align: -0.1rem;
 }
 
 .cuantos {
@@ -942,13 +1053,57 @@ h1 {
   text-align: center;
 }
 
-.card h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
+/* ------------------------------------------------------------------ la ventana */
+
+.fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 55%);
 }
 
-.card .cuentas {
-  margin: 0.75rem 0;
+.ventana {
+  display: flex;
+  flex-direction: column;
+  width: min(34rem, 100%);
+  max-height: min(90vh, 48rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 35%);
+}
+
+.ventana-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ventana-top h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.ventana-cuerpo {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+  padding: 0.875rem;
+  overflow-y: auto;
+}
+
+.ventana-pie {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-alt);
 }
 
 .gasto {
@@ -963,10 +1118,10 @@ h1 {
 }
 
 .row label {
-  flex: 1 1 8rem;
+  flex: 1 1 10rem;
 }
 
-.card label {
+.ventana label {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
@@ -974,8 +1129,8 @@ h1 {
   color: var(--text-muted);
 }
 
-.card input,
-.card select {
+.ventana input,
+.ventana select {
   width: 100%;
 }
 
@@ -985,10 +1140,5 @@ h1 {
   border-left: 2px solid var(--border);
   background: var(--surface-alt);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-
-.acciones-form {
-  display: flex;
-  gap: 0.5rem;
 }
 </style>
