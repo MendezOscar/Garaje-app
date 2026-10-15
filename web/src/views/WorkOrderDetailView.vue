@@ -189,6 +189,46 @@ const siguienteNatural = computed(() => {
   return candidatos.find((s) => s > (order.value?.status ?? 0)) ?? candidatos[0] ?? null
 })
 
+/**
+ * El camino de la orden, para la tira de arriba: dónde va y cuánto le falta.
+ *
+ * Son seis hitos y no los nueve estados: «esperando aprobación» y «esperando repuestos» no
+ * son un lugar del camino sino una parada en el mismo sitio, así que se enseñan como el hito
+ * en el que la orden está detenida, con su color. Cancelada no lleva tira: no hay camino.
+ */
+const CAMINO: { estado: WorkOrderStatus; titulo: string }[] = [
+  { estado: WorkOrderStatus.Received, titulo: 'Recibida' },
+  { estado: WorkOrderStatus.Diagnosing, titulo: 'Diagnóstico' },
+  { estado: WorkOrderStatus.InProgress, titulo: 'En proceso' },
+  { estado: WorkOrderStatus.Testing, titulo: 'En pruebas' },
+  { estado: WorkOrderStatus.Ready, titulo: 'Lista' },
+  { estado: WorkOrderStatus.Delivered, titulo: 'Entregada' },
+]
+
+const camino = computed(() => {
+  const o = order.value
+  if (!o || o.status === WorkOrderStatus.Cancelled) return []
+
+  // Detenida: el hito es «En proceso», que es donde está parada, y el rótulo lo dice.
+  const detenida =
+    o.status === WorkOrderStatus.WaitingApproval || o.status === WorkOrderStatus.WaitingParts
+
+  const actual = detenida ? WorkOrderStatus.InProgress : o.status
+
+  return CAMINO.map((hito) => ({
+    titulo:
+      detenida && hito.estado === actual ? WORK_ORDER_STATUS_LABEL[o.status] : hito.titulo,
+    estado:
+      hito.estado < actual
+        ? 'hecho'
+        : hito.estado === actual
+          ? detenida
+            ? 'detenida'
+            : 'ahora'
+          : 'pendiente',
+  }))
+})
+
 /** Los demás caminos permitidos, incluidos los que detienen la orden y la cancelación. */
 const otrosEstados = computed(() =>
   (order.value?.allowedNextStatuses ?? []).filter((s) => s !== siguienteNatural.value),
@@ -891,6 +931,13 @@ onMounted(async () => {
          orden había que buscarla desplazando. -->
     <header class="fija">
       <div class="quien">
+        <!-- Volver a la bandeja sin usar el botón del navegador: se entra aquí desde el
+             tablero, se atiende y se vuelve, decenas de veces al día. -->
+        <RouterLink class="volver" :to="{ name: 'work-orders' }" title="Volver a las órdenes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="m15 6-6 6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </RouterLink>
         <h1 class="num">{{ order.number }}</h1>
         <StatusBadge :status="order.status" />
         <!-- Lo primero que hay que saber al abrir la orden: si el cliente ya tiene motivo
@@ -967,6 +1014,15 @@ onMounted(async () => {
         </details>
       </div>
     </header>
+
+    <!-- Dónde va la orden, de un vistazo. El estado exacto ya está en la insignia de arriba;
+         esto contesta la otra pregunta: cuánto le falta. -->
+    <ol v-if="camino.length" class="camino">
+      <li v-for="hito in camino" :key="hito.titulo" :class="hito.estado">
+        <span class="raya" />
+        <span class="hito">{{ hito.titulo }}</span>
+      </li>
+    </ol>
 
     <!-- La nota del cambio de estado vive junto a los botones que la usan, pero plegada: casi
          ningún cambio de estado lleva nota, y en la cabecera ocupaba una fila entera. -->
@@ -2029,12 +2085,95 @@ header.fija {
   background: var(--surface);
 }
 
+.volver {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.volver:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.volver svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
 .quien {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
   min-width: 0;
+}
+
+/* ------------------------------------------------------------------ el camino */
+
+.camino {
+  list-style: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.camino li {
+  min-width: 0;
+}
+
+.camino .raya {
+  display: block;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.camino .hito {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.camino .hecho .raya {
+  background: color-mix(in srgb, var(--brand) 55%, var(--border));
+}
+
+.camino .ahora .raya {
+  background: var(--brand);
+}
+
+.camino .ahora .hito {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Detenida: el hito en el que está parada se pinta en ámbar, que es lo que dice que ahí no
+   avanza nada hasta que alguien de fuera conteste. */
+.camino .detenida .raya {
+  background: var(--warning);
+}
+
+.camino .detenida .hito {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+@media (max-width: 48rem) {
+  .camino .hito {
+    font-size: 0.6875rem;
+  }
 }
 
 header h1 {
