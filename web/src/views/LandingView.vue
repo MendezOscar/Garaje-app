@@ -41,6 +41,11 @@ const talleres = [
     logo: '/talleres/artico.jpg',
     fondo: 'oscuro',
   },
+  {
+    nombre: 'Ariel Garage',
+    logo: '/talleres/ariel.jpg',
+    fondo: 'oscuro',
+  },
 ]
 
 /**
@@ -990,8 +995,8 @@ h1 {
 }
 
 .marco {
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 4rem;
+  height: 4rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   display: grid;
