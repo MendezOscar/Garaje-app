@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { publicBookingApi } from '@/api/garaj'
 import BrandLogo from '@/components/BrandLogo.vue'
@@ -8,6 +8,7 @@ import {
   APPOINTMENT_SLOT_LABEL,
   AppointmentSlot,
   type BookingPage,
+  type PublicAppointment,
 } from '@/types/domain'
 import { formatDay } from '@/utils/format'
 
@@ -19,10 +20,17 @@ import { formatDay } from '@/utils/format'
  * datos de verdad del vehículo se toman en el taller, con el carro enfrente.
  */
 const route = useRoute()
-const router = useRouter()
 const token = computed(() => route.params.token as string)
 
 const taller = ref<BookingPage | null>(null)
+
+/**
+ * La cita, una vez pedida. Se enseña **aquí mismo** y no se cambia de pantalla a propósito:
+ * cambiar de pantalla obliga al navegador a bajar otro archivo, y si el sitio se desplegó de
+ * nuevo mientras la persona llenaba la hoja, ese archivo ya no existe y lo que ve es un error
+ * —con la cita ya pedida—. Lo que acaba de mandar no puede depender de eso.
+ */
+const pedida = ref<PublicAppointment | null>(null)
 const cargando = ref(true)
 const error = ref('')
 const enviando = ref(false)
@@ -58,7 +66,7 @@ async function pedir() {
   enviando.value = true
   error.value = ''
   try {
-    const cita = await publicBookingApi.book(token.value, {
+    pedida.value = await publicBookingApi.book(token.value, {
       branchId: form.value.branchId || taller.value.branches[0]?.id || '',
       contactName: form.value.contactName.trim(),
       contactPhone: form.value.contactPhone.trim(),
@@ -68,9 +76,7 @@ async function pedir() {
       slot: form.value.slot,
     })
 
-    // Se sale de esta página a la de su cita: ese enlace es el que puede volver a abrir para
-    // ver si se la confirmaron.
-    await router.replace({ name: 'my-appointment', params: { token: cita.token } })
+    window.scrollTo({ top: 0 })
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo pedir la cita. Intente de nuevo.')
   } finally {
@@ -104,7 +110,33 @@ onMounted(async () => {
         </p>
       </header>
 
-      <p v-if="!taller.enabled" class="aviso">
+      <!-- Pedida. Lo primero es que sepa que sí entró, y el enlace para volver a verla. -->
+      <template v-if="pedida">
+        <p class="hecho">Su cita quedó pedida</p>
+        <dl class="datos">
+          <dt>Día</dt>
+          <dd>
+            {{ formatDay(pedida.day) }}
+            <span class="muted">· {{ APPOINTMENT_SLOT_LABEL[pedida.slot] }}</span>
+          </dd>
+          <dt>Dónde</dt>
+          <dd>
+            {{ pedida.branchName }}
+            <span v-if="pedida.branchAddress" class="muted bloque">{{ pedida.branchAddress }}</span>
+          </dd>
+          <dt>Qué pidió</dt>
+          <dd>{{ pedida.reason }}</dd>
+        </dl>
+        <p class="muted small">
+          Queda <strong>por confirmar</strong> hasta que el taller le conteste por WhatsApp.
+          Si ese día no les cabe, le proponen otro.
+        </p>
+        <!-- Enlace de verdad y no navegación interna: así la página se baja entera y no
+             depende de lo que esta pestaña tenga cargado. Guárdelo, es el suyo. -->
+        <a class="boton" :href="`/mi-cita/${pedida.token}`">Ver mi cita</a>
+      </template>
+
+      <p v-else-if="!taller.enabled" class="aviso">
         Este taller no está agendando citas por ahora. Escríbale directamente por WhatsApp.
       </p>
 
@@ -266,10 +298,19 @@ header p.small {
   color: var(--text-muted);
 }
 
+.form label,
+.row label {
+  /* Sin esto, un campo con contenido largo —la sucursal con su dirección— no deja encoger a
+     su columna y la hoja entera se va más ancha que la pantalla del teléfono. */
+  min-width: 0;
+}
+
 .form input,
 .form select,
 .form textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   /* 16 px: con menos, el navegador del teléfono hace zoom al tocar el campo y la hoja se
      descuadra justo cuando se está escribiendo. */
   font-size: 1rem;
@@ -288,6 +329,53 @@ header p.small {
 .form button {
   padding: 0.75rem;
   font-size: 1rem;
+}
+
+.hecho {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--success) 45%, var(--border));
+  border-radius: 999px;
+  color: var(--success-text);
+  font-weight: 600;
+  display: inline-block;
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.5rem 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.datos dt {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.datos dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.bloque {
+  display: block;
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.boton:hover {
+  text-decoration: none;
+  background: var(--brand-deep);
 }
 
 .aviso {
