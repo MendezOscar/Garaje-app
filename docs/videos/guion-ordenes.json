@@ -1,0 +1,179 @@
+{
+  "nombre": "ordenes",
+  "titulo": "La orden de trabajo",
+  "imagen": "ord-32.png",
+  "voz": "Paulina",
+  "velocidad": 188,
+  "escenas": [
+    {
+      "titulo": "La orden de trabajo",
+      "texto": "Todo el vehículo en un solo lugar",
+      "narracion": "Esta es la orden. Todo lo de ese vehículo vive aquí, desde que entra hasta que se factura.",
+      "foco": null
+    },
+    {
+      "titulo": "Diagnóstico",
+      "texto": "Qué encontró el técnico",
+      "narracion": "Primero el diagnóstico: con sus palabras, qué fue lo que se encontró al revisar.",
+      "imagen": "ord-33.png",
+      "foco": [
+        48,
+        400,
+        1075,
+        345
+      ]
+    },
+    {
+      "titulo": "Recepción del vehículo",
+      "texto": "Se llena delante del cliente",
+      "narracion": "La recepción se llena delante del cliente: combustible, kilometraje y los golpes que ya traía.",
+      "imagen": "ord-34.png",
+      "foco": null
+    },
+    {
+      "titulo": "La firma",
+      "texto": "Lo que vale si después reclaman",
+      "narracion": "Y el cliente firma con el dedo. Eso es lo que vale el día que discutan si un golpe venía o no.",
+      "imagen": "ord-35.png",
+      "foco": [
+        48,
+        1555,
+        1075,
+        570
+      ]
+    },
+    {
+      "titulo": "Cada trabajo es un paso",
+      "texto": "Del catálogo, a mano o sin cobro",
+      "narracion": "Cada trabajo es un paso. Lo saca del catálogo, le pone precio a mano, o lo deja sin cobro.",
+      "imagen": "ord-36.png",
+      "foco": [
+        48,
+        330,
+        1075,
+        140
+      ]
+    },
+    {
+      "titulo": "Guardarlo en el catálogo",
+      "texto": "Para no volver a escribirlo",
+      "narracion": "Si es un trabajo que hace seguido, guárdelo en el catálogo y ya no lo vuelve a escribir.",
+      "imagen": "ord-37.png",
+      "foco": [
+        48,
+        2060,
+        1075,
+        310
+      ]
+    },
+    {
+      "titulo": "Repuestos",
+      "texto": "Del inventario o a mano",
+      "narracion": "Los repuestos salen de su inventario, o los carga a mano con su precio y, si quiere, su costo.",
+      "imagen": "ord-39.png",
+      "foco": null
+    },
+    {
+      "titulo": "Su ganancia",
+      "texto": "Solo el dueño la ve",
+      "narracion": "Y aquí, solo para usted: lo que deja esa orden ya descontando el costo de los repuestos.",
+      "imagen": "ord-41.png",
+      "foco": [
+        48,
+        680,
+        1075,
+        330
+      ]
+    },
+    {
+      "titulo": "Los pasos",
+      "texto": "Con su técnico y su precio",
+      "narracion": "Los pasos quedan listados, cada uno con su técnico, su precio y su casilla para ir marcando.",
+      "imagen": "ord-41.png",
+      "foco": [
+        48,
+        1080,
+        1075,
+        560
+      ]
+    },
+    {
+      "titulo": "La cotización",
+      "texto": "Se arma sola",
+      "narracion": "La cotización se arma sola con los pasos y los repuestos. Agréguele fotos del daño.",
+      "imagen": "ord-43.png",
+      "foco": null
+    },
+    {
+      "titulo": "Por WhatsApp",
+      "texto": "Con su fecha de vencimiento",
+      "narracion": "Se la manda por WhatsApp, con su vencimiento y, si quiere, con la ficha del vehículo.",
+      "imagen": "ord-43.png",
+      "foco": [
+        48,
+        2180,
+        1075,
+        300
+      ]
+    },
+    {
+      "titulo": "El cliente la aprueba",
+      "texto": "Desde su teléfono",
+      "narracion": "El cliente la abre en su teléfono, la aprueba y hasta la descarga en pedeefe.",
+      "imagen": "ord-44.png",
+      "foco": null
+    },
+    {
+      "titulo": "A usted le avisa",
+      "texto": "En el momento",
+      "narracion": "Y a usted le cae la notificación en el momento en que la aprueba, sin tener que estar preguntando.",
+      "imagen": "ord-45.png",
+      "foco": [
+        40,
+        1945,
+        1090,
+        180
+      ]
+    },
+    {
+      "titulo": "Cómo va el trabajo",
+      "texto": "Con una nota que el cliente ve",
+      "narracion": "Después va moviendo la orden: en proceso, en pruebas, lista para entrega, con una nota que el cliente ve.",
+      "imagen": "ord-46.png",
+      "foco": null
+    },
+    {
+      "titulo": "Línea de tiempo",
+      "texto": "Quién hizo qué y a qué hora",
+      "narracion": "Todo queda escrito en la línea de tiempo: quién hizo qué, a qué hora y qué dijo.",
+      "imagen": "ord-48.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cerrar y facturar",
+      "texto": "Pago, garantía y factura",
+      "narracion": "Al cerrar escoge forma de pago, garantía, si lleva factura con cai y si queda debiendo.",
+      "imagen": "ord-49.png",
+      "foco": null
+    },
+    {
+      "titulo": "El próximo servicio",
+      "texto": "Para que vuelva",
+      "narracion": "Y le deja puesto el próximo servicio, por fecha o por kilometraje, para avisarle cuando le toque.",
+      "imagen": "ord-49.png",
+      "foco": [
+        48,
+        2200,
+        1075,
+        330
+      ]
+    },
+    {
+      "titulo": "La factura",
+      "texto": "Pagada y compartida",
+      "narracion": "Sale la factura, queda pagada, y se la comparte al cliente en pedeefe por donde usted quiera.",
+      "imagen": "ord-52.png",
+      "foco": null
+    }
+  ]
+}
