@@ -1,0 +1,120 @@
+{
+  "nombre": "por-cobrar-y-ventas",
+  "titulo": "Por cobrar y ventas",
+  "imagen": "caja-68.png",
+  "voz": "Paulina",
+  "velocidad": 180,
+  "escenas": [
+    {
+      "titulo": "Por cobrar",
+      "texto": "La plata que está en la calle",
+      "narracion": "En Más, Por cobrar, está lo que el taller ya trabajó y todavía no le pagan.",
+      "foco": [48, 970, 1075, 185]
+    },
+    {
+      "titulo": "Cuánto y qué tan vencido",
+      "texto": "Todas, vencidas o por vencer",
+      "narracion": "Arriba le dice cuántas facturas tienen saldo y cuánto de eso ya está vencido. Puede filtrar por vencidas o por vencer.",
+      "imagen": "caja-69.png",
+      "foco": [48, 495, 1075, 290]
+    },
+    {
+      "titulo": "Factura por factura",
+      "texto": "Con lo que ya abonó",
+      "narracion": "Cada renglón trae el cliente, la factura, la sucursal, hace cuánto venció y cuánto lleva abonado.",
+      "imagen": "caja-69.png",
+      "foco": [48, 795, 1075, 290]
+    },
+    {
+      "titulo": "Abonar",
+      "texto": "Aunque sea un pedazo",
+      "narracion": "Cuando le paguen, aunque sea una parte, toque Abonar: cuánto, con qué pagó y una referencia si hace falta.",
+      "imagen": "caja-70.png",
+      "foco": null
+    },
+    {
+      "titulo": "Queda el historial",
+      "texto": "Cada abono con su fecha",
+      "narracion": "Los abonos quedan uno debajo del otro, con su fecha y su forma de pago. El saldo se baja solo.",
+      "imagen": "caja-71.png",
+      "foco": null
+    },
+    {
+      "titulo": "Estado de cuenta",
+      "texto": "Todas sus facturas, no solo esta",
+      "narracion": "Y le manda el estado de cuenta por WhatsApp, con todas las facturas que ese cliente tiene pendientes.",
+      "imagen": "caja-71.png",
+      "foco": [48, 2215, 1075, 155]
+    },
+    {
+      "titulo": "El mensaje, escrito",
+      "texto": "Con su enlace",
+      "narracion": "El mensaje sale escrito, con el saldo y un enlace para que el cliente vea el detalle.",
+      "imagen": "caja-72.png",
+      "foco": [40, 1495, 1090, 375]
+    },
+    {
+      "titulo": "Lo que ve el cliente",
+      "texto": "Factura por factura, con sus abonos",
+      "narracion": "El cliente abre el enlace y ve su saldo, cada factura y cada abono que le ha hecho. Sin discusiones.",
+      "imagen": "caja-73.png",
+      "foco": null
+    },
+    {
+      "titulo": "Ventas",
+      "texto": "Lo facturado, y vender de mostrador",
+      "narracion": "La otra pantalla es Ventas: ahí está todo lo que el taller ha facturado.",
+      "imagen": "caja-74.png",
+      "foco": [48, 855, 1075, 175]
+    },
+    {
+      "titulo": "Hoy, siete o treinta días",
+      "texto": "Con su total",
+      "narracion": "Lo ve por hoy, por siete o por treinta días, con cuántas fueron de mostrador y cuánto suman.",
+      "imagen": "caja-75.png",
+      "foco": [48, 490, 1075, 290]
+    },
+    {
+      "titulo": "Venta rápida",
+      "texto": "Para el que solo viene a comprar",
+      "narracion": "Y para el cliente que solo llega a comprar algo, sin dejar el vehículo, está Venta rápida.",
+      "imagen": "caja-75.png",
+      "foco": [700, 2195, 430, 145]
+    },
+    {
+      "titulo": "El repuesto",
+      "texto": "De su propio inventario",
+      "narracion": "Busque el repuesto en su inventario: le muestra el código, el precio y cuánto le queda en bodega.",
+      "imagen": "caja-76.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cantidad y precio",
+      "texto": "Y descuento si le da",
+      "narracion": "Le pone cantidad, precio y descuento. Puede agregar más repuestos, o un trabajo, en la misma venta.",
+      "imagen": "caja-77.png",
+      "foco": [48, 565, 1075, 530]
+    },
+    {
+      "titulo": "Quién compra",
+      "texto": "Opcional, pero conviene",
+      "narracion": "El cliente es opcional: sin cliente es una venta de paso; con cliente le queda en su historial y se le puede facturar con su erre te ene.",
+      "imagen": "caja-78.png",
+      "foco": [48, 995, 1075, 400]
+    },
+    {
+      "titulo": "O un trabajo",
+      "texto": "De su lista o escrito a mano",
+      "narracion": "Si no es un repuesto sino un trabajo, lo escoge de su lista de mano de obra o lo escribe con su precio.",
+      "imagen": "caja-80.png",
+      "foco": [48, 970, 1075, 475]
+    },
+    {
+      "titulo": "Y queda registrada",
+      "texto": "La bodega se descarga sola",
+      "narracion": "Al registrarla sale su comprobante, y los repuestos salen de la bodega solos. Otra venta, y a seguir.",
+      "imagen": "caja-79.png",
+      "foco": null
+    }
+  ]
+}
