@@ -1,0 +1,71 @@
+{
+  "nombre": "recordatorios-y-reclamos",
+  "titulo": "Recordatorios y reclamos",
+  "imagen": "rec-61.png",
+  "voz": "Paulina",
+  "velocidad": 178,
+  "escenas": [
+    {
+      "titulo": "Recordatorios",
+      "texto": "A quién le toca servicio",
+      "narracion": "En Más, Recordatorios, están los vehículos a los que les toca servicio. Es trabajo que ya se ganó: solo hay que llamar.",
+      "foco": [48, 1030, 1075, 200]
+    },
+    {
+      "titulo": "Tres listas",
+      "texto": "Este mes, ya les tocaba, ya recordados",
+      "narracion": "Tres listas: los de este mes, los que ya se les pasó la fecha, y los que usted ya recordó.",
+      "imagen": "rec-62.png",
+      "foco": [48, 495, 1075, 125]
+    },
+    {
+      "titulo": "Cada vehículo",
+      "texto": "Con su kilometraje y su orden",
+      "narracion": "Cada uno trae el cliente, el vehículo, a los cuántos kilómetros le toca y de qué orden viene.",
+      "imagen": "rec-62.png",
+      "foco": [48, 660, 1075, 445]
+    },
+    {
+      "titulo": "Recordar por WhatsApp",
+      "texto": "El mensaje ya viene escrito",
+      "narracion": "El botón le arma el mensaje solo, con el nombre, el vehículo y la fecha. Usted únicamente lo manda.",
+      "imagen": "rec-63.png",
+      "foco": [40, 1725, 1090, 390]
+    },
+    {
+      "titulo": "Reclamos",
+      "texto": "Cuando el trabajo quedó mal",
+      "narracion": "Y en Reclamos se anota cuando el cliente vuelve porque algo quedó mal. Que quede escrito, no de boca.",
+      "imagen": "rec-64.png",
+      "foco": [48, 1240, 1075, 205]
+    },
+    {
+      "titulo": "Sobre qué trabajo",
+      "texto": "Por factura, orden o cliente",
+      "narracion": "Busque el trabajo por la factura, por la orden o por el nombre del cliente.",
+      "imagen": "rec-65.png",
+      "foco": [48, 1100, 1075, 310]
+    },
+    {
+      "titulo": "Qué dice que pasó",
+      "texto": "Con sus palabras",
+      "narracion": "Escriba con las palabras del cliente qué es lo que está pasando: eso es lo que se lee después, cuando hay que decidir.",
+      "imagen": "rec-66.png",
+      "foco": null
+    },
+    {
+      "titulo": "Si estaba en garantía",
+      "texto": "La aplicación se lo dice",
+      "narracion": "El reclamo queda abierto y le avisa si ese trabajo todavía estaba en garantía cuando el cliente volvió.",
+      "imagen": "rec-67.png",
+      "foco": [48, 350, 1075, 690]
+    },
+    {
+      "titulo": "Y se atiende",
+      "texto": "Abriendo la orden de reparación",
+      "narracion": "Desde ahí le abre la orden de reparación, y cuando queda resuelto, lo cierra. Mientras siga abierto, no se le olvida.",
+      "imagen": "rec-67.png",
+      "foco": null
+    }
+  ]
+}
