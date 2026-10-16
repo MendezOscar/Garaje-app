@@ -25,6 +25,7 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
 
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
     public DbSet<WorkOrderTask> WorkOrderTasks => Set<WorkOrderTask>();
     public DbSet<WorkOrderPart> WorkOrderParts => Set<WorkOrderPart>();

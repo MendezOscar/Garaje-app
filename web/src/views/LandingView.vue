@@ -107,6 +107,7 @@ const modulos = [
   'Reclamos y garantías',
   'Historial por placa',
   'Recordatorios de servicio',
+  'Citas por enlace',
   'Reportes y Excel',
   'Encargados por sucursal',
 ]

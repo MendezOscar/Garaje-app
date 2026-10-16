@@ -43,6 +43,22 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    // Pedir cita sin cuenta: el enlace que el taller manda por WhatsApp o pega en un QR del
+    // mostrador. Es el único enlace público que no habla de algo que ya existe, sino que
+    // crea algo nuevo; por eso el límite de peticiones vive del lado de la API.
+    path: '/cita/:token',
+    name: 'booking',
+    component: () => import('@/views/BookingView.vue'),
+    meta: { public: true },
+  },
+  {
+    // La cita ya pedida, para que el cliente vea si se la confirmaron o la cancele.
+    path: '/mi-cita/:token',
+    name: 'my-appointment',
+    component: () => import('@/views/MyAppointmentView.vue'),
+    meta: { public: true },
+  },
+  {
     // La raíz es la página de venta, no el panel: quien recibe el enlace por WhatsApp no
     // tiene cuenta, y antes caía en el formulario de acceso. El panel entra por "/login".
     path: '/',
@@ -135,6 +151,14 @@ const routes: RouteRecordRaw[] = [
         path: 'reportes',
         name: 'reports',
         component: () => import('@/views/owner/ReportsView.vue'),
+        meta: { roles: [Roles.Owner, Roles.Manager] },
+      },
+      {
+        // La agenda: lo que el cliente apartó por el enlace o desde la app. El Encargado ve
+        // la de sus sucursales.
+        path: 'citas',
+        name: 'appointments',
+        component: () => import('@/views/owner/AppointmentsView.vue'),
         meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {

@@ -97,6 +97,8 @@ class TenantSettings {
     required this.storageFreeDays,
     required this.storageDailyRate,
     required this.techniciansSeePrices,
+    required this.bookingEnabled,
+    this.bookingUrl,
   });
 
   factory TenantSettings.fromJson(Map<String, dynamic> json) => TenantSettings(
@@ -113,6 +115,8 @@ class TenantSettings {
         storageFreeDays: (json['storageFreeDays'] as num?)?.toInt() ?? 3,
         storageDailyRate: (json['storageDailyRate'] as num?)?.toDouble() ?? 0,
         techniciansSeePrices: json['techniciansSeePrices'] as bool? ?? true,
+        bookingEnabled: json['bookingEnabled'] as bool? ?? true,
+        bookingUrl: json['bookingUrl'] as String?,
       );
 
   final String name;
@@ -129,6 +133,12 @@ class TenantSettings {
   final double storageDailyRate;
   final bool techniciansSeePrices;
 
+  /// Si el enlace público de citas recibe solicitudes.
+  final bool bookingEnabled;
+
+  /// El enlace ya armado por la API. Null si al servidor le falta `PublicBaseUrl`.
+  final String? bookingUrl;
+
   Map<String, dynamic> toJson() => {
         'name': name,
         'legalName': legalName,
@@ -143,6 +153,9 @@ class TenantSettings {
         'storageFreeDays': storageFreeDays,
         'storageDailyRate': storageDailyRate,
         'techniciansSeePrices': techniciansSeePrices,
+        // Va siempre, también cuando no se tocó: el servidor reemplaza el taller completo y
+        // omitirlo volvería a encender las citas de un taller que las había apagado.
+        'bookingEnabled': bookingEnabled,
       };
 
   TenantSettings copyWith({
@@ -159,6 +172,7 @@ class TenantSettings {
     int? storageFreeDays,
     double? storageDailyRate,
     bool? techniciansSeePrices,
+    bool? bookingEnabled,
   }) =>
       TenantSettings(
         name: name ?? this.name,
@@ -174,6 +188,8 @@ class TenantSettings {
         storageFreeDays: storageFreeDays ?? this.storageFreeDays,
         storageDailyRate: storageDailyRate ?? this.storageDailyRate,
         techniciansSeePrices: techniciansSeePrices ?? this.techniciansSeePrices,
+        bookingEnabled: bookingEnabled ?? this.bookingEnabled,
+        bookingUrl: bookingUrl,
       );
 }
 

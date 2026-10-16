@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/tenant_repository.dart';
@@ -34,6 +36,7 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
 
   bool _cobraBodegaje = false;
   bool _tecnicoVePrecios = true;
+  bool _recibeCitas = true;
   bool _cargada = false;
   bool _busy = false;
 
@@ -64,6 +67,7 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
     _porDia.text = _sinCerosDeMas(s.storageDailyRate);
     _cobraBodegaje = s.chargesStorage;
     _tecnicoVePrecios = s.techniciansSeePrices;
+    _recibeCitas = s.bookingEnabled;
   }
 
   static String _sinCerosDeMas(double v) =>
@@ -92,6 +96,7 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
               storageFreeDays: int.tryParse(_diasGracia.text.trim()) ?? 0,
               storageDailyRate: double.tryParse(_porDia.text.trim()) ?? 0,
               techniciansSeePrices: _tecnicoVePrecios,
+              bookingEnabled: _recibeCitas,
             ),
           );
 
@@ -221,6 +226,54 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
               ),
           ],
         ),
+
+        if (actual.bookingUrl case final enlace?)
+          _Grupo(
+            titulo: 'ENLACE PARA PEDIR CITA',
+            children: [
+              Text(
+                'Mándelo por WhatsApp o imprímalo en un QR. Quien lo abra pide su cita sin '
+                'instalar nada ni crear cuenta, y a usted le llega a la pantalla de Citas.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+              ),
+              const SizedBox(height: GarajSpace.sm),
+              SelectableText(enlace, style: theme.textTheme.bodySmall),
+              const SizedBox(height: GarajSpace.sm),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: enlace));
+                      _avisar('Enlace copiado.');
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copiar'),
+                  ),
+                  const SizedBox(width: GarajSpace.sm),
+                  OutlinedButton.icon(
+                    onPressed: () => launchUrl(
+                      Uri.parse(
+                        'https://wa.me/?text='
+                        '${Uri.encodeComponent('Pida su cita aquí: $enlace')}',
+                      ),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.chat, size: 18),
+                    label: const Text('WhatsApp'),
+                  ),
+                ],
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _recibeCitas,
+                title: const Text('Recibir citas por el enlace'),
+                subtitle: const Text(
+                  'Apagado, el enlace sigue abriendo pero dice que no se está agendando.',
+                ),
+                onChanged: (v) => setState(() => _recibeCitas = v),
+              ),
+            ],
+          ),
 
         _Grupo(
           titulo: 'QUÉ VE EL TÉCNICO',

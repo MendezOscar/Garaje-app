@@ -235,6 +235,19 @@ public class ReportService(
             .Where(x => x.Balance > 0)
             .ToListAsync(ct);
 
+        // La agenda del día y lo que espera respuesta: es trabajo que ya está comprometido y
+        // se pierde si nadie lo mira.
+        var hoy = clock.Today();
+        var citas = db.Appointments.AsNoTracking()
+            .Where(a => (branchId == null || a.BranchId == branchId)
+                        && (suyas == null || suyas.Contains(a.BranchId)));
+
+        var citasPorConfirmar = await citas.CountAsync(
+            a => a.Status == AppointmentStatus.Requested && a.Day >= hoy, ct);
+
+        var citasDeHoy = await citas.CountAsync(
+            a => a.Status == AppointmentStatus.Confirmed && a.Day == hoy, ct);
+
         var belowMinimum = await db.StockItems.AsNoTracking()
             .CountAsync(s => s.MinQuantity > 0 && s.Quantity <= s.MinQuantity
                              && (branchId == null || s.BranchId == branchId)
@@ -274,6 +287,8 @@ public class ReportService(
             late,
             awaitingQuotes,
             belowMinimum,
+            citasPorConfirmar,
+            citasDeHoy,
             pending.Sum(x => x.Balance),
             pending.Where(x => x.DueDate != null && x.DueDate < todayStart).Sum(x => x.Balance),
             byStatus.OrderBy(s => s.Status).ToList(),

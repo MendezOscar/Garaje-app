@@ -1,7 +1,12 @@
 import axios from 'axios'
 import { api, download } from './client'
 import type {
+  Appointment,
+  AppointmentSlot,
+  AppointmentStatus,
   ApplyJobTemplateResult,
+  BookingPage,
+  PublicAppointment,
   Branch,
   CashClose,
   Customer,
@@ -780,6 +785,100 @@ export const publicStatementsApi = {
   },
 }
 
+export const appointmentsApi = {
+  async list(
+    query: {
+      branchId?: string
+      status?: AppointmentStatus
+      /** Rango de días, `YYYY-MM-DD`. Sin rango, de hoy en adelante. */
+      from?: string
+      to?: string
+      includeClosed?: boolean
+      page?: number
+      pageSize?: number
+    } = {},
+  ) {
+    const { data } = await api.get<Paged<Appointment>>('/api/appointments', {
+      params: params(query),
+    })
+    return data
+  },
+  /** La anota el taller, por teléfono o en el mostrador. Nace confirmada. */
+  async create(body: {
+    branchId: string
+    contactName: string
+    contactPhone: string
+    vehicleNote?: string | null
+    customerId?: string | null
+    vehicleId?: string | null
+    reason: string
+    day: string
+    slot: AppointmentSlot
+  }) {
+    const { data } = await api.post<Appointment>('/api/appointments', body)
+    return data
+  },
+  /** Confirmar puede mover el día: «ese día no, pero el jueves sí». */
+  async confirm(id: string, body: { day?: string; slot?: AppointmentSlot; note?: string } = {}) {
+    const { data } = await api.post<Appointment>(`/api/appointments/${id}/confirm`, body)
+    return data
+  },
+  async reject(id: string, reason: string) {
+    const { data } = await api.post<Appointment>(`/api/appointments/${id}/reject`, { reason })
+    return data
+  },
+  async attended(id: string, workOrderId?: string) {
+    const { data } = await api.post<Appointment>(`/api/appointments/${id}/attended`, {
+      workOrderId: workOrderId ?? null,
+    })
+    return data
+  },
+}
+
+/** El enlace de citas: sin sesión, igual que la cotización que se manda por WhatsApp. */
+export const publicBookingApi = {
+  async page(bookingToken: string): Promise<BookingPage> {
+    const { data } = await axios.get<BookingPage>(
+      `${api.defaults.baseURL}/public/booking/${bookingToken}`,
+    )
+    return data
+  },
+  async book(
+    bookingToken: string,
+    body: {
+      branchId: string
+      contactName: string
+      contactPhone: string
+      vehicleNote?: string | null
+      reason: string
+      day: string
+      slot: AppointmentSlot
+    },
+  ): Promise<PublicAppointment> {
+    const { data } = await axios.post<PublicAppointment>(
+      `${api.defaults.baseURL}/public/booking/${bookingToken}`,
+      body,
+    )
+    return data
+  },
+  async mine(token: string): Promise<PublicAppointment> {
+    const { data } = await axios.get<PublicAppointment>(
+      `${api.defaults.baseURL}/public/booking/appointments/${token}`,
+    )
+    return data
+  },
+  async cancel(token: string): Promise<PublicAppointment> {
+    const { data } = await axios.post<PublicAppointment>(
+      `${api.defaults.baseURL}/public/booking/appointments/${token}/cancel`,
+      {},
+    )
+    return data
+  },
+  logoUrl(bookingToken: string) {
+    return `${api.defaults.baseURL}/public/booking/${bookingToken}/logo`
+  },
+}
+
 export const publicQuotesApi = {
   async get(token: string): Promise<PublicQuote> {
     const { data } = await axios.get<PublicQuote>(
@@ -1105,6 +1204,8 @@ export const tenantApi = {
     chargesStorage: boolean
     storageFreeDays: number
     storageDailyRate: number
+    /** Si el enlace público de citas recibe solicitudes. */
+    bookingEnabled: boolean
   }): Promise<TenantSettings> {
     const { data } = await api.put<TenantSettings>('/api/tenant', body)
     return data

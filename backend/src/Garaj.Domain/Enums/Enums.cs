@@ -183,7 +183,45 @@ public enum NotificationType
     WorkOrderAssigned = 2,
     WorkOrderStatusChanged = 3,
     QuoteSent = 4,
-    QuoteAnswered = 5
+    QuoteAnswered = 5,
+    AppointmentRequested = 6,
+    AppointmentAnswered = 7
+}
+
+/// <summary>
+/// La franja del día en que se espera el vehículo. Son dos a propósito: un taller no cumple
+/// una hora exacta —el carro de antes se atrasa— y prometerla solo sirve para quedar mal.
+/// </summary>
+public enum AppointmentSlot
+{
+    Morning = 1,
+    Afternoon = 2
+}
+
+/// <summary>
+/// Flujo de la cita: Solicitada → Confirmada → Atendida. Rechazada la cierra el taller;
+/// Cancelada, el cliente desde su enlace.
+/// </summary>
+public enum AppointmentStatus
+{
+    Requested = 1,
+    Confirmed = 2,
+    Attended = 3,
+    Rejected = 4,
+    Cancelled = 5
+}
+
+/// <summary>De dónde salió la cita. Cambia qué datos trae y cuánto se puede confiar en ellos.</summary>
+public enum AppointmentSource
+{
+    /// <summary>El enlace que el taller manda por WhatsApp. Sin sesión y sin padrón.</summary>
+    PublicLink = 1,
+
+    /// <summary>La app del cliente: trae su cliente y su vehículo de verdad.</summary>
+    CustomerApp = 2,
+
+    /// <summary>La anotó el taller, por teléfono o en el mostrador.</summary>
+    Workshop = 3
 }
 
 public enum DevicePlatform

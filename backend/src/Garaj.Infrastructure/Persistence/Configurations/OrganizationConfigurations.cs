@@ -24,6 +24,9 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 
         // La lista del panel de plataforma se pide siempre así: lo que vence primero, arriba.
         b.HasIndex(x => x.PaidThrough);
+
+        // El enlace público de citas se resuelve por este token, sin sesión y sin tenant.
+        b.HasIndex(x => x.BookingToken).IsUnique();
     }
 }
 
