@@ -3,10 +3,9 @@
 
     python3 docs/videos/hacer-video.py docs/videos/guion-hoy.json
 
-Deja el video en docs/videos/salida/<nombre>.mp4 y, aparte, un clip corto
-por sección en docs/videos/salida/<nombre>-NN-<titulo>.mp4
+Deja el video en docs/videos/salida/<nombre>.mp4
 """
-import json, os, re, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys
 
 ANCHO, ALTO = 1080, 1920
 PIE = 330          # alto de la franja de texto
@@ -35,12 +34,6 @@ def duracion(audio):
 
 def escapar(texto):
     return (texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
-
-
-def apodo(texto):
-    limpio = re.sub(r"[^a-z0-9]+", "-", texto.lower()
-                    .translate(str.maketrans("áéíóúñ", "aeioun")))
-    return limpio.strip("-")[:28]
 
 
 def hoja(guion, base, carpeta):
@@ -127,8 +120,6 @@ def main(ruta_guion):
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20",
                 "-c:a", "aac", "-b:a", "128k", "-ar", "44100", clip])
         clips.append(clip)
-        corto = os.path.join(salida, f"{guion['nombre']}-{i:02d}-{apodo(e['titulo'])}.mp4")
-        shutil.copy(clip, corto)
 
     lista = os.path.join(taller, "lista.txt")
     with open(lista, "w") as f:
