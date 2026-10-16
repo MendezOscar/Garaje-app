@@ -1,3 +1,9 @@
 # Cloudflare Pages: el router de Vue usa history mode, así que toda ruta que no sea un
 # archivo real debe devolver index.html. Sin esto, recargar /dashboard da 404.
+#
+# El comodín también atrapa los archivos que faltan —una pestaña abierta desde antes de un
+# despliegue pide el JavaScript de la versión anterior— y les contesta el index.html con un
+# 200. Eso no se arregla aquí: `_redirects` solo admite 200, 301, 302, 303, 307 y 308, no el
+# 404. Lo corrige `functions/assets/[[path]].js`, que mira la respuesta y, si para un archivo
+# de /assets/ viene HTML, la cambia por un 404 de verdad.
 /*    /index.html   200

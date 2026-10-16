@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Estado local de `wrangler pages dev`, que es con lo que se prueban las funciones de
+# Cloudflare sin desplegar. Es caché de la máquina, no del proyecto.
+.wrangler
 *.local
 
 # Editor directories and files
