@@ -1196,7 +1196,9 @@ h3 {
 
 .modulos {
   list-style: none;
-  margin: 0;
+  /* `margin: 0` pisaba el `margin-inline: auto` de `.banda > *` y las pastillas
+     se iban contra el borde izquierdo en pantalla ancha. */
+  margin: 0 auto;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
