@@ -33,8 +33,9 @@ def escapar(texto):
 def hoja(guion, aqui, carpeta):
     logo = guion.get("logo")
     if logo and os.path.exists(os.path.join(aqui, logo)):
-        shutil.copy(os.path.join(aqui, logo), os.path.join(carpeta, logo))
-        emblema = f'<img class="logo" src="{logo}" alt="">'
+        nombre = os.path.basename(logo)
+        shutil.copy(os.path.join(aqui, logo), os.path.join(carpeta, nombre))
+        emblema = f'<img class="logo" src="{nombre}" alt="">'
     else:
         emblema = f'<div class="nombre">{escapar(guion["taller"])}</div>'
     shutil.copy(os.path.join(aqui, "..", "..", "web", "public", "brand", MARCA),
