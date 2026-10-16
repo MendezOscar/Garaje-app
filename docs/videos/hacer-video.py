@@ -110,7 +110,7 @@ def main(ruta_guion):
         correr(["say", "-v", guion.get("voz", "Paulina"),
                 "-r", str(guion.get("velocidad", 165)),
                 "-o", aiff, e["narracion"]])
-        largo = duracion(aiff) + 0.9
+        largo = duracion(aiff) + 0.6
         cuadros = int(largo * 30)
 
         clip = os.path.join(taller, f"{i:02d}.mp4")
