@@ -1010,6 +1010,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
                     b.Property<string>("Body")
                         .IsRequired()
                         .HasMaxLength(500)

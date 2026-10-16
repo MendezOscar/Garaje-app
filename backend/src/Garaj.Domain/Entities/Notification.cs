@@ -27,6 +27,7 @@ public class Notification : TenantEntity
     public Guid? WorkOrderId { get; set; }
     public Guid? QuoteId { get; set; }
     public Guid? ServiceRequestId { get; set; }
+    public Guid? AppointmentId { get; set; }
 
     /// <summary>Null mientras no se haya leído. Guarda el cuándo, no solo el sí/no.</summary>
     public DateTimeOffset? ReadAt { get; set; }

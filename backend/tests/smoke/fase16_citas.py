@@ -191,6 +191,38 @@ if vehiculos:
 codigo, _ = call('POST', f'/api/appointments/{mia["id"]}/confirm', {})
 revisar('el Cliente no confirma citas', codigo == 403, f'respondió {codigo}')
 
+# ---------- 6. El aviso ----------
+print('\n6. A quién le suena')
+# Una cita en la sucursal del Encargado: tiene que sonarle a él y al Dueño, y a nadie más.
+suya_cita = {**cita, 'branchId': suya_sucursal,
+             'contactPhone': '5049' + ''.join(random.choice('0123456789') for _ in range(7)),
+             'contactName': 'Humo del Aviso'}
+
+codigo, pedida = call('POST', f'/public/booking/{enlace}', suya_cita, auth=False)
+revisar('se pide una cita en la sucursal del Encargado', codigo == 200, f'respondió {codigo}')
+
+def avisos_de(correo):
+    global TOK
+    TOK = entrar(correo)['accessToken']
+    return call('GET', '/api/notifications?pageSize=50')[1]['items']
+
+def aviso_de_la_cita(avisos):
+    # Tipo 6 es AppointmentRequested. Se busca por el nombre para no confundirlo con las
+    # citas que dejó el sembrador.
+    return next((a for a in avisos if a['type'] == 6 and 'Humo del Aviso' in a['body']), None)
+
+del_dueno = aviso_de_la_cita(avisos_de('dueno@tallerdemo.hn'))
+revisar('le suena al Dueño', del_dueno is not None)
+revisar('y el aviso lleva la cita, para abrir la agenda de un toque',
+        del_dueno and del_dueno['appointmentId'], json.dumps(del_dueno))
+
+revisar('le suena al Encargado de esa sucursal',
+        aviso_de_la_cita(avisos_de('encargado@tallerdemo.hn')) is not None)
+
+TOK = entrar('tecnico1@tallerdemo.hn')['accessToken']
+revisar('al Técnico no le suena',
+        aviso_de_la_cita(call('GET', '/api/notifications?pageSize=50')[1]['items']) is None)
+
 print()
 if fallos:
     print(f'{len(fallos)} fallas: ' + ', '.join(fallos))

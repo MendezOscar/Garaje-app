@@ -59,6 +59,8 @@ async function activate(notification: Notification) {
     await router.push({ name: 'work-order', params: { id: notification.workOrderId } })
   } else if (notification.serviceRequestId) {
     await router.push({ name: 'service-requests' })
+  } else if (notification.appointmentId) {
+    await router.push({ name: 'appointments' })
   } else if (notification.quoteId) {
     await router.push({ name: 'quotes' })
   }
