@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* 1920 × 823 × 2 = 3840 × 1646. Es una tira ancha y baja: cabe una frase, no un párrafo. */
+  body {
+    width: 1920px; height: 823px; overflow: hidden;
+    background: #0d1117;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    color: #e8eaed;
+    display: grid; grid-template-columns: 1fr 820px; align-items: center;
+    position: relative;
+  }
+
+  body::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(700px 500px at 15% 40%, rgba(31,111,235,.35), transparent 65%),
+      radial-gradient(700px 600px at 80% 70%, rgba(18,66,147,.45), transparent 60%);
+  }
+
+  body::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(1000px 600px at 25% 50%, #000 40%, transparent 85%);
+  }
+
+  .texto { position: relative; z-index: 1; padding-left: 130px; }
+
+  .logo { height: 66px; margin-bottom: 42px; }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+    font-size: 104px; line-height: 1.03; letter-spacing: -.035em;
+  }
+
+  h1 .azul { color: #6ba4ff; }
+
+  p { margin-top: 28px; font-size: 40px; color: #aab2c0; }
+
+  .telefonos { position: relative; z-index: 1; height: 100%; }
+
+  .telefono {
+    position: absolute; border-radius: 54px; overflow: hidden;
+    border: 10px solid #1c2128;
+    box-shadow: 0 50px 90px rgba(0,0,0,.55);
+    background: #000;
+  }
+
+  .telefono img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+  .atras { width: 360px; height: 780px; top: 150px; left: 20px; rotate: -7deg; opacity: .9; }
+  .frente { width: 400px; height: 860px; top: 110px; left: 350px; rotate: 4deg; }
+</style>
+</head>
+<body>
+  <div class="texto">
+    <img class="logo" src="../../../web/public/brand/garajapp-horizontal-blanco.svg" alt="GarajApp">
+    <h1>El taller, <span class="azul">en orden</span></h1>
+    <p>Órdenes, repuestos, cotizaciones y citas.</p>
+  </div>
+
+  <div class="telefonos">
+    <div class="telefono atras"><img src="../capturas-6.9/2-orden.png" alt=""></div>
+    <div class="telefono frente"><img src="../capturas-6.9/1-bandeja.png" alt=""></div>
+  </div>
+</body>
+</html>
