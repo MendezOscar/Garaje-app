@@ -7,6 +7,8 @@ enum AppNotificationType {
   workOrderStatusChanged(3, '🚗'),
   quoteSent(4, '📄'),
   quoteAnswered(5, '✅'),
+  appointmentRequested(6, '📅'),
+  appointmentAnswered(7, '📅'),
   unknown(0, '🔔');
 
   const AppNotificationType(this.value, this.icon);
@@ -35,6 +37,7 @@ class AppNotification {
     this.workOrderId,
     this.quoteId,
     this.serviceRequestId,
+    this.appointmentId,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
@@ -45,6 +48,7 @@ class AppNotification {
         workOrderId: json['workOrderId'] as String?,
         quoteId: json['quoteId'] as String?,
         serviceRequestId: json['serviceRequestId'] as String?,
+        appointmentId: json['appointmentId'] as String?,
         isRead: json['isRead'] as bool,
         createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
       );
@@ -56,6 +60,7 @@ class AppNotification {
   final String? workOrderId;
   final String? quoteId;
   final String? serviceRequestId;
+  final String? appointmentId;
   final bool isRead;
   final DateTime createdAt;
 
@@ -67,6 +72,7 @@ class AppNotification {
         workOrderId: workOrderId,
         quoteId: quoteId,
         serviceRequestId: serviceRequestId,
+        appointmentId: appointmentId,
         isRead: isRead ?? this.isRead,
         createdAt: createdAt,
       );

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/notification_repository.dart';
+import '../../core/auth/auth_controller.dart';
 import '../../core/models/notification.dart';
 import '../../core/push/push_messaging.dart';
 import '../../core/widgets/garaj_skeleton.dart';
@@ -136,10 +137,23 @@ class _NotificationTile extends ConsumerWidget {
 
         if (notification.workOrderId case final id? when context.mounted) {
           context.push('/ordenes/$id');
+          return;
+        }
+
+        // La cita no tiene pantalla propia: lleva a la agenda, que es donde se confirma. Al
+        // Cliente no, que su cita ya la ve en su inicio y la agenda no es suya.
+        if (notification.appointmentId != null && context.mounted && _manda(ref)) {
+          context.push('/citas');
         }
       },
     );
   }
+}
+
+/// Si quien mira el aviso manda en el taller: el Dueño o el Encargado.
+bool _manda(WidgetRef ref) {
+  final auth = ref.read(authControllerProvider);
+  return auth is AuthSignedIn && auth.user.manda;
 }
 
 String _relative(DateTime when) {

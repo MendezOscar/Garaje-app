@@ -90,6 +90,7 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST | `/api/service-requests` | cualquiera | El Técnico solo en sus sucursales |
 | POST | `/api/service-requests/{id}/approve` | Owner | Lo convierte en orden y devuelve `workOrderId` |
 | POST | `/api/service-requests/{id}/reject` | Owner | Lo rechaza con motivo |
+| | | | **Al pedir una cita le suena al Dueño y al Encargado de esa sucursal: campana y push.** |
 | GET | `/api/appointments?branchId=&status=&from=&to=&includeClosed=` | cualquiera | La agenda. Sin rango, de hoy en adelante y sin lo cerrado. El Cliente ve las suyas; el Técnico, ninguna |
 | POST | `/api/appointments/request` | cualquiera | La pide el Cliente sobre uno de **sus** vehículos |
 | POST | `/api/appointments` | Owner o Encargado | La anota el taller, por teléfono. Nace confirmada |

@@ -1061,6 +1061,8 @@ export const NotificationType = {
   WorkOrderStatusChanged: 3,
   QuoteSent: 4,
   QuoteAnswered: 5,
+  AppointmentRequested: 6,
+  AppointmentAnswered: 7,
 } as const
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
 
@@ -1070,6 +1072,8 @@ export const NOTIFICATION_ICON: Record<NotificationType, string> = {
   [NotificationType.WorkOrderStatusChanged]: '🚗',
   [NotificationType.QuoteSent]: '📄',
   [NotificationType.QuoteAnswered]: '✅',
+  [NotificationType.AppointmentRequested]: '📅',
+  [NotificationType.AppointmentAnswered]: '📅',
 }
 
 export interface Notification {
@@ -1080,6 +1084,7 @@ export interface Notification {
   workOrderId: string | null
   quoteId: string | null
   serviceRequestId: string | null
+  appointmentId: string | null
   isRead: boolean
   createdAt: string
 }

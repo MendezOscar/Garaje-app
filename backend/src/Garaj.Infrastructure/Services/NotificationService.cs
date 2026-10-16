@@ -37,7 +37,7 @@ public class NotificationService(
             .Take(query.PageSize)
             .Select(n => new NotificationDto(
                 n.Id, n.Type, n.Title, n.Body,
-                n.WorkOrderId, n.QuoteId, n.ServiceRequestId,
+                n.WorkOrderId, n.QuoteId, n.ServiceRequestId, n.AppointmentId,
                 n.ReadAt != null, n.CreatedAt))
             .ToListAsync(ct);
 
@@ -144,6 +144,27 @@ public class NotificationService(
         await PublishAsync(tenantId, owners, draft, ct);
     }
 
+    public async Task NotifyBranchManagementAsync(
+        Guid tenantId, Guid branchId, NotificationDraft draft, CancellationToken ct = default)
+    {
+        var manda = await db.Users
+            .Where(u => u.TenantId == tenantId && u.IsActive)
+            .Join(db.UserRoles, u => u.Id, ur => ur.UserId, (u, ur) => new { u.Id, ur.RoleId })
+            .Join(
+                db.Roles.Where(r => r.Name == AppRoles.Owner || r.Name == AppRoles.Manager),
+                x => x.RoleId,
+                r => r.Id,
+                (x, r) => new { x.Id, r.Name })
+            // El Dueño manda en todas; el Encargado, solo donde lo asignaron.
+            .Where(x => x.Name == AppRoles.Owner
+                        || db.UserBranches.Any(ub => ub.UserId == x.Id && ub.BranchId == branchId))
+            .Select(x => x.Id)
+            .Distinct()
+            .ToListAsync(ct);
+
+        await PublishAsync(tenantId, manda, draft, ct);
+    }
+
     public async Task NotifyCustomerAsync(
         Guid tenantId, Guid customerId, NotificationDraft draft, CancellationToken ct = default)
     {
@@ -174,7 +195,8 @@ public class NotificationService(
             Body = draft.Body,
             WorkOrderId = draft.WorkOrderId,
             QuoteId = draft.QuoteId,
-            ServiceRequestId = draft.ServiceRequestId
+            ServiceRequestId = draft.ServiceRequestId,
+            AppointmentId = draft.AppointmentId
         }).ToList();
 
         try

@@ -11,6 +11,7 @@ public record NotificationDto(
     Guid? WorkOrderId,
     Guid? QuoteId,
     Guid? ServiceRequestId,
+    Guid? AppointmentId,
     bool IsRead,
     DateTimeOffset CreatedAt);
 
@@ -39,7 +40,8 @@ public record NotificationDraft(
     string Body,
     Guid? WorkOrderId = null,
     Guid? QuoteId = null,
-    Guid? ServiceRequestId = null);
+    Guid? ServiceRequestId = null,
+    Guid? AppointmentId = null);
 
 /// <summary>
 /// Emite avisos desde los servicios de negocio.
@@ -56,6 +58,18 @@ public interface INotificationPublisher
 
     /// <summary>Avisa a todos los Dueños activos del taller.</summary>
     Task NotifyOwnersAsync(Guid tenantId, NotificationDraft draft, CancellationToken ct = default);
+
+    /// <summary>
+    /// Avisa a quien manda en esa sucursal: el Dueño, que manda en todas, y los Encargados
+    /// que la tengan asignada.
+    /// </summary>
+    /// <remarks>
+    /// Es lo que hace falta para lo que entra por sucursal —una cita, un requerimiento—:
+    /// avisarle solo al Dueño deja al Encargado enterándose cuando abre la pantalla, y
+    /// avisarle a todos los Encargados les manda trabajo de un taller que no es el suyo.
+    /// </remarks>
+    Task NotifyBranchManagementAsync(
+        Guid tenantId, Guid branchId, NotificationDraft draft, CancellationToken ct = default);
 
     /// <summary>Avisa al cliente, si tiene usuario de la app. Si no lo tiene, no hace nada.</summary>
     Task NotifyCustomerAsync(Guid tenantId, Guid customerId, NotificationDraft draft, CancellationToken ct = default);

@@ -295,12 +295,14 @@ public class AppointmentService(
         tenantContext.SetTenant(cita.TenantId);
         await db.SaveChangesAsync(ct);
 
-        await notifications.NotifyOwnersAsync(
+        await notifications.NotifyBranchManagementAsync(
             cita.TenantId,
+            cita.BranchId,
             new NotificationDraft(
                 NotificationType.AppointmentAnswered,
                 "Cita cancelada",
-                $"{cita.ContactName} canceló su cita {Cuando(cita)}."),
+                $"{cita.ContactName} canceló su cita {Cuando(cita)}.",
+                AppointmentId: cita.Id),
             ct);
 
         return await PublicAsync(token, ct);
@@ -435,13 +437,19 @@ public class AppointmentService(
     private static string Cuando(Appointment cita) =>
         $"el {cita.Day:dd/MM/yyyy} por la {(cita.Slot == AppointmentSlot.Morning ? "mañana" : "tarde")}";
 
+    /// <summary>
+    /// Que suene donde se atiende: al Dueño y al Encargado de esa sucursal. Una cita sin
+    /// confirmar que nadie mira es un cliente que se presenta sin lugar, o que no vuelve.
+    /// </summary>
     private Task AvisarAlTallerAsync(Appointment cita, CancellationToken ct) =>
-        notifications.NotifyOwnersAsync(
+        notifications.NotifyBranchManagementAsync(
             cita.TenantId,
+            cita.BranchId,
             new NotificationDraft(
                 NotificationType.AppointmentRequested,
                 "Cita por confirmar",
-                $"{cita.ContactName} pide cita {Cuando(cita)}: {cita.Reason}"),
+                $"{cita.ContactName} pide cita {Cuando(cita)}: {cita.Reason}",
+                AppointmentId: cita.Id),
             ct);
 
     private Task AvisarAlClienteAsync(Appointment cita, string titulo, string cuerpo, CancellationToken ct) =>
@@ -449,7 +457,8 @@ public class AppointmentService(
             ? notifications.NotifyCustomerAsync(
                 cita.TenantId,
                 customerId,
-                new NotificationDraft(NotificationType.AppointmentAnswered, titulo, cuerpo),
+                new NotificationDraft(
+                    NotificationType.AppointmentAnswered, titulo, cuerpo, AppointmentId: cita.Id),
                 ct)
             // Quien pidió por el enlace no tiene a dónde recibir un aviso: se le escribe por
             // WhatsApp desde la pantalla de citas, con un toque.
