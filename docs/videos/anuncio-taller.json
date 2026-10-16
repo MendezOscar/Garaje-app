@@ -2,7 +2,7 @@
   "nombre": "anuncio-taller",
   "taller": "Taller RVM",
   "telefono": "WhatsApp 9454-6629",
-  "direccion": "10 Calle, 13 Calle SPS, Puerto Cortés, Honduras",
+  "direccion": "10 Calle SPS, 13 Calle SPS, Puerto Cortés, Honduras",
   "logo": "/Users/mendez/dev/garaj-app/web/public/talleres/rvm.jpg",
   "escenas": [
     {
@@ -17,7 +17,7 @@
       "segundos": 2.8
     },
     {
-      "titulo": "Vea cómo va su carro",
+      "titulo": "Vea cómo va su moto",
       "texto": "Sin llamar a preguntar",
       "segundos": 2.6
     },
