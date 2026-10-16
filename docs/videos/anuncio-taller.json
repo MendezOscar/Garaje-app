@@ -1,0 +1,43 @@
+{
+  "nombre": "anuncio-taller",
+  "taller": "Taller Demo",
+  "telefono": "WhatsApp 9824-2108",
+  "direccion": "3 calle, entre 8 y 9 avenida",
+  "logo": "logo-taller.png",
+  "voz": "Paulina",
+  "velocidad": 168,
+  "escenas": [
+    {
+      "tipo": "portada",
+      "titulo": "Próximamente",
+      "texto": "Su taller de confianza, ahora en su teléfono",
+      "narracion": "Próximamente, su taller de confianza va a estar en su teléfono."
+    },
+    {
+      "titulo": "Sepa cuánto va a costar",
+      "texto": "La cotización le llega por WhatsApp, con fotos. Usted aprueba desde su teléfono.",
+      "narracion": "Se acabaron las sorpresas: la cotización le llega por WhatsApp, con fotos del daño, y usted la aprueba desde su teléfono."
+    },
+    {
+      "titulo": "Vea cómo va su carro",
+      "texto": "Sin llamar a preguntar",
+      "narracion": "Y mire cómo va su vehículo sin tener que llamar a preguntar: cada paso le aparece al momento."
+    },
+    {
+      "titulo": "Aparte su día",
+      "texto": "Desde un enlace, sin instalar nada",
+      "narracion": "Aparte el día que va a traerlo desde un enlace, sin instalar nada, y nosotros le confirmamos."
+    },
+    {
+      "titulo": "Su factura, al instante",
+      "texto": "Y el recordatorio de su próximo servicio",
+      "narracion": "Al entregarle, su factura le llega al instante, y le avisamos cuando le toque el próximo servicio."
+    },
+    {
+      "tipo": "cierre",
+      "titulo": "Pregunte por su acceso",
+      "texto": "",
+      "narracion": "Pregunte por su acceso la próxima vez que nos visite. Lo esperamos."
+    }
+  ]
+}
