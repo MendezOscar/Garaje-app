@@ -44,6 +44,12 @@
     th { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
     .tbl-wrap { overflow-x: auto; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin: 16px 0; }
+    .videos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 16px 0; }
+    .video { display: block; color: inherit; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--card); }
+    .video:hover { text-decoration: none; border-color: var(--brand); }
+    .video img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #000; }
+    .video span { display: block; padding: 10px 12px; font-weight: 700; font-size: 15px; }
+    .video small { display: block; padding: 0 12px 12px; color: var(--muted); font-weight: 500; font-size: 13.5px; }
     .note { border-left: 4px solid var(--brand); background: var(--brand-light); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; font-size: 14.5px; }
     footer { border-top: 1px solid var(--border); padding: 24px; color: var(--muted); font-size: 14px; text-align: center; }
     @media print { header { display: none; } body { background: #fff; } }
@@ -67,6 +73,27 @@
       📧 <a href="mailto:soporte@garajeapp.com">soporte@garajeapp.com</a></p>
       <p>Si nos escribe por un problema, ayuda mucho que nos diga <strong>el nombre de su
       taller</strong>, qué estaba haciendo y —si puede— una foto de la pantalla.</p>
+    </div>
+
+    <h2>Videos: cómo se usa</h2>
+    <p>Cada uno dura menos de dos minutos y va por la pantalla, sección por sección.</p>
+    <div class="videos">
+      <a class="video" href="https://youtube.com/shorts/cIw5TiVB92Y" target="_blank" rel="noopener">
+        <img src="https://img.youtube.com/vi/cIw5TiVB92Y/hqdefault.jpg" alt="" loading="lazy" />
+        <span>La pantalla Hoy</span><small>Qué le dice cada número</small>
+      </a>
+      <a class="video" href="https://youtube.com/shorts/pu23G_Z3MXo" target="_blank" rel="noopener">
+        <img src="https://img.youtube.com/vi/pu23G_Z3MXo/hqdefault.jpg" alt="" loading="lazy" />
+        <span>Recibir un vehículo</span><small>Del cliente en el mostrador a la orden</small>
+      </a>
+      <a class="video" href="https://youtube.com/shorts/NLlDg2GCCDM" target="_blank" rel="noopener">
+        <img src="https://img.youtube.com/vi/NLlDg2GCCDM/hqdefault.jpg" alt="" loading="lazy" />
+        <span>La orden de trabajo</span><small>Diagnóstico, cotización y factura</small>
+      </a>
+      <a class="video" href="https://youtube.com/shorts/LfUgjtMYf1Y" target="_blank" rel="noopener">
+        <img src="https://img.youtube.com/vi/LfUgjtMYf1Y/hqdefault.jpg" alt="" loading="lazy" />
+        <span>Citas</span><small>Su enlace para que le aparten el día</small>
+      </a>
     </div>
 
     <h2>No puedo entrar</h2>
