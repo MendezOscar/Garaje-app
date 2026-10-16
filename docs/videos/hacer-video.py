@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arma un video narrado a partir de un guion y una captura de pantalla.
+"""Arma un video narrado a partir de un guion y unas capturas de pantalla.
 
     python3 docs/videos/hacer-video.py docs/videos/guion-hoy.json
 
@@ -36,15 +36,21 @@ def escapar(texto):
     return (texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
-def hoja(guion, base, carpeta):
+def hoja(guion, aqui, carpeta):
     """Una sola pasada de Chrome: todas las escenas apiladas en un PNG."""
-    ancho_base, alto_base = medir(base)
     alto_foto = ALTO - PIE - 60
-    escala = alto_foto / alto_base
-    ancho_foto = ancho_base * escala
+    escenas, copiadas = [], set()
 
-    escenas = []
     for e in guion["escenas"]:
+        nombre = e.get("imagen", guion["imagen"])
+        ruta = os.path.join(aqui, nombre)
+        if nombre not in copiadas:
+            shutil.copy(ruta, os.path.join(carpeta, nombre))
+            copiadas.add(nombre)
+        ancho_base, alto_base = medir(ruta)
+        escala = alto_foto / alto_base
+        ancho_foto = ancho_base * escala
+
         if e["foco"]:
             x, y, w, h = [v * escala for v in e["foco"]]
             marco = (f'<div class="marco" style="left:{x:.1f}px;top:{y:.1f}px;'
@@ -53,7 +59,7 @@ def hoja(guion, base, carpeta):
             marco = '<div class="velo"></div>'
         escenas.append(f"""<section class="escena">
   <div class="foto" style="width:{ancho_foto:.1f}px;height:{alto_foto:.1f}px">
-    <img src="{os.path.basename(base)}">{marco}
+    <img src="{nombre}">{marco}
   </div>
   <div class="pie"><h2>{escapar(e['titulo'])}</h2><p>{escapar(e['texto'])}</p></div>
 </section>""")
@@ -78,7 +84,6 @@ def hoja(guion, base, carpeta):
     pagina = os.path.join(carpeta, "hoja.html")
     with open(pagina, "w") as f:
         f.write(html)
-    shutil.copy(base, os.path.join(carpeta, os.path.basename(base)))
     png = os.path.join(carpeta, "hoja.png")
     correr([CHROME, "--headless", "--disable-gpu", "--hide-scrollbars",
             "--allow-file-access-from-files", "--force-device-scale-factor=1",
@@ -90,12 +95,11 @@ def hoja(guion, base, carpeta):
 def main(ruta_guion):
     guion = json.load(open(ruta_guion))
     aqui = os.path.dirname(os.path.abspath(ruta_guion))
-    base = os.path.join(aqui, guion["imagen"])
     salida = os.path.join(aqui, "salida")
     taller = os.path.join(salida, "piezas")
     os.makedirs(taller, exist_ok=True)
 
-    png = hoja(guion, base, taller)
+    png = hoja(guion, aqui, taller)
     clips = []
     for i, e in enumerate(guion["escenas"]):
         pedazo = os.path.join(taller, f"{i:02d}.png")

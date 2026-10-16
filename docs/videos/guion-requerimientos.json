@@ -1,0 +1,92 @@
+{
+  "nombre": "requerimientos",
+  "titulo": "Recibir un vehículo",
+  "imagen": "req-22.png",
+  "voz": "Paulina",
+  "velocidad": 172,
+  "escenas": [
+    {
+      "titulo": "Recibir vehículo",
+      "texto": "De la llegada del cliente a la orden",
+      "narracion": "Así se recibe un vehículo y así se convierte en orden de trabajo. Todo pasa en esta sola pantalla.",
+      "foco": null
+    },
+    {
+      "titulo": "Buscar o cliente nuevo",
+      "texto": "Por placa, por nombre o por el carro",
+      "narracion": "Si el cliente ya vino antes, búsquelo por placa, por nombre o por el vehículo. Si es la primera vez, toque Cliente nuevo.",
+      "imagen": "req-22.png",
+      "foco": [48, 358, 1075, 255]
+    },
+    {
+      "titulo": "Lo encuentra solo",
+      "texto": "Escriba la placa y listo",
+      "narracion": "Al escribir la placa la aplicación le pone el vehículo y su dueño. No hay que preguntar dos veces lo mismo.",
+      "imagen": "req-23.png",
+      "foco": [48, 700, 1075, 170]
+    },
+    {
+      "titulo": "Cliente nuevo",
+      "texto": "Lo mínimo, nada más",
+      "narracion": "Para uno nuevo le pide lo mínimo: nombre, teléfono, si es moto o vehículo, marca, modelo y placa.",
+      "imagen": "req-24.png",
+      "foco": null
+    },
+    {
+      "titulo": "Darle acceso a la app",
+      "texto": "El cliente sigue su vehículo",
+      "narracion": "Este interruptor le da acceso a la aplicación: el cliente podrá ver cómo va su vehículo y aprobar cotizaciones desde su teléfono.",
+      "imagen": "req-25.png",
+      "foco": [48, 2000, 1075, 180]
+    },
+    {
+      "titulo": "Qué reporta el cliente",
+      "texto": "Con sus propias palabras",
+      "narracion": "Anote el motivo del ingreso y, con las palabras del cliente, qué es lo que él está sintiendo.",
+      "imagen": "req-26.png",
+      "foco": [48, 1100, 1075, 500]
+    },
+    {
+      "titulo": "Fotos y a registrar",
+      "texto": "Cómo entró el vehículo",
+      "narracion": "Tome fotos de cómo entra el carro, que después valen oro, y registre el requerimiento.",
+      "imagen": "req-26.png",
+      "foco": [48, 1870, 1075, 440]
+    },
+    {
+      "titulo": "Queda guardado",
+      "texto": "Y aparece en Por atender",
+      "narracion": "Listo. El requerimiento queda guardado y le aparece de una vez en Por atender, en la pantalla Hoy.",
+      "imagen": "req-27.png",
+      "foco": [0, 2055, 1170, 130]
+    },
+    {
+      "titulo": "Dónde viven",
+      "texto": "Más, Requerimientos",
+      "narracion": "Todos los requerimientos están en Más, Requerimientos. Ahí le caen también los que le entran por el enlace de citas.",
+      "imagen": "req-28.png",
+      "foco": [48, 580, 1075, 230]
+    },
+    {
+      "titulo": "La lista",
+      "texto": "Pendiente es que nadie lo ha visto",
+      "narracion": "Cada uno dice de quién es, de qué sucursal y qué reporta. Mientras diga Pendiente, nadie lo ha atendido.",
+      "imagen": "req-29.png",
+      "foco": [48, 500, 1075, 570]
+    },
+    {
+      "titulo": "¿Quién lo atiende?",
+      "texto": "Aprobar y asignar",
+      "narracion": "Al aprobarlo le pregunta quién lo atiende: escoja al técnico, o déjelo para después y la orden se abre sin técnico.",
+      "imagen": "req-30.png",
+      "foco": null
+    },
+    {
+      "titulo": "Ya es una orden",
+      "texto": "Con su número y su diagnóstico",
+      "narracion": "Y ahí nace la orden de trabajo, con su número, lista para el diagnóstico, los pasos y los repuestos.",
+      "imagen": "req-31.png",
+      "foco": null
+    }
+  ]
+}
