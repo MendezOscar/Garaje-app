@@ -3,6 +3,7 @@
 
     python3 docs/videos/hacer-anuncio.py docs/videos/anuncio-taller.json
 
+Sin "narracion" el anuncio sale mudo y cada escena dura sus "segundos".
 El logo del taller es opcional: ponga el archivo en docs/videos/ y nómbrelo en
 el guion con "logo". Si no hay logo, sale el nombre del taller en letra grande.
 Deja el video en docs/videos/salida/<nombre>.mp4
@@ -94,29 +95,37 @@ def main(ruta_guion):
     os.makedirs(taller, exist_ok=True)
 
     png = hoja(guion, aqui, taller)
+    con_voz = all(e.get("narracion") for e in guion["escenas"])
     clips = []
     for i, e in enumerate(guion["escenas"]):
         pedazo = os.path.join(taller, f"{i:02d}.png")
         correr(["ffmpeg", "-y", "-i", png, "-vf",
                 f"crop={ANCHO}:{ALTO}:0:{i * ALTO}", pedazo])
 
-        aiff = os.path.join(taller, f"{i:02d}.aiff")
-        correr(["say", "-v", guion.get("voz", "Paulina"),
-                "-r", str(guion.get("velocidad", 172)),
-                "-o", aiff, e["narracion"]])
-        largo = duracion(aiff) + 0.7
+        if con_voz:
+            aiff = os.path.join(taller, f"{i:02d}.aiff")
+            correr(["say", "-v", guion.get("voz", "Paulina"),
+                    "-r", str(guion.get("velocidad", 172)),
+                    "-o", aiff, e["narracion"]])
+            largo = duracion(aiff) + 0.7
+        else:
+            largo = float(e.get("segundos", 2.6))
         cuadros = int(largo * 30)
+        movimiento = (f"[0:v]zoompan=z='min(1.07,1+0.07*on/{cuadros})':"
+                      f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+                      f"d={cuadros}:s={ANCHO}x{ALTO}:fps=30,format=yuv420p[v]")
 
         clip = os.path.join(taller, f"{i:02d}.mp4")
-        correr(["ffmpeg", "-y", "-loop", "1", "-i", pedazo, "-i", aiff,
-                "-filter_complex",
-                f"[0:v]zoompan=z='min(1.07,1+0.07*on/{cuadros})':"
-                f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-                f"d={cuadros}:s={ANCHO}x{ALTO}:fps=30,format=yuv420p[v];"
-                f"[1:a]adelay=350|350,apad[a]",
-                "-map", "[v]", "-map", "[a]", "-t", f"{largo}",
-                "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                "-c:a", "aac", "-b:a", "128k", "-ar", "44100", clip])
+        orden = ["ffmpeg", "-y", "-loop", "1", "-i", pedazo]
+        if con_voz:
+            orden += ["-i", aiff, "-filter_complex",
+                      movimiento + ";[1:a]adelay=350|350,apad[a]",
+                      "-map", "[v]", "-map", "[a]",
+                      "-c:a", "aac", "-b:a", "128k", "-ar", "44100"]
+        else:
+            orden += ["-filter_complex", movimiento, "-map", "[v]", "-an"]
+        correr(orden + ["-t", f"{largo}", "-c:v", "libx264",
+                        "-preset", "medium", "-crf", "20", clip])
         clips.append(clip)
 
     lista = os.path.join(taller, "lista.txt")
