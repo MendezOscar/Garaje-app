@@ -100,39 +100,52 @@ que salga; para la primera versión no hace falta.
 
 ## Componentes creativos
 
-App Store Connect pide dos, en **Personaliza la página del producto**: uno de **encabezado**
-—la franja de arriba de la ficha— y uno de **resultados de la búsqueda**. Están hechos, en
-[`app-store/componentes/`](app-store/componentes/):
+App Store Connect pide dos en **Personaliza la página del producto**, y **cada casilla tiene
+su proporción**: el encabezado es ancho y bajo, el de búsqueda es casi cuadrado. Subir uno en
+la casilla del otro se rechaza con «las dimensiones del archivo no son válidas».
 
-| Componente | Archivo | Tamaño |
-| --- | --- | --- |
-| Encabezado | `encabezado-5244x2950.png` | 5244 × 2950 |
-| Resultados de la búsqueda | `busqueda-3840x1646.png` | 3840 × 1646 |
+| Casilla | Proporción | Medida | Archivo |
+| --- | --- | --- | --- |
+| Encabezado | 16:9 (vale para las dos casillas) | 5244 × 2950 | `encabezado-5244x2950.png` |
+| Encabezado | 21:9 | 3840 × 1646 | `encabezado-21x9-3840x1646.png` |
+| Resultados de la búsqueda | 3:2 | 3840 × 2560 (el máximo; el mínimo es 1920 × 1280) | `busqueda-3840x2560.png` |
 
-Los dos dicen lo mismo —«El taller, en orden» y de qué va la aplicación— sobre el fondo
-oscuro de la marca, con dos teléfonos de la demostración. Se arrastran a su casilla.
+Están en [`app-store/componentes/`](app-store/componentes/). Los tres dicen lo mismo —«El
+taller, en orden» y de qué va la aplicación— sobre el fondo oscuro de la marca, con dos
+teléfonos de la demostración. Se arrastran a su casilla. Van **sin transparencia**: Apple
+rechaza las imágenes con canal alfa, y así salen de este procedimiento.
 
-No son imágenes a mano: son dos páginas HTML en esa misma carpeta, que se capturan con el
-navegador al doble de tamaño. Para rehacerlos —texto nuevo, capturas nuevas— se edita el HTML
-y se vuelve a correr:
+No son imágenes a mano: son páginas HTML en esa misma carpeta que se capturan con el
+navegador **al doble de tamaño**, para que el texto salga nítido y los números cuadren
+exactos. Para rehacerlos —texto nuevo, capturas nuevas— se edita el HTML y se vuelve a
+correr:
 
 ```bash
 cd docs/app-store/componentes
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \
-  --allow-file-access-from-files --force-device-scale-factor=2 \
-  --window-size=2622,1475 --virtual-time-budget=9000 \
+# Encabezado 16:9 → 5244 × 2950
+"$CHROME" --headless --disable-gpu --allow-file-access-from-files \
+  --force-device-scale-factor=2 --window-size=2622,1475 --virtual-time-budget=9000 \
   --screenshot="$PWD/encabezado-5244x2950.png" "file://$PWD/encabezado.html"
 
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \
-  --allow-file-access-from-files --force-device-scale-factor=2 \
-  --window-size=1920,823 --virtual-time-budget=9000 \
-  --screenshot="$PWD/busqueda-3840x1646.png" "file://$PWD/busqueda.html"
+# Encabezado 21:9 → 3840 × 1646
+"$CHROME" --headless --disable-gpu --allow-file-access-from-files \
+  --force-device-scale-factor=2 --window-size=1920,823 --virtual-time-budget=9000 \
+  --screenshot="$PWD/encabezado-21x9-3840x1646.png" "file://$PWD/encabezado-21x9.html"
+
+# Resultados de la búsqueda 3:2 → 3840 × 2560
+"$CHROME" --headless --disable-gpu --allow-file-access-from-files \
+  --force-device-scale-factor=2 --window-size=1920,1280 --virtual-time-budget=9000 \
+  --screenshot="$PWD/busqueda-3840x2560.png" "file://$PWD/busqueda.html"
 ```
 
-La ventana va a la mitad del tamaño final y la escala al doble: así el texto sale nítido y
-los números cuadran exactos. Hace falta internet la primera vez, que las tipografías de la
-marca vienen de Google Fonts.
+Se comprueba con `sips -g pixelWidth -g pixelHeight -g hasAlpha <archivo>`: la medida exacta
+y `hasAlpha: no`. Hace falta internet la primera vez, que las tipografías de la marca vienen
+de Google Fonts.
+
+La especificación es de Apple:
+<https://developer.apple.com/help/app-store-connect/reference/app-information/creative-assets-specifications/>
 
 ## Capturas
 
