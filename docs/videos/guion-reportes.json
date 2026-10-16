@@ -1,0 +1,106 @@
+{
+  "nombre": "reportes-y-resultados",
+  "titulo": "Reportes y resultados",
+  "imagen": "rep-82.png",
+  "voz": "Paulina",
+  "velocidad": 180,
+  "escenas": [
+    {
+      "titulo": "Reportes",
+      "texto": "Los números del taller",
+      "narracion": "En Más, Reportes, están los números del taller: qué facturó, de qué, y quién lo hizo.",
+      "foco": [48, 1085, 1075, 150]
+    },
+    {
+      "titulo": "El período",
+      "texto": "Siete, treinta o noventa días",
+      "narracion": "Escoge el período —siete, treinta o noventa días— y si lo quiere agrupado por día, por semana o por mes.",
+      "imagen": "rep-83.png",
+      "foco": [48, 355, 1075, 285]
+    },
+    {
+      "titulo": "Sucursal y técnico",
+      "texto": "Todo o uno solo",
+      "narracion": "Y lo puede apretar a una sucursal o a un solo técnico, para ver cómo va cada uno.",
+      "imagen": "rep-83.png",
+      "foco": [48, 660, 1075, 350]
+    },
+    {
+      "titulo": "Por cobrar",
+      "texto": "Lo que está en la calle",
+      "narracion": "Arriba le recuerda cuánto tiene por cobrar y cuánto de eso ya venció, con el atajo a las facturas.",
+      "imagen": "rep-83.png",
+      "foco": [48, 1065, 1075, 190]
+    },
+    {
+      "titulo": "Total facturado",
+      "texto": "Repuestos, mano de obra y margen",
+      "narracion": "Después el total facturado, partido en repuestos y mano de obra, con su margen y cuánto fue de pura venta de mostrador.",
+      "imagen": "rep-83.png",
+      "foco": [48, 1285, 1075, 640]
+    },
+    {
+      "titulo": "Día por día",
+      "texto": "Azul repuestos, amarillo trabajo",
+      "narracion": "El gráfico le muestra cómo se movió cada día: el azul son repuestos, el amarillo es mano de obra.",
+      "imagen": "rep-84.png",
+      "foco": [48, 900, 1075, 570]
+    },
+    {
+      "titulo": "Por técnico",
+      "texto": "Quién está produciendo",
+      "narracion": "Por técnico ve quién está produciendo. Lo que se vendió en mostrador aparece como sin técnico.",
+      "imagen": "rep-84.png",
+      "foco": [48, 1525, 1075, 575]
+    },
+    {
+      "titulo": "Lo que más sale",
+      "texto": "Para no quedarse sin existencia",
+      "narracion": "Y los repuestos más vendidos, que es lo que no le puede faltar en bodega.",
+      "imagen": "rep-84.png",
+      "foco": [48, 2125, 1075, 295]
+    },
+    {
+      "titulo": "Resultados y gastos",
+      "texto": "Qué dejó el mes",
+      "narracion": "La otra pantalla es Resultados y gastos: ingresos, el costo de lo vendido, la utilidad bruta, los gastos y lo que de verdad le quedó.",
+      "imagen": "rep-85.png",
+      "foco": [48, 555, 1075, 595]
+    },
+    {
+      "titulo": "En qué se fue",
+      "texto": "Gasto por gasto",
+      "narracion": "Abajo están los gastos del mes, uno por uno, con su categoría y a quién se le pagó.",
+      "imagen": "rep-85.png",
+      "foco": [48, 1220, 1075, 605]
+    },
+    {
+      "titulo": "Anotar un gasto",
+      "texto": "Salarios, alquiler, servicios…",
+      "narracion": "Para anotar uno, escoja la categoría: salarios, alquiler, servicios, herramienta, transporte, impuestos.",
+      "imagen": "rep-86.png",
+      "foco": null
+    },
+    {
+      "titulo": "En qué y cuánto",
+      "texto": "Con su sucursal",
+      "narracion": "Ponga en qué se gastó, cuánto, a quién se le pagó, cómo lo pagó y de qué sucursal sale.",
+      "imagen": "rep-87.png",
+      "foco": null
+    },
+    {
+      "titulo": "La foto del recibo",
+      "texto": "Un gasto sin comprobante se discute",
+      "narracion": "Y tómele foto al recibo. Un gasto sin comprobante es un gasto que después se discute.",
+      "imagen": "rep-88.png",
+      "foco": [48, 1895, 1075, 525]
+    },
+    {
+      "titulo": "La cuenta, al instante",
+      "texto": "Rojo es que el mes va perdiendo",
+      "narracion": "La utilidad se recalcula de una vez. Si sale en rojo, el mes va perdiendo, y usted se entera hoy y no en enero.",
+      "imagen": "rep-89.png",
+      "foco": [48, 555, 1075, 595]
+    }
+  ]
+}
