@@ -191,7 +191,9 @@ h1 {
 
 .datos {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* `minmax(0, 1fr)` y no `1fr`: con un texto largo —la dirección de la sucursal— la columna
+     no encoge y la tarjeta se sale de la pantalla del teléfono. */
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.5rem 1.25rem;
   margin: 0 0 1rem;
 }
@@ -203,6 +205,8 @@ h1 {
 
 .datos dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .block {

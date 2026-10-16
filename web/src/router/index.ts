@@ -314,3 +314,37 @@ router.beforeEach(async (to) => {
 
   return true
 })
+
+/**
+ * Un despliegue nuevo mientras la pestaña está abierta.
+ *
+ * Cada pantalla se carga aparte, y su archivo lleva el hash del contenido en el nombre. Si el
+ * sitio se vuelve a desplegar con la pestaña abierta, los archivos viejos dejan de existir:
+ * al cambiar de pantalla, el navegador pide uno que ya no está, Cloudflare le devuelve el
+ * `index.html` del comodín y el navegador se queja de que «'text/html' no es un tipo válido
+ * para un módulo». La pantalla no abre y el usuario ve un error que no dice nada.
+ *
+ * La salida es recargar de verdad esa dirección: así se baja el `index.html` nuevo con los
+ * nombres nuevos. El centinela en `sessionStorage` evita el bucle si la recarga tampoco
+ * arregla nada —un archivo que falta por otro motivo—.
+ */
+router.onError((error, to) => {
+  const esTrozoQueYaNoExiste =
+    /dynamically imported module|MIME type|Importing a module script failed/i.test(
+      error instanceof Error ? error.message : String(error),
+    )
+
+  if (!esTrozoQueYaNoExiste || !to?.fullPath) return
+
+  const centinela = 'garaj.recarga'
+
+  if (sessionStorage.getItem(centinela) === to.fullPath) return
+
+  try {
+    sessionStorage.setItem(centinela, to.fullPath)
+  } catch {
+    // Navegación privada sin almacenamiento: se recarga igual, una vez.
+  }
+
+  window.location.assign(to.fullPath)
+})

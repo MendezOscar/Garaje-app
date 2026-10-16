@@ -208,6 +208,11 @@ button:disabled {
 
 .error {
   color: var(--danger);
+
+  /* Un error puede traer una URL o un identificador largo que no parte por ningún lado. Sin
+     esto, ese renglón fija el ancho mínimo de la página y en el teléfono se sale todo —la
+     tarjeta entera se ve corrida y montada—, que es peor que el error mismo. */
+  overflow-wrap: anywhere;
 }
 
 /* ------------------------------------------------------------------ botones
