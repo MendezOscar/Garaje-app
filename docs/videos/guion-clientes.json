@@ -1,0 +1,99 @@
+{
+  "nombre": "clientes-historial-usuarios",
+  "titulo": "Clientes, historial y usuarios",
+  "imagen": "cli-90.png",
+  "voz": "Paulina",
+  "velocidad": 180,
+  "escenas": [
+    {
+      "titulo": "Clientes",
+      "texto": "Su libreta de toda la vida",
+      "narracion": "Clientes es su libreta: quién es, su teléfono y qué vehículos tiene. Se busca por nombre, por teléfono o por placa.",
+      "foco": [48, 470, 1075, 165]
+    },
+    {
+      "titulo": "Llamar o escribir",
+      "texto": "Desde la misma ficha",
+      "narracion": "Desde su ficha lo llama o le escribe por WhatsApp, sin andar buscando el número en el teléfono.",
+      "imagen": "cli-91.png",
+      "foco": [48, 655, 1075, 330]
+    },
+    {
+      "titulo": "Sus vehículos",
+      "texto": "Y el acceso a la app",
+      "narracion": "Abajo están sus vehículos y, si quiere, le da acceso a la aplicación para que siga sus reparaciones. Es opcional.",
+      "imagen": "cli-91.png",
+      "foco": [48, 1025, 1075, 575]
+    },
+    {
+      "titulo": "Sus datos",
+      "texto": "RTN y a nombre de quién factura",
+      "narracion": "Al editarlo le pone el erre te ene para la factura con cai, y a nombre de quién va si no es el suyo.",
+      "imagen": "cli-92.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cliente nuevo",
+      "texto": "Con el nombre y el teléfono basta",
+      "narracion": "Y uno nuevo se crea con el nombre y el teléfono. Lo demás es opcional, se llena cuando haga falta.",
+      "imagen": "cli-93.png",
+      "foco": null
+    },
+    {
+      "titulo": "Historial",
+      "texto": "Qué se le hizo a un vehículo",
+      "narracion": "Historial es la hoja de vida del vehículo: todo lo que se le ha hecho, visita por visita.",
+      "imagen": "cli-90.png",
+      "foco": [48, 645, 1075, 190]
+    },
+    {
+      "titulo": "Por placa o por cliente",
+      "texto": "Lo que recuerde",
+      "narracion": "Escriba la placa, el nombre del cliente o el número de la orden. Con lo que recuerde, basta.",
+      "imagen": "cli-94.png",
+      "foco": null
+    },
+    {
+      "titulo": "Visita por visita",
+      "texto": "Con su estado y su técnico",
+      "narracion": "Y le salen todas las órdenes de ese carro, con la fecha, qué se le hizo, quién lo atendió y cómo quedó.",
+      "imagen": "cli-95.png",
+      "foco": [48, 520, 1075, 790]
+    },
+    {
+      "titulo": "Usuarios",
+      "texto": "Quién entra a su taller",
+      "narracion": "Usuarios es quién puede entrar: sus técnicos, sus encargados y los clientes con acceso.",
+      "imagen": "cli-90.png",
+      "foco": [48, 1535, 1075, 140]
+    },
+    {
+      "titulo": "Contraseña o baja",
+      "texto": "Usted manda",
+      "narracion": "A cada uno le puede cambiar la contraseña, o darlo de baja el día que se vaya del taller.",
+      "imagen": "cli-96.png",
+      "foco": [48, 415, 1075, 355]
+    },
+    {
+      "titulo": "Dar de alta",
+      "texto": "Cuando entra gente nueva",
+      "narracion": "Y cuando entre alguien nuevo, lo da de alta aquí mismo.",
+      "imagen": "cli-96.png",
+      "foco": [720, 2200, 410, 150]
+    },
+    {
+      "titulo": "Técnico o encargado",
+      "texto": "Cada uno ve lo suyo",
+      "narracion": "Escoja si es técnico, que solo trabaja las órdenes que le asignen, o encargado, que maneja la sucursal.",
+      "imagen": "cli-97.png",
+      "foco": [48, 860, 1075, 200]
+    },
+    {
+      "titulo": "En qué sucursales",
+      "texto": "Y la contraseña se la da usted",
+      "narracion": "Le marca en qué sucursales trabaja y le pone su contraseña, que usted mismo le entrega.",
+      "imagen": "cli-97.png",
+      "foco": [48, 1715, 1075, 515]
+    }
+  ]
+}
