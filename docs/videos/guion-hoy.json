@@ -1,0 +1,69 @@
+{
+  "nombre": "hoy",
+  "titulo": "La pantalla Hoy",
+  "imagen": "hoy.png",
+  "voz": "Paulina",
+  "velocidad": 165,
+  "escenas": [
+    {
+      "titulo": "La pantalla Hoy",
+      "texto": "Todo el taller en una sola vista",
+      "narracion": "Esta es la pantalla Hoy. Apenas abre la aplicación, aquí ve cómo va su taller: lo que entró, lo que debe cobrar y lo que está atrasado. Vamos sección por sección.",
+      "foco": null
+    },
+    {
+      "titulo": "La campana",
+      "texto": "Sus notificaciones",
+      "narracion": "Arriba a la derecha está la campana. Al tocarla se abren sus notificaciones: una cita nueva, un requerimiento que le entró, una cotización que el cliente aprobó. Si tiene un punto rojo, es que hay algo sin leer.",
+      "foco": [762, 112, 96, 112]
+    },
+    {
+      "titulo": "Sus sucursales",
+      "texto": "Vea una o véalas todas",
+      "narracion": "Aquí escoge la sucursal. Con Todas las sucursales ve los números juntos; si elige una, toda la pantalla se filtra a esa sucursal.",
+      "foco": [428, 236, 424, 76]
+    },
+    {
+      "titulo": "Cobrado hoy",
+      "texto": "Lo que entró a caja",
+      "narracion": "Esta es la plata del día: a la izquierda lo cobrado, lo que de verdad entró a caja, y a la derecha lo facturado. Si los dos números no se parecen, es que falta cobrar.",
+      "foco": [28, 322, 802, 148]
+    },
+    {
+      "titulo": "Por atender y atrasadas",
+      "texto": "Lo que no puede esperar",
+      "narracion": "Por atender son los requerimientos que nadie ha tocado. Atrasadas son las órdenes a las que ya se les pasó la fecha de entrega. Toque cualquiera de las dos y le abre la lista.",
+      "foco": [34, 486, 790, 182]
+    },
+    {
+      "titulo": "Sin respuesta y vencido",
+      "texto": "Cotizaciones y cobros",
+      "narracion": "Sin respuesta son las cotizaciones que el cliente todavía no aprueba ni rechaza. Vencido es el dinero que ya debió haber cobrado. Esos dos números son su lista de llamadas del día.",
+      "foco": [34, 676, 790, 182]
+    },
+    {
+      "titulo": "El tablero de órdenes",
+      "texto": "En qué va cada vehículo",
+      "narracion": "Aquí van las órdenes por estado: entrando, en trabajo, detenidas y listas para entrega. Toque un estado y ve solo esas órdenes. Detenidas es la que hay que vigilar: son las que están esperando algo.",
+      "foco": [34, 872, 790, 384]
+    },
+    {
+      "titulo": "Les toca servicio",
+      "texto": "Trabajo que vuelve solo",
+      "narracion": "La aplicación le avisa qué vehículos ya les toca mantenimiento este mes. Es trabajo que ya se ganó: solo hay que llamar al cliente.",
+      "foco": [34, 1268, 790, 128]
+    },
+    {
+      "titulo": "Recibir vehículo",
+      "texto": "El botón de todos los días",
+      "narracion": "Este es el botón que más va a usar. Llega un cliente, toca Recibir vehículo y en la misma pantalla anota qué necesita y de qué carro.",
+      "foco": [34, 1418, 790, 118]
+    },
+    {
+      "titulo": "La barra de abajo",
+      "texto": "Hoy, Órdenes, Caja y Más",
+      "narracion": "Abajo están las cuatro pestañas: Hoy, que es donde estamos; Órdenes, con todos los trabajos; Caja, para cobrar; y Más, donde están clientes, citas, inventario y reportes.",
+      "foco": [0, 1596, 858, 168]
+    }
+  ]
+}
