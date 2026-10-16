@@ -210,6 +210,20 @@ para probar cambios, no para reemplazarlo.
 | Build output directory | `dist` |
 | Root directory | `web` |
 
+Pages despliega además la carpeta `web/functions/` sin configurar nada: hoy solo trae
+[`assets/[[path]].js`](../web/functions/assets/%5B%5Bpath%5D%5D.js), que convierte en 404 el
+archivo de `/assets/` que ya no existe —el que pide una pestaña abierta desde antes de un
+despliegue—. El comodín de `_redirects` le contestaría el `index.html` con un 200 y el
+navegador diría que «'text/html' no es un tipo válido para un módulo», que no se entiende.
+Se prueba en local sin desplegar:
+
+```bash
+cd web && npm run build && npx wrangler pages dev dist
+# un archivo que existe → 200 application/javascript
+# uno inventado        → 404 text/plain
+# /cita/<token>        → 200 text/html (el index, como debe ser)
+```
+
 Variable de entorno de build:
 
 ```
