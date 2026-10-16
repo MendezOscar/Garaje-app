@@ -28,24 +28,30 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   _Filtro _filtro = _Filtro.porConfirmar;
   String? _busyId;
 
-  List<AppointmentItem> _visibles(List<AppointmentItem> citas) => switch (_filtro) {
+  List<AppointmentItem> _visibles(List<AppointmentItem> citas) =>
+      switch (_filtro) {
         _Filtro.porConfirmar => citas.where((c) => c.esperaRespuesta).toList(),
         _Filtro.hoy => citas.where((c) => c.esDeHoy).toList(),
         _Filtro.todas => citas,
       };
 
   Future<void> _confirmar(AppointmentItem cita) async {
-    final cambio = await showModalBottomSheet<({DateTime dia, AppointmentSlot franja, String nota})>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _ConfirmSheet(cita: cita),
-    );
+    final cambio =
+        await showModalBottomSheet<
+          ({DateTime dia, AppointmentSlot franja, String nota})
+        >(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => _ConfirmSheet(cita: cita),
+        );
 
     if (cambio == null) return;
 
     setState(() => _busyId = cita.id);
     try {
-      await ref.read(appointmentRepositoryProvider).confirm(
+      await ref
+          .read(appointmentRepositoryProvider)
+          .confirm(
             cita.id,
             day: cambio.dia == cita.day ? null : cambio.dia,
             slot: cambio.franja == cita.slot ? null : cambio.franja,
@@ -78,7 +84,10 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Rechazar'),
@@ -135,7 +144,9 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
 
   void _snack(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
@@ -187,7 +198,10 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
               child: citas.when(
                 loading: () => const GarajSkeletonList(),
                 error: (e, _) => GarajError(
-                  message: apiErrorMessage(e, 'No se pudieron cargar las citas.'),
+                  message: apiErrorMessage(
+                    e,
+                    'No se pudieron cargar las citas.',
+                  ),
                   onRetry: () => ref.invalidate(appointmentsProvider),
                 ),
                 data: (todas) {
@@ -207,7 +221,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
                   return ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: lista.length,
-                    itemBuilder: (_, i) => _CitaCard(
+                    itemBuilder: (_, i) => CitaCard(
                       cita: lista[i],
                       busy: _busyId == lista[i].id,
                       onConfirmar: () => _confirmar(lista[i]),
@@ -229,14 +243,17 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
 String _fecha(DateTime dia) =>
     '${dia.day.toString().padLeft(2, '0')}/${dia.month.toString().padLeft(2, '0')}/${dia.year}';
 
-class _CitaCard extends StatelessWidget {
-  const _CitaCard({
+/// Una cita en la lista. Pública —y no `_CitaCard`— para poder probarla sola: lo que se rompió
+/// fue justo esto, los botones saliéndose por el borde en un teléfono angosto.
+class CitaCard extends StatelessWidget {
+  const CitaCard({
     required this.cita,
     required this.busy,
     required this.onConfirmar,
     required this.onRechazar,
     required this.onLlego,
     required this.onWhatsapp,
+    super.key,
   });
 
   final AppointmentItem cita;
@@ -285,28 +302,47 @@ class _CitaCard extends StatelessWidget {
               Text('↳ ${cita.responseNote}', style: theme.textTheme.bodySmall),
             ],
             const SizedBox(height: 8),
+
+            // `Expanded` y no `Spacer`: con el espaciador, en un teléfono angosto —o con la
+            // letra grande del sistema— la fila se pasaba de ancho y el botón de la derecha,
+            // que es «Confirmar», quedaba cortado contra el borde. Repartido, los botones
+            // encogen en vez de salirse.
             Row(
               children: [
-                IconButton(
+                IconButton.filledTonal(
                   onPressed: busy ? null : onWhatsapp,
                   icon: const Icon(Icons.chat),
                   tooltip: 'Escribirle por WhatsApp',
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 if (cita.status == AppointmentStatus.requested) ...[
-                  TextButton(onPressed: busy ? null : onRechazar, child: const Text('Rechazar')),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: busy ? null : onRechazar,
+                      child: const Text('Rechazar', maxLines: 1),
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: busy ? null : onConfirmar,
-                    child: const Text('Confirmar'),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: busy ? null : onConfirmar,
+                      child: const Text('Confirmar', maxLines: 1),
+                    ),
                   ),
                 ] else if (cita.status == AppointmentStatus.confirmed) ...[
-                  TextButton(
-                    onPressed: busy ? null : onConfirmar,
-                    child: const Text('Cambiar día'),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: busy ? null : onConfirmar,
+                      child: const Text('Cambiar día', maxLines: 1),
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton(onPressed: busy ? null : onLlego, child: const Text('Llegó')),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: busy ? null : onLlego,
+                      child: const Text('Llegó', maxLines: 1),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -341,63 +377,80 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Confirmar la cita', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 4),
-          Text(
-            '${widget.cita.contactName} · ${widget.cita.vehicleLabel}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.calendar_today),
-            title: Text(_fecha(_dia)),
-            trailing: const Text('Cambiar'),
-            onTap: () async {
-              final hoy = DateTime.now();
-              final elegido = await showDatePicker(
-                context: context,
-                initialDate: _dia.isBefore(hoy) ? hoy : _dia,
-                firstDate: DateTime(hoy.year, hoy.month, hoy.day),
-                lastDate: hoy.add(const Duration(days: 60)),
-              );
-              if (elegido != null) setState(() => _dia = elegido);
-            },
-          ),
-          SegmentedButton<AppointmentSlot>(
-            segments: const [
-              ButtonSegment(value: AppointmentSlot.morning, label: Text('Mañana')),
-              ButtonSegment(value: AppointmentSlot.afternoon, label: Text('Tarde')),
-            ],
-            selected: {_franja},
-            onSelectionChanged: (s) => setState(() => _franja = s.first),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _nota,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Nota para el cliente',
-              helperText: 'Opcional. La ve al abrir su enlace.',
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Confirmar la cita',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.pop(
-                context,
-                (dia: _dia, franja: _franja, nota: _nota.text.trim()),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.cita.contactName} · ${widget.cita.vehicleLabel}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_today),
+              title: Text(_fecha(_dia)),
+              trailing: const Text('Cambiar'),
+              onTap: () async {
+                final hoy = DateTime.now();
+                final elegido = await showDatePicker(
+                  context: context,
+                  initialDate: _dia.isBefore(hoy) ? hoy : _dia,
+                  firstDate: DateTime(hoy.year, hoy.month, hoy.day),
+                  lastDate: hoy.add(const Duration(days: 60)),
+                );
+                if (elegido != null) setState(() => _dia = elegido);
+              },
+            ),
+            SegmentedButton<AppointmentSlot>(
+              segments: const [
+                ButtonSegment(
+                  value: AppointmentSlot.morning,
+                  label: Text('Mañana'),
+                ),
+                ButtonSegment(
+                  value: AppointmentSlot.afternoon,
+                  label: Text('Tarde'),
+                ),
+              ],
+              selected: {_franja},
+              onSelectionChanged: (s) => setState(() => _franja = s.first),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nota,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Nota para el cliente',
+                helperText: 'Opcional. La ve al abrir su enlace.',
               ),
-              child: const Text('Confirmar'),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context, (
+                  dia: _dia,
+                  franja: _franja,
+                  nota: _nota.text.trim(),
+                )),
+                child: const Text('Confirmar'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -440,11 +493,15 @@ class _NuevaCitaSheetState extends ConsumerState<_NuevaCitaSheet> {
 
     setState(() => _guardando = true);
     try {
-      await ref.read(appointmentRepositoryProvider).create(
+      await ref
+          .read(appointmentRepositoryProvider)
+          .create(
             branchId: _sucursalId ?? sucursales.first.id,
             contactName: _nombre.text.trim(),
             contactPhone: _telefono.text.trim(),
-            vehicleNote: _vehiculo.text.trim().isEmpty ? null : _vehiculo.text.trim(),
+            vehicleNote: _vehiculo.text.trim().isEmpty
+                ? null
+                : _vehiculo.text.trim(),
             reason: _motivo.text.trim(),
             day: _dia,
             slot: _franja,
@@ -456,7 +513,9 @@ class _NuevaCitaSheetState extends ConsumerState<_NuevaCitaSheet> {
       if (!mounted) return;
       setState(() => _guardando = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(apiErrorMessage(e, 'No se pudo anotar la cita.'))),
+        SnackBar(
+          content: Text(apiErrorMessage(e, 'No se pudo anotar la cita.')),
+        ),
       );
     }
   }
@@ -469,13 +528,21 @@ class _NuevaCitaSheetState extends ConsumerState<_NuevaCitaSheet> {
         : <({String id, String name})>[];
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Anotar una cita', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Anotar una cita',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 4),
             Text(
               'La que se acuerda por teléfono. Nace confirmada.',
@@ -524,8 +591,14 @@ class _NuevaCitaSheetState extends ConsumerState<_NuevaCitaSheet> {
             ),
             SegmentedButton<AppointmentSlot>(
               segments: const [
-                ButtonSegment(value: AppointmentSlot.morning, label: Text('Mañana')),
-                ButtonSegment(value: AppointmentSlot.afternoon, label: Text('Tarde')),
+                ButtonSegment(
+                  value: AppointmentSlot.morning,
+                  label: Text('Mañana'),
+                ),
+                ButtonSegment(
+                  value: AppointmentSlot.afternoon,
+                  label: Text('Tarde'),
+                ),
               ],
               selected: {_franja},
               onSelectionChanged: (s) => setState(() => _franja = s.first),
@@ -546,7 +619,9 @@ class _NuevaCitaSheetState extends ConsumerState<_NuevaCitaSheet> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _guardando || sucursales.isEmpty ? null : () => _guardar(sucursales),
+                onPressed: _guardando || sucursales.isEmpty
+                    ? null
+                    : () => _guardar(sucursales),
                 child: Text(_guardando ? 'Guardando…' : 'Anotar'),
               ),
             ),
