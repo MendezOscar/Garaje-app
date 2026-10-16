@@ -8,64 +8,80 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* 1920 × 823 × 2 = 3840 × 1646. Es una tira ancha y baja: cabe una frase, no un párrafo. */
+  /* Resultados de la búsqueda: 3:2. Se dibuja a 1920 × 1280 y se captura al doble, que da
+     3840 × 2560, el máximo que acepta App Store Connect. */
   body {
-    width: 1920px; height: 823px; overflow: hidden;
+    width: 1920px; height: 1280px; overflow: hidden;
     background: #0d1117;
     font-family: 'IBM Plex Sans', system-ui, sans-serif;
     color: #e8eaed;
-    display: grid; grid-template-columns: 1fr 820px; align-items: center;
+    display: grid; grid-template-columns: 1fr 860px; align-items: center;
     position: relative;
   }
 
   body::before {
     content: ''; position: absolute; inset: 0;
     background:
-      radial-gradient(700px 500px at 15% 40%, rgba(31,111,235,.35), transparent 65%),
-      radial-gradient(700px 600px at 80% 70%, rgba(18,66,147,.45), transparent 60%);
+      radial-gradient(760px 620px at 16% 34%, rgba(31,111,235,.35), transparent 65%),
+      radial-gradient(800px 800px at 82% 76%, rgba(18,66,147,.45), transparent 60%);
   }
 
   body::after {
     content: ''; position: absolute; inset: 0;
     background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
                       linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: radial-gradient(1000px 600px at 25% 50%, #000 40%, transparent 85%);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(1100px 800px at 28% 50%, #000 40%, transparent 85%);
   }
 
-  .texto { position: relative; z-index: 1; padding-left: 130px; }
+  .texto { position: relative; z-index: 1; padding-left: 140px; }
 
-  .logo { height: 66px; margin-bottom: 42px; }
+  .logo { height: 76px; margin-bottom: 54px; }
 
   h1 {
     font-family: 'Space Grotesk', sans-serif; font-weight: 700;
-    font-size: 104px; line-height: 1.03; letter-spacing: -.035em;
+    font-size: 118px; line-height: 1.02; letter-spacing: -.035em;
   }
 
   h1 .azul { color: #6ba4ff; }
 
-  p { margin-top: 28px; font-size: 40px; color: #aab2c0; }
+  p { margin-top: 36px; font-size: 44px; line-height: 1.35; color: #aab2c0; max-width: 16ch; }
+
+  .pastillas { margin-top: 54px; display: flex; gap: 18px; flex-wrap: wrap; max-width: 760px; }
+
+  .pastilla {
+    padding: 14px 26px; border: 2px solid rgba(255,255,255,.22); border-radius: 999px;
+    font-size: 30px; color: #cfd6e2; white-space: nowrap;
+  }
 
   .telefonos { position: relative; z-index: 1; height: 100%; }
 
   .telefono {
-    position: absolute; border-radius: 54px; overflow: hidden;
-    border: 10px solid #1c2128;
-    box-shadow: 0 50px 90px rgba(0,0,0,.55);
+    position: absolute; border-radius: 62px; overflow: hidden;
+    border: 12px solid #1c2128;
+    box-shadow: 0 70px 110px rgba(0,0,0,.55);
     background: #000;
   }
 
   .telefono img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 
-  .atras { width: 360px; height: 780px; top: 150px; left: 20px; rotate: -7deg; opacity: .9; }
-  .frente { width: 400px; height: 860px; top: 110px; left: 350px; rotate: 4deg; }
+  /* La rotación saca las esquinas hacia afuera: hay que dejarles aire o se recortan contra
+     el borde del lienzo. */
+  .atras { width: 425px; height: 925px; top: 195px; left: 0; rotate: -7deg; opacity: .92; }
+  .frente { width: 470px; height: 1020px; top: 145px; left: 320px; rotate: 4deg; }
 </style>
 </head>
 <body>
   <div class="texto">
     <img class="logo" src="../../../web/public/brand/garajapp-horizontal-blanco.svg" alt="GarajApp">
-    <h1>El taller, <span class="azul">en orden</span></h1>
+    <h1>El taller,<br><span class="azul">en orden</span></h1>
     <p>Órdenes, repuestos, cotizaciones y citas.</p>
+    <div class="pastillas">
+      <span class="pastilla">Órdenes</span>
+      <span class="pastilla">Inventario</span>
+      <span class="pastilla">Citas</span>
+      <span class="pastilla">Facturación</span>
+    </div>
   </div>
 
   <div class="telefonos">
