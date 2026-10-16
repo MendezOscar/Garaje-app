@@ -1,9 +1,9 @@
 {
   "nombre": "anuncio-taller",
   "taller": "Taller RVM",
-  "telefono": "WhatsApp 9824-2108",
-  "direccion": "3 calle, entre 8 y 9 avenida",
-  "logo": "logo-taller.png",
+  "telefono": "WhatsApp 9454-6629",
+  "direccion": "10 Calle, 13 Calle SPS, Puerto Cortés, Honduras",
+  "logo": "/Users/mendez/dev/garaj-app/web/public/talleres/rvm.jpg",
   "escenas": [
     {
       "tipo": "portada",
