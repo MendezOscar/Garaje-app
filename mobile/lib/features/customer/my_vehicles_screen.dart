@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/appointment_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/api/work_order_repository.dart';
@@ -35,6 +36,7 @@ class MyVehiclesScreen extends ConsumerWidget {
     final ordenes = ref.watch(openOrdersProvider);
     final vehiculos = ref.watch(vehicleOptionsProvider(''));
     final cotizaciones = ref.watch(myQuotesProvider);
+    final citas = ref.watch(misCitasProvider);
 
     final enTaller = ordenes.value ?? const <WorkOrderListItem>[];
     final enTallerIds = enTaller.map((o) => o.vehicleId).toSet();
@@ -44,6 +46,13 @@ class MyVehiclesScreen extends ConsumerWidget {
 
     final pendientes =
         (cotizaciones.value ?? const <Quote>[]).where((q) => q.canRespond).toList();
+
+    // Las citas vivas: lo que el cliente apartó y todavía no ha pasado.
+    final misCitas = (citas.value ?? const <AppointmentItem>[])
+        .where((c) =>
+            c.status == AppointmentStatus.requested ||
+            c.status == AppointmentStatus.confirmed)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -73,7 +82,8 @@ class MyVehiclesScreen extends ConsumerWidget {
           ref
             ..invalidate(openOrdersProvider)
             ..invalidate(vehicleOptionsProvider(''))
-            ..invalidate(myQuotesProvider);
+            ..invalidate(myQuotesProvider)
+            ..invalidate(misCitasProvider);
         },
         child: ordenes.when(
           loading: () => const GarajSkeletonList(),
@@ -104,6 +114,7 @@ class MyVehiclesScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
             children: [
               for (final quote in pendientes) _PendienteCard(quote: quote),
+              for (final cita in misCitas) _CitaCard(cita: cita),
               for (final order in enTaller) _EnTallerCard(order: order),
               for (final vehiculo in enCasa)
                 _EnCasaCard(
@@ -121,8 +132,8 @@ class MyVehiclesScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: 4),
               FilledButton.icon(
-                onPressed: () => context.push('/nueva-cita'),
-                icon: const Icon(Icons.add),
+                onPressed: () => context.push('/pedir-cita'),
+                icon: const Icon(Icons.event_available),
                 label: const Text('Pedir una cita'),
               ),
               const SizedBox(height: 10),
@@ -131,6 +142,67 @@ class MyVehiclesScreen extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La cita que el cliente apartó: cuándo y si el taller ya la confirmó.
+class _CitaCard extends StatelessWidget {
+  const _CitaCard({required this.cita});
+
+  final AppointmentItem cita;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final confirmada = cita.status == AppointmentStatus.confirmed;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    confirmada ? Icons.event_available : Icons.schedule,
+                    size: 18,
+                    color: confirmada ? GarajColors.success : GarajColors.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    confirmada ? 'SU CITA' : 'CITA POR CONFIRMAR',
+                    style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0.6),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${_fecha(cita.day)} · ${cita.slot.label.toLowerCase()}',
+                style: theme.textTheme.bodyLarge,
+              ),
+              Text(
+                '${cita.vehicleLabel} · ${cita.branchName}',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                confirmada
+                    ? 'El taller lo espera. Si no va a poder, avísele.'
+                    : 'El taller le confirma. Si ese día no les cabe, le proponen otro.',
+                style: theme.textTheme.bodySmall,
+              ),
+              if (cita.responseNote != null) ...[
+                const SizedBox(height: 4),
+                Text('↳ ${cita.responseNote}', style: theme.textTheme.bodySmall),
+              ],
             ],
           ),
         ),

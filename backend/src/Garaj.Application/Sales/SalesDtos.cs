@@ -332,6 +332,9 @@ public record DashboardDto(
     int LateWorkOrders,
     int QuotesAwaitingResponse,
     int PartsBelowMinimum,
+    // Citas: las que esperan respuesta del taller y las que están apartadas para hoy.
+    int AppointmentsToConfirm,
+    int AppointmentsToday,
     // Cuánto se ha facturado y todavía no se ha cobrado, y cuánto de eso ya venció.
     decimal Receivables,
     decimal OverdueReceivables,

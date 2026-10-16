@@ -5,6 +5,7 @@ using Garaj.Domain.Entities;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -21,6 +22,7 @@ public class TenantService(
     ITenantContext tenantContext,
     IDateTimeProvider clock,
     IMemoryCache cache,
+    IConfiguration configuration,
     ILogger<TenantService> logger) : ITenantService
 {
     /// <summary>
@@ -36,6 +38,18 @@ public class TenantService(
     private static readonly TimeSpan LogoCacheTime = TimeSpan.FromHours(1);
 
     private static string LogoCacheKey(Guid tenantId) => $"logo:{tenantId}";
+
+    /// <summary>
+    /// El enlace de citas ya armado, apuntando al web y no a la API: lo abre una persona, no
+    /// un programa. Sale de <c>PublicBaseUrl</c>, igual que el de la cotización. Null cuando
+    /// no está configurada —el panel se las arregla con su propio origen, pero la app no
+    /// tiene de dónde sacarlo y prefiere no enseñar un enlace roto—.
+    /// </summary>
+    private string? BookingUrl(Guid token)
+    {
+        var baseUrl = configuration["PublicBaseUrl"]?.TrimEnd('/');
+        return string.IsNullOrWhiteSpace(baseUrl) ? null : $"{baseUrl}/cita/{token}";
+    }
 
     /// <summary>Tope de entrada. Un logo real no pasa de unos cientos de kilobytes.</summary>
     private const long MaxLogoBytes = 2 * 1024 * 1024;
@@ -88,6 +102,7 @@ public class TenantService(
         tenant.StorageFreeDays = Math.Clamp(request.StorageFreeDays, 0, 365);
         tenant.StorageDailyRate = Math.Max(0, request.StorageDailyRate);
         tenant.TechniciansSeePrices = request.TechniciansSeePrices;
+        tenant.BookingEnabled = request.BookingEnabled;
 
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
@@ -359,7 +374,7 @@ public class TenantService(
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static TenantSettingsDto Map(Tenant tenant) => new(
+    private TenantSettingsDto Map(Tenant tenant) => new(
         tenant.Id,
         tenant.Name,
         tenant.LegalName,
@@ -375,5 +390,8 @@ public class TenantService(
         tenant.StorageFreeDays,
         tenant.StorageDailyRate,
         tenant.TechniciansSeePrices,
+        tenant.BookingToken,
+        tenant.BookingEnabled,
+        BookingUrl(tenant.BookingToken),
         tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id));
 }

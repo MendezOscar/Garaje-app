@@ -21,6 +21,29 @@ export const ServiceRequestStatus = {
 } as const
 export type ServiceRequestStatus = (typeof ServiceRequestStatus)[keyof typeof ServiceRequestStatus]
 
+/** Espejo de `Garaj.Domain.Enums.AppointmentSlot`. */
+export const AppointmentSlot = {
+  Morning: 1,
+  Afternoon: 2,
+} as const
+export type AppointmentSlot = (typeof AppointmentSlot)[keyof typeof AppointmentSlot]
+
+export const AppointmentStatus = {
+  Requested: 1,
+  Confirmed: 2,
+  Attended: 3,
+  Rejected: 4,
+  Cancelled: 5,
+} as const
+export type AppointmentStatus = (typeof AppointmentStatus)[keyof typeof AppointmentStatus]
+
+export const AppointmentSource = {
+  PublicLink: 1,
+  CustomerApp: 2,
+  Workshop: 3,
+} as const
+export type AppointmentSource = (typeof AppointmentSource)[keyof typeof AppointmentSource]
+
 export const WorkOrderStatus = {
   Received: 1,
   Diagnosing: 2,
@@ -139,6 +162,25 @@ export const WORK_ORDER_STATUS_LABEL: Record<WorkOrderStatus, string> = {
   [WorkOrderStatus.Ready]: 'Lista para entrega',
   [WorkOrderStatus.Delivered]: 'Entregada',
   [WorkOrderStatus.Cancelled]: 'Cancelada',
+}
+
+export const APPOINTMENT_SLOT_LABEL: Record<AppointmentSlot, string> = {
+  [AppointmentSlot.Morning]: 'Por la mañana',
+  [AppointmentSlot.Afternoon]: 'Por la tarde',
+}
+
+export const APPOINTMENT_STATUS_LABEL: Record<AppointmentStatus, string> = {
+  [AppointmentStatus.Requested]: 'Por confirmar',
+  [AppointmentStatus.Confirmed]: 'Confirmada',
+  [AppointmentStatus.Attended]: 'Atendida',
+  [AppointmentStatus.Rejected]: 'Rechazada',
+  [AppointmentStatus.Cancelled]: 'Cancelada',
+}
+
+export const APPOINTMENT_SOURCE_LABEL: Record<AppointmentSource, string> = {
+  [AppointmentSource.PublicLink]: 'Por el enlace',
+  [AppointmentSource.CustomerApp]: 'Desde la app',
+  [AppointmentSource.Workshop]: 'La anotó el taller',
 }
 
 export const SERVICE_REQUEST_STATUS_LABEL: Record<ServiceRequestStatus, string> = {
@@ -278,6 +320,55 @@ export interface ServiceRequest {
   workOrderId: string | null
   workOrderNumber: string | null
   createdAt: string
+}
+
+/** Una cita, como la ve el taller. `day` es `YYYY-MM-DD`: una cita es un día, no un instante. */
+export interface Appointment {
+  id: string
+  branchId: string
+  branchName: string
+  customerId: string | null
+  vehicleId: string | null
+  contactName: string
+  contactPhone: string
+  /** El vehículo del padrón cuando lo hay, y si no lo que la persona dijo por el enlace. */
+  vehicleLabel: string
+  reason: string
+  day: string
+  slot: AppointmentSlot
+  status: AppointmentStatus
+  source: AppointmentSource
+  responseNote: string | null
+  workOrderId: string | null
+  workOrderNumber: string | null
+  publicToken: string
+  createdAt: string
+}
+
+/** El taller en el enlace público de citas. */
+export interface BookingPage {
+  tenantName: string
+  hasLogo: boolean
+  enabled: boolean
+  branches: { id: string; name: string; address: string | null; phone: string | null }[]
+  /** Hasta qué día se puede agendar (`YYYY-MM-DD`). */
+  lastDay: string
+}
+
+/** La cita como la ve su dueño desde el enlace, sin nada del taller por dentro. */
+export interface PublicAppointment {
+  token: string
+  tenantName: string
+  branchName: string
+  branchAddress: string | null
+  branchPhone: string | null
+  contactName: string
+  vehicleLabel: string
+  reason: string
+  day: string
+  slot: AppointmentSlot
+  status: AppointmentStatus
+  responseNote: string | null
 }
 
 export interface WorkOrderListItem {
@@ -879,6 +970,9 @@ export interface Dashboard {
   lateWorkOrders: number
   quotesAwaitingResponse: number
   partsBelowMinimum: number
+  /** Citas que esperan respuesta del taller, y las apartadas para hoy. */
+  appointmentsToConfirm: number
+  appointmentsToday: number
   /** Facturado y no cobrado, y cuánto de eso ya venció. */
   receivables: number
   overdueReceivables: number
@@ -1015,6 +1109,11 @@ export interface TenantSettings {
   /** Días de gracia desde el aviso de que está listo. Dentro de ellos no se cobra. */
   storageFreeDays: number
   storageDailyRate: number
+  /** Token del enlace público de citas, y si está recibiendo solicitudes. */
+  bookingToken: string
+  bookingEnabled: boolean
+  /** El enlace ya armado por la API. Null si al servidor le falta `PublicBaseUrl`. */
+  bookingUrl: string | null
   /** Ruta relativa a la base de la API, o null. Se abre con `apiUrl()`. */
   logoUrl: string | null
 }

@@ -21,6 +21,7 @@ Lo que es de la **sucursal**: órdenes de trabajo, existencias, movimientos, cot
 ## Flujo de servicio
 
 ```
+Appointment ──llegó──┐
 ServiceRequest ──aprobado──> WorkOrder ──cerrada──> Sale
      │                          │
      │                          ├── WorkOrderTask       (paso a paso)
@@ -29,6 +30,14 @@ ServiceRequest ──aprobado──> WorkOrder ──cerrada──> Sale
      │
      └── Quote ──> QuoteLine    (se comparte por wa.me con PublicToken)
 ```
+
+`Appointment` es el día que el cliente apartó, antes de que exista nada más. Nace del enlace
+público del taller —`Tenant.BookingToken`, que no caduca y se imprime en un QR— o de la app del
+cliente. **No crea cliente ni vehículo**: la que viene del enlace solo guarda lo que la persona
+escribió (`ContactName`, `ContactPhone`, `VehicleNote`), porque una agenda llena de gente que
+nunca llegó no debe ensuciar el padrón. Los datos de verdad se toman al recibir el vehículo.
+`AppointmentStatus`: `Requested → Confirmed → Attended`, más `Rejected` (el taller) y
+`Cancelled` (el cliente, desde su enlace).
 
 `WorkOrderStatus`: `Received → Diagnosing → WaitingApproval → WaitingParts → InProgress →
 Testing → Ready → Delivered`, más `Cancelled`. Las transiciones válidas están centralizadas en

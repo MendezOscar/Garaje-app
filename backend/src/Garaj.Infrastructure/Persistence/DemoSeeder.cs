@@ -125,6 +125,7 @@ public class DemoSeeder(
         await db.WorkOrderStatusHistory.ExecuteDeleteAsync(ct);
         await db.WorkOrderTasks.ExecuteDeleteAsync(ct);
         await db.ServiceRequests.ExecuteDeleteAsync(ct);
+        await db.Appointments.ExecuteDeleteAsync(ct);
         await db.VehicleReceptions.ExecuteDeleteAsync(ct);
         await db.WorkOrders.ExecuteDeleteAsync(ct);
         await db.Vehicles.ExecuteDeleteAsync(ct);
@@ -1234,6 +1235,55 @@ public class DemoSeeder(
                 CreatedByUserId = world.Staff.Owner.Id
             });
         }
+
+        // Citas: una pedida por el enlace que espera respuesta, una confirmada para hoy y una
+        // que pidió desde la app un cliente con cuenta. Sin esto, la agenda abre vacía y no se
+        // entiende de qué va la pantalla.
+        var manana = DateOnly.FromDateTime(today.UtcDateTime.AddHours(-6)).AddDays(1);
+        var hoyDia = DateOnly.FromDateTime(today.UtcDateTime.AddHours(-6));
+
+        db.Appointments.AddRange(
+            new Appointment
+            {
+                BranchId = world.Branches[0].Id,
+                ContactName = "Marvin Zelaya",
+                ContactPhone = "50499112233",
+                VehicleNote = "Hilux 2016, placa HAE4455",
+                Reason = "Hace un ruido al frenar y quiere saber cuánto cuesta",
+                Day = manana,
+                Slot = AppointmentSlot.Morning,
+                Source = AppointmentSource.PublicLink,
+                Status = AppointmentStatus.Requested,
+                CreatedAt = today.AddHours(-3)
+            },
+            new Appointment
+            {
+                BranchId = world.Branches[0].Id,
+                CustomerId = world.Vehicles[0].CustomerId,
+                VehicleId = world.Vehicles[0].Id,
+                ContactName = "Cita desde la app",
+                ContactPhone = "50498881111",
+                Reason = "Servicio de los 40 mil",
+                Day = hoyDia,
+                Slot = AppointmentSlot.Afternoon,
+                Source = AppointmentSource.CustomerApp,
+                Status = AppointmentStatus.Confirmed,
+                ConfirmedAt = today.AddHours(-20),
+                CreatedAt = today.AddDays(-2)
+            },
+            new Appointment
+            {
+                BranchId = world.Branches[world.Branches.Count - 1].Id,
+                ContactName = "Doña Rosa",
+                ContactPhone = "50497776655",
+                VehicleNote = "Un Yaris blanco, no sé el año",
+                Reason = "Cambio de aceite",
+                Day = manana.AddDays(2),
+                Slot = AppointmentSlot.Morning,
+                Source = AppointmentSource.PublicLink,
+                Status = AppointmentStatus.Requested,
+                CreatedAt = today.AddHours(-1)
+            });
 
         // Dos repuestos por debajo del mínimo, para que la alerta del tablero tenga contenido
         // real y no haya que provocarla a mano durante la presentación.

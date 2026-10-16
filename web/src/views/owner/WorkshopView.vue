@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import qrcode from 'qrcode-generator'
 import { apiUrl, errorMessage } from '@/api/client'
 import { branchesApi, tenantApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Branch, FiscalRange, TenantSettings } from '@/types/domain'
-import { formatDate } from '@/utils/format'
+import { formatDate, whatsappLink } from '@/utils/format'
 
 /**
  * La ficha del taller: nombre, razón social, RTN, teléfonos y logo.
@@ -28,11 +29,57 @@ const form = ref({
   defaultTaxRate: 15,
   defaultWarrantyDays: 0,
   techniciansSeePrices: true,
+  bookingEnabled: true,
   chargesStorage: false,
   storageFreeDays: 3,
   storageDailyRate: 0,
   defaultPhoneCountryCode: '504',
 })
+
+/**
+ * El enlace que el taller reparte para que le pidan cita. Se arma con el origen de esta misma
+ * página: el panel y las páginas públicas viven en el mismo dominio, así que no hace falta
+ * otra variable de entorno que alguien tenga que acordarse de configurar.
+ */
+const enlaceDeCitas = computed(() => {
+  if (!ficha.value) return ''
+
+  // Lo arma la API con su `PublicBaseUrl`, que es el dominio de verdad. El origen de esta
+  // página es el respaldo para desarrollo, donde esa configuración puede no estar.
+  return ficha.value.bookingUrl ?? `${window.location.origin}/cita/${ficha.value.bookingToken}`
+})
+
+const copiado = ref(false)
+
+/**
+ * El mismo enlace, en QR, para imprimirlo y pegarlo en el mostrador. Se dibuja en el
+ * navegador —nada sale de la máquina— y sale como PNG para que se pueda arrastrar a un
+ * documento o guardar con el botón derecho.
+ */
+const qr = computed(() => {
+  if (!enlaceDeCitas.value) return ''
+
+  // Tipo 0 es «el más chico donde quepa»; M corrige hasta un 15% de daño, que es lo que
+  // aguanta un papel pegado en una pared de taller.
+  const codigo = qrcode(0, 'M')
+  codigo.addData(enlaceDeCitas.value)
+  codigo.make()
+
+  return codigo.createDataURL(6, 2)
+})
+
+async function copiarEnlace() {
+  if (!enlaceDeCitas.value) return
+
+  try {
+    await navigator.clipboard.writeText(enlaceDeCitas.value)
+    copiado.value = true
+    setTimeout(() => (copiado.value = false), 2000)
+  } catch {
+    // Sin permiso de portapapeles —pasa en algunos navegadores sin https— queda el campo,
+    // que ya se selecciona solo al tocarlo.
+  }
+}
 
 const loading = ref(false)
 const busy = ref(false)
@@ -135,6 +182,7 @@ function fill(data: TenantSettings) {
     defaultTaxRate: data.defaultTaxRate,
     defaultWarrantyDays: data.defaultWarrantyDays,
     techniciansSeePrices: data.techniciansSeePrices,
+    bookingEnabled: data.bookingEnabled,
     chargesStorage: data.chargesStorage,
     storageFreeDays: data.storageFreeDays,
     storageDailyRate: data.storageDailyRate,
@@ -171,6 +219,7 @@ async function save() {
         defaultTaxRate: Number(f.defaultTaxRate) || 0,
         defaultWarrantyDays: Number(f.defaultWarrantyDays) || 0,
         techniciansSeePrices: f.techniciansSeePrices,
+        bookingEnabled: f.bookingEnabled,
         chargesStorage: f.chargesStorage,
         storageFreeDays: Number(f.storageFreeDays) || 0,
         storageDailyRate: Number(f.storageDailyRate) || 0,
@@ -336,6 +385,50 @@ onMounted(async () => {
           </div>
         </section>
 
+        <!-- El enlace de citas. Va en los ajustes y no en la pantalla de Citas porque es algo
+             que se configura una vez y se reparte: al WhatsApp, al estado, a un QR del
+             mostrador. -->
+        <section class="card">
+          <h2>Enlace para pedir cita</h2>
+          <p class="muted small ayuda">
+            Mándelo por WhatsApp o imprímalo en un QR. Quien lo abra pide su cita sin
+            instalar nada ni crear cuenta, y a usted le llega a la pantalla de Citas.
+          </p>
+
+          <div class="enlace">
+            <input :value="enlaceDeCitas" readonly @focus="($event.target as HTMLInputElement).select()" />
+            <button type="button" class="btn-ghost" @click="copiarEnlace">
+              {{ copiado ? 'Copiado' : 'Copiar' }}
+            </button>
+            <a
+              v-if="enlaceDeCitas"
+              class="btn-ghost boton"
+              :href="whatsappLink('', `Pida su cita aquí: ${enlaceDeCitas}`)"
+              target="_blank"
+              rel="noopener"
+            >
+              Mandar por WhatsApp
+            </a>
+          </div>
+
+          <div class="qr">
+            <img :src="qr" alt="Código QR del enlace de citas" width="132" height="132" />
+            <p class="muted small">
+              Imprímalo y péguelo en el mostrador: quien lo escanee con la cámara del teléfono
+              cae en la hoja para pedir su cita.
+            </p>
+          </div>
+
+          <label class="checkbox">
+            <input v-model="form.bookingEnabled" type="checkbox" />
+            Recibir citas por el enlace
+          </label>
+          <p class="muted small ayuda">
+            Apagado, el enlace sigue abriendo pero dice que el taller no está agendando. Es la
+            salida de la semana que ya no cabe un carro más.
+          </p>
+        </section>
+
         <section class="card">
           <h2>Qué ve el técnico</h2>
 
@@ -492,6 +585,38 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.enlace {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.enlace input {
+  flex: 1 1 18rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.enlace .boton {
+  display: inline-flex;
+  align-items: center;
+}
+
+.qr {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.qr img {
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
 h1 {
   margin: 0;
 }

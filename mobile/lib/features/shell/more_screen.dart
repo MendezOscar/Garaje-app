@@ -81,6 +81,16 @@ class MoreScreen extends ConsumerWidget {
                   route: '/requerimientos',
                 ),
                 _Row(
+                  icon: Icons.event_available_outlined,
+                  label: 'Citas',
+                  foot: d == null
+                      ? null
+                      : d.appointmentsToConfirm == 0
+                          ? 'ninguna por confirmar'
+                          : '${d.appointmentsToConfirm} por confirmar',
+                  route: '/citas',
+                ),
+                _Row(
                   icon: Icons.notifications_active_outlined,
                   label: 'Recordatorios',
                   foot: recordatorios == null

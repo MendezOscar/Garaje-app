@@ -1,4 +1,5 @@
 using Garaj.Application.Abstractions;
+using Garaj.Application.Appointments;
 using Garaj.Application.Auth;
 using Garaj.Application.Branches;
 using Garaj.Application.Customers;
@@ -94,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkOrderService, WorkOrderService>();
         services.AddScoped<IJobTemplateService, JobTemplateService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
+        services.AddScoped<IAppointmentService, AppointmentService>();
         services.AddScoped<IPartService, PartService>();
         services.AddScoped<ILaborServiceCatalog, LaborServiceCatalog>();
         services.AddScoped<IQuoteService, QuoteService>();

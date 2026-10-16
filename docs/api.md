@@ -90,6 +90,12 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST | `/api/service-requests` | cualquiera | El Técnico solo en sus sucursales |
 | POST | `/api/service-requests/{id}/approve` | Owner | Lo convierte en orden y devuelve `workOrderId` |
 | POST | `/api/service-requests/{id}/reject` | Owner | Lo rechaza con motivo |
+| GET | `/api/appointments?branchId=&status=&from=&to=&includeClosed=` | cualquiera | La agenda. Sin rango, de hoy en adelante y sin lo cerrado. El Cliente ve las suyas; el Técnico, ninguna |
+| POST | `/api/appointments/request` | cualquiera | La pide el Cliente sobre uno de **sus** vehículos |
+| POST | `/api/appointments` | Owner o Encargado | La anota el taller, por teléfono. Nace confirmada |
+| POST | `/api/appointments/{id}/confirm` | Owner o Encargado | Confirma; `day`/`slot` la mueven de día |
+| POST | `/api/appointments/{id}/reject` | Owner o Encargado | La rechaza con motivo |
+| POST | `/api/appointments/{id}/attended` | Owner o Encargado | Llegó el vehículo; `workOrderId` opcional |
 | GET | `/api/work-orders?status=&branchId=&onlyOpen=` | cualquiera | Kanban y bandeja del Técnico |
 | GET | `/api/work-orders/{id}` | cualquiera | Detalle con pasos y línea de tiempo |
 | POST | `/api/work-orders` | Owner | Abre la orden |
@@ -236,6 +242,11 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | GET | `/api/quotes/{id}/whatsapp-link` | Owner | El mismo link sin cambiar el estado |
 | GET | `/api/quotes/{id}/pdf?includeReception=` | Owner o Cliente | PDF. Con `includeReception` lleva la ficha de recepción delante |
 | POST | `/api/quotes/{id}/respond` | Owner o Cliente | Respuesta desde dentro de la app |
+| GET | `/public/booking/{bookingToken}` | **anónimo** | La hoja para pedir cita: nombre del taller, logo y sucursales. El token es del taller y es fijo |
+| POST | `/public/booking/{bookingToken}` | **anónimo** | Pide la cita. No crea cliente ni vehículo; tope de 3 abiertas por teléfono |
+| GET | `/public/booking/{bookingToken}/logo` | **anónimo** | El logo para esa hoja |
+| GET | `/public/booking/appointments/{token}` | **anónimo** | Su cita, por el token que le tocó |
+| POST | `/public/booking/appointments/{token}/cancel` | **anónimo** | La cancela el cliente |
 | GET | `/public/quotes/{token}` | **anónimo** | La cotización que abre el cliente |
 | POST | `/public/quotes/{token}/respond` | **anónimo** | Aprobar o rechazar |
 | GET | `/public/quotes/{token}/pdf` | **anónimo** | PDF sin login |

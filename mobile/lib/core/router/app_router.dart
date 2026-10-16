@@ -20,6 +20,8 @@ import '../../features/sales/sales_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
+import '../../features/appointments/appointments_screen.dart';
+import '../../features/customer/new_appointment_screen.dart';
 import '../../features/customer/quote_screen.dart';
 import '../../features/shell/customer_shell.dart';
 import '../../features/shell/owner_shell.dart';
@@ -73,7 +75,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (location.startsWith('/ordenes') ||
           location.startsWith('/presupuesto/') ||
           location == '/avisos' ||
-          location == '/nueva-cita') {
+          location == '/nueva-cita' ||
+          location == '/pedir-cita') {
         return null;
       }
 
@@ -119,6 +122,7 @@ const rutasDelDueno = {
 /// atender reclamos y ver cómo va. El Encargado lo ve solo de sus sucursales —eso lo decide
 /// el backend con las sucursales del token—, así que aquí la ruta es la misma.
 const rutasDelMando = {
+  '/citas',
   '/reportes',
   '/caja',
   '/recordatorios',
@@ -175,6 +179,8 @@ List<RouteBase> garajRoutes() => [
         builder: (_, state) => QuoteScreen(id: state.pathParameters['id']!),
       ),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
+      GoRoute(path: '/pedir-cita', builder: (_, __) => const NewAppointmentScreen()),
+      GoRoute(path: '/citas', builder: (_, __) => const AppointmentsScreen()),
       GoRoute(path: '/reportes', builder: (_, __) => const ReportsScreen()),
       GoRoute(path: '/caja', builder: (_, __) => const CashCloseScreen()),
       GoRoute(path: '/recordatorios', builder: (_, __) => const ServiceRemindersScreen()),

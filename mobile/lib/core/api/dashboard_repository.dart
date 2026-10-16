@@ -16,6 +16,8 @@ class DashboardSummary {
     required this.openWorkOrders,
     required this.lateWorkOrders,
     required this.pendingRequests,
+    required this.appointmentsToConfirm,
+    required this.appointmentsToday,
     required this.partsBelowMinimum,
     required this.quotesAwaitingResponse,
     required this.receivables,
@@ -31,6 +33,8 @@ class DashboardSummary {
         openWorkOrders: json['openWorkOrders'] as int,
         lateWorkOrders: json['lateWorkOrders'] as int,
         pendingRequests: json['pendingRequests'] as int,
+        appointmentsToConfirm: json['appointmentsToConfirm'] as int? ?? 0,
+        appointmentsToday: json['appointmentsToday'] as int? ?? 0,
         partsBelowMinimum: json['partsBelowMinimum'] as int,
         quotesAwaitingResponse: json['quotesAwaitingResponse'] as int? ?? 0,
         receivables: (json['receivables'] as num?)?.toDouble() ?? 0,
@@ -49,6 +53,10 @@ class DashboardSummary {
   final int openWorkOrders;
   final int lateWorkOrders;
   final int pendingRequests;
+
+  /// Citas que esperan respuesta del taller, y las apartadas para hoy.
+  final int appointmentsToConfirm;
+  final int appointmentsToday;
   final int partsBelowMinimum;
 
   /// Cotizaciones mandadas que el cliente no ha contestado.

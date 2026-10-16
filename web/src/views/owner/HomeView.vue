@@ -174,6 +174,22 @@ const atencion = computed(() => {
       to: { name: 'service-requests' },
     },
     {
+      clave: 'citas-hoy',
+      icono: 'calendario',
+      tono: 'espera',
+      texto: `${d.appointmentsToday} ${d.appointmentsToday === 1 ? 'cita apartada' : 'citas apartadas'} para hoy.`,
+      cuantos: d.appointmentsToday,
+      to: { name: 'appointments' },
+    },
+    {
+      clave: 'citas-por-confirmar',
+      icono: 'calendario',
+      tono: 'espera',
+      texto: `${d.appointmentsToConfirm} ${d.appointmentsToConfirm === 1 ? 'cita espera' : 'citas esperan'} que el taller confirme.`,
+      cuantos: d.appointmentsToConfirm,
+      to: { name: 'appointments' },
+    },
+    {
       clave: 'cotizaciones',
       icono: 'papel',
       tono: 'espera',
@@ -457,6 +473,9 @@ watch(() => auth.activeBranchId, load)
               </svg>
               <svg v-else-if="fila.icono === 'papel'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M6 3.5h8l4 4V20.5H6z" stroke-linejoin="round" /><path d="M9 11h6M9 15h4" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="fila.icono === 'calendario'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3.5v3M16 3.5v3" stroke-linecap="round" />
               </svg>
               <svg v-else-if="fila.icono === 'dinero'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <rect x="2.5" y="6.5" width="19" height="12" rx="2" /><circle cx="12" cy="12.5" r="2.5" />

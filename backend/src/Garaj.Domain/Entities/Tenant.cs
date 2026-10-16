@@ -69,6 +69,24 @@ public class Tenant : AuditableEntity
     /// </summary>
     public int ClaimSequence { get; set; }
 
+    // ---------- Citas ----------
+
+    /// <summary>
+    /// Token del enlace público de citas: el que el taller manda por WhatsApp o pega en un QR
+    /// del mostrador. Es fijo y uno solo por taller, para que se pueda imprimir y no caduque.
+    /// </summary>
+    /// <remarks>
+    /// No expone nada del taller salvo su nombre, su logo y sus sucursales —lo que ya está en
+    /// la puerta del local—, y lo único que deja hacer es pedir una cita.
+    /// </remarks>
+    public Guid BookingToken { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Si el enlace de citas recibe solicitudes. Apagarlo es la salida del taller que se llenó
+    /// o que no quiere agendar: el enlace sigue abriendo, pero dice que no se está agendando.
+    /// </summary>
+    public bool BookingEnabled { get; set; } = true;
+
     /// <summary>
     /// Suspensión manual: el corte definitivo, decidido por nosotros. A diferencia del vencimiento
     /// —que solo deja el taller en modo lectura— un taller suspendido no puede ni iniciar sesión.
