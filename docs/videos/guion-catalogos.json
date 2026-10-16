@@ -53,6 +53,49 @@
       ]
     },
     {
+      "titulo": "Inventario",
+      "texto": "Su bodega",
+      "narracion": "Inventario es su bodega: qué hay, en qué sucursal, en qué estante y a cómo se vende.",
+      "imagen": "cat-98.png",
+      "foco": [
+        48,
+        1460,
+        1075,
+        185
+      ]
+    },
+    {
+      "titulo": "Bajo mínimo",
+      "texto": "Y por sucursal",
+      "narracion": "Con un toque ve solo lo que está bajo mínimo, o lo de una sucursal. Un mismo repuesto lleva su existencia en cada una.",
+      "imagen": "cat-107.png",
+      "foco": [
+        48,
+        515,
+        1075,
+        390
+      ]
+    },
+    {
+      "titulo": "Repuesto nuevo",
+      "texto": "Costo y precio",
+      "narracion": "Para uno nuevo: código, nombre, marca, unidad, su costo y su precio. La existencia no se escribe aquí.",
+      "imagen": "cat-109.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cómo entra y sale",
+      "texto": "Compra, conteo o traslado",
+      "narracion": "La existencia entra por compra, por conteo o por traslado, y cada movimiento queda con su responsable.",
+      "imagen": "cat-110.png",
+      "foco": [
+        48,
+        1480,
+        1075,
+        935
+      ]
+    },
+    {
       "titulo": "Trabajos frecuentes",
       "texto": "Lo que el taller repite",
       "narracion": "Trabajos frecuentes es lo que el taller hace una y otra vez, armado de una sola vez.",
@@ -108,49 +151,6 @@
       "narracion": "Y el total sale a precios de hoy, no a los de cuando lo guardó: si subió el repuesto, sube solo.",
       "imagen": "cat-106.png",
       "foco": null
-    },
-    {
-      "titulo": "Inventario",
-      "texto": "Su bodega",
-      "narracion": "Inventario es su bodega: qué hay, en qué sucursal, en qué estante y a cómo se vende.",
-      "imagen": "cat-98.png",
-      "foco": [
-        48,
-        1460,
-        1075,
-        185
-      ]
-    },
-    {
-      "titulo": "Bajo mínimo",
-      "texto": "Y por sucursal",
-      "narracion": "Con un toque ve solo lo que está bajo mínimo, o lo de una sucursal. Un mismo repuesto lleva su existencia en cada una.",
-      "imagen": "cat-107.png",
-      "foco": [
-        48,
-        515,
-        1075,
-        390
-      ]
-    },
-    {
-      "titulo": "Repuesto nuevo",
-      "texto": "Costo y precio",
-      "narracion": "Para uno nuevo: código, nombre, marca, unidad, su costo y su precio. La existencia no se escribe aquí.",
-      "imagen": "cat-109.png",
-      "foco": null
-    },
-    {
-      "titulo": "Cómo entra y sale",
-      "texto": "Compra, conteo o traslado",
-      "narracion": "La existencia entra por compra, por conteo o por traslado, y cada movimiento queda con su responsable.",
-      "imagen": "cat-110.png",
-      "foco": [
-        48,
-        1480,
-        1075,
-        935
-      ]
     },
     {
       "titulo": "Y ahora, en la orden",
