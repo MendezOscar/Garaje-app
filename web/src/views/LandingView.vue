@@ -349,6 +349,21 @@ const preguntas = [
             </a>
             <a class="boton fantasma grande" href="#como">Ver cómo funciona</a>
           </div>
+          <div class="tiendas">
+            <span class="tiendas-rotulo">Ya está publicada:</span>
+            <a
+              class="tienda"
+              href="https://apps.apple.com/app/id6805656010"
+              target="_blank"
+              rel="noopener"
+            >App Store</a>
+            <a
+              class="tienda"
+              href="https://play.google.com/store/apps/details?id=com.garaj.garaj_app"
+              target="_blank"
+              rel="noopener"
+            >Google Play</a>
+          </div>
           <ul class="sellos">
             <li>Instalado con los datos de su taller</li>
             <li>Sin equipo nuevo: sirve el teléfono que ya tiene</li>
@@ -701,6 +716,35 @@ const preguntas = [
   .anclas {
     display: flex;
   }
+}
+
+/* Las tiendas: la app ya se baja de las dos, y eso contesta solo la duda de
+   «¿esto existe de verdad?» antes que cualquier lista de funciones. */
+.tiendas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+.tiendas-rotulo {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.tienda {
+  display: inline-block;
+  padding: 7px 14px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.85;
+}
+.tienda:hover {
+  opacity: 1;
 }
 
 /* ------------------------------------------------------------------ botones */
