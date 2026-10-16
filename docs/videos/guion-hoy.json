@@ -3,12 +3,12 @@
   "titulo": "La pantalla Hoy",
   "imagen": "hoy.jpg",
   "voz": "Paulina",
-  "velocidad": 165,
+  "velocidad": 172,
   "escenas": [
     {
       "titulo": "La pantalla Hoy",
       "texto": "Todo el taller en una sola vista",
-      "narracion": "Esta es la pantalla Hoy. Apenas abre la aplicación, aquí ve cómo va su taller: lo que entró, lo que debe cobrar y lo que está atrasado. Vamos sección por sección.",
+      "narracion": "Esta es la pantalla Hoy. Apenas abre la aplicación ve cómo va su taller: lo que entró, lo que debe cobrar y lo que está atrasado.",
       "foco": null
     },
     {
@@ -69,7 +69,7 @@
     {
       "titulo": "El tablero de órdenes",
       "texto": "En qué va cada vehículo",
-      "narracion": "Aquí van las órdenes por estado: entrando, en trabajo, detenidas y listas para entrega. Toque un estado y ve solo esas órdenes. Detenidas es la que hay que vigilar: son las que están esperando algo.",
+      "narracion": "Aquí van las órdenes por estado: entrando, en trabajo, detenidas y listas para entrega. Detenidas es la que hay que vigilar: están esperando algo.",
       "foco": [
         26,
         760,
