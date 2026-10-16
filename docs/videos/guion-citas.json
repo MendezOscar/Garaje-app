@@ -1,0 +1,85 @@
+{
+  "nombre": "citas",
+  "titulo": "Citas",
+  "imagen": "cit-53.png",
+  "voz": "Paulina",
+  "velocidad": 180,
+  "escenas": [
+    {
+      "titulo": "Citas",
+      "texto": "Que le aparten el día",
+      "narracion": "Las citas están en Más, Citas, y ahí mismo le dice cuántas tiene esperando que usted las confirme.",
+      "foco": [48, 800, 1075, 220]
+    },
+    {
+      "titulo": "Su enlace",
+      "texto": "Se saca en Más, Taller",
+      "narracion": "El enlace para que le pidan cita se saca en Más, Taller.",
+      "imagen": "cit-54.png",
+      "foco": [48, 920, 1075, 180]
+    },
+    {
+      "titulo": "Cópielo o mándelo",
+      "texto": "Por WhatsApp o en un QR",
+      "narracion": "Ahí está: lo copia, lo manda por WhatsApp o lo imprime en un código Q R para pegarlo en el taller.",
+      "imagen": "cit-55.png",
+      "foco": [48, 860, 1075, 480]
+    },
+    {
+      "titulo": "Y lo apaga cuando quiera",
+      "texto": "Sin romper el enlace",
+      "narracion": "Si no quiere recibir más, lo apaga: el enlace sigue abriendo, pero avisa que por ahora no se está agendando.",
+      "imagen": "cit-55.png",
+      "foco": [48, 1370, 1075, 155]
+    },
+    {
+      "titulo": "El cliente la pide",
+      "texto": "Sin instalar nada",
+      "narracion": "El cliente abre el enlace y pide su cita sin instalar nada ni crear cuenta: su nombre, su teléfono, el vehículo y qué necesita.",
+      "imagen": "cit-56.png",
+      "foco": null
+    },
+    {
+      "titulo": "Día y franja",
+      "texto": "Mañana o tarde, no hora exacta",
+      "narracion": "Escoge el día y si es por la mañana o por la tarde. No hay hora exacta, para no amarrarle la agenda.",
+      "imagen": "cit-56.png",
+      "foco": [48, 1430, 1075, 195]
+    },
+    {
+      "titulo": "A usted le avisa",
+      "texto": "Con todo lo que pidió",
+      "narracion": "A usted le cae la notificación con el nombre, el día, la franja y qué es lo que necesita.",
+      "imagen": "cit-57.png",
+      "foco": [40, 1765, 1090, 195]
+    },
+    {
+      "titulo": "Todas en un lugar",
+      "texto": "Por confirmar, hoy o todas",
+      "narracion": "En Citas las ve todas: las que esperan respuesta, las de hoy, o la agenda completa.",
+      "imagen": "cit-58.png",
+      "foco": null
+    },
+    {
+      "titulo": "Confirmar o rechazar",
+      "texto": "Desde la misma lista",
+      "narracion": "Cada una trae Confirmar y Rechazar a la mano, y el botón para escribirle al cliente por WhatsApp.",
+      "imagen": "cit-58.png",
+      "foco": [48, 760, 1075, 520]
+    },
+    {
+      "titulo": "Al confirmar",
+      "texto": "Con una nota para el cliente",
+      "narracion": "Si ese día no le cabe, le cambia el día o la franja, y le deja una nota de su puño y letra.",
+      "imagen": "cit-59.png",
+      "foco": null
+    },
+    {
+      "titulo": "El cliente lo ve",
+      "texto": "En el mismo enlace",
+      "narracion": "Y el cliente ve su cita confirmada en el mismo enlace, con su nota, la dirección de la sucursal y cómo escribirle al taller.",
+      "imagen": "cit-60.png",
+      "foco": null
+    }
+  ]
+}
