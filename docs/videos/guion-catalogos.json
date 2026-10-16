@@ -1,0 +1,199 @@
+{
+  "nombre": "mano-de-obra-inventario-trabajos",
+  "titulo": "Mano de obra, inventario y trabajos frecuentes",
+  "imagen": "cat-98.png",
+  "voz": "Paulina",
+  "velocidad": 190,
+  "escenas": [
+    {
+      "titulo": "Mano de obra",
+      "texto": "Lo que se cobra por cada trabajo",
+      "narracion": "Mano de obra es su lista de precios: lo que cobra por cada trabajo, para no estar sacando la cuenta cada vez.",
+      "foco": [
+        48,
+        1035,
+        1075,
+        190
+      ]
+    },
+    {
+      "titulo": "Su catálogo",
+      "texto": "Con código y categoría",
+      "narracion": "Cada trabajo tiene su código, su categoría y su precio. Se busca por nombre o por código.",
+      "imagen": "cat-99.png",
+      "foco": [
+        48,
+        515,
+        1075,
+        485
+      ]
+    },
+    {
+      "titulo": "Dos formas de cobrar",
+      "texto": "Precio cerrado u horas por tarifa",
+      "narracion": "Puede ser precio cerrado, que se cobra igual tarde lo que tarde, o por horas multiplicadas por su tarifa.",
+      "imagen": "cat-100.png",
+      "foco": [
+        48,
+        985,
+        1075,
+        395
+      ]
+    },
+    {
+      "titulo": "Corregir o desactivar",
+      "texto": "Sin tocar las órdenes viejas",
+      "narracion": "Tóquelo para corregirlo, o déjele el dedo encima para desactivarlo: deja de salir en las órdenes nuevas.",
+      "imagen": "cat-101.png",
+      "foco": [
+        48,
+        515,
+        1075,
+        435
+      ]
+    },
+    {
+      "titulo": "Trabajos frecuentes",
+      "texto": "Lo que el taller repite",
+      "narracion": "Trabajos frecuentes es lo que el taller hace una y otra vez, armado de una sola vez.",
+      "imagen": "cat-98.png",
+      "foco": [
+        48,
+        1250,
+        1075,
+        180
+      ]
+    },
+    {
+      "titulo": "Pasos y repuestos",
+      "texto": "Todo lo que lleva ese trabajo",
+      "narracion": "Le pone nombre y le arma los pasos y los repuestos que ese trabajo lleva siempre: el aceite, el filtro, los empaques.",
+      "imagen": "cat-102.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cada paso, su precio",
+      "texto": "Del catálogo, a mano o sin cobro",
+      "narracion": "Los pasos se agregan igual que en una orden: del catálogo, con precio a mano, o sin cobro.",
+      "imagen": "cat-103.png",
+      "foco": [
+        48,
+        415,
+        1075,
+        180
+      ]
+    },
+    {
+      "titulo": "Los repuestos",
+      "texto": "De su inventario",
+      "narracion": "Y los repuestos salen de su inventario, con la cantidad que ese trabajo se lleva siempre.",
+      "imagen": "cat-104.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cuánto se usan",
+      "texto": "La app le lleva la cuenta",
+      "narracion": "La lista le dice cuántos pasos y repuestos lleva cada uno, y cuántas veces lo ha usado.",
+      "imagen": "cat-105.png",
+      "foco": [
+        48,
+        350,
+        1075,
+        925
+      ]
+    },
+    {
+      "titulo": "A precios de hoy",
+      "texto": "No a los de cuando lo guardó",
+      "narracion": "Y el total sale a precios de hoy, no a los de cuando lo guardó: si subió el repuesto, sube solo.",
+      "imagen": "cat-106.png",
+      "foco": null
+    },
+    {
+      "titulo": "Inventario",
+      "texto": "Su bodega",
+      "narracion": "Inventario es su bodega: qué hay, en qué sucursal, en qué estante y a cómo se vende.",
+      "imagen": "cat-98.png",
+      "foco": [
+        48,
+        1460,
+        1075,
+        185
+      ]
+    },
+    {
+      "titulo": "Bajo mínimo",
+      "texto": "Y por sucursal",
+      "narracion": "Con un toque ve solo lo que está bajo mínimo, o lo de una sucursal. Un mismo repuesto lleva su existencia en cada una.",
+      "imagen": "cat-107.png",
+      "foco": [
+        48,
+        515,
+        1075,
+        390
+      ]
+    },
+    {
+      "titulo": "Repuesto nuevo",
+      "texto": "Costo y precio",
+      "narracion": "Para uno nuevo: código, nombre, marca, unidad, su costo y su precio. La existencia no se escribe aquí.",
+      "imagen": "cat-109.png",
+      "foco": null
+    },
+    {
+      "titulo": "Cómo entra y sale",
+      "texto": "Compra, conteo o traslado",
+      "narracion": "La existencia entra por compra, por conteo o por traslado, y cada movimiento queda con su responsable.",
+      "imagen": "cat-110.png",
+      "foco": [
+        48,
+        1480,
+        1075,
+        935
+      ]
+    },
+    {
+      "titulo": "Y ahora, en la orden",
+      "texto": "El botón de trabajo frecuente",
+      "narracion": "Todo esto se junta en la orden. En los pasos tiene el botón de trabajo frecuente.",
+      "imagen": "cat-111.png",
+      "foco": [
+        480,
+        715,
+        640,
+        115
+      ]
+    },
+    {
+      "titulo": "Escoja y listo",
+      "texto": "Pasos y repuestos de un golpe",
+      "narracion": "Escoge el trabajo de su lista y le entra con todos sus pasos y sus repuestos, sin escribir nada.",
+      "imagen": "cat-112.png",
+      "foco": null
+    },
+    {
+      "titulo": "Los repuestos, al usarlos",
+      "texto": "Ahí salen de la bodega",
+      "narracion": "Los repuestos quedan apuntados pero se cargan cuando de verdad se usan, y ahí salen de la bodega.",
+      "imagen": "cat-113.png",
+      "foco": [
+        48,
+        2055,
+        1075,
+        365
+      ]
+    },
+    {
+      "titulo": "La orden, armada",
+      "texto": "En segundos",
+      "narracion": "Y la orden queda armada con sus pasos y sus repuestos en segundos, en vez de llenarla a mano cada vez.",
+      "imagen": "cat-116.png",
+      "foco": [
+        48,
+        1265,
+        1075,
+        160
+      ]
+    }
+  ]
+}
