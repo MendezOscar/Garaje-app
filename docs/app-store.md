@@ -98,6 +98,42 @@ Primera versión.
 La alternativa —publicación manual— sirve si se quiere revisar la ficha ya aprobada antes de
 que salga; para la primera versión no hace falta.
 
+## Componentes creativos
+
+App Store Connect pide dos, en **Personaliza la página del producto**: uno de **encabezado**
+—la franja de arriba de la ficha— y uno de **resultados de la búsqueda**. Están hechos, en
+[`app-store/componentes/`](app-store/componentes/):
+
+| Componente | Archivo | Tamaño |
+| --- | --- | --- |
+| Encabezado | `encabezado-5244x2950.png` | 5244 × 2950 |
+| Resultados de la búsqueda | `busqueda-3840x1646.png` | 3840 × 1646 |
+
+Los dos dicen lo mismo —«El taller, en orden» y de qué va la aplicación— sobre el fondo
+oscuro de la marca, con dos teléfonos de la demostración. Se arrastran a su casilla.
+
+No son imágenes a mano: son dos páginas HTML en esa misma carpeta, que se capturan con el
+navegador al doble de tamaño. Para rehacerlos —texto nuevo, capturas nuevas— se edita el HTML
+y se vuelve a correr:
+
+```bash
+cd docs/app-store/componentes
+
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \
+  --allow-file-access-from-files --force-device-scale-factor=2 \
+  --window-size=2622,1475 --virtual-time-budget=9000 \
+  --screenshot="$PWD/encabezado-5244x2950.png" "file://$PWD/encabezado.html"
+
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \
+  --allow-file-access-from-files --force-device-scale-factor=2 \
+  --window-size=1920,823 --virtual-time-budget=9000 \
+  --screenshot="$PWD/busqueda-3840x1646.png" "file://$PWD/busqueda.html"
+```
+
+La ventana va a la mitad del tamaño final y la escala al doble: así el texto sale nítido y
+los números cuadran exactos. Hace falta internet la primera vez, que las tipografías de la
+marca vienen de Google Fonts.
+
 ## Capturas
 
 En [`app-store/capturas-6.9/`](app-store/capturas-6.9/), tomadas del simulador de iPhone 16 Pro
