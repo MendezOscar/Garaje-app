@@ -11,6 +11,11 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.5.0 (15)
+
+Misma versión y mismas notas que la 14: lo único que cambia es que el botón de confirmar una
+cita ya no se sale del borde en un teléfono angosto. **La 14 no se usa.**
+
 ## 1.5.0 (14)
 
 ### Google Play — «Novedades» (es-419)
