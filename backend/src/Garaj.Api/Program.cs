@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Garaj.Api;
@@ -64,6 +65,28 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         }));
 
+    options.AddPolicy(RateLimits.Documento, http => RateLimitPartition.GetFixedWindowLimiter(
+        ClienteQuePide(http),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
+    // Encima de todo lo anterior: el límite de cada endpoint sigue valiendo, y además nadie
+    // —con sesión o sin ella— pasa de este techo. Es lo que impide martillar una ruta
+    // autenticada, que hasta ahora no tenía freno ninguno.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+        http => RateLimitPartition.GetFixedWindowLimiter(
+            QuienPide(http),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
     // Que el límite salte es justo la señal que interesa: llegar a veinte intentos de login
     // en un minuto no le pasa a un taller trabajando. Sin esto, el corte ocurría en silencio.
     options.OnRejected = (context, _) =>
@@ -85,6 +108,13 @@ builder.Services.AddRateLimiter(options =>
 // en la misma partición y el límite volvería a ser global, que es justo lo que se corrigió.
 static string ClienteQuePide(HttpContext http) =>
     http.Connection.RemoteIpAddress?.ToString() ?? "sin-ip";
+
+// Para el techo general: el usuario si trae sesión, y si no, su IP. Así un taller entero
+// detrás de una sola conexión no comparte cupo entre empleados.
+static string QuienPide(HttpContext http) =>
+    http.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } usuario
+        ? $"u:{usuario}"
+        : $"ip:{ClienteQuePide(http)}";
 
 // La forma de lo que entra se valida antes de llegar al servicio; ver Validation/Validadores.
 builder.Services.AddValidatorsFromAssemblyContaining<BookAppointmentValidator>();

@@ -2,6 +2,8 @@ using Garaj.Application.Common;
 using Garaj.Application.Sales;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Garaj.Api.Services;
 
 namespace Garaj.Api.Controllers;
 
@@ -63,6 +65,7 @@ public class SalesController(ISaleService service) : ControllerBase
 
     /// <summary>La factura en PDF. El Cliente puede bajar las suyas; el Técnico, ninguna.</summary>
     [HttpGet("{id:guid}/pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> Pdf(Guid id, CancellationToken ct)
     {
         var sale = await service.GetAsync(id, ct);
@@ -130,6 +133,7 @@ public class ReportsController(IReportService service) : ControllerBase
     }
 
     [HttpGet("cash-close.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> CashClosePdf(
         [FromQuery] DateTimeOffset? date, [FromQuery] Guid? branchId, CancellationToken ct)
     {

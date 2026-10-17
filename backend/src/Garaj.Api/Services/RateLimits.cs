@@ -12,4 +12,10 @@ public static class RateLimits
 
     /// <summary>El enlace de cotización que le llega al cliente por WhatsApp, sin sesión.</summary>
     public const string Publico = "publico";
+
+    /// <summary>
+    /// Generar un PDF es lo más caro que hace el servidor: varias consultas, bajar las fotos
+    /// del bucket y renderizar. Va aparte del resto de lo público, que es barato.
+    /// </summary>
+    public const string Documento = "documento";
 }

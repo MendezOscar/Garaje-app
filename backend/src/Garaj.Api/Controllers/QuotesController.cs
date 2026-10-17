@@ -110,6 +110,7 @@ public class QuotesController(IQuoteService service) : ControllerBase
     /// Cose la ficha de recepción delante del presupuesto, para mandar las dos en un archivo.
     /// </param>
     [HttpGet("{id:guid}/pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> Pdf(
         Guid id, CancellationToken ct, [FromQuery] bool includeReception = false)
     {
@@ -150,6 +151,7 @@ public class PublicQuotesController(IQuoteService service) : ControllerBase
         => Ok(await service.RespondPublicAsync(token, request, ct));
 
     [HttpGet("{token:guid}/pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> Pdf(Guid token, CancellationToken ct)
     {
         var quote = await service.GetPublicAsync(token, ct);

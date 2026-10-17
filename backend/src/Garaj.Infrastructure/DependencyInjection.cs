@@ -48,6 +48,9 @@ public static class DependencyInjection
 
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+
+        // Caché propia y con tope para los PDF ya compuestos; ver DocumentCache.
+        services.AddSingleton<IDocumentCache, DocumentCache>();
         services.AddScoped<AuditableEntityInterceptor>();
 
         var connectionString = configuration.GetConnectionString("Default")
@@ -74,6 +77,8 @@ public static class DependencyInjection
                 options.Password.RequireNonAlphanumeric = false;
                 options.User.RequireUniqueEmail = true;
                 options.Lockout.MaxFailedAccessAttempts = 10;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.AllowedForNewUsers = true;
             })
             .AddRoles<AppRole>()
             .AddEntityFrameworkStores<GarajDbContext>();
