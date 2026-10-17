@@ -332,7 +332,7 @@ onMounted(async () => {
                 {{ u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'nunca ha entrado' }}
               </td>
               <td class="col-acciones">
-                <div v-if="u.role !== 'Owner'" class="acciones">
+                <div class="acciones">
                   <button
                     v-if="u.role === 'Technician' || u.role === 'Manager'"
                     type="button"
@@ -357,6 +357,7 @@ onMounted(async () => {
                     </svg>
                   </button>
                   <button
+                    v-if="u.role !== 'Owner'"
                     type="button"
                     class="icono peligro"
                     :title="u.isActive ? 'Dar de baja' : 'Reactivar'"
@@ -373,7 +374,6 @@ onMounted(async () => {
                     </svg>
                   </button>
                 </div>
-                <span v-else class="muted small">—</span>
               </td>
             </tr>
           </tbody>
