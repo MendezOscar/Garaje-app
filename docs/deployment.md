@@ -164,10 +164,12 @@ Lo que cambia respecto a producción:
 git switch pruebas && git merge main     # o trabajar directamente en la rama
 git push                                 # Render y Pages despliegan solos
 
-# Sembrar la demostración en pruebas, cuando haga falta
+# Sembrar la demostración en pruebas, cuando haga falta.
+# La contraseña no se escribe aquí: el repositorio es público.
+CLAVE='la del Dueño en pruebas'
 TOKEN=$(curl -s https://garaje-app-pruebas.onrender.com/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"dueno@tallerdemo.hn","password":"Garaj123!"}' \
+  -d "{\"email\":\"dueno@tallerdemo.hn\",\"password\":\"$CLAVE\"}" \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
 
 curl -s -X POST https://garaje-app-pruebas.onrender.com/api/demo/seed \
@@ -351,6 +353,13 @@ sin la cual el push no llega a ningún iPhone— está en [push.md](push.md).
 El JSON de la cuenta de servicio es una credencial: va en el panel de Render, nunca en el
 repositorio.
 
+Los dos archivos de Firebase que **sí** están versionados —`mobile/android/app/google-services.json`
+y `mobile/ios/Runner/GoogleService-Info.plist`— no son credenciales: Google los diseñó para viajar
+dentro del APK y del IPA, de donde cualquiera los saca. Aun así conviene restringir esa clave en
+**Google Cloud Console → APIs y servicios → Credenciales**, dejándola limitada a las aplicaciones
+Android e iOS de GarajApp (huella SHA-1 y bundle id) y a las APIs de Firebase que se usan. Lo que
+protege de verdad es que el API no cree nada sin un token válido, no el secreto de esa clave.
+
 ---
 
 ## 6. Alta de un taller
@@ -487,9 +496,10 @@ Pasos, una vez activa la cuenta:
 4. En **TestFlight**, crear un grupo de prueba externa con enlace público y mandarle el enlace
    al taller por WhatsApp. El primer grupo externo pasa por una revisión ligera de Apple —suele
    tardar menos de un día— y pide una descripción de qué probar y un correo de contacto.
-5. Para la revisión, dar la cuenta del **Taller Demo** (`dueno@tallerdemo.hn` / `Garaj123!`): el
-   revisor de Apple necesita entrar, y no se le puede dar el taller de un cliente. Eso obliga a
-   tener el Taller Demo sembrado en producción.
+5. Para la revisión, dar la cuenta del **Taller Demo** (`dueno@tallerdemo.hn`, con la contraseña
+   que tenga ese taller en producción, escrita en App Store Connect y no aquí): el revisor de
+   Apple necesita entrar, y no se le puede dar el taller de un cliente. Eso obliga a tener el
+   Taller Demo sembrado en producción.
 
 Una cosa que conviene resolver antes de repartir el enlace:
 

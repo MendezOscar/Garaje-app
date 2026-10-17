@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Humo de la Fase 1: recorre el flujo real del taller y comprueba el alcance por perfil."""
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
+
+# La contraseña con la que nace el taller sembrado. Por omisión la de la base local;
+# con GARAJ_CLAVE se corre contra un ambiente que tenga otra.
+CLAVE = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 BASE = "http://localhost:5080"
 passed, failed = 0, 0
@@ -39,7 +44,7 @@ def check(label, expected, actual):
 
 def login(user):
     status, data = call("POST", "/api/auth/login",
-                        body={"email": f"{user}@garaj.test", "password": "Garaj123!"})
+                        body={"email": f"{user}@garaj.test", "password": CLAVE})
     assert status == 200, f"login {user} devolvió {status}: {data}"
     return data["accessToken"]
 

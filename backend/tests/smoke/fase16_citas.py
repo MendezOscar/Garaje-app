@@ -11,6 +11,11 @@ Va contra el entorno local con la demostración sembrada:
 """
 import json, random, sys, urllib.request, urllib.error
 from datetime import date, timedelta
+import os
+
+# La contraseña con la que nace el taller sembrado. Por omisión la de la base local;
+# con GARAJ_CLAVE se corre contra un ambiente que tenga otra.
+CLAVE = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 API = "http://localhost:5199"
 TOK = None
@@ -35,7 +40,7 @@ def revisar(nombre, condicion, detalle=''):
     if not condicion: fallos.append(nombre)
 
 def entrar(correo):
-    codigo, cuerpo = call('POST', '/api/auth/login', {'email': correo, 'password': 'Garaj123!'}, auth=False)
+    codigo, cuerpo = call('POST', '/api/auth/login', {'email': correo, 'password': CLAVE}, auth=False)
     if codigo != 200:
         print(f'No se pudo entrar como {correo}: {codigo} {cuerpo}')
         sys.exit(1)

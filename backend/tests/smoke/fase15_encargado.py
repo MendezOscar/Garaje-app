@@ -12,6 +12,11 @@ del Puerto:
     python3 backend/tests/smoke/fase15_encargado.py
 """
 import json, sys, urllib.request, urllib.error
+import os
+
+# La contraseña con la que nace el taller sembrado. Por omisión la de la base local;
+# con GARAJ_CLAVE se corre contra un ambiente que tenga otra.
+CLAVE = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 API = "http://localhost:5199"
 TOK = None
@@ -36,7 +41,7 @@ def revisar(nombre, condicion, detalle=''):
     if not condicion: fallos.append(nombre)
 
 def entrar(correo):
-    codigo, cuerpo = call('POST', '/api/auth/login', {'email': correo, 'password': 'Garaj123!'})
+    codigo, cuerpo = call('POST', '/api/auth/login', {'email': correo, 'password': CLAVE})
     if codigo != 200:
         print(f'No se pudo entrar como {correo}: {codigo} {cuerpo}')
         sys.exit(1)
@@ -118,7 +123,7 @@ for nombre, metodo, ruta, cuerpo in [
     ('los ajustes del taller', 'GET', '/api/tenant', None),
     ('el personal, para darlo de alta', 'POST', '/api/users',
      {'email': 'nadie@tallerdemo.hn', 'fullName': 'Nadie', 'role': 'Technician',
-      'password': 'Garaj123!', 'branchIds': []}),
+      'password': CLAVE, 'branchIds': []}),
     ('el catálogo de mano de obra', 'POST', '/api/labor-services',
      {'code': 'X', 'name': 'X', 'isFixedPrice': True, 'fixedPrice': 1, 'isActive': True}),
     ('los trabajos frecuentes', 'POST', '/api/job-templates', {'name': 'X'}),

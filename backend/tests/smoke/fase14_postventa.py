@@ -10,6 +10,11 @@ Escribe en la base: va contra el entorno local con la demostración sembrada.
     python3 backend/tests/smoke/fase14_postventa.py
 """
 import json, sys, urllib.request, urllib.error
+import os
+
+# La contraseña con la que nace el taller sembrado. Por omisión la de la base local;
+# con GARAJ_CLAVE se corre contra un ambiente que tenga otra.
+CLAVE = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 API = "http://localhost:5199"
 TOK = None
@@ -34,7 +39,7 @@ def revisar(nombre, condicion, detalle=''):
     print(('  ok  ' if condicion else '  FALLA ') + nombre + (f' — {detalle}' if detalle and not condicion else ''))
     if not condicion: fallos.append(nombre)
 
-TOK = call('POST', '/api/auth/login', {'email': 'dueno@tallerdemo.hn', 'password': 'Garaj123!'})[1]['accessToken']
+TOK = call('POST', '/api/auth/login', {'email': 'dueno@tallerdemo.hn', 'password': CLAVE})[1]['accessToken']
 
 # ---------- 1. Reabrir ----------
 print('\n1. Reabrir una orden entregada')

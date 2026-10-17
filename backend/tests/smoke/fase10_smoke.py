@@ -9,13 +9,15 @@ nadie más puede tocar nada de esto. Escribe en la base: va contra el entorno lo
 """
 
 import json
+import os
 import sys
 import time
 import urllib.error
 import urllib.request
 
 BASE = "http://localhost:5080"
-PASSWORD = "Garaj123!"
+# La contraseña del sembrador: por omisión la de la base local.
+PASSWORD = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 MOTORCYCLE = 2
 

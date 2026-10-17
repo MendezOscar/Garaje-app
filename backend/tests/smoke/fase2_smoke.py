@@ -10,6 +10,7 @@ y escribe en la base, así que va contra el entorno local, nunca contra producci
 
 
 import json
+import os
 import struct
 import sys
 import urllib.error
@@ -20,7 +21,8 @@ BASE = "http://localhost:5080"
 
 # La API serializa los enums como enteros, igual que en el resto de fases.
 SERVICE_REQUEST, WORK_ORDER, WORK_ORDER_TASK = 1, 2, 3
-PASSWORD = "Garaj123!"
+# La contraseña del sembrador: por omisión la de la base local.
+PASSWORD = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 ok = 0
 failed = []

@@ -5,6 +5,7 @@ using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Garaj.Infrastructure.Persistence;
@@ -19,9 +20,17 @@ public class DbSeeder(
     RoleManager<AppRole> roleManager,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
+    IConfiguration configuration,
     ILogger<DbSeeder> logger)
 {
-    private const string DemoPassword = "Garaj123!";
+    /// <summary>
+    /// La contraseña con la que nacen los usuarios de la demostración. Por omisión la de
+    /// siempre, que sirve para la base local; en un ambiente publicado se pone otra por
+    /// <c>Demo__Password</c> y así no queda escrita en un repositorio público.
+    /// </summary>
+    private string DemoPassword => configuration["Demo:Password"] is { Length: > 0 } clave
+        ? clave
+        : "Garaj123!";
 
     public async Task SeedAsync(CancellationToken ct = default)
     {

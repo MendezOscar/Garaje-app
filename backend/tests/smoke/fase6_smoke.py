@@ -9,12 +9,14 @@ requerimiento con foto desde su app. Escribe en la base: va contra el entorno lo
 """
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 
 BASE = "http://localhost:5080"
-PASSWORD = "Garaj123!"
+# La contraseña del sembrador: por omisión la de la base local.
+PASSWORD = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 # Espejo de Garaj.Domain.Enums
 SERVICE_REQUEST_CREATED, WORK_ORDER_ASSIGNED, WORK_ORDER_STATUS_CHANGED = 1, 2, 3

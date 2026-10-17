@@ -5,6 +5,7 @@ using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Garaj.Infrastructure.Persistence;
@@ -37,9 +38,17 @@ public class DemoSeeder(
     RoleManager<AppRole> roleManager,
     ITenantContext tenantContext,
     IDateTimeProvider clock,
+    IConfiguration configuration,
     ILogger<DemoSeeder> logger)
 {
-    private const string Password = "Garaj123!";
+    /// <summary>
+    /// La contraseña con la que nacen los usuarios de la demostración. Por omisión la de
+    /// siempre, que sirve para la base local; en un ambiente publicado se pone otra por
+    /// <c>Demo__Password</c> y así no queda escrita en un repositorio público.
+    /// </summary>
+    private string Password => configuration["Demo:Password"] is { Length: > 0 } clave
+        ? clave
+        : "Garaj123!";
 
     /// <summary>Honduras no cambia de hora, así que el día del taller es UTC−6 todo el año.</summary>
     private static readonly TimeSpan LocalOffset = TimeSpan.FromHours(-6);
