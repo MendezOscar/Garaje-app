@@ -11,6 +11,7 @@ sin filtrar ids internos. Escribe en la base y sube al bucket: necesita MinIO ar
 """
 
 import json
+import os
 import struct
 import sys
 import urllib.error
@@ -18,7 +19,8 @@ import urllib.request
 import zlib
 
 BASE = "http://localhost:5080"
-PASSWORD = "Garaj123!"
+# La contraseña del sembrador: por omisión la de la base local.
+PASSWORD = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 ok = 0
 failed = []

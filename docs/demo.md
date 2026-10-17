@@ -29,9 +29,11 @@ distingue.
    de sembrar— y llamar al endpoint:
 
 ```bash
+CLAVE='la contraseña del Dueño en esa base; no se escribe en el repositorio'
+
 TOKEN=$(curl -s https://garaje-app.onrender.com/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"dueno@tallerdemo.hn","password":"Garaj123!"}' \
+  -d "{\"email\":\"dueno@tallerdemo.hn\",\"password\":\"$CLAVE\"}" \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["accessToken"])')
 
 curl -s https://garaje-app.onrender.com/api/demo/seed \
@@ -54,7 +56,7 @@ En local es lo mismo, arrancando la API con `Demo__AllowSeeding=true` y apuntand
 | --- | --- |
 | Taller | Taller Demo · ISV 15% · lempiras |
 | Sucursales | Sucursal Centro (CEN) y Sucursal Sur (SUR), San Pedro Sula · Sucursal Puerto (PTO), Puerto Cortés |
-| Usuarios | 1 Dueño, 3 Técnicos, 2 Clientes — contraseña `Garaj123!` |
+| Usuarios | 1 Dueño, 3 Técnicos, 2 Clientes — todos con la misma contraseña |
 | Clientes | 12, con 17 motocicletas |
 | Catálogos | 26 repuestos y 14 servicios de mano de obra, todo de moto |
 | Historia | ~240 órdenes entregadas y facturadas en 6 semanas |

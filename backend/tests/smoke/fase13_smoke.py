@@ -9,13 +9,15 @@ el taller como lo encontró: va contra el entorno local.
 """
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 from datetime import date, timedelta
 
 BASE = "http://localhost:5080"
-PASSWORD = "Garaj123!"
+# La contraseña del sembrador: por omisión la de la base local.
+PASSWORD = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 ok = 0
 failed = []

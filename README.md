@@ -148,7 +148,8 @@ No hay un valor local que sirva en los tres, por eso el defecto es producción.
 ## Usuarios de demostración
 
 Los crea el seeder en el taller **Taller Garaj**, con sucursales Matriz (MTZ, Tegucigalpa) y Norte (SPS, San Pedro Sula).
-Contraseña para todos: `Garaj123!`
+Contraseña para todos: `Garaj123!`. Es el valor por omisión del sembrador y solo vale para la
+base local; en un ambiente publicado se pone otra con `Demo__Password` y no se escribe aquí.
 
 | Correo | Perfil |
 | --- | --- |

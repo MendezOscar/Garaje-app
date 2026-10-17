@@ -169,12 +169,13 @@ se puede volver a subir a otro canal —solo promoverse—, y cualquier subida n
 
 Play tiene una sección propia para esto —**App access**—, y sin ella el revisor se queda en la
 pantalla de entrar igual que el de Apple. Se declara «Todas o algunas funciones están
-restringidas» y se dan las mismas credenciales de la ficha de Apple:
+restringidas» y se dan las mismas credenciales de la ficha de Apple. La contraseña se escribe
+**en Play Console**, no aquí: este repositorio es público.
 
 ```
 Nombre de las instrucciones: Cuenta de demostración (perfil Dueño)
 Usuario: dueno@tallerdemo.hn
-Contraseña: Garaj123!
+Contraseña: <la del taller de demostración publicado>
 
 No hay registro público: las cuentas las crea el dueño del taller para su personal. Esta cuenta
 es del perfil Dueño y ve todas las funciones. El taller de demostración tiene meses de historia

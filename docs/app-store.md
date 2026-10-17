@@ -189,7 +189,12 @@ personal; no hay registro público, así que abajo va una cuenta de demostració
 prueba.
 
 Usuario: dueno@tallerdemo.hn
-Contraseña: Garaj123!
+Contraseña: <la del taller de demostración publicado>
+
+> La contraseña se escribe **en App Store Connect**, en esa misma casilla, y no aquí: este
+> repositorio es público y lo que se escriba en él queda al alcance de cualquiera. La que está
+> puesta en el taller de demostración publicado es la que vale; si no la recuerda, cámbiela desde
+> el panel —**Usuarios → Contraseña**— y ponga la nueva en la casilla.
 
 Es el perfil Dueño, que ve todas las funciones. El taller de demostración tiene seis semanas de
 historia para que se puedan revisar los reportes y el cierre de caja.

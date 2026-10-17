@@ -8,12 +8,14 @@ edita— y el alcance por perfil. Escribe en la base: va contra el entorno local
 """
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 
 BASE = "http://localhost:5080"
-PASSWORD = "Garaj123!"
+# La contraseña del sembrador: por omisión la de la base local.
+PASSWORD = os.environ.get("GARAJ_CLAVE", "Garaj123!")
 
 # Espejo de Garaj.Domain.Enums.StockMovementType
 IN, OUT, ADJUSTMENT, TRANSFER_IN, TRANSFER_OUT = 1, 2, 3, 4, 5
