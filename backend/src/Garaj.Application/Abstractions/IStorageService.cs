@@ -23,6 +23,13 @@ public interface IStorageService
     Task DeleteAsync(string key, CancellationToken ct = default);
 
     Task<bool> ExistsAsync(string key, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lo que pesa el objeto, o <c>null</c> si todavía no está. Hace falta porque la subida va
+    /// directa al bucket con una URL prefirmada: el tamaño que declara el cliente al pedirla es
+    /// una promesa, y esta es la única forma de comprobar qué subió de verdad.
+    /// </summary>
+    Task<long?> SizeAsync(string key, CancellationToken ct = default);
 }
 
 /// <param name="Url">Destino del PUT.</param>

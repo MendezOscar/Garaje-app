@@ -918,7 +918,7 @@ public class WorkOrderService(
         };
 
         return new WhatsAppLinkDto(
-            $"https://wa.me/{customer.Phone}?text={Uri.EscapeDataString(message)}",
+            $"https://wa.me/{Uri.EscapeDataString(customer.Phone)}?text={Uri.EscapeDataString(message)}",
             customer.Phone,
             message);
     }
@@ -1176,7 +1176,7 @@ public class WorkOrderService(
         await db.SaveChangesAsync(ct);
 
         return new WhatsAppLinkDto(
-            $"https://wa.me/{customer.Phone}?text={Uri.EscapeDataString(message)}",
+            $"https://wa.me/{Uri.EscapeDataString(customer.Phone)}?text={Uri.EscapeDataString(message)}",
             customer.Phone,
             message);
     }

@@ -731,7 +731,7 @@ public class SaleService(
             + $".\n\nAquí puede ver el detalle y sus abonos:\n{url}";
 
         return new WhatsAppLinkDto(
-            $"https://wa.me/{customer.Phone}?text={Uri.EscapeDataString(message)}",
+            $"https://wa.me/{Uri.EscapeDataString(customer.Phone)}?text={Uri.EscapeDataString(message)}",
             customer.Phone,
             message);
     }
