@@ -23,6 +23,7 @@ public class QuoteService(
     ITenantService tenants,
     IMediaService media,
     ReceptionDocuments receptionDocuments,
+    IDocumentCache documentos,
     INotificationPublisher notifications) : IQuoteService
 {
     /// <summary>
@@ -30,6 +31,12 @@ public class QuoteService(
     /// primeras se entiende el daño, y con veinte no lo abre nadie.
     /// </summary>
     private const int PhotosInPdf = 6;
+
+    /// <summary>
+    /// Lo más caro del servidor: además de componer la página, baja hasta seis miniaturas del
+    /// bucket. La clave lleva el <c>UpdatedAt</c>, así que editarla invalida la copia sola.
+    /// </summary>
+    private static readonly TimeSpan DuracionDeCotizacion = TimeSpan.FromMinutes(30);
 
     public async Task<PagedResult<QuoteListItemDto>> ListAsync(
         QuoteQuery query, CancellationToken ct = default)
@@ -445,12 +452,17 @@ public class QuoteService(
                 .FirstAsync(q => q.Id == quote.Id, ct),
             ct);
 
-        var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
-        var photos = await media.DownloadThumbnailsAsync(
-            MediaOwnerType.Quote, quote.Id, quote.TenantId, PhotosInPdf, ct);
+        return await documentos.GetOrCreateAsync(
+            $"cotizacion:{quote.Id}:{quote.UpdatedAt ?? quote.CreatedAt:O}", DuracionDeCotizacion,
+            async () =>
+            {
+                var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
+                var photos = await media.DownloadThumbnailsAsync(
+                    MediaOwnerType.Quote, quote.Id, quote.TenantId, PhotosInPdf, ct);
 
-        return QuotePdf.Render(
-            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
+                return QuotePdf.Render(
+                    detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
+            });
     }
 
     public async Task<TenantLogo?> LogoPublicAsync(Guid token, CancellationToken ct = default)

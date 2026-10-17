@@ -230,6 +230,11 @@ public class UserService(
         if (!result.Succeeded)
             throw new AppException(string.Join(" ", result.Errors.Select(e => e.Description)));
 
+        // Y lo desbloquea, si estaba bloqueado por intentos fallidos: cuando alguien llama
+        // porque «no puede entrar», esto es exactamente lo que el Dueño va a hacer.
+        await userManager.ResetAccessFailedCountAsync(user);
+        await userManager.SetLockoutEndDateAsync(user, null);
+
         // Cambiar la contraseña cierra las sesiones abiertas de ese usuario.
         var now = clock.UtcNow;
         await db.RefreshTokens

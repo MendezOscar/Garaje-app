@@ -29,8 +29,22 @@ public class SaleService(
     IConfiguration configuration,
     ITenantService tenants,
     StockService stock,
+    IDocumentCache documentos,
     ILogger<SaleService> logger) : ISaleService
 {
+    /// <summary>
+    /// La factura solo cambia si se anula o se le registra un abono, y entonces cambia su
+    /// <c>UpdatedAt</c>, que va en la clave: puede vivir bastante.
+    /// </summary>
+    private static readonly TimeSpan DuracionDeFactura = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// El estado de cuenta no tiene una fila que lo versione —lo mueve cualquier abono de
+    /// cualquier factura—, así que vive poco: lo justo para absorber que el cliente abra el
+    /// enlace tres veces seguidas, no para que un abono tarde en verse.
+    /// </summary>
+    private static readonly TimeSpan DuracionDeEstado = TimeSpan.FromSeconds(60);
+
     public async Task<PagedResult<SaleListItemDto>> ListAsync(
         SaleQuery query, CancellationToken ct = default)
     {
@@ -635,9 +649,18 @@ public class SaleService(
 
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
 
-        return InvoicePdf.Render(
-            sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
-            tenant.Email, tenant.Address, logo);
+        // Aquí `sale` ya es el DTO, así que la versión del documento se pregunta aparte: una
+        // lectura escalar por el índice primario, muchísimo más barata que recomponer el PDF.
+        var version = await db.Sales.AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => x.UpdatedAt ?? x.CreatedAt)
+            .FirstAsync(ct);
+
+        return await documentos.GetOrCreateAsync(
+            $"factura:{sale.Id}:{version:O}", DuracionDeFactura,
+            () => Task.FromResult(InvoicePdf.Render(
+                sale, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+                tenant.Email, tenant.Address, logo)));
     }
 
     public async Task<byte[]> InvoicePdfByOrderTokenAsync(
@@ -670,9 +693,11 @@ public class SaleService(
 
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
 
-        return InvoicePdf.Render(
-            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
-            tenant.Email, tenant.Address, logo);
+        return await documentos.GetOrCreateAsync(
+            $"factura:{sale.Id}:{sale.UpdatedAt ?? sale.SaleDate:O}", DuracionDeFactura,
+            () => Task.FromResult(InvoicePdf.Render(
+                detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+                tenant.Email, tenant.Address, logo)));
     }
 
     // ---------- Estado de cuenta ----------
@@ -759,9 +784,11 @@ public class SaleService(
         var statement = await BuildStatementAsync(customer, tenant, ct);
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
 
-        return StatementPdf.Render(
-            statement, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
-            tenant.Email, tenant.Address, logo);
+        return await documentos.GetOrCreateAsync(
+            $"estado:{customer.Id}", DuracionDeEstado,
+            () => Task.FromResult(StatementPdf.Render(
+                statement, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId,
+                tenant.Email, tenant.Address, logo)));
     }
 
     public async Task<TenantLogo?> StatementLogoPublicAsync(

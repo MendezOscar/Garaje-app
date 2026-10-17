@@ -154,6 +154,7 @@ public class WorkOrdersController(
     /// La ficha de recepción en PDF: lo que traía el vehículo, firmado. 404 si no se llenó.
     /// </summary>
     [HttpGet("{id:guid}/reception/pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> ReceptionPdf(Guid id, CancellationToken ct)
     {
         var ficha = await service.ReceptionPdfAsync(id, ct);
@@ -272,6 +273,7 @@ public class PublicWorkOrdersController(
 
     /// <summary>La factura de esa orden. 404 mientras el vehículo siga en el taller.</summary>
     [HttpGet("{token:guid}/invoice.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> Invoice(Guid token, CancellationToken ct)
     {
         var order = await orders.TrackingPublicAsync(token, ct);

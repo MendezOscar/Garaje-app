@@ -27,6 +27,7 @@ public class StatementsController(ISaleService service) : ControllerBase
 
     /// <summary>Para imprimirlo o adjuntarlo. El cliente recibe el mismo por su enlace.</summary>
     [HttpGet("pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> Pdf(Guid customerId, CancellationToken ct)
     {
         var statement = await service.StatementAsync(customerId, ct);
@@ -63,6 +64,7 @@ public class PublicStatementsController(ISaleService service) : ControllerBase
         => Ok(await service.StatementPublicAsync(token, ct));
 
     [HttpGet("{token:guid}/pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
     public async Task<IActionResult> Pdf(Guid token, CancellationToken ct)
     {
         var statement = await service.StatementPublicAsync(token, ct);

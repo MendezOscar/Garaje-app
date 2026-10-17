@@ -33,10 +33,34 @@ public class AuthService(
         var user = await db.Users
             .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, ct);
 
+        // Diez fallos dejan la cuenta quieta quince minutos. Es lo único que frena a quien
+        // prueba contraseñas desde muchas direcciones, donde el límite por IP no alcanza. El
+        // precio: sabiendo el correo, un tercero puede dejar a alguien fuera ese rato; por eso
+        // son quince minutos y no una hora, y por eso cambiarle la contraseña lo desbloquea.
+        if (user is not null && await userManager.IsLockedOutAsync(user))
+        {
+            logger.LogWarning(
+                "Login contra una cuenta bloqueada: {Email} desde {Ip}",
+                normalizedEmail, requestInfo.RemoteIp ?? "IP desconocida");
+
+            throw new UnauthorizedException(
+                "Demasiados intentos fallidos. Espere unos minutos y vuelva a probar.");
+        }
+
         // El mismo mensaje para usuario inexistente y contraseña incorrecta: no revelamos
         // qué emails están registrados.
         if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
         {
+            if (user is not null)
+            {
+                // Las cuentas creadas antes de esto pueden tener el bloqueo apagado en su fila:
+                // sin esta línea, el contador subiría y no bloquearía nunca.
+                if (!await userManager.GetLockoutEnabledAsync(user))
+                    await userManager.SetLockoutEnabledAsync(user, true);
+
+                await userManager.AccessFailedAsync(user);
+            }
+
             // Con el correo y la IP a propósito, y es la única excepción a no escribir datos
             // personales en el log: sin saber qué cuenta están probando, el registro no sirve
             // para nada. Alguien tanteando la contraseña de un dueño era, hasta ahora,
@@ -47,6 +71,11 @@ public class AuthService(
 
             throw new UnauthorizedException();
         }
+
+        // Entró: el contador vuelve a cero para que diez fallos sueltos a lo largo de un mes
+        // no acaben bloqueando a quien sí sabe su contraseña.
+        if (await userManager.GetAccessFailedCountAsync(user) > 0)
+            await userManager.ResetAccessFailedCountAsync(user);
 
         if (!user.IsActive)
             throw new UnauthorizedException("La cuenta está desactivada.");
