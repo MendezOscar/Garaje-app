@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Garaj.Api;
 using Garaj.Api.Middleware;
 using Microsoft.AspNetCore.RateLimiting;
@@ -9,6 +10,7 @@ using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -38,19 +40,26 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter(RateLimits.Login, limiter =>
-    {
-        limiter.PermitLimit = 20;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-    });
+    // Particionado por IP, no una ventana sola para todo el mundo: `AddFixedWindowLimiter`
+    // reparte un único cupo entre todas las peticiones de la política, así que cualquiera
+    // podía gastarlo en un segundo y dejar sin login a todos los talleres a la vez.
+    options.AddPolicy(RateLimits.Login, http => RateLimitPartition.GetFixedWindowLimiter(
+        ClienteQuePide(http),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
 
-    options.AddFixedWindowLimiter(RateLimits.Publico, limiter =>
-    {
-        limiter.PermitLimit = 60;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-    });
+    options.AddPolicy(RateLimits.Publico, http => RateLimitPartition.GetFixedWindowLimiter(
+        ClienteQuePide(http),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
 
     // Que el límite salte es justo la señal que interesa: llegar a veinte intentos de login
     // en un minuto no le pasa a un taller trabajando. Sin esto, el corte ocurría en silencio.
@@ -67,6 +76,12 @@ builder.Services.AddRateLimiter(options =>
         return ValueTask.CompletedTask;
     };
 });
+
+// Quién pide, para contarle su cupo aparte. Detrás del proxy de Render la IP de verdad llega
+// en X-Forwarded-For y la pone UseForwardedHeaders; si faltara, todas las peticiones caerían
+// en la misma partición y el límite volvería a ser global, que es justo lo que se corrigió.
+static string ClienteQuePide(HttpContext http) =>
+    http.Connection.RemoteIpAddress?.ToString() ?? "sin-ip";
 
 builder.Services.AddControllers().AddJsonOptions(options =>
     // Sin esto, una fecha con desplazamiento —«las cinco de la tarde en Honduras»— hace
@@ -156,6 +171,19 @@ if (args.FirstOrDefault() == "create-platform-user")
 {
     return await CreatePlatformUserAsync(app, args);
 }
+
+// Render termina el TLS en su proxy: sin esto, RemoteIpAddress es la del proxy y todas las
+// peticiones del mundo comparten partición en el limitador. ForwardLimit = 1 toma solo la
+// última entrada de X-Forwarded-For —la que escribe Render—, así que lo que un cliente
+// mande por su cuenta en esa cabecera se ignora.
+var cabecerasDeProxy = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 1,
+};
+cabecerasDeProxy.KnownNetworks.Clear();
+cabecerasDeProxy.KnownProxies.Clear();
+app.UseForwardedHeaders(cabecerasDeProxy);
 
 // Serilog va por fuera del manejo de errores a propósito. Al revés, el middleware de
 // request logging ve la excepción antes de que se traduzca y registra un 500 aunque al
