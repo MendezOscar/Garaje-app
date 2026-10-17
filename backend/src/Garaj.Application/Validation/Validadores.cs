@@ -1,5 +1,6 @@
 using FluentValidation;
 using Garaj.Application.Appointments;
+using Garaj.Application.Auth;
 using Garaj.Application.Customers;
 using Garaj.Application.Media;
 using Garaj.Application.Quotes;
@@ -153,4 +154,28 @@ public class SaveExpenseValidator : AbstractValidator<SaveExpenseRequest>
         RuleFor(x => x.SupplierName).MaximumLength(200);
         RuleFor(x => x.Notes).MaximumLength(1000);
     }
+}
+
+/// <summary>
+/// Las tres puertas que se abren sin sesión. Aquí el tope no es la columna —no se guarda
+/// nada—: es no dejar que un desconocido mande un megabyte de correo o de contraseña para que
+/// el servidor lo normalice y lo hashee.
+/// </summary>
+public class LoginValidator : AbstractValidator<LoginRequest>
+{
+    public LoginValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Password).NotEmpty().MaximumLength(200);
+    }
+}
+
+public class RefreshTokenValidator : AbstractValidator<RefreshTokenRequest>
+{
+    public RefreshTokenValidator() => RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(500);
+}
+
+public class DeleteAccountValidator : AbstractValidator<DeleteAccountRequest>
+{
+    public DeleteAccountValidator() => RuleFor(x => x.Confirm).NotEmpty().MaximumLength(50);
 }
