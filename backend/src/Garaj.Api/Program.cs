@@ -1,10 +1,13 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using Garaj.Api;
+using Garaj.Api.Filters;
 using Garaj.Api.Middleware;
 using Microsoft.AspNetCore.RateLimiting;
 using Garaj.Api.Services;
 using Garaj.Application.Common;
+using Garaj.Application.Validation;
+using FluentValidation;
 using Garaj.Infrastructure;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
@@ -83,7 +86,10 @@ builder.Services.AddRateLimiter(options =>
 static string ClienteQuePide(HttpContext http) =>
     http.Connection.RemoteIpAddress?.ToString() ?? "sin-ip";
 
-builder.Services.AddControllers().AddJsonOptions(options =>
+// La forma de lo que entra se valida antes de llegar al servicio; ver Validation/Validadores.
+builder.Services.AddValidatorsFromAssemblyContaining<BookAppointmentValidator>();
+
+builder.Services.AddControllers(options => options.Filters.Add<ValidarPeticionFilter>()).AddJsonOptions(options =>
     // Sin esto, una fecha con desplazamiento —«las cinco de la tarde en Honduras»— hace
     // reventar a Npgsql al guardarla y el cliente solo ve un 500.
     options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetConverter()));

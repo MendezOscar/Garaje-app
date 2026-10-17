@@ -138,5 +138,18 @@ public class S3StorageService : IStorageService, IDisposable
         }
     }
 
+    public async Task<long?> SizeAsync(string key, CancellationToken ct = default)
+    {
+        try
+        {
+            var meta = await _client.GetObjectMetadataAsync(_options.Bucket, key, ct);
+            return meta.ContentLength;
+        }
+        catch (AmazonS3Exception e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     public void Dispose() => _client.Dispose();
 }

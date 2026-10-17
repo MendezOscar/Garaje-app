@@ -86,8 +86,23 @@ public class MediaService(
 
         // El móvil sube en segundo plano y reintenta: si confirma sin que el PUT haya
         // terminado, la galería mostraría un hueco roto. Mejor fallar y que reintente.
-        if (!await storage.ExistsAsync(attachment.StorageKey, ct))
-            throw new ConflictException("El archivo todavía no llegó al almacenamiento. Reintente.");
+        var pesaDeVerdad = await storage.SizeAsync(attachment.StorageKey, ct)
+            ?? throw new ConflictException("El archivo todavía no llegó al almacenamiento. Reintente.");
+
+        // El tamaño que se declaró al pedir la URL era una promesa: la firma del PUT ata el
+        // tipo de archivo, no el peso. Aquí se mira lo que subió de verdad, y lo que se pasa
+        // se borra del bucket en vez de quedarse ocupando sitio sin que nadie lo mire.
+        if (pesaDeVerdad > _options.MaxUploadBytes)
+        {
+            await storage.DeleteAsync(attachment.StorageKey, ct);
+            db.MediaAttachments.Remove(attachment);
+            await db.SaveChangesAsync(ct);
+
+            throw new AppException(
+                $"El archivo pesa más de {_options.MaxUploadBytes / (1024 * 1024)} MB.");
+        }
+
+        attachment.SizeBytes = pesaDeVerdad;
 
         attachment.IsConfirmed = true;
         attachment.ThumbnailKey = await TryCreateThumbnailAsync(attachment, ct);

@@ -677,7 +677,7 @@ public class QuoteService(
             + $".\n\nPuede verla y aprobarla aquí:\n{url}";
 
         return new WhatsAppLinkDto(
-            $"https://wa.me/{quote.Customer.Phone}?text={Uri.EscapeDataString(message)}",
+            $"https://wa.me/{Uri.EscapeDataString(quote.Customer.Phone)}?text={Uri.EscapeDataString(message)}",
             quote.Customer.Phone,
             message);
     }
