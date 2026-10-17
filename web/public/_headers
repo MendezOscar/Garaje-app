@@ -1,0 +1,27 @@
+# Cabeceras de seguridad para todo lo que sirve Cloudflare Pages: el panel y las páginas
+# públicas —la cotización, la factura, el estado de cuenta, la cita—.
+#
+# Por qué hace falta: la sesión del panel vive en localStorage, así que cualquier script que
+# llegue a ejecutarse en este origen puede leer el refresh token, que dura treinta días. Hoy no
+# hay por dónde inyectar uno —no se usa v-html en ningún sitio—, pero una dependencia de npm
+# comprometida en el build bastaría. La CSP es la red debajo del trapecio.
+#
+# El archivo va en `web/public`, que Vite copia tal cual a `dist`, igual que `_redirects`.
+# Formato de Cloudflare: la ruta en una línea y las cabeceras debajo, con dos espacios.
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+
+# Notas sobre las dos piezas flojas de la CSP, para no olvidarlas:
+#
+# style-src lleva 'unsafe-inline' porque las páginas estáticas —soporte, privacidad, términos,
+# el manual— traen su <style> dentro del propio archivo. Sacarlos a un .css lo quita.
+#
+# connect-src acepta cualquier https porque el panel sube las fotos directo al bucket con una
+# URL prefirmada, y el host del bucket sale de la configuración del servidor, no de aquí.
+# Cuando se fije ese dominio, esto se aprieta a: 'self' el API y el bucket, y nada más.
