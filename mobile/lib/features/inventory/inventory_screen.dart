@@ -126,56 +126,99 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     }
   }
 
-  Future<void> _receive(StockItem item) async {
+  Future<void> _receive(StockItem item) => _receiveInto(
+        partId: item.partId,
+        partName: item.partName,
+        unit: item.unit,
+        costPrice: item.costPrice,
+        branchId: item.branchId,
+        branchName: item.branchName,
+      );
+
+  /// La entrada por compra. Sin [branchId] —un repuesto del catálogo que todavía no está en
+  /// ninguna bodega— se pregunta la sucursal aquí mismo, porque no hay fila de dónde sacarla.
+  Future<void> _receiveInto({
+    required String partId,
+    required String partName,
+    required String unit,
+    required double costPrice,
+    String? branchId,
+    String? branchName,
+  }) async {
+    final branches = ref.read(branchOptionsProvider).value ?? const <BranchOption>[];
+
+    if (branchId == null && branches.isEmpty) {
+      _snack('No hay sucursal a la cual darle entrada.');
+      return;
+    }
+
+    var destination = branchId ?? branches.first.id;
+    final elegirSucursal = branchId == null && branches.length > 1;
+
     final quantity = TextEditingController();
-    final cost = TextEditingController(text: item.costPrice.toStringAsFixed(2));
+    final cost = TextEditingController(text: costPrice.toStringAsFixed(2));
     final reference = TextEditingController();
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Entrada por compra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${item.partName} · ${item.branchName}'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: quantity,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: 'Cantidad (${item.unit})'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: cost,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Costo unitario',
-                prefixText: 'L ',
-                helperText: 'Actualiza el costo de referencia del catálogo.',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setInner) => AlertDialog(
+          title: const Text('Entrada por compra'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(branchName == null ? partName : '$partName · $branchName'),
+              const SizedBox(height: 12),
+              if (elegirSucursal) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: destination,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Entra a'),
+                  items: [
+                    for (final branch in branches)
+                      DropdownMenuItem(value: branch.id, child: Text(branch.name)),
+                  ],
+                  onChanged: (value) => setInner(() => destination = value ?? destination),
+                ),
+                const SizedBox(height: 8),
+              ],
+              TextField(
+                controller: quantity,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: 'Cantidad ($unit)'),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: reference,
-              decoration: const InputDecoration(
-                labelText: 'Referencia',
-                hintText: 'Nº de factura del proveedor',
+              const SizedBox(height: 8),
+              TextField(
+                controller: cost,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Costo unitario',
+                  prefixText: 'L ',
+                  helperText: 'Actualiza el costo de referencia del catálogo.',
+                ),
               ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reference,
+                decoration: const InputDecoration(
+                  labelText: 'Referencia',
+                  hintText: 'Nº de factura del proveedor',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Registrar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Registrar'),
-          ),
-        ],
       ),
     );
 
@@ -185,12 +228,33 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     if (amount == null || amount <= 0) return;
 
     await _run(() => ref.read(inventoryRepositoryProvider).receive(
-          branchId: item.branchId,
-          partId: item.partId,
+          branchId: destination,
+          partId: partId,
           quantity: amount,
           unitCost: _parse(cost.text),
           reference: reference.text.trim().isEmpty ? null : reference.text.trim(),
         ));
+  }
+
+  /// Entrada de un repuesto que no tiene existencia en ninguna parte: no sale en la lista,
+  /// así que se busca en el catálogo.
+  Future<void> _receiveFromCatalog() async {
+    final part = await showModalBottomSheet<Part>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => const _PartPicker(),
+    );
+
+    if (part == null || !mounted) return;
+
+    await _receiveInto(
+      partId: part.id,
+      partName: part.name,
+      unit: part.unit,
+      costPrice: part.costPrice,
+      branchId: _filter.branchId,
+    );
   }
 
   Future<void> _adjust(StockItem item) async {
@@ -379,14 +443,28 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   Future<void> _editPart([StockItem? item]) async {
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showModalBottomSheet<Part>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => _PartForm(item: item),
     );
 
-    if (saved == true) ref.invalidate(stockProvider(_filter));
+    if (saved == null || !mounted) return;
+    ref.invalidate(stockProvider(_filter));
+
+    // Un repuesto recién creado no está todavía en ninguna bodega: no aparece en la lista y
+    // no hay fila que tocar para darle entrada. Se le ofrece aquí, que es cuando se tiene la
+    // factura de la compra en la mano.
+    if (item == null) {
+      await _receiveInto(
+        partId: saved.id,
+        partName: saved.name,
+        unit: saved.unit,
+        costPrice: saved.costPrice,
+        branchId: _filter.branchId,
+      );
+    }
   }
 
   Future<void> _kardex(StockItem item) => showModalBottomSheet<void>(
@@ -407,7 +485,17 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final branches = ref.watch(branchOptionsProvider).value ?? const <BranchOption>[];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Inventario')),
+      appBar: AppBar(
+        title: const Text('Inventario'),
+        actions: [
+          if (_isOwner)
+            IconButton(
+              tooltip: 'Entrada por compra',
+              icon: const Icon(Icons.local_shipping_outlined),
+              onPressed: _busy ? null : _receiveFromCatalog,
+            ),
+        ],
+      ),
       floatingActionButton: _isOwner
           ? FloatingActionButton.extended(
               onPressed: _busy ? null : () => _editPart(),
@@ -617,7 +705,7 @@ class _PartFormState extends ConsumerState<_PartForm> {
     });
 
     try {
-      await ref.read(inventoryRepositoryProvider).savePart(
+      final part = await ref.read(inventoryRepositoryProvider).savePart(
             id: widget.item?.partId,
             sku: _sku.text.trim(),
             name: _name.text.trim(),
@@ -628,7 +716,7 @@ class _PartFormState extends ConsumerState<_PartForm> {
             salePrice: _parse(_price.text) ?? 0,
           );
 
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, part);
     } catch (e) {
       setState(() => _error = apiErrorMessage(e));
     } finally {
@@ -810,6 +898,76 @@ class _Kardex extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Busca en el catálogo del taller, no en las existencias: así aparece también el repuesto
+/// que se acaba de crear y todavía no ha entrado a ninguna bodega.
+class _PartPicker extends ConsumerStatefulWidget {
+  const _PartPicker();
+
+  @override
+  ConsumerState<_PartPicker> createState() => _PartPickerState();
+}
+
+class _PartPickerState extends ConsumerState<_PartPicker> {
+  String _search = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final results = ref.watch(partSearchProvider(_search));
+
+    return Padding(
+      // Deja sitio al teclado: sin esto el buscador queda tapado al escribir.
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Buscar repuesto',
+                  hintText: 'SKU, nombre o marca',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (v) => setState(() => _search = v),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: results.when(
+                loading: () => const GarajSkeletonList(),
+                error: (e, _) => GarajError(
+                  message: apiErrorMessage(e, 'No se pudo cargar el catálogo.'),
+                  onRetry: () => ref.invalidate(partSearchProvider(_search)),
+                ),
+                data: (parts) => parts.isEmpty
+                    ? const Center(child: Text('Sin resultados.'))
+                    : ListView.builder(
+                        itemCount: parts.length,
+                        itemBuilder: (context, i) {
+                          final part = parts[i];
+
+                          return ListTile(
+                            title: Text(part.name),
+                            subtitle: Text(
+                              '${part.sku}'
+                              '${part.brand != null ? ' · ${part.brand}' : ''}',
+                            ),
+                            trailing: Text('${_quantity(part.totalQuantity)} ${part.unit}'),
+                            onTap: () => Navigator.pop(context, part),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

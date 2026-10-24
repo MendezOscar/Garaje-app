@@ -1,0 +1,78 @@
+{
+  "nombre": "anuncio-capturas",
+  "segundos": 3.4,
+  "escenas": [
+    {
+      "modulo": "Su taller hoy",
+      "titulo": "Así se ve un taller *ordenado*",
+      "captura": "../manual/img/hoy.png",
+      "segundos": 3.8,
+      "narracion": "Así se ve un taller ordenado: todo su día en una sola pantalla.",
+      "voz": "voz/01.m4a"
+    },
+    {
+      "modulo": "Recepción",
+      "titulo": "El vehículo entra y todo queda *registrado*",
+      "captura": "../manual/img/recibir-vehiculo.png",
+      "narracion": "El vehículo entra y queda registrado, con fotos y kilometraje.",
+      "voz": "voz/02.m4a"
+    },
+    {
+      "modulo": "Requerimientos",
+      "titulo": "Nada se pierde entre *llamadas*",
+      "captura": "../manual/img/requerimientos.png",
+      "narracion": "Lo que pide el cliente ya no se pierde entre llamadas.",
+      "voz": "voz/03.m4a"
+    },
+    {
+      "modulo": "Órdenes",
+      "titulo": "Cada paso, con su *precio*",
+      "captura": "../manual/img/orden-detalle.png",
+      "narracion": "La orden lleva cada paso, con su precio y su responsable.",
+      "voz": "voz/04.m4a"
+    },
+    {
+      "modulo": "Cotización",
+      "titulo": "El cliente aprueba desde su *teléfono*",
+      "captura": "../manual/img/cliente-cotizacion.png",
+      "narracion": "El cliente recibe la cotización por WhatsApp y la aprueba desde su teléfono.",
+      "voz": "voz/05.m4a"
+    },
+    {
+      "modulo": "Inventario",
+      "titulo": "Los repuestos, siempre *al día*",
+      "captura": "../manual/img/inventario.png",
+      "narracion": "Los repuestos se descuentan solos: usted ve lo que hay y lo que falta.",
+      "voz": "voz/06.m4a"
+    },
+    {
+      "modulo": "Caja",
+      "titulo": "Lo cobrado cuadra *al cierre*",
+      "captura": "../manual/img/caja.png",
+      "narracion": "Al cierre del día, lo cobrado cuadra con lo facturado.",
+      "voz": "voz/07.m4a"
+    },
+    {
+      "modulo": "Reportes",
+      "titulo": "Sepa cuánto *gana* de verdad",
+      "captura": "../manual/img/reportes.png",
+      "narracion": "Y sabe cuánto facturó y cuánto le quedó de verdad.",
+      "voz": "voz/08.m4a"
+    },
+    {
+      "modulo": "Su cliente",
+      "titulo": "Ve su vehículo sin *llamar al taller*",
+      "captura": "../manual/img/cliente-mi-vehiculo.png",
+      "narracion": "Su cliente ve el avance de su vehículo sin llamar al taller.",
+      "voz": "voz/09.m4a"
+    },
+    {
+      "tipo": "cierre",
+      "titulo": "Lleve su taller al *siguiente nivel*",
+      "texto": "garajeapp.com\nDisponible en App Store y Google Play",
+      "segundos": 4.2,
+      "narracion": "GarajApp. Lleve su taller al siguiente nivel. Descárguela en App Store y Google Play.",
+      "voz": "voz/10.m4a"
+    }
+  ]
+}
