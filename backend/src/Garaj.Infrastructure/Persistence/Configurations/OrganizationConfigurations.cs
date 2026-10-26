@@ -1,4 +1,5 @@
 using Garaj.Domain.Entities;
+using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,6 +18,10 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(x => x.Address).HasMaxLength(300);
         b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
         b.Property(x => x.DefaultPhoneCountryCode).HasMaxLength(5).IsRequired();
+
+        // Con valor por omisión en la base: los talleres que ya existen quedan en
+        // vehículos al aplicar la migración, sin un UPDATE a mano.
+        b.Property(x => x.WorksWith).HasDefaultValue(WorkshopKind.Vehicles);
         b.Property(x => x.LogoStorageKey).HasMaxLength(500);
 
         b.Property(x => x.PlanName).HasMaxLength(60);

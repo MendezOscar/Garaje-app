@@ -7,7 +7,7 @@ public record ServiceRequestDto(
     Guid Id,
     Guid BranchId,
     string BranchName,
-    Guid VehicleId,
+    Guid? VehicleId,
     string VehicleLabel,
     Guid CustomerId,
     string CustomerName,

@@ -45,4 +45,5 @@ public class Customer : TenantEntity
     public Guid PublicToken { get; set; } = Guid.NewGuid();
 
     public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+    public ICollection<Equipment> Equipment { get; set; } = new List<Equipment>();
 }

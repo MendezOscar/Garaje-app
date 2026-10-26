@@ -17,6 +17,7 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
         b.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Vehicle).WithMany().HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Equipment).WithMany().HasForeignKey(x => x.EquipmentId).OnDelete(DeleteBehavior.Restrict);
 
         // La agenda pregunta siempre lo mismo: qué hay en esta sucursal para estos días.
         b.HasIndex(x => new { x.TenantId, x.BranchId, x.Day, x.Status });

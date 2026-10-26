@@ -23,6 +23,8 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
 
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<Equipment> Equipment => Set<Equipment>();
+    public DbSet<EquipmentType> EquipmentTypes => Set<EquipmentType>();
 
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<Appointment> Appointments => Set<Appointment>();

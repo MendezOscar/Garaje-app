@@ -1,4 +1,5 @@
 using Garaj.Domain.Common;
+using Garaj.Domain.Enums;
 
 namespace Garaj.Domain.Entities;
 
@@ -27,6 +28,13 @@ public class Tenant : AuditableEntity
 
     /// <summary>Moneda ISO-4217 usada en cotizaciones y ventas.</summary>
     public string Currency { get; set; } = "HNL";
+
+    /// <summary>
+    /// Si el taller repara vehículos o equipos. Lo elige al configurarse y de ahí sale
+    /// qué se le puede dar de alta a un cliente; cambiarlo con órdenes abiertas no borra
+    /// nada, pero deja el taller con fichas que ya no se pueden abrir.
+    /// </summary>
+    public WorkshopKind WorksWith { get; set; } = WorkshopKind.Vehicles;
 
     /// <summary>Porcentaje de impuesto por defecto (ej. 15.00 = 15%).</summary>
     public decimal DefaultTaxRate { get; set; }

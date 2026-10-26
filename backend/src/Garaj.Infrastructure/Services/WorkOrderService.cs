@@ -450,7 +450,7 @@ public class WorkOrderService(
             WorkOrderId: order.Id), ct);
     }
 
-    private async Task<string> VehicleLabelAsync(Guid vehicleId, CancellationToken ct) =>
+    private async Task<string> VehicleLabelAsync(Guid? vehicleId, CancellationToken ct) =>
         await db.Vehicles
             .Where(v => v.Id == vehicleId)
             .Select(v => v.Brand + " " + v.Model + (v.Plate == null ? "" : " · " + v.Plate))

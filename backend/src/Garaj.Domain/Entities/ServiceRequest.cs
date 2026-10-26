@@ -10,7 +10,11 @@ namespace Garaj.Domain.Entities;
 public class ServiceRequest : TenantEntity, IBranchEntity
 {
     public Guid BranchId { get; set; }
-    public Guid VehicleId { get; set; }
+
+    /// <summary>Vehículo o equipo, nunca los dos: la base lo impone con un CHECK.</summary>
+    public Guid? VehicleId { get; set; }
+
+    public Guid? EquipmentId { get; set; }
 
     /// <summary>Motivo de ingreso descrito por quien crea el requerimiento.</summary>
     public string Description { get; set; } = null!;
@@ -32,5 +36,6 @@ public class ServiceRequest : TenantEntity, IBranchEntity
     public Guid? WorkOrderId { get; set; }
 
     public Branch Branch { get; set; } = null!;
-    public Vehicle Vehicle { get; set; } = null!;
+    public Vehicle? Vehicle { get; set; }
+    public Equipment? Equipment { get; set; }
 }

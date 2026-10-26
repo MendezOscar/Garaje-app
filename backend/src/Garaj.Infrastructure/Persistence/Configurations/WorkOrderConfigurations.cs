@@ -14,10 +14,17 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
 
         b.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Vehicle).WithMany().HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Equipment).WithMany().HasForeignKey(x => x.EquipmentId).OnDelete(DeleteBehavior.Restrict);
+
+        // Un requerimiento es de un vehículo o de un equipo, nunca de los dos ni de ninguno.
+        b.ToTable(t => t.HasCheckConstraint(
+            "ck_service_requests_vehiculo_o_equipo",
+            "(vehicle_id IS NULL) <> (equipment_id IS NULL)"));
 
         // La bandeja del Dueño lista los pendientes de una sucursal ordenados por fecha.
         b.HasIndex(x => new { x.TenantId, x.BranchId, x.Status, x.CreatedAt });
         b.HasIndex(x => x.VehicleId);
+        b.HasIndex(x => x.EquipmentId);
     }
 }
 
@@ -31,6 +38,12 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
 
         b.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Vehicle).WithMany(v => v.WorkOrders).HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Equipment).WithMany(e => e.WorkOrders).HasForeignKey(x => x.EquipmentId).OnDelete(DeleteBehavior.Restrict);
+
+        // Lo mismo que en el requerimiento: uno de los dos, y solo uno.
+        b.ToTable(t => t.HasCheckConstraint(
+            "ck_work_orders_vehiculo_o_equipo",
+            "(vehicle_id IS NULL) <> (equipment_id IS NULL)"));
 
         b.HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
 
@@ -45,6 +58,7 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
         b.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
         b.HasIndex(x => new { x.TenantId, x.AssignedTechnicianId, x.Status });
         b.HasIndex(x => x.VehicleId);
+        b.HasIndex(x => x.EquipmentId);
     }
 }
 
