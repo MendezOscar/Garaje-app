@@ -162,6 +162,12 @@ base local; en un ambiente publicado se pone otra con `Demo__Password` y no se e
 ## Comandos útiles
 
 ```bash
+# Alta de un taller de equipos (cómputo, celulares, aires). Sin --works-with
+# nace como taller de vehículos.
+cd backend && dotnet run --project src/Garaj.Api -- provision-tenant \
+  --name "Taller X" --owner-email dueno@tallerx.hn --owner-name "Nombre" \
+  --branch "Casa matriz" --works-with equipos
+
 # Borrar un taller entero (datos, usuarios y archivos). No se deshace: primero
 # sin --confirm, que solo cuenta lo que se llevaría.
 cd backend && dotnet run --project src/Garaj.Api -- delete-tenant --name "Taller X"

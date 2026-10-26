@@ -1,3 +1,5 @@
+using Garaj.Domain.Enums;
+
 namespace Garaj.Application.Platform;
 
 /// <summary>
@@ -28,7 +30,9 @@ public record PlatformTenantDto(
     DateOnly? ReadOnlyOn,
     DateOnly? LastPaymentOn,
     int BranchCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    /// <summary>Con qué trabaja el taller. Lo decidimos nosotros, no él.</summary>
+    WorkshopKind WorksWith = WorkshopKind.Vehicles);
 
 public record PlatformTenantDetailDto(
     PlatformTenantDto Tenant,
@@ -74,7 +78,9 @@ public record CreateTenantRequest(
     decimal MonthlyFee = 0,
     DateOnly? PaidThrough = null,
     int? GraceDays = null,
-    string? Password = null);
+    string? Password = null,
+    /// <summary>Con qué trabaja: vehículos o equipos. Se decide aquí, al darlo de alta.</summary>
+    WorkshopKind WorksWith = WorkshopKind.Vehicles);
 
 /// <summary>
 /// La contraseña del Dueño se devuelve <b>una sola vez</b>, al crear —la haya escrito él o la
@@ -113,6 +119,8 @@ public record UpdateSubscriptionRequest(
 /// Lo que hacemos nosotros con nuestros clientes: darlos de alta, cobrarles y, si hace falta,
 /// cortarles. Ninguna de estas operaciones toca datos de trabajo de ningún taller.
 /// </summary>
+public record SetWorksWithRequest(WorkshopKind WorksWith);
+
 public interface IPlatformService
 {
     Task<IReadOnlyList<PlatformTenantDto>> ListAsync(CancellationToken ct = default);
@@ -134,6 +142,13 @@ public interface IPlatformService
 
     /// <summary>Quita el acuerdo antes de tiempo: el taller vuelve a lo que digan sus fechas.</summary>
     Task<PlatformTenantDto> ClearAgreementAsync(Guid tenantId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Corrige con qué trabaja el taller. Se fija al darlo de alta; esto es para el error de
+    /// dedo del primer día, no para que un taller cambie de rubro con órdenes abiertas.
+    /// </summary>
+    Task<PlatformTenantDto> SetWorksWithAsync(
+        Guid tenantId, WorkshopKind worksWith, CancellationToken ct = default);
 
     Task<PlatformTenantDto> UpdateSubscriptionAsync(
         Guid tenantId, UpdateSubscriptionRequest request, CancellationToken ct = default);

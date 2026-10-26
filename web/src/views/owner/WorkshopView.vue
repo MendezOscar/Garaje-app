@@ -36,7 +36,6 @@ const form = ref({
   storageFreeDays: 3,
   storageDailyRate: 0,
   defaultPhoneCountryCode: '504',
-  worksWith: WorkshopKind.Vehicles as WorkshopKind,
 })
 
 /**
@@ -197,7 +196,6 @@ function fill(data: TenantSettings) {
     storageFreeDays: data.storageFreeDays,
     storageDailyRate: data.storageDailyRate,
     defaultPhoneCountryCode: data.defaultPhoneCountryCode,
-    worksWith: data.worksWith,
   }
   taller.actualizar(data)
 }
@@ -284,7 +282,6 @@ async function save() {
         storageFreeDays: Number(f.storageFreeDays) || 0,
         storageDailyRate: Number(f.storageDailyRate) || 0,
         defaultPhoneCountryCode: f.defaultPhoneCountryCode.trim() || null,
-        worksWith: f.worksWith,
       }),
     )
     await cargarCategorias()
@@ -406,28 +403,16 @@ onMounted(async () => {
             número de serie.
           </p>
 
-          <label class="checkbox">
-            <input
-              v-model="form.worksWith"
-              type="radio"
-              name="works-with"
-              :value="WorkshopKind.Vehicles"
-            />
-            Vehículos y motos
-          </label>
-          <label class="checkbox">
-            <input
-              v-model="form.worksWith"
-              type="radio"
-              name="works-with"
-              :value="WorkshopKind.Equipment"
-            />
-            Equipos: computadoras, teléfonos, aires acondicionados
-          </label>
-
-          <p v-if="form.worksWith !== ficha?.worksWith" class="muted small">
-            Al guardar cambia lo que se puede dar de alta. Lo que ya está registrado no se
-            borra, pero deja de poder abrir órdenes nuevas.
+          <p class="rubro">
+            {{
+              ficha?.worksWith === WorkshopKind.Equipment
+                ? 'Equipos: computadoras, teléfonos, aires acondicionados.'
+                : 'Vehículos y motos.'
+            }}
+            <span class="muted small">
+              Se fija al dar de alta el taller. Si está mal, escríbanos y lo corregimos: cambiarlo
+              con órdenes abiertas deja fichas que ya no se pueden usar.
+            </span>
           </p>
 
           <template v-if="ficha?.worksWith === WorkshopKind.Equipment">
@@ -705,6 +690,15 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.rubro {
+  margin-bottom: 0.75rem;
+}
+
+.rubro span {
+  display: block;
+  margin-top: 0.25rem;
+}
+
 .categorias {
   list-style: none;
   margin: 0 0 0.75rem;

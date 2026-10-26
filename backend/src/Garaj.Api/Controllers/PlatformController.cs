@@ -71,6 +71,12 @@ public class PlatformController(IPlatformService service) : ControllerBase
         => Ok(await service.UpdateSubscriptionAsync(id, request, ct));
 
     /// <summary>Suspender corta el acceso entero: el taller ni entra. Es el último recurso.</summary>
+    /// <summary>Corrige con qué trabaja el taller. Se fija al darlo de alta.</summary>
+    [HttpPut("{id:guid}/works-with")]
+    public async Task<ActionResult<PlatformTenantDto>> SetWorksWith(
+        Guid id, SetWorksWithRequest request, CancellationToken ct)
+        => Ok(await service.SetWorksWithAsync(id, request.WorksWith, ct));
+
     [HttpPost("{id:guid}/suspend")]
     public async Task<ActionResult<PlatformTenantDto>> Suspend(Guid id, CancellationToken ct)
         => Ok(await service.SetActiveAsync(id, false, ct));

@@ -54,10 +54,7 @@ public record UpdateTenantRequest(
     int StorageFreeDays = 3,
     decimal StorageDailyRate = 0,
     bool TechniciansSeePrices = true,
-    bool BookingEnabled = true,
-    // Nulo deja el modo como está. El panel que todavía no manda este campo no puede
-    // devolver un taller de equipos a vehículos sin querer.
-    WorkshopKind? WorksWith = null);
+    bool BookingEnabled = true);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

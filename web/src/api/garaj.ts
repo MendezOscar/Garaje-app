@@ -1269,8 +1269,6 @@ export const tenantApi = {
     storageDailyRate: number
     /** Si el enlace público de citas recibe solicitudes. */
     bookingEnabled: boolean
-    /** Si se omite, el modo del taller se queda como estaba. */
-    worksWith?: WorkshopKind
   }): Promise<TenantSettings> {
     const { data } = await api.put<TenantSettings>('/api/tenant', body)
     return data
@@ -1345,6 +1343,8 @@ export const platformApi = {
     paidThrough?: string | null
     /** Vacía: el servidor genera una y la devuelve una sola vez. */
     password?: string | null
+    /** Con qué trabaja el taller. Se decide aquí: el Dueño no lo cambia desde su panel. */
+    worksWith?: WorkshopKind
   }): Promise<CreatedTenant> {
     const { data } = await api.post<CreatedTenant>('/api/platform/tenants', body)
     return data
@@ -1401,6 +1401,14 @@ export const platformApi = {
     const { data } = await api.put<PlatformTenant>(
       `/api/platform/tenants/${id}/subscription`,
       body,
+    )
+    return data
+  },
+  /** Corrige con qué trabaja el taller: el error de dedo del día del alta. */
+  async setWorksWith(id: string, worksWith: WorkshopKind) {
+    const { data } = await api.put<PlatformTenant>(
+      `/api/platform/tenants/${id}/works-with`,
+      { worksWith },
     )
     return data
   },

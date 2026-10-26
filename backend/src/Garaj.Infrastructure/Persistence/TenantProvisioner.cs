@@ -3,6 +3,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
+using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -47,7 +48,11 @@ public class TenantProvisioner(
         string? PlanName = null,
         decimal MonthlyFee = 0,
         DateOnly? PaidThrough = null,
-        int? GraceDays = null);
+        int? GraceDays = null,
+        // Con qué trabaja el taller. Se decide al darlo de alta y no desde el panel del
+        // taller: cambiarlo con órdenes abiertas deja fichas que ya no se pueden usar, y esa
+        // no es una decisión que el Dueño deba poder tomar por su cuenta un martes.
+        WorkshopKind WorksWith = WorkshopKind.Vehicles);
 
     public record Result(Guid TenantId, Guid BranchId, Guid OwnerUserId, string OwnerEmail, string Password);
 
@@ -93,7 +98,8 @@ public class TenantProvisioner(
             // hasta dentro de un mes salvo que se diga otra cosa.
             // `Today()` y no la fecha del servidor: el día UTC cambia a las 6 de la tarde de
             // acá, y un taller dado de alta esa noche nacía con un día de más.
-            PaidThrough = request.PaidThrough ?? clock.Today().AddMonths(1)
+            PaidThrough = request.PaidThrough ?? clock.Today().AddMonths(1),
+            WorksWith = request.WorksWith
         };
         db.Tenants.Add(tenant);
         tenantContext.SetTenant(tenant.Id);
@@ -109,6 +115,10 @@ public class TenantProvisioner(
         db.Branches.Add(branch);
 
         await db.SaveChangesAsync(ct);
+
+        // Un taller de equipos sin categorías no puede registrar ni un aparato: nace con unas
+        // cuantas y el Dueño las ajusta.
+        if (tenant.WorksWith == WorkshopKind.Equipment) await EquipmentTypeSeeder.EnsureAsync(db, ct);
 
         var password = Trim(request.Password) ?? GeneratePassword();
 
