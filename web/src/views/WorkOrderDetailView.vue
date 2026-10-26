@@ -437,8 +437,10 @@ async function load() {
       : { fuelLevel: FuelLevel.Unknown, mileageIn: order.value.mileageIn }
 
     if (canEdit.value) {
+      // El historial de lo que entró, sea el vehículo o el equipo.
       const page = await workOrdersApi.list({
-        vehicleId: order.value.vehicleId,
+        vehicleId: order.value.vehicleId ?? undefined,
+        equipmentId: order.value.vehicleId ? undefined : (order.value.asset?.id ?? undefined),
         onlyOpen: false,
         pageSize: 20,
       })

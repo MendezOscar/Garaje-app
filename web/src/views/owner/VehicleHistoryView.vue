@@ -25,26 +25,31 @@ const error = ref('')
 /** El vehículo elegido cuando la búsqueda trae varios. */
 const vehiculoId = ref<string | null>(null)
 
+/** El id de lo que entró: el vehículo o el equipo, según con qué trabaje el taller. */
+function idDe(visita: WorkOrderListItem) {
+  return visita.asset?.id ?? visita.vehicleId ?? visita.id
+}
+
 /**
- * Los vehículos distintos que trajo la búsqueda. Mezclar la moto y el carro del mismo cliente
- * en una sola lista no es el historial de ninguno de los dos.
+ * Lo distinto que trajo la búsqueda. Mezclar la moto y el carro del mismo cliente en una sola
+ * lista no es el historial de ninguno de los dos, y con equipos pasa igual.
  */
 const vehiculos = computed(() => {
   const porVehiculo = new Map<string, WorkOrderListItem>()
   for (const visita of visitas.value) {
-    if (!porVehiculo.has(visita.vehicleId)) porVehiculo.set(visita.vehicleId, visita)
+    if (!porVehiculo.has(idDe(visita))) porVehiculo.set(idDe(visita), visita)
   }
   return [...porVehiculo.values()]
 })
 
 const elegido = computed(() =>
-  vehiculoId.value ? vehiculos.value.find((v) => v.vehicleId === vehiculoId.value) : null,
+  vehiculoId.value ? vehiculos.value.find((v) => idDe(v) === vehiculoId.value) : null,
 )
 
-/** Lo que se pinta: las visitas del vehículo elegido, o todas, de la más nueva a la más vieja. */
+/** Lo que se pinta: las visitas de lo elegido, o todas, de la más nueva a la más vieja. */
 const lista = computed(() =>
   [...visitas.value]
-    .filter((v) => !vehiculoId.value || v.vehicleId === vehiculoId.value)
+    .filter((v) => !vehiculoId.value || idDe(v) === vehiculoId.value)
     .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime()),
 )
 
@@ -108,11 +113,11 @@ function limpiar() {
         <div v-if="vehiculos.length > 1" class="vehiculos">
           <button
             v-for="v in vehiculos"
-            :key="v.vehicleId"
+            :key="idDe(v)"
             type="button"
             class="chip"
-            :class="{ activo: vehiculoId === v.vehicleId }"
-            @click="vehiculoId = vehiculoId === v.vehicleId ? null : v.vehicleId"
+            :class="{ activo: vehiculoId === idDe(v) }"
+            @click="vehiculoId = vehiculoId === idDe(v) ? null : idDe(v)"
           >
             {{ v.vehicleLabel }}
             <span class="muted">{{ v.plate ?? 'sin placa' }} · {{ v.customerName }}</span>

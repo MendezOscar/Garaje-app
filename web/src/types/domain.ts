@@ -12,6 +12,20 @@ export const VehicleType = {
 } as const
 export type VehicleType = (typeof VehicleType)[keyof typeof VehicleType]
 
+/** Con qué trabaja el taller. De aquí sale qué se da de alta y cómo se llama en pantalla. */
+export const WorkshopKind = {
+  Vehicles: 1,
+  Equipment: 2,
+} as const
+export type WorkshopKind = (typeof WorkshopKind)[keyof typeof WorkshopKind]
+
+/** Qué entró al taller: el vehículo de siempre o un equipo. */
+export const AssetKind = {
+  Vehicle: 1,
+  Equipment: 2,
+} as const
+export type AssetKind = (typeof AssetKind)[keyof typeof AssetKind]
+
 export const ServiceRequestStatus = {
   Pending: 1,
   Quoted: 2,
@@ -302,12 +316,53 @@ export interface Vehicle {
   isActive: boolean
 }
 
+/** Lo que entró al taller, igual para la pantalla sea vehículo o equipo. */
+export interface AssetRef {
+  kind: AssetKind
+  id: string
+  /** "Honda CB125F" o "Dell Latitude 5490". */
+  label: string
+  /** La placa, o la serie —y si no hay serie, la etiqueta de bodega—. */
+  identifier: string | null
+  /** Qué es: "Laptop", "Aire acondicionado". Null en los vehículos. */
+  category: string | null
+}
+
+export interface EquipmentType {
+  id: string
+  name: string
+  icon: string | null
+  isActive: boolean
+}
+
+export interface Equipment {
+  id: string
+  customerId: string
+  customerName: string
+  equipmentTypeId: string
+  equipmentTypeName: string
+  brand: string
+  model: string
+  serialNumber: string | null
+  /** La etiqueta que le pone el taller a lo que llega sin serie legible. */
+  tag: string | null
+  color: string | null
+  accessories: string | null
+  /** Lo propio del tipo, como JSON. El servidor no lo interpreta. */
+  attributes: string | null
+  notes: string | null
+  isActive: boolean
+}
+
 export interface ServiceRequest {
   id: string
   branchId: string
   branchName: string
-  vehicleId: string
+  /** Null cuando el requerimiento es de un equipo: entonces lo que vale es `asset`. */
+  vehicleId: string | null
+  /** Con un equipo trae marca, modelo y serie, para la pantalla que no sabe de equipos. */
   vehicleLabel: string
+  asset: AssetRef | null
   customerId: string
   customerName: string
   customerPhone: string
@@ -377,8 +432,9 @@ export interface WorkOrderListItem {
   branchId: string
   branchName: string
   status: WorkOrderStatus
-  vehicleId: string
+  vehicleId: string | null
   vehicleLabel: string
+  asset: AssetRef | null
   vehicleType: VehicleType
   plate: string | null
   customerId: string
@@ -1013,8 +1069,9 @@ export interface WorkOrderDetail {
   branchName: string
   status: WorkOrderStatus
   allowedNextStatuses: WorkOrderStatus[]
-  vehicleId: string
+  vehicleId: string | null
   vehicleLabel: string
+  asset: AssetRef | null
   vehicleType: VehicleType
   plate: string | null
   vehicleMileage: number | null
@@ -1103,6 +1160,8 @@ export interface TenantSettings {
   /** Dirección de la casa matriz. La factura fiscal la pide aparte de la de la sucursal. */
   address: string | null
   currency: string
+  /** Si el taller repara vehículos o equipos. */
+  worksWith: WorkshopKind
   defaultTaxRate: number
   defaultPhoneCountryCode: string
   /** Días de garantía que lleva un trabajo por defecto. Cero es sin garantía. */

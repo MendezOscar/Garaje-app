@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import NewServiceRequestForm from '@/components/NewServiceRequestForm.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import { useTaller } from '@/composables/useTaller'
 import {
   WorkOrderStatus,
   type Vehicle,
@@ -27,6 +28,7 @@ import { formatDate } from '@/utils/format'
  * evita abrir la orden dos veces o repetir un trabajo que ya se hizo el mes pasado.
  */
 const router = useRouter()
+const { esDeEquipos, vocabulario, cargar: cargarTaller } = useTaller()
 
 const vehiculo = ref<Vehicle | null>(null)
 const tecnico = ref<string | null>(null)
@@ -44,23 +46,37 @@ const abiertaAhora = ref<WorkOrderDetail | null>(null)
 const requerimiento = ref(false)
 const error = ref('')
 
-function contexto(elegido: { vehicle: Vehicle | null; technician: string | null }) {
+onMounted(cargarTaller)
+
+/** Lo elegido en la hoja: el vehículo o el equipo, según con qué trabaje el taller. */
+const elegidoId = ref<string | null>(null)
+
+function contexto(elegido: {
+  vehicle: Vehicle | null
+  assetId: string | null
+  technician: string | null
+}) {
   vehiculo.value = elegido.vehicle
+  elegidoId.value = elegido.assetId
   tecnico.value = elegido.technician
 }
 
-watch(vehiculo, async (v) => {
+watch(elegidoId, async (id) => {
   visitas.value = []
   totalVisitas.value = 0
-  if (!v) return
+  if (!id) return
 
   buscandoVisitas.value = true
   try {
-    const page = await workOrdersApi.list({ vehicleId: v.id, onlyOpen: false, pageSize: 4 })
+    const page = await workOrdersApi.list({
+      ...(esDeEquipos.value ? { equipmentId: id } : { vehicleId: id }),
+      onlyOpen: false,
+      pageSize: 4,
+    })
     visitas.value = page.items
     totalVisitas.value = page.total
   } catch {
-    // Es un dato de apoyo: si falla, la hoja sigue sirviendo para recibir el vehículo.
+    // Es un dato de apoyo: si falla, la hoja sigue sirviendo para recibir.
   } finally {
     buscandoVisitas.value = false
   }
@@ -107,7 +123,7 @@ async function mandarEnlace() {
         ‹
       </RouterLink>
       <div>
-        <h1>Recibir vehículo</h1>
+        <h1>{{ vocabulario.recibir }}</h1>
         <p class="muted small">
           Se abre la orden y queda en Recibida. Sin pasar por
           <RouterLink :to="{ name: 'service-requests' }">requerimientos</RouterLink>.
@@ -182,9 +198,9 @@ async function mandarEnlace() {
           </article>
 
           <article class="card">
-            <h2>Este vehículo antes</h2>
-            <p v-if="!vehiculo" class="muted small">
-              Elija el vehículo y aquí sale lo que se le ha hecho.
+            <h2>Este {{ vocabulario.activo }} antes</h2>
+            <p v-if="!elegidoId" class="muted small">
+              Elija el {{ vocabulario.activo }} y aquí sale lo que se le ha hecho.
             </p>
             <p v-else-if="buscandoVisitas" class="muted small">Buscando…</p>
             <template v-else-if="visitas.length">
@@ -200,8 +216,8 @@ async function mandarEnlace() {
               <p v-if="totalVisitas > visitas.length" class="muted small">
                 Y {{ totalVisitas - visitas.length }} visita(s) más.
               </p>
-              <p v-if="vehiculo.mileage" class="muted small">
-                La última lectura fue {{ vehiculo.mileage.toLocaleString('es-HN') }} km.
+              <p v-if="vehiculo?.mileage" class="muted small">
+                La última lectura fue {{ vehiculo!.mileage!.toLocaleString('es-HN') }} km.
               </p>
             </template>
             <p v-else class="muted small">Primera vez en el taller.</p>

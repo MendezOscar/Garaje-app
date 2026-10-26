@@ -1,14 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, customersApi, serviceRequestsApi, usersApi, vehiclesApi, workOrdersApi } from '@/api/garaj'
+import {
+  branchesApi,
+  customersApi,
+  equipmentApi,
+  serviceRequestsApi,
+  usersApi,
+  vehiclesApi,
+  workOrdersApi,
+} from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
 import {
   VEHICLE_TYPE_LABEL,
   VehicleType,
   type Branch,
   type Customer,
+  type Equipment,
+  type EquipmentType,
   type User,
   type Vehicle,
   type WorkOrderDetail,
@@ -49,10 +60,18 @@ const props = withDefaults(
  */
 const emit = defineEmits<{
   created: [orden: WorkOrderDetail | null]
-  contexto: [{ vehicle: Vehicle | null; technician: string | null }]
+  contexto: [
+    {
+      vehicle: Vehicle | null
+      /** Lo elegido, sea vehículo o equipo: con qué pedir su historial. */
+      assetId: string | null
+      technician: string | null
+    },
+  ]
 }>()
 
 const auth = useAuthStore()
+const { esDeEquipos, vocabulario, cargar: cargarTaller } = useTaller()
 
 const open = ref(props.variant === 'page')
 const busy = ref(false)
@@ -65,6 +84,27 @@ const searched = ref(false)
 
 const customer = ref<Customer | null>(null)
 const vehicles = ref<Vehicle[]>([])
+
+/** En un taller de equipos, lo que tiene el cliente son equipos: la otra mitad de la hoja. */
+const equipos = ref<Equipment[]>([])
+const categorias = ref<EquipmentType[]>([])
+
+const newEquipment = ref({ equipmentTypeId: '', brand: '', model: '', serialNumber: '' })
+
+/** Lo que el cliente tiene, de un lado o del otro, para pintar las tarjetas con una sola lista. */
+const fichas = computed(() =>
+  esDeEquipos.value
+    ? equipos.value.map((e) => ({
+        id: e.id,
+        titulo: `${e.brand} ${e.model}`,
+        detalle: e.serialNumber ?? e.tag ?? e.equipmentTypeName,
+      }))
+    : vehicles.value.map((v) => ({
+        id: v.id,
+        titulo: `${v.brand} ${v.model}`,
+        detalle: v.plate ?? VEHICLE_TYPE_LABEL[v.type],
+      })),
+)
 
 const newCustomer = ref({ fullName: '', phone: '' })
 const creatingCustomer = ref(false)
@@ -112,10 +152,11 @@ watch([() => form.value.vehicleId, () => form.value.branchId], () => {
 })
 
 watch(
-  [vehiculoElegido, () => form.value.technicianId],
-  ([vehiculo, tecnicoId]) => {
+  [vehiculoElegido, () => form.value.vehicleId, () => form.value.technicianId],
+  ([vehiculo, elegidoId, tecnicoId]) => {
     emit('contexto', {
       vehicle: vehiculo,
+      assetId: elegidoId || null,
       technician: technicians.value.find((t) => t.id === tecnicoId)?.fullName ?? null,
     })
   },
@@ -156,11 +197,55 @@ async function pick(selected: Customer) {
   busy.value = true
 
   try {
-    vehicles.value = (await vehiclesApi.list({ customerId: selected.id, pageSize: 50 })).items
-    form.value.vehicleId = vehicles.value[0]?.id ?? ''
-    creatingVehicle.value = vehicles.value.length === 0
+    if (esDeEquipos.value) {
+      equipos.value = (await equipmentApi.list({ customerId: selected.id, pageSize: 50 })).items
+    } else {
+      vehicles.value = (await vehiclesApi.list({ customerId: selected.id, pageSize: 50 })).items
+    }
+
+    form.value.vehicleId = fichas.value[0]?.id ?? ''
+    creatingVehicle.value = fichas.value.length === 0
   } catch (e) {
-    error.value = errorMessage(e, 'No se pudieron cargar los vehículos.')
+    error.value = errorMessage(e, `No se pudieron cargar los ${vocabulario.value.activos}.`)
+  } finally {
+    busy.value = false
+  }
+}
+
+/** Alta de un equipo sobre la marcha, igual que la del vehículo y por la misma razón. */
+async function saveEquipment() {
+  if (!customer.value) return
+  if (!newEquipment.value.brand.trim() || !newEquipment.value.model.trim()) {
+    error.value = 'El equipo necesita marca y modelo.'
+    return
+  }
+  if (!newEquipment.value.equipmentTypeId) {
+    error.value = 'Diga qué clase de equipo es.'
+    return
+  }
+
+  busy.value = true
+  error.value = ''
+  try {
+    const created = await equipmentApi.create({
+      customerId: customer.value.id,
+      equipmentTypeId: newEquipment.value.equipmentTypeId,
+      brand: newEquipment.value.brand.trim(),
+      model: newEquipment.value.model.trim(),
+      serialNumber: newEquipment.value.serialNumber.trim() || undefined,
+    })
+
+    equipos.value = [...equipos.value, created]
+    form.value.vehicleId = created.id
+    creatingVehicle.value = false
+    newEquipment.value = {
+      equipmentTypeId: categorias.value[0]?.id ?? '',
+      brand: '',
+      model: '',
+      serialNumber: '',
+    }
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo registrar el equipo.')
   } finally {
     busy.value = false
   }
@@ -225,11 +310,11 @@ async function saveVehicle() {
  */
 async function submit(modo: 'request' | 'order' = props.mode) {
   if (!form.value.vehicleId || !form.value.branchId) {
-    error.value = 'Elija el vehículo y la sucursal.'
+    error.value = `Elija el ${vocabulario.value.activo} y la sucursal.`
     return
   }
   if (!form.value.description.trim()) {
-    error.value = 'Escriba por qué entra el vehículo.'
+    error.value = `Escriba por qué entra el ${vocabulario.value.activo}.`
     return
   }
 
@@ -241,7 +326,9 @@ async function submit(modo: 'request' | 'order' = props.mode) {
     if (modo === 'order') {
       const orden = await workOrdersApi.create({
         branchId: form.value.branchId,
-        vehicleId: form.value.vehicleId,
+        ...(esDeEquipos.value
+          ? { equipmentId: form.value.vehicleId }
+          : { vehicleId: form.value.vehicleId }),
         description: form.value.description.trim(),
         assignedTechnicianId: form.value.technicianId || null,
         mileageIn: Number(form.value.mileage) || undefined,
@@ -254,7 +341,9 @@ async function submit(modo: 'request' | 'order' = props.mode) {
     } else {
       await serviceRequestsApi.create({
         branchId: form.value.branchId,
-        vehicleId: form.value.vehicleId,
+        ...(esDeEquipos.value
+          ? { equipmentId: form.value.vehicleId }
+          : { vehicleId: form.value.vehicleId }),
         description: form.value.description.trim(),
         reportedSymptoms: form.value.reportedSymptoms.trim() || undefined,
         mileage: Number(form.value.mileage) || undefined,
@@ -280,6 +369,7 @@ function reset() {
   searched.value = false
   customer.value = null
   vehicles.value = []
+  equipos.value = []
   creatingCustomer.value = false
   creatingVehicle.value = false
   form.value = {
@@ -299,8 +389,14 @@ watch(allowedBranches, (list) => {
 })
 
 onMounted(async () => {
+  await cargarTaller()
   branches.value = await branchesApi.list().catch(() => [])
   form.value.branchId = allowedBranches.value[0]?.id ?? ''
+
+  if (esDeEquipos.value) {
+    categorias.value = await equipmentApi.types().catch(() => [])
+    newEquipment.value.equipmentTypeId = categorias.value[0]?.id ?? ''
+  }
 
   if (props.mode === 'order') {
     technicians.value = await usersApi.list('Technician').catch(() => [])
@@ -314,7 +410,8 @@ onMounted(async () => {
       <div>
         <h2>Registrar un requerimiento</h2>
         <p class="muted small">
-          Para el vehículo que llega al mostrador sin que el cliente use la aplicación.
+          Para el {{ vocabulario.activo }} que llega al mostrador sin que el cliente use la
+          aplicación.
         </p>
       </div>
       <button type="button" @click="open = !open">{{ open ? 'Cerrar' : 'Nuevo' }}</button>
@@ -333,7 +430,7 @@ onMounted(async () => {
           <div class="row">
             <input
               v-model="search"
-              placeholder="Buscar por nombre, teléfono o placa"
+              :placeholder="`Buscar por nombre, teléfono o ${vocabulario.identificador.toLowerCase()}`"
               @keydown.enter.prevent="findCustomers"
             />
             <button type="button" :disabled="busy" @click="findCustomers">Buscar</button>
@@ -348,7 +445,7 @@ onMounted(async () => {
                 <span class="ficha">
                   <strong>{{ found.fullName }}</strong>
                   <span class="muted small num">
-                    {{ found.phone }} · {{ found.vehicleCount }} vehículo(s)
+                    {{ found.phone }} · {{ found.vehicleCount }} {{ vocabulario.activo }}(s)
                   </span>
                 </span>
                 <span v-if="found.hasAppAccess" class="etiqueta">Usa la app</span>
@@ -377,7 +474,7 @@ onMounted(async () => {
           <div class="ficha">
             <strong>{{ customer.fullName }}</strong>
             <span class="muted small num">
-              {{ customer.phone }} · {{ customer.vehicleCount }} vehículo(s)
+              {{ customer.phone }} · {{ customer.vehicleCount }} {{ vocabulario.activo }}(s)
             </span>
           </div>
           <span v-if="customer.hasAppAccess" class="etiqueta">Usa la app</span>
@@ -387,24 +484,22 @@ onMounted(async () => {
 
       <template v-if="customer">
         <section class="paso">
-          <p class="paso-titulo">2 · Vehículo</p>
+          <p class="paso-titulo">2 · {{ vocabulario.Activo }}</p>
 
-          <!-- Tarjetas y no una lista desplegable: casi todo cliente tiene uno o dos
-               vehículos, y la placa hay que verla para saber que es el que está en el patio. -->
-          <div v-if="vehicles.length" class="vehiculos">
+          <!-- Tarjetas y no una lista desplegable: casi todo cliente tiene uno o dos, y la
+               placa —o la serie— hay que verla para saber que es la que está en el patio. -->
+          <div v-if="fichas.length" class="vehiculos">
             <button
-              v-for="vehicle in vehicles"
-              :key="vehicle.id"
+              v-for="ficha in fichas"
+              :key="ficha.id"
               type="button"
               class="vehiculo"
-              :class="{ on: form.vehicleId === vehicle.id }"
-              @click="form.vehicleId = vehicle.id"
+              :class="{ on: form.vehicleId === ficha.id }"
+              @click="form.vehicleId = ficha.id"
             >
-              <strong>{{ vehicle.brand }} {{ vehicle.model }}</strong>
+              <strong>{{ ficha.titulo }}</strong>
               <span class="muted small">
-                <span v-if="vehicle.plate" class="placa">{{ vehicle.plate }}</span>
-                <template v-else>{{ VEHICLE_TYPE_LABEL[vehicle.type] }}</template>
-                <template v-if="vehicle.year"> · {{ vehicle.year }}</template>
+                <span class="placa">{{ ficha.detalle }}</span>
               </span>
             </button>
           </div>
@@ -415,10 +510,10 @@ onMounted(async () => {
             class="link"
             @click="creatingVehicle = true"
           >
-            Otro vehículo
+            Otro {{ vocabulario.activo }}
           </button>
 
-          <fieldset v-if="creatingVehicle">
+          <fieldset v-if="creatingVehicle && !esDeEquipos">
             <legend>Vehículo nuevo</legend>
             <div class="row">
               <select v-model.number="newVehicle.type">
@@ -433,13 +528,32 @@ onMounted(async () => {
               <button type="button" :disabled="busy" @click="saveVehicle">Guardar</button>
             </div>
           </fieldset>
+
+          <fieldset v-if="creatingVehicle && esDeEquipos">
+            <legend>Equipo nuevo</legend>
+            <div class="row">
+              <select v-model="newEquipment.equipmentTypeId">
+                <option value="" disabled>Qué es</option>
+                <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">
+                  {{ categoria.name }}
+                </option>
+              </select>
+              <input v-model="newEquipment.brand" placeholder="Marca" />
+              <input v-model="newEquipment.model" placeholder="Modelo" />
+              <input v-model="newEquipment.serialNumber" placeholder="Serie" class="narrow" />
+              <button type="button" :disabled="busy" @click="saveEquipment">Guardar</button>
+            </div>
+            <p class="muted small">
+              La serie es opcional: hay equipos que no la traen o la traen ilegible.
+            </p>
+          </fieldset>
         </section>
 
         <section class="paso">
           <p class="paso-titulo">3 · El ingreso</p>
 
           <div class="campos">
-            <label>
+            <label v-if="!esDeEquipos">
               Kilometraje
               <input v-model="form.mileage" type="number" min="0" :placeholder="kmConocido" />
             </label>
