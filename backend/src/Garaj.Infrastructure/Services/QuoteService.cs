@@ -148,13 +148,14 @@ public class QuoteService(
 
         var order = await db.WorkOrders
             .Include(w => w.Vehicle)
+            .Include(w => w.Equipment)
             .Include(w => w.Tasks)
             .FirstOrDefaultAsync(w => w.Id == request.WorkOrderId, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
 
         var quote = new Quote
         {
-            CustomerId = order.Vehicle.CustomerId,
+            CustomerId = order.Vehicle?.CustomerId ?? order.Equipment!.CustomerId,
             VehicleId = order.VehicleId,
             BranchId = order.BranchId,
             WorkOrderId = order.Id,

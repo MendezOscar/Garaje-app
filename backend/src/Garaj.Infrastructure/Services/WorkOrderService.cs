@@ -51,8 +51,13 @@ public class WorkOrderService(
 
             q = q.Where(w =>
                 EF.Functions.ILike(w.Number, $"%{term}%")
-                || (w.Vehicle.Plate != null && w.Vehicle.Plate.Contains(plate))
-                || EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%"));
+                || (w.Vehicle != null && w.Vehicle.Plate != null && w.Vehicle.Plate.Contains(plate))
+                || (w.Vehicle != null && EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%"))
+                || (w.Equipment != null && EF.Functions.ILike(w.Equipment.Customer.FullName, $"%{term}%"))
+                || (w.Equipment != null && w.Equipment.SerialNumber != null
+                    && EF.Functions.ILike(w.Equipment.SerialNumber, $"%{term}%"))
+                || (w.Equipment != null && w.Equipment.Tag != null
+                    && EF.Functions.ILike(w.Equipment.Tag, $"%{term}%")));
         }
 
         // Los que están listos y nadie retira. Se piden en días para que el taller decida
@@ -78,12 +83,16 @@ public class WorkOrderService(
                 w.Branch.Name,
                 w.Status,
                 w.VehicleId,
-                w.Vehicle.Brand + " " + w.Vehicle.Model,
-                w.Vehicle.Type,
-                w.Vehicle.Plate,
-                w.Vehicle.CustomerId,
-                w.Vehicle.Customer.FullName,
-                w.Vehicle.Customer.Phone,
+                // Con un equipo, los campos de vehículo llevan los del equipo: la app que ya
+                // está publicada los pinta sin saber que existen los equipos.
+                w.Vehicle != null
+                    ? w.Vehicle.Brand + " " + w.Vehicle.Model
+                    : w.Equipment!.Brand + " " + w.Equipment.Model,
+                w.Vehicle != null ? w.Vehicle.Type : VehicleType.Car,
+                w.Vehicle != null ? w.Vehicle.Plate : (w.Equipment!.SerialNumber ?? w.Equipment.Tag),
+                w.Vehicle != null ? w.Vehicle.CustomerId : w.Equipment!.CustomerId,
+                w.Vehicle != null ? w.Vehicle.Customer.FullName : w.Equipment!.Customer.FullName,
+                w.Vehicle != null ? w.Vehicle.Customer.Phone : w.Equipment!.Customer.Phone,
                 w.AssignedTechnicianId,
                 // Sin FK a AppUser (vive en Infrastructure), así que se resuelve por subconsulta.
                 db.Users.Where(u => u.Id == w.AssignedTechnicianId).Select(u => u.FullName).FirstOrDefault(),
@@ -92,7 +101,15 @@ public class WorkOrderService(
                 w.PromisedAt,
                 w.Tasks.Count,
                 w.Tasks.Count(t => t.IsDone),
-                w.ReadyNotifiedAt))
+                w.ReadyNotifiedAt,
+                new AssetRefDto(
+                    w.Vehicle != null ? AssetKind.Vehicle : AssetKind.Equipment,
+                    w.Vehicle != null ? w.Vehicle.Id : w.Equipment!.Id,
+                    w.Vehicle != null
+                        ? w.Vehicle.Brand + " " + w.Vehicle.Model
+                        : w.Equipment!.Brand + " " + w.Equipment.Model,
+                    w.Vehicle != null ? w.Vehicle.Plate : (w.Equipment!.SerialNumber ?? w.Equipment.Tag),
+                    w.Vehicle != null ? null : w.Equipment!.EquipmentType.Name)))
             .ToListAsync(ct);
 
         return new PagedResult<WorkOrderListItemDto>(items, total, query.Page, query.PageSize);
@@ -104,7 +121,9 @@ public class WorkOrderService(
 
         var order = await Scoped(scope)
             .Include(w => w.Branch)
-            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .Include(w => w.Vehicle).ThenInclude(v => v!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.EquipmentType)
             .Include(w => w.Tasks)
             .Include(w => w.StatusHistory)
             .FirstOrDefaultAsync(w => w.Id == id, ct)
@@ -121,8 +140,20 @@ public class WorkOrderService(
         if (!scope.IsOwner)
             throw new ForbiddenException("Solo el Dueño puede abrir órdenes de trabajo.");
 
-        var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == request.VehicleId, ct)
-            ?? throw new NotFoundException("El vehículo no existe.");
+        // Un vehículo o un equipo, nunca los dos: la base lo impone con un CHECK, pero aquí
+        // se dice con un mensaje que se entiende en vez de un error de la base.
+        if ((request.VehicleId is null) == (request.EquipmentId is null))
+            throw new AppException("La orden se abre sobre un vehículo o sobre un equipo.");
+
+        var vehicle = request.VehicleId is { } vehicleId
+            ? await db.Vehicles.FirstOrDefaultAsync(v => v.Id == vehicleId, ct)
+                ?? throw new NotFoundException("El vehículo no existe.")
+            : null;
+
+        var equipment = request.EquipmentId is { } equipmentId
+            ? await db.Equipment.FirstOrDefaultAsync(e => e.Id == equipmentId, ct)
+                ?? throw new NotFoundException("El equipo no existe.")
+            : null;
 
         var branch = await db.Branches.FirstOrDefaultAsync(b => b.Id == request.BranchId, ct)
             ?? throw new NotFoundException("La sucursal no existe.");
@@ -133,7 +164,8 @@ public class WorkOrderService(
         var order = new WorkOrder
         {
             BranchId = branch.Id,
-            VehicleId = vehicle.Id,
+            VehicleId = vehicle?.Id,
+            EquipmentId = equipment?.Id,
             Number = await NextNumberAsync(branch, ct),
             Status = WorkOrderStatus.Received,
             AssignedTechnicianId = request.AssignedTechnicianId,
@@ -152,10 +184,13 @@ public class WorkOrderService(
             ToStatus = WorkOrderStatus.Received,
             ChangedAt = order.OpenedAt,
             ChangedByUserId = scope.UserId,
-            Note = $"Vehículo recibido en {branch.Name}."
+            Note = $"{(vehicle is null ? "Equipo" : "Vehículo")} recibido en {branch.Name}."
         });
 
-        if (request.MileageIn is { } mileage && mileage > (vehicle.Mileage ?? 0))
+        // El kilometraje solo avanza: uno menor es un error de tecleo. Un equipo no lleva.
+        if (vehicle is not null
+            && request.MileageIn is { } mileage
+            && mileage > (vehicle.Mileage ?? 0))
             vehicle.Mileage = mileage;
 
         await db.SaveChangesAsync(ct);
@@ -164,7 +199,7 @@ public class WorkOrderService(
             await notifications.NotifyUserAsync(order.TenantId, technician, new NotificationDraft(
                 NotificationType.WorkOrderAssigned,
                 $"Nueva orden asignada · {order.Number}",
-                await VehicleLabelAsync(order.VehicleId, ct),
+                await AssetLabelAsync(order, ct),
                 WorkOrderId: order.Id), ct);
 
         return await GetAsync(order.Id, ct);
@@ -266,7 +301,7 @@ public class WorkOrderService(
             await notifications.NotifyUserAsync(order.TenantId, assigned, new NotificationDraft(
                 NotificationType.WorkOrderAssigned,
                 $"Nueva orden asignada · {order.Number}",
-                await VehicleLabelAsync(order.VehicleId, ct),
+                await AssetLabelAsync(order, ct),
                 WorkOrderId: order.Id), ct);
 
         return await GetAsync(id, ct);
@@ -450,11 +485,24 @@ public class WorkOrderService(
             WorkOrderId: order.Id), ct);
     }
 
-    private async Task<string> VehicleLabelAsync(Guid? vehicleId, CancellationToken ct) =>
-        await db.Vehicles
-            .Where(v => v.Id == vehicleId)
+    /// <summary>
+    /// Cómo se nombra lo que entró, para el aviso que le llega al técnico. Sale del vehículo
+    /// o del equipo, según cuál traiga la orden.
+    /// </summary>
+    private async Task<string> AssetLabelAsync(WorkOrder order, CancellationToken ct)
+    {
+        if (order.EquipmentId is { } equipmentId)
+            return await db.Equipment
+                .Where(e => e.Id == equipmentId)
+                .Select(e => e.Brand + " " + e.Model
+                    + (e.SerialNumber == null ? "" : " · " + e.SerialNumber))
+                .FirstOrDefaultAsync(ct) ?? "Equipo del taller";
+
+        return await db.Vehicles
+            .Where(v => v.Id == order.VehicleId)
             .Select(v => v.Brand + " " + v.Model + (v.Plate == null ? "" : " · " + v.Plate))
             .FirstOrDefaultAsync(ct) ?? "Vehículo del taller";
+    }
 
     public async Task<WorkOrderTaskDto> AddTaskAsync(
         Guid workOrderId, SaveWorkOrderTaskRequest request, CancellationToken ct = default)
@@ -869,7 +917,9 @@ public class WorkOrderService(
             throw new ForbiddenException("El enlace de seguimiento lo manda el taller.");
 
         var order = await Scoped(scope)
-            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .Include(w => w.Vehicle).ThenInclude(v => v!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.EquipmentType)
             .FirstOrDefaultAsync(w => w.Id == id, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
 
@@ -877,8 +927,8 @@ public class WorkOrderService(
             .FirstOrDefaultAsync(t => t.Id == order.TenantId, ct)
             ?? throw new NotFoundException("El taller no existe.");
 
-        var customer = order.Vehicle.Customer;
-        var vehicle = VehicleWithPlate(order.Vehicle);
+        var customer = CustomerOf(order);
+        var vehicle = AssetWithIdentifier(order);
         var url = TrackingUrlFor(order.PublicToken);
         var invoice = await InvoiceOfAsync(order.Id, order.TenantId, ct);
 
@@ -964,9 +1014,11 @@ public class WorkOrderService(
             tenant.LogoStorageKey is null ? null : $"/public/work-orders/{token}/logo",
             tenant.Phone,
             order.Branch.Name,
-            order.Vehicle.Customer.FullName,
-            $"{order.Vehicle.Brand} {order.Vehicle.Model}",
-            order.Vehicle.Plate,
+            CustomerOf(order).FullName,
+            order.Vehicle != null
+                ? $"{order.Vehicle.Brand} {order.Vehicle.Model}"
+                : $"{order.Equipment!.Brand} {order.Equipment.Model}",
+            order.Vehicle != null ? order.Vehicle.Plate : (order.Equipment!.SerialNumber ?? order.Equipment.Tag),
             order.Status,
             Describe(order.Status),
             order.Description,
@@ -995,7 +1047,9 @@ public class WorkOrderService(
     private async Task<WorkOrder> FindByTrackingTokenAsync(Guid token, CancellationToken ct) =>
         await db.WorkOrders.AsNoTracking().IgnoreQueryFilters()
             .Include(w => w.Branch)
-            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .Include(w => w.Vehicle).ThenInclude(v => v!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.EquipmentType)
             .Include(w => w.Tasks)
             .Include(w => w.StatusHistory)
             .FirstOrDefaultAsync(w => w.PublicToken == token, ct)
@@ -1021,6 +1075,41 @@ public class WorkOrderService(
     private static string VehicleWithPlate(Vehicle vehicle) =>
         $"{vehicle.Brand} {vehicle.Model}"
         + (string.IsNullOrWhiteSpace(vehicle.Plate) ? string.Empty : $" ({vehicle.Plate})");
+
+    /// <summary>Lo que entró al taller, para la pantalla que no distingue vehículo de equipo.</summary>
+    private static AssetRefDto AssetOf(WorkOrder order) =>
+        order.Vehicle is { } vehicle
+            ? new AssetRefDto(
+                AssetKind.Vehicle, vehicle.Id, $"{vehicle.Brand} {vehicle.Model}", vehicle.Plate, null)
+            : new AssetRefDto(
+                AssetKind.Equipment,
+                order.Equipment!.Id,
+                $"{order.Equipment.Brand} {order.Equipment.Model}",
+                order.Equipment.SerialNumber ?? order.Equipment.Tag,
+                order.Equipment.EquipmentType?.Name);
+
+    /// <summary>El dueño de lo que entró, venga del vehículo o del equipo.</summary>
+    private static Customer CustomerOf(WorkOrder order) =>
+        order.Vehicle?.Customer ?? order.Equipment!.Customer;
+
+    /// <summary>
+    /// Cómo se nombra lo que entró en un mensaje para el cliente: "Honda CB125F (PBH1234)"
+    /// o "Dell Latitude 5490 (SN12345)".
+    /// </summary>
+    private static string AssetWithIdentifier(WorkOrder order) =>
+        order.Vehicle is { } vehicle
+            ? VehicleWithPlate(vehicle)
+            : EquipmentWithSerial(order.Equipment!);
+
+    private static string EquipmentWithSerial(Equipment equipment)
+    {
+        var identifier = string.IsNullOrWhiteSpace(equipment.SerialNumber)
+            ? equipment.Tag
+            : equipment.SerialNumber;
+
+        return $"{equipment.Brand} {equipment.Model}"
+            + (string.IsNullOrWhiteSpace(identifier) ? string.Empty : $" ({identifier})");
+    }
 
     /// <summary>
     /// Apunta al web y no a la API: el cliente abre una página, no un JSON. Igual que los
@@ -1069,15 +1158,20 @@ public class WorkOrderService(
             var plate = PlateFormatter.Normalize(term);
 
             q = q.Where(w =>
-                EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%")
-                || w.Vehicle.Customer.Phone.Contains(term)
-                || (w.Vehicle.Plate != null && w.Vehicle.Plate.Contains(plate)));
+                (w.Vehicle != null && (
+                    EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%")
+                    || w.Vehicle.Customer.Phone.Contains(term)
+                    || (w.Vehicle.Plate != null && w.Vehicle.Plate.Contains(plate))))
+                || (w.Equipment != null && (
+                    EF.Functions.ILike(w.Equipment.Customer.FullName, $"%{term}%")
+                    || w.Equipment.Customer.Phone.Contains(term))));
         }
 
-        // Solo la última recomendación de cada vehículo: si se le atendió tres veces, la que
-        // manda es la de la última visita.
+        // Solo la última recomendación de cada vehículo o equipo: si se le atendió tres
+        // veces, la que manda es la de la última visita.
         q = q.Where(w => !db.WorkOrders.Any(otra =>
             otra.VehicleId == w.VehicleId
+            && otra.EquipmentId == w.EquipmentId
             && otra.NextServiceAt != null
             && otra.ClosedAt > w.ClosedAt));
 
@@ -1086,6 +1180,7 @@ public class WorkOrderService(
         // ocurrió, así que el recordatorio sigue teniendo sentido.
         q = q.Where(w => !db.WorkOrders.Any(otra =>
             otra.VehicleId == w.VehicleId
+            && otra.EquipmentId == w.EquipmentId
             && otra.Id != w.Id
             && otra.Status != WorkOrderStatus.Cancelled
             && otra.OpenedAt > w.ClosedAt));
@@ -1096,18 +1191,27 @@ public class WorkOrderService(
             {
                 w.Id,
                 w.Number,
-                w.Vehicle.CustomerId,
-                CustomerName = w.Vehicle.Customer.FullName,
-                CustomerPhone = w.Vehicle.Customer.Phone,
+                CustomerId = w.Vehicle != null ? w.Vehicle.CustomerId : w.Equipment!.CustomerId,
+                CustomerName = w.Vehicle != null
+                    ? w.Vehicle.Customer.FullName
+                    : w.Equipment!.Customer.FullName,
+                CustomerPhone = w.Vehicle != null
+                    ? w.Vehicle.Customer.Phone
+                    : w.Equipment!.Customer.Phone,
                 w.VehicleId,
-                VehicleLabel = w.Vehicle.Brand + " " + w.Vehicle.Model,
-                w.Vehicle.Plate,
+                VehicleLabel = w.Vehicle != null
+                    ? w.Vehicle.Brand + " " + w.Vehicle.Model
+                    : w.Equipment!.Brand + " " + w.Equipment.Model,
+                Plate = w.Vehicle != null
+                    ? w.Vehicle.Plate
+                    : (w.Equipment!.SerialNumber ?? w.Equipment.Tag),
                 BranchName = w.Branch.Name,
                 w.Description,
                 w.ClosedAt,
                 w.NextServiceAt,
                 w.NextServiceMileage,
-                LastMileage = w.Vehicle.Mileage,
+                // Un equipo no lleva kilometraje: su recordatorio es solo por fecha.
+                LastMileage = w.Vehicle != null ? w.Vehicle.Mileage : null,
                 w.NextServiceRemindedAt
             })
             .ToListAsync(ct);
@@ -1140,7 +1244,9 @@ public class WorkOrderService(
         scope.EnsureManagement();
 
         var order = await db.WorkOrders
-            .Include(w => w.Vehicle).ThenInclude(v => v.Customer)
+            .Include(w => w.Vehicle).ThenInclude(v => v!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.Customer)
+            .Include(w => w.Equipment).ThenInclude(e => e!.EquipmentType)
             .FirstOrDefaultAsync(w => w.Id == workOrderId, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
 
@@ -1153,8 +1259,8 @@ public class WorkOrderService(
             .FirstOrDefaultAsync(t => t.Id == order.TenantId, ct)
             ?? throw new NotFoundException("El taller no existe.");
 
-        var customer = order.Vehicle.Customer;
-        var vehicle = VehicleWithPlate(order.Vehicle);
+        var customer = CustomerOf(order);
+        var vehicle = AssetWithIdentifier(order);
 
         var cuando = toca <= clock.UtcNow
             ? "le tocaba servicio desde " + toca.ToLocalTime().ToString("dd/MM")
@@ -1162,7 +1268,7 @@ public class WorkOrderService(
 
         var kilometraje = order.NextServiceMileage is { } km
             ? $" o a los {km:N0} km"
-              + (order.Vehicle.Mileage is { } ultimo ? $" (la última lectura fue {ultimo:N0})" : "")
+              + (order.Vehicle?.Mileage is { } ultimo ? $" (la última lectura fue {ultimo:N0})" : "")
             : "";
 
         var message =
@@ -1214,7 +1320,9 @@ public class WorkOrderService(
             return q.Where(w => w.AssignedTechnicianId == scope.UserId);
 
         if (scope.IsCustomer)
-            return q.Where(w => w.Vehicle.CustomerId == scope.CustomerId);
+            return q.Where(w =>
+                (w.Vehicle != null && w.Vehicle.CustomerId == scope.CustomerId)
+                || (w.Equipment != null && w.Equipment.CustomerId == scope.CustomerId));
 
         // El Encargado manda en lo suyo: todas las órdenes de sus sucursales, no solo las que
         // él abrió. Materializado porque EF no traduce Contains sobre IReadOnlyCollection.
@@ -1392,13 +1500,17 @@ public class WorkOrderService(
             // El cliente no cambia estados, así que no tiene sentido ofrecerle las opciones.
             scope.IsCustomer ? [] : WorkOrderStatusTransitions.NextStatuses(order.Status),
             order.VehicleId,
-            $"{order.Vehicle.Brand} {order.Vehicle.Model}",
-            order.Vehicle.Type,
-            order.Vehicle.Plate,
-            order.Vehicle.Mileage,
-            order.Vehicle.CustomerId,
-            order.Vehicle.Customer.FullName,
-            order.Vehicle.Customer.Phone,
+            // Con un equipo, los campos de vehículo llevan los del equipo: la versión de la
+            // app que está publicada los pinta sin saber que los equipos existen.
+            order.Vehicle is { } v ? $"{v.Brand} {v.Model}" : $"{order.Equipment!.Brand} {order.Equipment.Model}",
+            order.Vehicle?.Type ?? VehicleType.Car,
+            order.Vehicle is not null
+                ? order.Vehicle.Plate
+                : order.Equipment!.SerialNumber ?? order.Equipment.Tag,
+            order.Vehicle?.Mileage,
+            CustomerOf(order).Id,
+            CustomerOf(order).FullName,
+            CustomerOf(order).Phone,
             order.AssignedTechnicianId,
             order.AssignedTechnicianId is { } techId ? names.GetValueOrDefault(techId) : null,
             order.Description,
@@ -1425,7 +1537,8 @@ public class WorkOrderService(
             reclamo?.Number,
             order.WarrantyCovered,
             reclamo?.WasUnderWarranty,
-            reclamo is null ? null : reclamo.Status == ClaimStatus.Open);
+            reclamo is null ? null : reclamo.Status == ClaimStatus.Open,
+            AssetOf(order));
     }
 
     public async Task<WorkOrderDetailDto> SetWarrantyDecisionAsync(

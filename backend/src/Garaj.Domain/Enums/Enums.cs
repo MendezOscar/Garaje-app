@@ -17,6 +17,13 @@ public enum VehicleType
     Motorcycle = 2
 }
 
+/// <summary>Qué es lo que entró al taller: el vehículo de siempre o un equipo.</summary>
+public enum AssetKind
+{
+    Vehicle = 1,
+    Equipment = 2
+}
+
 /// <summary>Estado del requerimiento que entra al taller, antes de convertirse en orden de trabajo.</summary>
 public enum ServiceRequestStatus
 {

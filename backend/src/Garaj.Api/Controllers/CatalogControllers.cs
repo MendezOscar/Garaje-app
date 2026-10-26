@@ -133,6 +133,49 @@ public class CustomersController(ICustomerService service) : ControllerBase
 
 [ApiController]
 [Authorize]
+[Route("api/equipment")]
+public class EquipmentController(IEquipmentService service) : ControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<EquipmentDto>>> List(
+        [FromQuery] EquipmentQuery query, CancellationToken ct)
+        => Ok(await service.ListAsync(query, ct));
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<EquipmentDto>> Get(Guid id, CancellationToken ct)
+        => Ok(await service.GetAsync(id, ct));
+
+    /// <summary>El Cliente puede registrar los suyos; el Dueño, los de cualquiera.</summary>
+    [HttpPost]
+    public async Task<ActionResult<EquipmentDto>> Create(SaveEquipmentRequest request, CancellationToken ct)
+    {
+        var equipment = await service.CreateAsync(request, ct);
+        return CreatedAtAction(nameof(Get), new { id = equipment.Id }, equipment);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<EquipmentDto>> Update(
+        Guid id, SaveEquipmentRequest request, CancellationToken ct)
+        => Ok(await service.UpdateAsync(id, request, ct));
+
+    [HttpGet("types")]
+    public async Task<ActionResult<IReadOnlyList<EquipmentTypeDto>>> Types(
+        [FromQuery] bool includeInactive, CancellationToken ct)
+        => Ok(await service.TypesAsync(includeInactive, ct));
+
+    [HttpPost("types")]
+    public async Task<ActionResult<EquipmentTypeDto>> CreateType(
+        SaveEquipmentTypeRequest request, CancellationToken ct)
+        => Ok(await service.CreateTypeAsync(request, ct));
+
+    [HttpPut("types/{id:guid}")]
+    public async Task<ActionResult<EquipmentTypeDto>> UpdateType(
+        Guid id, SaveEquipmentTypeRequest request, CancellationToken ct)
+        => Ok(await service.UpdateTypeAsync(id, request, ct));
+}
+
+[ApiController]
+[Authorize]
 [Route("api/vehicles")]
 public class VehiclesController(IVehicleService service) : ControllerBase
 {

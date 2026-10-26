@@ -1,3 +1,5 @@
+using Garaj.Domain.Enums;
+
 namespace Garaj.Application.Tenants;
 
 /// <summary>
@@ -19,6 +21,9 @@ public record TenantSettingsDto(
     string? Email,
     string? Address,
     string Currency,
+    // Con qué trabaja el taller: vehículos o equipos. De aquí sale qué se le puede dar de
+    // alta a un cliente y cómo se llama en las pantallas.
+    WorkshopKind WorksWith,
     decimal DefaultTaxRate,
     string DefaultPhoneCountryCode,
     // Días de garantía que lleva un trabajo por defecto. Cero es sin garantía.
@@ -49,7 +54,10 @@ public record UpdateTenantRequest(
     int StorageFreeDays = 3,
     decimal StorageDailyRate = 0,
     bool TechniciansSeePrices = true,
-    bool BookingEnabled = true);
+    bool BookingEnabled = true,
+    // Nulo deja el modo como está. El panel que todavía no manda este campo no puede
+    // devolver un taller de equipos a vehículos sin querer.
+    WorkshopKind? WorksWith = null);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

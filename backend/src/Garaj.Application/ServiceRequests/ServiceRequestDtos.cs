@@ -20,16 +20,21 @@ public record ServiceRequestDto(
     string? RejectionReason,
     Guid? WorkOrderId,
     string? WorkOrderNumber,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    // Lo que entró al taller, sea vehículo o equipo.
+    AssetRefDto? Asset = null);
 
 /// <param name="BranchId">Sucursal donde entra el vehículo. El Cliente elige entre las del taller.</param>
+/// <param name="VehicleId">En un taller de vehículos. Excluyente con <paramref name="EquipmentId"/>.</param>
+/// <param name="EquipmentId">En un taller de equipos. Uno de los dos tiene que venir.</param>
 public record CreateServiceRequestRequest(
     Guid BranchId,
-    Guid VehicleId,
+    Guid? VehicleId,
     string Description,
     string? ReportedSymptoms,
     DateTimeOffset? PreferredDate,
-    int? Mileage);
+    int? Mileage,
+    Guid? EquipmentId = null);
 
 /// <summary>
 /// Aprobar convierte el requerimiento en orden de trabajo. El técnico es opcional: el Dueño

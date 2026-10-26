@@ -14,6 +14,7 @@ public record AppointmentDto(
     string BranchName,
     Guid? CustomerId,
     Guid? VehicleId,
+    Guid? EquipmentId,
     string ContactName,
     string ContactPhone,
     string VehicleLabel,
@@ -46,10 +47,11 @@ public record AppointmentQuery : PageQuery
 /// </summary>
 public record RequestAppointmentRequest(
     Guid BranchId,
-    Guid VehicleId,
+    Guid? VehicleId,
     string Reason,
     DateOnly Day,
-    AppointmentSlot Slot);
+    AppointmentSlot Slot,
+    Guid? EquipmentId = null);
 
 /// <summary>Lo que anota el taller por teléfono o en el mostrador.</summary>
 public record CreateAppointmentRequest(
@@ -61,7 +63,8 @@ public record CreateAppointmentRequest(
     Guid? VehicleId,
     string Reason,
     DateOnly Day,
-    AppointmentSlot Slot);
+    AppointmentSlot Slot,
+    Guid? EquipmentId = null);
 
 /// <summary>
 /// Confirmar puede mover el día: el taller contesta «ese día no, pero el jueves sí» sin

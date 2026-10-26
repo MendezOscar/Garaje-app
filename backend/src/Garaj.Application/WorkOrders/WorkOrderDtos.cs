@@ -29,7 +29,9 @@ public record WorkOrderListItemDto(
     int TasksDone,
     // Cuándo se le avisó al cliente que estaba listo. De ahí se cuentan los días que el
     // vehículo lleva ocupando el taller sin que nadie venga por él.
-    DateTimeOffset? ReadyNotifiedAt);
+    DateTimeOffset? ReadyNotifiedAt,
+    // Lo que entró al taller, sin que la pantalla tenga que saber si es vehículo o equipo.
+    AssetRefDto? Asset = null);
 
 public record WorkOrderDetailDto(
     Guid Id,
@@ -88,7 +90,9 @@ public record WorkOrderDetailDto(
     /// Si el reclamo sigue abierto. Con la orden ya entregada y el reclamo abierto, la
     /// pantalla ofrece cerrarlo: es el último paso y el que se olvida.
     /// </summary>
-    bool? ClaimIsOpen = null);
+    bool? ClaimIsOpen = null,
+    // Lo que entró al taller, sea vehículo o equipo.
+    AssetRefDto? Asset = null);
 
 /// <param name="Covered">
 /// True la paga el taller —no se le factura al cliente—, false es un servicio nuevo y se
@@ -124,13 +128,16 @@ public record WorkOrderStatusEntryDto(
     string? Note,
     bool IsVisibleToCustomer);
 
+/// <param name="VehicleId">En un taller de vehículos. Excluyente con <paramref name="EquipmentId"/>.</param>
+/// <param name="EquipmentId">En un taller de equipos. Uno de los dos tiene que venir.</param>
 public record CreateWorkOrderRequest(
     Guid BranchId,
     Guid? VehicleId,
     string Description,
     Guid? AssignedTechnicianId,
     int? MileageIn,
-    DateTimeOffset? PromisedAt);
+    DateTimeOffset? PromisedAt,
+    Guid? EquipmentId = null);
 
 public record UpdateWorkOrderRequest(
     string Description,

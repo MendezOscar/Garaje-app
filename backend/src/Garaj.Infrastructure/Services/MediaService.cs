@@ -346,7 +346,10 @@ public class MediaService(
         var q = db.WorkOrders.AsNoTracking();
 
         if (scope.IsTechnician) return q.Where(w => w.AssignedTechnicianId == scope.UserId);
-        if (scope.IsCustomer) return q.Where(w => w.Vehicle.CustomerId == scope.CustomerId);
+        if (scope.IsCustomer)
+            return q.Where(w =>
+                (w.Vehicle != null && w.Vehicle.CustomerId == scope.CustomerId)
+                || (w.Equipment != null && w.Equipment.CustomerId == scope.CustomerId));
 
         return q;
     }
@@ -370,7 +373,10 @@ public class MediaService(
         var q = db.ServiceRequests.AsNoTracking();
 
         if (scope.IsTechnician) return q.Where(r => scope.BranchIds.Contains(r.BranchId));
-        if (scope.IsCustomer) return q.Where(r => r.Vehicle.CustomerId == scope.CustomerId);
+        if (scope.IsCustomer)
+            return q.Where(r =>
+                (r.Vehicle != null && r.Vehicle.CustomerId == scope.CustomerId)
+                || (r.Equipment != null && r.Equipment.CustomerId == scope.CustomerId));
 
         return q;
     }

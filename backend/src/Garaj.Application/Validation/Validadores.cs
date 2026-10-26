@@ -45,6 +45,10 @@ public class RequestAppointmentValidator : AbstractValidator<RequestAppointmentR
 {
     public RequestAppointmentValidator()
     {
+        RuleFor(x => x)
+            .Must(x => (x.VehicleId is null) != (x.EquipmentId is null))
+            .WithMessage("La cita es para un vehículo o para un equipo.");
+
         RuleFor(x => x.Reason)
             .NotEmpty().WithMessage("Diga qué necesita.")
             .MaximumLength(2000);
@@ -117,12 +121,45 @@ public class SaveVehicleValidator : AbstractValidator<SaveVehicleRequest>
     }
 }
 
+public class SaveEquipmentValidator : AbstractValidator<SaveEquipmentRequest>
+{
+    public SaveEquipmentValidator()
+    {
+        RuleFor(x => x.CustomerId).NotEmpty();
+        RuleFor(x => x.EquipmentTypeId).NotEmpty().WithMessage("Diga qué clase de equipo es.");
+        RuleFor(x => x.Brand).NotEmpty().MaximumLength(80);
+        RuleFor(x => x.Model).NotEmpty().MaximumLength(80);
+        RuleFor(x => x.SerialNumber).MaximumLength(60);
+        RuleFor(x => x.Tag).MaximumLength(30);
+        RuleFor(x => x.Color).MaximumLength(40);
+        RuleFor(x => x.Accessories).MaximumLength(500);
+        RuleFor(x => x.Notes).MaximumLength(1000);
+
+        // Lo propio del tipo viaja como JSON y el servidor no lo interpreta, pero sí le pone
+        // techo: es una ficha de equipo, no un almacén.
+        RuleFor(x => x.Attributes).MaximumLength(4000);
+    }
+}
+
+public class SaveEquipmentTypeValidator : AbstractValidator<SaveEquipmentTypeRequest>
+{
+    public SaveEquipmentTypeValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(60);
+        RuleFor(x => x.Icon).MaximumLength(40);
+    }
+}
+
 public class CreateServiceRequestValidator : AbstractValidator<CreateServiceRequestRequest>
 {
     public CreateServiceRequestValidator()
     {
         RuleFor(x => x.BranchId).NotEmpty();
-        RuleFor(x => x.VehicleId).NotEmpty();
+
+        // Uno de los dos, nunca los dos: el taller trabaja con vehículos o con equipos.
+        RuleFor(x => x)
+            .Must(x => (x.VehicleId is null) != (x.EquipmentId is null))
+            .WithMessage("El requerimiento es de un vehículo o de un equipo.");
 
         RuleFor(x => x.Description)
             .NotEmpty().WithMessage("Anote para qué entra el vehículo.")
