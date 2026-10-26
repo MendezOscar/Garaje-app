@@ -25,6 +25,7 @@ public class ServiceRequestService(
         if (query.BranchId is { } branchId) q = q.Where(r => r.BranchId == branchId);
         if (query.Status is { } status) q = q.Where(r => r.Status == status);
         if (query.VehicleId is { } vehicleId) q = q.Where(r => r.VehicleId == vehicleId);
+        if (query.EquipmentId is { } equipmentId) q = q.Where(r => r.EquipmentId == equipmentId);
         if (query.From is { } from) q = q.Where(r => r.CreatedAt >= from);
         if (query.To is { } to) q = q.Where(r => r.CreatedAt <= to);
 

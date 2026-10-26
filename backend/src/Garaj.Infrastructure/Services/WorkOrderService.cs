@@ -40,6 +40,7 @@ public class WorkOrderService(
         if (query.Status is { } status) q = q.Where(w => w.Status == status);
         if (query.TechnicianId is { } techId) q = q.Where(w => w.AssignedTechnicianId == techId);
         if (query.VehicleId is { } vehicleId) q = q.Where(w => w.VehicleId == vehicleId);
+        if (query.EquipmentId is { } equipmentId) q = q.Where(w => w.EquipmentId == equipmentId);
 
         if (query.OnlyOpen)
             q = q.Where(w => w.Status != WorkOrderStatus.Delivered && w.Status != WorkOrderStatus.Cancelled);

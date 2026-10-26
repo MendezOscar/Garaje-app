@@ -10,6 +10,8 @@ import type {
   Branch,
   CashClose,
   Customer,
+  Equipment,
+  EquipmentType,
   FiscalRange,
   JobTemplate,
   LaborService,
@@ -63,6 +65,7 @@ import type {
   WorkOrderTask,
   CustomerStatement,
   WhatsAppLink,
+  WorkshopKind,
 } from '@/types/domain'
 
 /** Quita claves vacías para no mandar `?status=` y que el backend lo lea como filtro. */
@@ -191,6 +194,61 @@ export const vehiclesApi = {
   },
 }
 
+/**
+ * Los equipos de los clientes en los talleres que reparan equipos. Es el espejo de
+ * `vehiclesApi`: un taller de vehículos recibe 404 aquí, porque para él no existen.
+ */
+export const equipmentApi = {
+  async list(query: { search?: string; customerId?: string; page?: number; pageSize?: number } = {}) {
+    const { data } = await api.get<Paged<Equipment>>('/api/equipment', { params: params(query) })
+    return data
+  },
+  async create(body: {
+    customerId: string
+    equipmentTypeId: string
+    brand: string
+    model: string
+    serialNumber?: string
+    tag?: string
+    color?: string
+    accessories?: string
+    notes?: string
+  }) {
+    const { data } = await api.post<Equipment>('/api/equipment', body)
+    return data
+  },
+  async update(id: string, body: {
+    customerId: string
+    equipmentTypeId: string
+    brand: string
+    model: string
+    serialNumber?: string | null
+    tag?: string | null
+    color?: string | null
+    accessories?: string | null
+    notes?: string | null
+    isActive?: boolean
+  }) {
+    const { data } = await api.put<Equipment>(`/api/equipment/${id}`, body)
+    return data
+  },
+  /** Las categorías del taller: "Laptop", "Aire acondicionado", "Celular". */
+  async types(includeInactive = false) {
+    const { data } = await api.get<EquipmentType[]>('/api/equipment/types', {
+      params: params({ includeInactive }),
+    })
+    return data
+  },
+  async createType(body: { name: string; icon?: string }) {
+    const { data } = await api.post<EquipmentType>('/api/equipment/types', body)
+    return data
+  },
+  async updateType(id: string, body: { name: string; icon?: string | null; isActive: boolean }) {
+    const { data } = await api.put<EquipmentType>(`/api/equipment/types/${id}`, body)
+    return data
+  },
+}
+
 export const serviceRequestsApi = {
   async list(
     query: {
@@ -208,9 +266,11 @@ export const serviceRequestsApi = {
     })
     return data
   },
+  /** Uno de los dos: `vehicleId` en un taller de vehículos, `equipmentId` en uno de equipos. */
   async create(body: {
     branchId: string
-    vehicleId: string
+    vehicleId?: string
+    equipmentId?: string
     description: string
     reportedSymptoms?: string
     preferredDate?: string
@@ -239,6 +299,8 @@ export const workOrdersApi = {
     branchId?: string
     technicianId?: string
     vehicleId?: string
+    /** El historial de un equipo, igual que `vehicleId` para un vehículo. */
+    equipmentId?: string
     search?: string
     onlyOpen?: boolean
     /** Listos y sin retirar: avisados hace estos días o más. */
@@ -264,7 +326,8 @@ export const workOrdersApi = {
    */
   async create(body: {
     branchId: string
-    vehicleId: string
+    vehicleId?: string
+    equipmentId?: string
     description: string
     assignedTechnicianId?: string | null
     mileageIn?: number
@@ -1206,6 +1269,8 @@ export const tenantApi = {
     storageDailyRate: number
     /** Si el enlace público de citas recibe solicitudes. */
     bookingEnabled: boolean
+    /** Si se omite, el modo del taller se queda como estaba. */
+    worksWith?: WorkshopKind
   }): Promise<TenantSettings> {
     const { data } = await api.put<TenantSettings>('/api/tenant', body)
     return data

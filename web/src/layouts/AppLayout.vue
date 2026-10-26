@@ -5,11 +5,13 @@ import { apiUrl } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useEscape } from '@/composables/useEscape'
 import { useOnline } from '@/composables/useOnline'
+import { useTaller } from '@/composables/useTaller'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
 import { Roles } from '@/types/api'
 
 const auth = useAuthStore()
+const { vocabulario, cargar: cargarTaller } = useTaller()
 const { online } = useOnline()
 const router = useRouter()
 const route = useRoute()
@@ -42,7 +44,11 @@ function alVolverALaPestana(): void {
   auth.loadCurrentUser()
 }
 
-onMounted(() => document.addEventListener('visibilitychange', alVolverALaPestana))
+onMounted(() => {
+  document.addEventListener('visibilitychange', alVolverALaPestana)
+  // El rótulo del menú depende de con qué trabaja el taller.
+  void cargarTaller()
+})
 onUnmounted(() => document.removeEventListener('visibilitychange', alVolverALaPestana))
 
 /**
@@ -66,7 +72,7 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
             items: [
               { to: { name: 'home' }, label: 'Inicio' },
               { to: { name: 'work-orders' }, label: 'Órdenes' },
-              { to: { name: 'receive-vehicle' }, label: 'Recibir vehículo' },
+              { to: { name: 'receive-vehicle' }, label: vocabulario.value.recibir },
               { to: { name: 'service-requests' }, label: 'Requerimientos' },
               { to: { name: 'appointments' }, label: 'Citas' },
               { to: { name: 'service-reminders' }, label: 'Recordatorios' },

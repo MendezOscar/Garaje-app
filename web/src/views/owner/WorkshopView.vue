@@ -2,11 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import qrcode from 'qrcode-generator'
 import { apiUrl, errorMessage } from '@/api/client'
-import { branchesApi, tenantApi } from '@/api/garaj'
+import { branchesApi, equipmentApi, tenantApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
-import type { Branch, FiscalRange, TenantSettings } from '@/types/domain'
+import { WorkshopKind, type Branch, type EquipmentType, type FiscalRange, type TenantSettings } from '@/types/domain'
 import { formatDate, whatsappLink } from '@/utils/format'
 
 /**
@@ -17,6 +18,7 @@ import { formatDate, whatsappLink } from '@/utils/format'
  * el Dueño no tenía forma de corregirlos.
  */
 const auth = useAuthStore()
+const taller = useTaller()
 
 const ficha = ref<TenantSettings | null>(null)
 const form = ref({
@@ -34,7 +36,15 @@ const form = ref({
   storageFreeDays: 3,
   storageDailyRate: 0,
   defaultPhoneCountryCode: '504',
+  worksWith: WorkshopKind.Vehicles as WorkshopKind,
 })
+
+/**
+ * Las categorías de equipo del taller. Solo existen en modo equipos; al pasar a ese modo el
+ * servidor siembra unas cuantas para que el taller tenga con qué empezar.
+ */
+const categorias = ref<EquipmentType[]>([])
+const nuevaCategoria = ref('')
 
 /**
  * El enlace que el taller reparte para que le pidan cita. Se arma con el origen de esta misma
@@ -187,6 +197,55 @@ function fill(data: TenantSettings) {
     storageFreeDays: data.storageFreeDays,
     storageDailyRate: data.storageDailyRate,
     defaultPhoneCountryCode: data.defaultPhoneCountryCode,
+    worksWith: data.worksWith,
+  }
+  taller.actualizar(data)
+}
+
+async function cargarCategorias() {
+  if (ficha.value?.worksWith !== WorkshopKind.Equipment) {
+    categorias.value = []
+    return
+  }
+
+  categorias.value = await equipmentApi.types(true).catch(() => [])
+}
+
+async function agregarCategoria() {
+  const nombre = nuevaCategoria.value.trim()
+  if (!nombre) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    await equipmentApi.createType({ name: nombre })
+    nuevaCategoria.value = ''
+    await cargarCategorias()
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo agregar la categoría.')
+  } finally {
+    busy.value = false
+  }
+}
+
+/**
+ * No se borra: una categoría puede tener equipos colgando y borrarla dejaría fichas sin qué
+ * son. Apagada deja de ofrecerse al dar de alta, y lo que ya existe se sigue viendo.
+ */
+async function alternarCategoria(categoria: EquipmentType) {
+  busy.value = true
+  error.value = ''
+  try {
+    await equipmentApi.updateType(categoria.id, {
+      name: categoria.name,
+      icon: categoria.icon,
+      isActive: !categoria.isActive,
+    })
+    await cargarCategorias()
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo cambiar la categoría.')
+  } finally {
+    busy.value = false
   }
 }
 
@@ -195,6 +254,7 @@ async function load() {
   error.value = ''
   try {
     fill(await tenantApi.get())
+    await cargarCategorias()
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar la ficha del taller.')
   } finally {
@@ -224,8 +284,10 @@ async function save() {
         storageFreeDays: Number(f.storageFreeDays) || 0,
         storageDailyRate: Number(f.storageDailyRate) || 0,
         defaultPhoneCountryCode: f.defaultPhoneCountryCode.trim() || null,
+        worksWith: f.worksWith,
       }),
     )
+    await cargarCategorias()
     saved.value = true
     // El nombre del taller se pinta en la barra, que lee el usuario de la sesión.
     await auth.loadCurrentUser()
@@ -335,6 +397,64 @@ onMounted(async () => {
           </label>
         </section>
 
+        <!-- Con qué trabaja el taller. Decide qué se le da de alta a un cliente y cómo se
+             llaman las cosas en el resto de las pantallas. -->
+        <section class="card">
+          <h2>Qué repara el taller</h2>
+          <p class="muted small ayuda">
+            De esto depende qué se registra: vehículos con placa y kilometraje, o equipos con
+            número de serie.
+          </p>
+
+          <label class="checkbox">
+            <input
+              v-model="form.worksWith"
+              type="radio"
+              name="works-with"
+              :value="WorkshopKind.Vehicles"
+            />
+            Vehículos y motos
+          </label>
+          <label class="checkbox">
+            <input
+              v-model="form.worksWith"
+              type="radio"
+              name="works-with"
+              :value="WorkshopKind.Equipment"
+            />
+            Equipos: computadoras, teléfonos, aires acondicionados
+          </label>
+
+          <p v-if="form.worksWith !== ficha?.worksWith" class="muted small">
+            Al guardar cambia lo que se puede dar de alta. Lo que ya está registrado no se
+            borra, pero deja de poder abrir órdenes nuevas.
+          </p>
+
+          <template v-if="ficha?.worksWith === WorkshopKind.Equipment">
+            <h3>Categorías de equipo</h3>
+            <p class="muted small ayuda">
+              Lo que se escoge al registrar un equipo. Apagar una la quita de la lista sin
+              tocar los equipos que ya la usan.
+            </p>
+
+            <ul class="categorias">
+              <li v-for="categoria in categorias" :key="categoria.id">
+                <span :class="{ apagada: !categoria.isActive }">{{ categoria.name }}</span>
+                <button type="button" class="link" :disabled="busy" @click="alternarCategoria(categoria)">
+                  {{ categoria.isActive ? 'Apagar' : 'Encender' }}
+                </button>
+              </li>
+            </ul>
+
+            <div class="row">
+              <input v-model="nuevaCategoria" placeholder="Nueva categoría" />
+              <button type="button" class="btn-ghost" :disabled="busy" @click="agregarCategoria">
+                Agregar
+              </button>
+            </div>
+          </template>
+        </section>
+
         <section class="card">
           <h2>Cómo cobra el taller</h2>
           <p class="muted small ayuda">
@@ -370,7 +490,7 @@ onMounted(async () => {
                cobra no quiere ni ver los campos. -->
           <label class="checkbox">
             <input v-model="form.chargesStorage" type="checkbox" />
-            Cobrar bodegaje por el vehículo que nadie retira
+            Cobrar bodegaje por lo que nadie retira
           </label>
           <div v-if="form.chargesStorage" class="row sangria">
             <label>
@@ -585,6 +705,30 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.categorias {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.categorias li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.categorias .apagada {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
 .enlace {
   display: flex;
   gap: 0.5rem;

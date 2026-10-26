@@ -67,7 +67,10 @@ public class CustomerService(
             .Select(c => new CustomerDto(
                 c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.BillingName, c.Address, c.Notes,
                 c.IsActive,
-                c.Vehicles.Count(v => v.IsActive),
+                // Lo que tiene el cliente en el taller: sus vehículos o sus equipos, según
+                // con qué trabaje. Un taller usa uno de los dos, así que la suma es el
+                // conteo que la pantalla espera sin tener que preguntar el modo.
+                c.Vehicles.Count(v => v.IsActive) + c.Equipment.Count(e => e.IsActive),
                 c.AppUserId != null,
                 db.Users.Where(u => u.Id == c.AppUserId).Select(u => u.Email).FirstOrDefault()))
             .ToListAsync(ct);
@@ -84,7 +87,10 @@ public class CustomerService(
             .Select(c => new CustomerDto(
                 c.Id, c.FullName, c.Phone, c.Email, c.DocumentId, c.TaxId, c.BillingName, c.Address, c.Notes,
                 c.IsActive,
-                c.Vehicles.Count(v => v.IsActive),
+                // Lo que tiene el cliente en el taller: sus vehículos o sus equipos, según
+                // con qué trabaje. Un taller usa uno de los dos, así que la suma es el
+                // conteo que la pantalla espera sin tener que preguntar el modo.
+                c.Vehicles.Count(v => v.IsActive) + c.Equipment.Count(e => e.IsActive),
                 c.AppUserId != null,
                 db.Users.Where(u => u.Id == c.AppUserId).Select(u => u.Email).FirstOrDefault()))
             .FirstOrDefaultAsync(ct)
@@ -118,7 +124,8 @@ public class CustomerService(
         Apply(customer, request);
         await db.SaveChangesAsync(ct);
 
-        var vehicleCount = await db.Vehicles.CountAsync(v => v.CustomerId == id && v.IsActive, ct);
+        var vehicleCount = await db.Vehicles.CountAsync(v => v.CustomerId == id && v.IsActive, ct)
+            + await db.Equipment.CountAsync(e => e.CustomerId == id && e.IsActive, ct);
         var email = await db.Users.Where(u => u.Id == customer.AppUserId)
             .Select(u => u.Email).FirstOrDefaultAsync(ct);
 

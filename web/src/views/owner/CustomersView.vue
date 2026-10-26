@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { customersApi, vehiclesApi } from '@/api/garaj'
+import { customersApi, equipmentApi, vehiclesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
-import { VEHICLE_TYPE_LABEL, type Customer, type Vehicle } from '@/types/domain'
+import {
+  VEHICLE_TYPE_LABEL,
+  type Customer,
+  type Equipment,
+  type Vehicle,
+} from '@/types/domain'
 import { whatsappLink } from '@/utils/format'
 
 const auth = useAuthStore()
+const { esDeEquipos, vocabulario, cargar: cargarTaller } = useTaller()
 
 const customers = ref<Customer[]>([])
 const search = ref('')
@@ -17,6 +24,28 @@ const error = ref('')
 /** Vehículos del cliente expandido. Se cargan al abrir, no antes: la lista sería enorme. */
 const expandedId = ref<string | null>(null)
 const vehicles = ref<Vehicle[]>([])
+
+/** En un taller de equipos, la ficha del cliente enseña sus equipos en el mismo lugar. */
+const equipos = ref<Equipment[]>([])
+
+const fichas = computed(() =>
+  esDeEquipos.value
+    ? equipos.value.map((e) => ({
+        id: e.id,
+        identificador: e.serialNumber ?? e.tag,
+        titulo: `${e.brand} ${e.model}`,
+        detalle: e.equipmentTypeName,
+      }))
+    : vehicles.value.map((v) => ({
+        id: v.id,
+        identificador: v.plate,
+        titulo: `${v.brand} ${v.model}`,
+        detalle:
+          VEHICLE_TYPE_LABEL[v.type] +
+          (v.year ? ` · ${v.year}` : '') +
+          (v.mileage ? ` · ${v.mileage.toLocaleString('es-HN')} km` : ''),
+      })),
+)
 
 const busy = ref(false)
 const notice = ref('')
@@ -92,7 +121,13 @@ async function toggle(customer: Customer) {
   rtn.value = customer.taxId ?? ''
   nombreFactura.value = customer.billingName ?? ''
   vehicles.value = []
-  vehicles.value = (await vehiclesApi.list({ customerId: customer.id })).items
+  equipos.value = []
+
+  if (esDeEquipos.value) {
+    equipos.value = (await equipmentApi.list({ customerId: customer.id })).items
+  } else {
+    vehicles.value = (await vehiclesApi.list({ customerId: customer.id })).items
+  }
 }
 
 /**
@@ -136,7 +171,10 @@ function iniciales(nombre: string) {
     .join('')
 }
 
-onMounted(load)
+onMounted(async () => {
+  await cargarTaller()
+  await load()
+})
 
 let timer: ReturnType<typeof setTimeout>
 watch(search, () => {
@@ -154,14 +192,14 @@ watch(search, () => {
           <span v-if="customers.length" class="cuantos">{{ customers.length }}</span>
         </h1>
         <p class="muted small">
-          Las personas y empresas que atiende su taller, con sus vehículos y su RTN.
+          Las personas y empresas que atiende su taller, con sus {{ vocabulario.activos }} y su RTN.
         </p>
       </div>
       <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M12 5v14M5 12h14" stroke-linecap="round" />
         </svg>
-        Recibir vehículo
+        {{ vocabulario.recibir }}
       </RouterLink>
     </header>
 
@@ -184,7 +222,7 @@ watch(search, () => {
           <tr>
             <th scope="col">Cliente</th>
             <th scope="col">Contacto</th>
-            <th scope="col">Vehículos</th>
+            <th scope="col">{{ vocabulario.Activos }}</th>
             <th scope="col">App</th>
             <th scope="col"><span class="sr-only">Acciones</span></th>
           </tr>
@@ -283,7 +321,8 @@ watch(search, () => {
                   <button type="button" class="link" @click="access = null">Cancelar</button>
                 </form>
                 <p class="muted small">
-                  Podrá ver sus vehículos, seguir la reparación y aprobar cotizaciones. Nada más.
+                  Podrá ver sus {{ vocabulario.activos }}, seguir la reparación y aprobar
+                  cotizaciones. Nada más.
                 </p>
               </td>
             </tr>
@@ -309,21 +348,17 @@ watch(search, () => {
                   </form>
 
                   <div class="vehiculos">
-                    <p class="rotulo">Sus vehículos</p>
-                    <ul v-if="vehicles.length">
-                      <li v-for="v in vehicles" :key="v.id">
-                        <span v-if="v.plate" class="plate num">{{ v.plate }}</span>
-                        <strong>{{ v.brand }} {{ v.model }}</strong>
-                        <span class="muted small">
-                          {{ VEHICLE_TYPE_LABEL[v.type] }}
-                          <template v-if="v.year"> · {{ v.year }}</template>
-                          <template v-if="v.mileage">
-                            · {{ v.mileage.toLocaleString('es-HN') }} km
-                          </template>
+                    <p class="rotulo">Sus {{ vocabulario.activos }}</p>
+                    <ul v-if="fichas.length">
+                      <li v-for="ficha in fichas" :key="ficha.id">
+                        <span v-if="ficha.identificador" class="plate num">
+                          {{ ficha.identificador }}
                         </span>
+                        <strong>{{ ficha.titulo }}</strong>
+                        <span class="muted small">{{ ficha.detalle }}</span>
                       </li>
                     </ul>
-                    <p v-else class="muted small">Sin vehículos registrados.</p>
+                    <p v-else class="muted small">Sin {{ vocabulario.activos }} registrados.</p>
                   </div>
                 </div>
               </td>

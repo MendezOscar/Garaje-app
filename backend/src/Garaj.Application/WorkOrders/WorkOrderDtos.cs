@@ -191,6 +191,10 @@ public record WorkOrderQuery : PageQuery
     public WorkOrderStatus? Status { get; init; }
     public Guid? TechnicianId { get; init; }
     public Guid? VehicleId { get; init; }
+
+    /// <summary>El historial de un equipo, igual que <see cref="VehicleId"/> para un vehículo.</summary>
+    public Guid? EquipmentId { get; init; }
+
     public string? Search { get; init; }
 
     /// <summary>Solo las que siguen vivas en el taller (ni entregadas ni canceladas).</summary>
