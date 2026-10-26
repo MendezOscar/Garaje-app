@@ -1206,6 +1206,8 @@ export interface PlatformTenant {
   lastPaymentOn: string | null
   branchCount: number
   createdAt: string
+  /** Con qué trabaja el taller. Lo decidimos nosotros al darlo de alta. */
+  worksWith: WorkshopKind
 }
 
 export interface PlatformTenantDetail {

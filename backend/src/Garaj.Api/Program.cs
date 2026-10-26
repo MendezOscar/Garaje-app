@@ -7,6 +7,7 @@ using Garaj.Api.Middleware;
 using Microsoft.AspNetCore.RateLimiting;
 using Garaj.Api.Services;
 using Garaj.Application.Common;
+using Garaj.Domain.Enums;
 using Garaj.Application.Validation;
 using FluentValidation;
 using Garaj.Infrastructure;
@@ -325,6 +326,8 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
               --email         Correo del taller
               --logo          Ruta a un PNG o JPEG con el logo
               --password      Contraseña del Dueño; si se omite, se genera y se imprime
+              --works-with    `vehiculos` (por omisión) o `equipos`. No se cambia después
+                              desde el panel del taller: es decisión nuestra
               --plan          Nombre del plan contratado
               --fee           Cuota mensual acordada
               --paid-through  Hasta cuándo queda pagado (aaaa-mm-dd); por omisión, un mes
@@ -360,12 +363,23 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
                 : null,
             GraceDays: int.TryParse(values.GetValueOrDefault("grace-days"), out var gracia)
                 ? gracia
-                : null));
+                : null,
+            WorksWith: values.GetValueOrDefault("works-with")?.ToLowerInvariant() switch
+            {
+                "equipos" or "equipment" => WorkshopKind.Equipment,
+                null or "" or "vehiculos" or "vehículos" or "vehicles" => WorkshopKind.Vehicles,
+                var otro => throw new AppException(
+                    $"--works-with no entiende «{otro}»: use vehiculos o equipos."),
+            }));
 
         Console.WriteLine();
         Console.WriteLine($"Taller creado: {values["name"]}");
         Console.WriteLine($"  Id del taller : {result.TenantId}");
         Console.WriteLine($"  Sucursal      : {result.BranchId}");
+        Console.WriteLine($"  Repara        : "
+            + (values.GetValueOrDefault("works-with")?.ToLowerInvariant() is "equipos" or "equipment"
+                ? "equipos"
+                : "vehículos y motos"));
         Console.WriteLine($"  Dueño         : {result.OwnerEmail}");
         Console.WriteLine($"  Contraseña    : {result.Password}");
         Console.WriteLine();

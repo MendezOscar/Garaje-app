@@ -5,7 +5,11 @@ import { errorMessage } from '@/api/client'
 import { platformApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
-import type { CreatedTenant, PlatformTenantDetail } from '@/types/domain'
+import {
+  WorkshopKind,
+  type CreatedTenant,
+  type PlatformTenantDetail,
+} from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
 /**
@@ -136,6 +140,19 @@ function crearDueno() {
     })
     nuevoDueno.value = { email: '', fullName: '', password: '' }
   }, 'No se pudo crear el Dueño.')
+}
+
+/**
+ * Corrige con qué trabaja el taller. Es para el error de dedo del día del alta: cambiarlo con
+ * órdenes abiertas deja fichas de vehículo —o de equipo— que ya no se pueden usar.
+ */
+function cambiarRubro(worksWith: WorkshopKind) {
+  if (worksWith === tenant.value?.worksWith) return
+
+  const texto = worksWith === WorkshopKind.Equipment ? 'equipos' : 'vehículos'
+  if (!confirm(`El taller pasará a trabajar con ${texto}. ¿Seguro?`)) return
+
+  return accion(() => platformApi.setWorksWith(id, worksWith), 'No se pudo cambiar el rubro.')
 }
 
 function suspender() {
@@ -285,6 +302,27 @@ onMounted(load)
           Sin fecha de «pagado hasta», el taller nunca se bloquea.
         </p>
       </form>
+
+      <article class="card">
+        <h2>Qué repara</h2>
+        <p class="muted small">
+          Decide qué se le puede dar de alta y cómo se llama en sus pantallas. Se fija al
+          crear el taller; esto es para corregirlo, no para cambiarle el rubro andando.
+        </p>
+
+        <div class="row">
+          <label>
+            <select
+              :value="tenant.worksWith"
+              :disabled="busy"
+              @change="cambiarRubro(Number(($event.target as HTMLSelectElement).value) as WorkshopKind)"
+            >
+              <option :value="WorkshopKind.Vehicles">Vehículos y motos</option>
+              <option :value="WorkshopKind.Equipment">Equipos (cómputo, celulares, aires)</option>
+            </select>
+          </label>
+        </div>
+      </article>
     </div>
 
     <!-- Se enseña una sola vez: la contraseña no queda guardada en claro en ninguna parte. -->

@@ -109,21 +109,6 @@ public class TenantService(
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
             tenant.DefaultPhoneCountryCode = code;
 
-        if (request.WorksWith is { } worksWith && worksWith != tenant.WorksWith)
-        {
-            tenant.WorksWith = worksWith;
-
-            // Un taller que acaba de decir que repara equipos no tiene con qué empezar: sin
-            // categorías no se puede dar de alta un solo aparato. Se le dejan unas cuantas,
-            // que puede renombrar o apagar.
-            if (worksWith == WorkshopKind.Equipment
-                && !await db.EquipmentTypes.AnyAsync(ct))
-            {
-                foreach (var (nombre, icono) in CategoriasIniciales)
-                    db.EquipmentTypes.Add(new EquipmentType { Name = nombre, Icon = icono });
-            }
-        }
-
         await db.SaveChangesAsync(ct);
 
         return Map(tenant);
@@ -389,17 +374,6 @@ public class TenantService(
 
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    /// <summary>Con lo que arranca un taller de equipos. Es un punto de partida, no un dogma.</summary>
-    private static readonly (string Nombre, string Icono)[] CategoriasIniciales =
-    [
-        ("Computadora", "laptop"),
-        ("Teléfono", "smartphone"),
-        ("Aire acondicionado", "ac_unit"),
-        ("Televisor", "tv"),
-        ("Electrodoméstico", "kitchen"),
-        ("Otro", "devices_other"),
-    ];
 
     private TenantSettingsDto Map(Tenant tenant) => new(
         tenant.Id,

@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Platform;
 using Garaj.Domain.Entities;
+using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
@@ -93,7 +94,8 @@ public class PlatformService(
                     PlanName: request.PlanName,
                     MonthlyFee: request.MonthlyFee,
                     PaidThrough: request.PaidThrough,
-                    GraceDays: request.GraceDays),
+                    GraceDays: request.GraceDays,
+                    WorksWith: request.WorksWith),
                 ct);
         }
         finally
@@ -240,6 +242,39 @@ public class PlatformService(
         return await MapAsync(tenant, ct);
     }
 
+    public async Task<PlatformTenantDto> SetWorksWithAsync(
+        Guid tenantId, WorkshopKind worksWith, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var tenant = await FindAsync(tenantId, ct);
+
+        if (tenant.WorksWith != worksWith)
+        {
+            tenant.WorksWith = worksWith;
+            await db.SaveChangesAsync(ct);
+
+            // Para sembrar las categorías hay que mirar las del taller, y el filtro por tenant
+            // va por la identidad de la petición, que aquí es la nuestra.
+            if (worksWith == WorkshopKind.Equipment)
+            {
+                var antes = tenantContext.TenantId;
+                tenantContext.SetTenant(tenantId);
+
+                try
+                {
+                    await EquipmentTypeSeeder.EnsureAsync(db, ct);
+                }
+                finally
+                {
+                    if (antes is { } propio) tenantContext.SetTenant(propio);
+                }
+            }
+        }
+
+        return await MapAsync(tenant, ct);
+    }
+
     public async Task<PlatformTenantDto> SetActiveAsync(
         Guid tenantId, bool active, CancellationToken ct = default)
     {
@@ -312,7 +347,8 @@ public class PlatformService(
             status.ReadOnlyOn,
             lastPaymentOn,
             branchCount,
-            tenant.CreatedAt);
+            tenant.CreatedAt,
+            tenant.WorksWith);
     }
 
     /// <summary>Sin tope los días de gracia se vuelven «gratis para siempre» por un cero de más.</summary>

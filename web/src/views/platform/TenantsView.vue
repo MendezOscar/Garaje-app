@@ -5,7 +5,7 @@ import { platformApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
-import type { CreatedTenant, PlatformTenant } from '@/types/domain'
+import { WorkshopKind, type CreatedTenant, type PlatformTenant } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
 /**
@@ -36,6 +36,7 @@ const vacio = {
   monthlyFee: 0,
   paidThrough: '',
   password: '',
+  worksWith: WorkshopKind.Vehicles as WorkshopKind,
 }
 
 const form = ref({ ...vacio })
@@ -101,6 +102,7 @@ async function crear() {
       paidThrough: f.paidThrough || null,
       // Vacía, la genera el servidor. Sale igual en la tarjeta de abajo en los dos casos.
       password: f.password.trim() || null,
+      worksWith: f.worksWith,
     })
 
     form.value = { ...vacio }
@@ -201,6 +203,18 @@ onMounted(load)
         <label>
           Ciudad
           <input v-model="form.city" placeholder="Tegucigalpa" />
+        </label>
+      </div>
+
+      <!-- Qué repara se decide aquí y no en el panel del taller: cambiarlo con órdenes
+           abiertas deja fichas que ya no se pueden usar. -->
+      <div class="row">
+        <label>
+          Qué repara
+          <select v-model.number="form.worksWith">
+            <option :value="WorkshopKind.Vehicles">Vehículos y motos</option>
+            <option :value="WorkshopKind.Equipment">Equipos (cómputo, celulares, aires)</option>
+          </select>
         </label>
       </div>
 

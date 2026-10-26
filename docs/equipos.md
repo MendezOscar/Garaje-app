@@ -20,6 +20,12 @@ app y panel, obliga a una migración grande y no agrega una sola función.
 habilitan. El servidor rechaza con 404 —no 403— lo que no corresponde al modo, igual que
 con cualquier recurso fuera de alcance.
 
+**Lo fija quien da de alta el taller, no el taller.** Va en el alta —`provision-tenant
+--works-with equipos` y el formulario del panel de plataforma— y el Dueño solo lo ve en sus
+ajustes. La razón es que cambiarlo con órdenes abiertas deja fichas que ya no se pueden
+usar: no es una casilla que deba poder tocarse un martes. Para el error de dedo del primer
+día está `PUT /api/platform/tenants/{id}/works-with`, que es nuestro.
+
 Un taller mixto no está en el alcance, pero sale después sin tocar el esquema: las dos
 llaves conviven nulables en la orden, así que basta habilitar las dos altas.
 
