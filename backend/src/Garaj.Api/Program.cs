@@ -200,6 +200,13 @@ if (args.FirstOrDefault() == "provision-tenant")
     return await ProvisionTenantAsync(app, args);
 }
 
+// `dotnet run -- delete-tenant …` borra un taller entero y sale. Tampoco hay endpoint: el
+// panel de plataforma suspende, que es reversible; esto no lo es.
+if (args.FirstOrDefault() == "delete-tenant")
+{
+    return await DeleteTenantAsync(app, args);
+}
+
 // El usuario de plataforma —el nuestro, el que da de alta talleres y les cobra— tampoco tiene
 // endpoint que lo cree, y aquí la razón es más fuerte: si el panel pudiera crear otro, una
 // sesión robada bastaría para fabricarse llaves maestras nuevas.
@@ -369,6 +376,87 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
     catch (AppException e)
     {
         Console.Error.WriteLine($"No se dio de alta el taller: {e.Message}");
+        return 1;
+    }
+}
+
+/// <summary>
+/// Borrado de un taller entero. Pide el nombre dos veces —una para encontrarlo y otra para
+/// confirmarlo— porque sin confirmación lo único que hace es enseñar qué se llevaría por
+/// delante, que es como debería empezar siempre.
+/// </summary>
+static async Task<int> DeleteTenantAsync(WebApplication app, string[] args)
+{
+    var values = ParseArguments(args);
+
+    if (values.ContainsKey("help") || values.Count == 0)
+    {
+        Console.WriteLine(
+            """
+            Uso: dotnet run --project src/Garaj.Api -- delete-tenant [argumentos]
+
+              --name      Nombre exacto del taller
+              --id        Id del taller, si hay dos con el mismo nombre
+              --confirm   El nombre otra vez. Sin esto solo se cuenta, no se borra.
+
+            Borra el taller, sus usuarios y sus archivos del bucket. No se deshace. Para un
+            taller con clientes de verdad, suspéndalo desde el panel de plataforma.
+            """);
+
+        return values.Count == 0 ? 1 : 0;
+    }
+
+    using var scope = app.Services.CreateScope();
+    var eraser = scope.ServiceProvider.GetRequiredService<TenantEraser>();
+
+    try
+    {
+        var tenantId = values.GetValueOrDefault("id") is { Length: > 0 } id
+            ? Guid.Parse(id)
+            : await eraser.BuscarPorNombreAsync(values.GetValueOrDefault("name") ?? "");
+
+        var inventario = await eraser.ContarAsync(tenantId);
+
+        Console.WriteLine();
+        Console.WriteLine($"Taller        : {inventario.Name}");
+        Console.WriteLine($"  Id          : {inventario.TenantId}");
+        Console.WriteLine($"  Sucursales  : {inventario.Sucursales}");
+        Console.WriteLine($"  Usuarios    : {inventario.Usuarios}");
+        Console.WriteLine($"  Clientes    : {inventario.Clientes}");
+        Console.WriteLine($"  Órdenes     : {inventario.Ordenes}");
+        Console.WriteLine($"  Ventas      : {inventario.Ventas}");
+        Console.WriteLine($"  Archivos    : {inventario.Archivos}");
+        Console.WriteLine($"  Bucket      : {eraser.Almacen}");
+        Console.WriteLine();
+
+        if (values.GetValueOrDefault("confirm") != inventario.Name)
+        {
+            Console.WriteLine("No se borró nada.");
+            Console.WriteLine($"Para borrarlo, repita el nombre: --confirm \"{inventario.Name}\"");
+            return 1;
+        }
+
+        await eraser.RunAsync(tenantId);
+
+        Console.WriteLine($"Borrado: {inventario.Name}. No queda nada suyo en la base.");
+
+        if (eraser.ArchivosSinBorrar)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Sus fotos siguen en el bucket: esta corrida no tenía configurado");
+            Console.WriteLine("el almacenamiento (Storage__ServiceUrl, Storage__AccessKey,");
+            Console.WriteLine("Storage__SecretKey). Bórrelas a mano o repita con esas variables.");
+        }
+        return 0;
+    }
+    catch (AppException e)
+    {
+        Console.Error.WriteLine($"No se borró el taller: {e.Message}");
+        return 1;
+    }
+    catch (FormatException)
+    {
+        Console.Error.WriteLine("El --id no es un identificador válido.");
         return 1;
     }
 }

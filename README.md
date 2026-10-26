@@ -162,6 +162,10 @@ base local; en un ambiente publicado se pone otra con `Demo__Password` y no se e
 ## Comandos útiles
 
 ```bash
+# Borrar un taller entero (datos, usuarios y archivos). No se deshace: primero
+# sin --confirm, que solo cuenta lo que se llevaría.
+cd backend && dotnet run --project src/Garaj.Api -- delete-tenant --name "Taller X"
+
 # Nueva migración
 cd backend && dotnet ef migrations add NombreDeLaMigracion \
   -p src/Garaj.Infrastructure -s src/Garaj.Api -o Persistence/Migrations
