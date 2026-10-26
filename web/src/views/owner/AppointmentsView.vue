@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { appointmentsApi, branchesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useTaller } from '@/composables/useTaller'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   APPOINTMENT_SLOT_LABEL,
@@ -23,6 +24,8 @@ import { formatDay, whatsappLink } from '@/utils/format'
  * llega, cerrarla para pasar a recibir el vehículo, que es donde se toman los datos de verdad.
  */
 const router = useRouter()
+
+const { vocabulario, cargar: cargarTaller } = useTaller()
 
 const citas = ref<Appointment[]>([])
 const branches = ref<Branch[]>([])
@@ -221,6 +224,7 @@ function esHoy(cita: Appointment) {
 }
 
 onMounted(async () => {
+  await cargarTaller()
   branches.value = await branchesApi.list().catch(() => [])
   await load()
 })
@@ -431,7 +435,7 @@ onMounted(async () => {
               </label>
             </div>
             <label>
-              Qué vehículo
+              Qué {{ vocabulario.activo }}
               <input v-model="nueva.vehicleNote" maxlength="300" placeholder="Corolla 2014 gris" />
             </label>
             <label>

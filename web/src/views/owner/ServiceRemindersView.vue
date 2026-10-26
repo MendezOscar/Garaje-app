@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useTaller } from '@/composables/useTaller'
 import SkeletonList from '@/components/SkeletonList.vue'
 import type { Branch, ServiceReminder } from '@/types/domain'
 import { formatDate } from '@/utils/format'
@@ -16,6 +17,8 @@ import { formatDate } from '@/utils/format'
  * dispara el aviso es la fecha; el kilometraje se enseña como contexto, porque hasta que el
  * vehículo no vuelve nadie sabe cuánto ha rodado.
  */
+const { vocabulario, cargar: cargarTaller } = useTaller()
+
 const reminders = ref<ServiceReminder[]>([])
 const branches = ref<Branch[]>([])
 
@@ -85,6 +88,7 @@ function cuando(reminder: ServiceReminder): string {
 }
 
 onMounted(async () => {
+  await cargarTaller()
   branches.value = await branchesApi.list().catch(() => [])
   await load()
 })
@@ -109,7 +113,11 @@ onMounted(async () => {
     </header>
 
     <form class="filters" @submit.prevent="load">
-      <input v-model="search" type="search" placeholder="Cliente, teléfono o placa" />
+      <input
+        v-model="search"
+        type="search"
+        :placeholder="`Cliente, teléfono o ${vocabulario.identificador.toLowerCase()}`"
+      />
 
       <select v-if="branches.length > 1" v-model="branchId" @change="load">
         <option value="">Todas las sucursales</option>
@@ -154,7 +162,7 @@ onMounted(async () => {
     <table v-else>
       <thead>
         <tr>
-          <th scope="col">Cliente y vehículo</th>
+          <th scope="col">Cliente y {{ vocabulario.activo }}</th>
           <th scope="col">Le toca</th>
           <th scope="col">Última visita</th>
           <th scope="col"><span class="sr-only">Acciones</span></th>

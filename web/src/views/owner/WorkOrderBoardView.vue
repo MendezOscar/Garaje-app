@@ -5,6 +5,7 @@ import { usersApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
 import {
   VEHICLE_TYPE_LABEL,
@@ -15,6 +16,8 @@ import {
 import { formatDateTime, relativeTime } from '@/utils/format'
 
 const auth = useAuthStore()
+
+const { vocabulario, cargar: cargarTaller } = useTaller()
 
 const orders = ref<WorkOrderListItem[]>([])
 const technicians = ref<User[]>([])
@@ -229,6 +232,7 @@ function isLate(order: WorkOrderListItem) {
 }
 
 onMounted(async () => {
+  await cargarTaller()
   consulta.addEventListener('change', alCambiarAncho)
   technicians.value = await usersApi.list('Technician').catch(() => [])
   await load()
@@ -289,7 +293,11 @@ watch(pestana, (ahora, antes) => {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
         </svg>
-        <input v-model="search" type="search" placeholder="Número, placa o cliente" />
+        <input
+          v-model="search"
+          type="search"
+          :placeholder="`Número, ${vocabulario.identificador.toLowerCase()} o cliente`"
+        />
       </span>
 
       <select v-if="branches.length > 1" v-model="branchId">

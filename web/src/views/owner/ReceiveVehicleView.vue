@@ -169,8 +169,8 @@ async function mandarEnlace() {
         <article v-else-if="requerimiento" class="card recien">
           <h2>Quedó como requerimiento</h2>
           <p class="muted small">
-            No se abrió ninguna orden. Cuando traiga el vehículo se aprueba y la orden nace con
-            todo lo que ya se escribió.
+            No se abrió ninguna orden. Cuando traiga el {{ vocabulario.activo }} se aprueba y
+            la orden nace con todo lo que ya se escribió.
           </p>
           <div class="acciones">
             <RouterLink class="boton-suave" :to="{ name: 'service-requests' }">

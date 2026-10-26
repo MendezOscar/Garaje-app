@@ -24,6 +24,7 @@ import {
   type Vehicle,
 } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
 
 /**
@@ -43,6 +44,8 @@ import { useAuthStore } from '@/stores/auth'
  * para que queden en su historial, y con la misma garantía que una orden completa.
  */
 const auth = useAuthStore()
+
+const { vocabulario, cargar: cargarTaller } = useTaller()
 
 const branches = ref<Branch[]>([])
 const branchId = ref('')
@@ -394,6 +397,7 @@ watch(branchId, () => {
 })
 
 onMounted(async () => {
+  await cargarTaller()
   branches.value = await branchesApi.list().catch(() => [])
   branchId.value = sucursalesPermitidas.value[0]?.id ?? ''
 
@@ -695,7 +699,7 @@ onMounted(async () => {
           <!-- Con vehículo, el trabajo entra al historial del carro como una orden. Sin él,
                es la venta de mostrador de siempre. -->
           <label v-if="vehiculos.length" class="campo">
-            De qué vehículo
+            De qué {{ vocabulario.activo }}
             <select v-model="vehiculoId">
               <option value="">— ninguno, es venta de mostrador —</option>
               <option v-for="v in vehiculos" :key="v.id" :value="v.id">

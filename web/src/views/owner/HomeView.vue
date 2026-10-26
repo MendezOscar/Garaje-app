@@ -5,6 +5,7 @@ import { customersApi, reportsApi, salesApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
 import {
   WORK_ORDER_STATUS_LABEL,
@@ -27,6 +28,7 @@ import { formatMoney, relativeTime } from '@/utils/format'
  * no es lo mismo que lo facturado.
  */
 const auth = useAuthStore()
+const { vocabulario, cargar: cargarTaller } = useTaller()
 
 const dashboard = ref<Dashboard | null>(null)
 const caja = ref<CashClose | null>(null)
@@ -284,7 +286,10 @@ async function cargarPrimerosPasos(resumen: Dashboard) {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await cargarTaller()
+  await load()
+})
 
 // El selector de sucursal de la barra de arriba manda aquí: hasta hoy no lo consumía ninguna
 // pantalla y era un control que no hacía nada.
@@ -307,7 +312,7 @@ watch(() => auth.activeBranchId, load)
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke-linecap="round" />
           </svg>
-          Recibir vehículo
+          {{ vocabulario.recibir }}
         </RouterLink>
       </div>
     </header>
@@ -335,9 +340,9 @@ watch(() => auth.activeBranchId, load)
         </li>
         <li :class="{ hecho: primerosPasos.vehiculo }">
           <RouterLink v-if="!primerosPasos.vehiculo" :to="{ name: 'receive-vehicle' }">
-            Reciba un vehículo
+            Reciba un {{ vocabulario.activo }}
           </RouterLink>
-          <span v-else>Reciba un vehículo</span>
+          <span v-else>Reciba un {{ vocabulario.activo }}</span>
         </li>
         <li :class="{ hecho: primerosPasos.cobro }">
           <RouterLink v-if="!primerosPasos.cobro" :to="{ name: 'work-orders' }">

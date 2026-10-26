@@ -212,7 +212,11 @@ watch(search, () => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
           </svg>
-          <input v-model="search" type="search" placeholder="Nombre, teléfono o placa" />
+          <input
+            v-model="search"
+            type="search"
+            :placeholder="`Nombre, teléfono o ${vocabulario.identificador.toLowerCase()}`"
+          />
         </span>
         <span v-if="loading" class="muted small">Buscando…</span>
       </div>
