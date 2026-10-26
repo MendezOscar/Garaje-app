@@ -1,5 +1,16 @@
 namespace Garaj.Domain.Enums;
 
+/// <summary>
+/// Con qué trabaja el taller. Decide qué se da de alta —vehículos o equipos— y qué
+/// pantallas se habilitan. Nace en <see cref="Vehicles"/>: es lo que hacen los talleres
+/// que ya están trabajando, y nadie tiene que ir a configurar nada para seguir igual.
+/// </summary>
+public enum WorkshopKind
+{
+    Vehicles = 1,
+    Equipment = 2
+}
+
 public enum VehicleType
 {
     Car = 1,

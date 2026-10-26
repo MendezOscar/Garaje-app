@@ -27,6 +27,9 @@ public class Appointment : TenantEntity, IBranchEntity
     /// <summary>Vehículo del padrón, cuando la cita nació dentro de la aplicación.</summary>
     public Guid? VehicleId { get; set; }
 
+    /// <summary>Equipo del padrón, en un taller que repara equipos. Excluyente con el anterior.</summary>
+    public Guid? EquipmentId { get; set; }
+
     /// <summary>Cómo se identificó quien pidió la cita.</summary>
     public string ContactName { get; set; } = null!;
 
@@ -63,4 +66,5 @@ public class Appointment : TenantEntity, IBranchEntity
     public Branch Branch { get; set; } = null!;
     public Customer? Customer { get; set; }
     public Vehicle? Vehicle { get; set; }
+    public Equipment? Equipment { get; set; }
 }

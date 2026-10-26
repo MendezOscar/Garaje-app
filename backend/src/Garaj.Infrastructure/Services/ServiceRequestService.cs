@@ -131,7 +131,9 @@ public class ServiceRequestService(
         var order = await workOrders.CreateAsync(
             new CreateWorkOrderRequest(
                 serviceRequest.BranchId,
-                serviceRequest.VehicleId,
+                // Fase 1: todo requerimiento es de un vehículo. Cuando la orden sepa abrirse
+                // con un equipo, esto pasa a llevar el que venga lleno.
+                serviceRequest.VehicleId!.Value,
                 serviceRequest.Description,
                 request.AssignedTechnicianId,
                 serviceRequest.Mileage,

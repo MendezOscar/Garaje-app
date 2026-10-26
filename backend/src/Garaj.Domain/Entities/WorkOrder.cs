@@ -11,7 +11,16 @@ namespace Garaj.Domain.Entities;
 public class WorkOrder : TenantEntity, IBranchEntity
 {
     public Guid BranchId { get; set; }
-    public Guid VehicleId { get; set; }
+
+    /// <summary>
+    /// Lo que entró al taller: un vehículo o un equipo, nunca los dos y nunca ninguno —la
+    /// base lo impone con un CHECK—. Cuál de los dos lo decide el modo del taller, y por eso
+    /// las dos son nulables aunque cada taller use solo una.
+    /// </summary>
+    public Guid? VehicleId { get; set; }
+
+    public Guid? EquipmentId { get; set; }
+
     public Guid? ServiceRequestId { get; set; }
 
     /// <summary>Correlativo legible por sucursal, ej. "SUR-000123".</summary>
@@ -103,7 +112,8 @@ public class WorkOrder : TenantEntity, IBranchEntity
     public bool? WarrantyCovered { get; set; }
 
     public Branch Branch { get; set; } = null!;
-    public Vehicle Vehicle { get; set; } = null!;
+    public Vehicle? Vehicle { get; set; }
+    public Equipment? Equipment { get; set; }
     public ICollection<WorkOrderTask> Tasks { get; set; } = new List<WorkOrderTask>();
     public ICollection<WorkOrderPart> Parts { get; set; } = new List<WorkOrderPart>();
     public ICollection<WorkOrderStatusHistory> StatusHistory { get; set; } = new List<WorkOrderStatusHistory>();

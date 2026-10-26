@@ -65,6 +65,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("day");
 
+                    b.Property<Guid?>("EquipmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipment_id");
+
                     b.Property<Guid>("PublicToken")
                         .HasColumnType("uuid")
                         .HasColumnName("public_token");
@@ -125,6 +129,9 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_appointments_customer_id");
+
+                    b.HasIndex("EquipmentId")
+                        .HasDatabaseName("ix_appointments_equipment_id");
 
                     b.HasIndex("PublicToken")
                         .IsUnique()
@@ -466,6 +473,156 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_device_tokens_user_id");
 
                     b.ToTable("device_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.Equipment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Accessories")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("accessories");
+
+                    b.Property<string>("Attributes")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attributes");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("brand");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("color");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid>("EquipmentTypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipment_type_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("model");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("serial_number");
+
+                    b.Property<string>("Tag")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tag");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_equipment");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("ix_equipment_customer_id");
+
+                    b.HasIndex("EquipmentTypeId")
+                        .HasDatabaseName("ix_equipment_equipment_type_id");
+
+                    b.HasIndex("TenantId", "SerialNumber")
+                        .HasDatabaseName("ix_equipment_tenant_id_serial_number");
+
+                    b.HasIndex("TenantId", "Tag")
+                        .HasDatabaseName("ix_equipment_tenant_id_tag");
+
+                    b.ToTable("equipment", (string)null);
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.EquipmentType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("icon");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_equipment_types");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_equipment_types_tenant_id_name");
+
+                    b.ToTable("equipment_types", (string)null);
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.Expense", b =>
@@ -1750,6 +1907,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
 
+                    b.Property<Guid?>("EquipmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipment_id");
+
                     b.Property<int?>("Mileage")
                         .HasColumnType("integer")
                         .HasColumnName("mileage");
@@ -1784,7 +1945,7 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
 
-                    b.Property<Guid>("VehicleId")
+                    b.Property<Guid?>("VehicleId")
                         .HasColumnType("uuid")
                         .HasColumnName("vehicle_id");
 
@@ -1798,13 +1959,19 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.HasIndex("BranchId")
                         .HasDatabaseName("ix_service_requests_branch_id");
 
+                    b.HasIndex("EquipmentId")
+                        .HasDatabaseName("ix_service_requests_equipment_id");
+
                     b.HasIndex("VehicleId")
                         .HasDatabaseName("ix_service_requests_vehicle_id");
 
                     b.HasIndex("TenantId", "BranchId", "Status", "CreatedAt")
                         .HasDatabaseName("ix_service_requests_tenant_id_branch_id_status_created_at");
 
-                    b.ToTable("service_requests", (string)null);
+                    b.ToTable("service_requests", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_service_requests_vehiculo_o_equipo", "(vehicle_id IS NULL) <> (equipment_id IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.StockItem", b =>
@@ -2189,6 +2356,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
 
+                    b.Property<int>("WorksWith")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("works_with");
+
                     b.HasKey("Id")
                         .HasName("pk_tenants");
 
@@ -2418,6 +2591,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("diagnosis");
 
+                    b.Property<Guid?>("EquipmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipment_id");
+
                     b.Property<int>("LaborMode")
                         .HasColumnType("integer")
                         .HasColumnName("labor_mode");
@@ -2489,7 +2666,7 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
 
-                    b.Property<Guid>("VehicleId")
+                    b.Property<Guid?>("VehicleId")
                         .HasColumnType("uuid")
                         .HasColumnName("vehicle_id");
 
@@ -2502,6 +2679,9 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BranchId")
                         .HasDatabaseName("ix_work_orders_branch_id");
+
+                    b.HasIndex("EquipmentId")
+                        .HasDatabaseName("ix_work_orders_equipment_id");
 
                     b.HasIndex("PublicToken")
                         .IsUnique()
@@ -2523,7 +2703,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "BranchId", "Status")
                         .HasDatabaseName("ix_work_orders_tenant_id_branch_id_status");
 
-                    b.ToTable("work_orders", (string)null);
+                    b.ToTable("work_orders", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_work_orders_vehiculo_o_equipo", "(vehicle_id IS NULL) <> (equipment_id IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.WorkOrderPart", b =>
@@ -3145,6 +3328,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_appointments_customers_customer_id");
 
+                    b.HasOne("Garaj.Domain.Entities.Equipment", "Equipment")
+                        .WithMany()
+                        .HasForeignKey("EquipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_appointments_equipment_equipment_id");
+
                     b.HasOne("Garaj.Domain.Entities.Vehicle", "Vehicle")
                         .WithMany()
                         .HasForeignKey("VehicleId")
@@ -3154,6 +3343,8 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Customer");
+
+                    b.Navigation("Equipment");
 
                     b.Navigation("Vehicle");
                 });
@@ -3180,6 +3371,27 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_claims_sales_sale_id");
 
                     b.Navigation("Sale");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.Equipment", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.Customer", "Customer")
+                        .WithMany("Equipment")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_equipment_customers_customer_id");
+
+                    b.HasOne("Garaj.Domain.Entities.EquipmentType", "EquipmentType")
+                        .WithMany("Equipment")
+                        .HasForeignKey("EquipmentTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_equipment_equipment_types_equipment_type_id");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("EquipmentType");
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.Expense", b =>
@@ -3316,14 +3528,21 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_service_requests_branches_branch_id");
 
+                    b.HasOne("Garaj.Domain.Entities.Equipment", "Equipment")
+                        .WithMany()
+                        .HasForeignKey("EquipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_service_requests_equipment_equipment_id");
+
                     b.HasOne("Garaj.Domain.Entities.Vehicle", "Vehicle")
                         .WithMany()
                         .HasForeignKey("VehicleId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_service_requests_vehicles_vehicle_id");
 
                     b.Navigation("Branch");
+
+                    b.Navigation("Equipment");
 
                     b.Navigation("Vehicle");
                 });
@@ -3413,14 +3632,21 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_work_orders_branches_branch_id");
 
+                    b.HasOne("Garaj.Domain.Entities.Equipment", "Equipment")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("EquipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_work_orders_equipment_equipment_id");
+
                     b.HasOne("Garaj.Domain.Entities.Vehicle", "Vehicle")
                         .WithMany("WorkOrders")
                         .HasForeignKey("VehicleId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_work_orders_vehicles_vehicle_id");
 
                     b.Navigation("Branch");
+
+                    b.Navigation("Equipment");
 
                     b.Navigation("Vehicle");
                 });
@@ -3561,7 +3787,19 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Garaj.Domain.Entities.Customer", b =>
                 {
+                    b.Navigation("Equipment");
+
                     b.Navigation("Vehicles");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.Equipment", b =>
+                {
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.EquipmentType", b =>
+                {
+                    b.Navigation("Equipment");
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.JobTemplate", b =>
