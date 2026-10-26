@@ -40,5 +40,12 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Algunos pods traen de fábrica un mínimo de iOS 9, 12 o 13, y Xcode 26 ya no compila
+    # nada por debajo de 15. Se les impone el mismo mínimo que la app, que es el que de
+    # verdad manda: lo que no corra en iOS 15 no nos sirve igual.
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
   end
 end
