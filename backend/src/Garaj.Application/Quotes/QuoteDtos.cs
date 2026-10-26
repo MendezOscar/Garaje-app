@@ -98,7 +98,9 @@ public record QuoteDetailDto(
     bool IsEditable,
     // Link público que se comparte por WhatsApp. Solo se llena una vez enviada.
     string? PublicUrl,
-    IReadOnlyList<QuoteLineDto> Lines);
+    IReadOnlyList<QuoteLineDto> Lines,
+    /// <summary>Si lo cotizado es un vehículo o un equipo. Cambia rótulos, no la cotización.</summary>
+    AssetKind Kind = AssetKind.Vehicle);
 
 public record CreateQuoteRequest(
     Guid CustomerId,
@@ -194,7 +196,9 @@ public record PublicQuoteDto(
     // El token del seguimiento, cuando la cotización ya se convirtió en orden. Es lo que
     // permite que el cliente siga con **el mismo enlace** en vez de esperar otro por WhatsApp:
     // aprobó, y desde ahí ve avanzar su vehículo y al final descarga la factura.
-    Guid? TrackingToken = null);
+    Guid? TrackingToken = null,
+    /// <summary>Vehículo o equipo: la página pública lo llama por su nombre.</summary>
+    AssetKind Kind = AssetKind.Vehicle);
 
 /// <summary>Una foto de la cotización tal como la ve el cliente: sin ids ni quién la subió.</summary>
 public record PublicQuotePhotoDto(string Url, string ThumbnailUrl, string? Caption);

@@ -94,7 +94,9 @@ public record SaleDetailDto(
     // Identidad del cliente. La factura al consumidor final la exige arriba de L 10,000.
     string? CustomerDocumentId,
     IReadOnlyList<SaleLineDto> Lines,
-    IReadOnlyList<SalePaymentDto> Payments);
+    IReadOnlyList<SalePaymentDto> Payments,
+    /// <summary>Si lo facturado es de un vehículo o de un equipo. Cambia rótulos, no la factura.</summary>
+    AssetKind Kind = AssetKind.Vehicle);
 
 /// <param name="PartId">Para una línea de repuesto: descuenta de la bodega de la sucursal.</param>
 public record SaleLineRequest(

@@ -34,7 +34,9 @@ public sealed record DatosDeRecepcion(
     string? Belongings,
     string? Notes,
     string? DeliveredByName,
-    string? ReceivedByName);
+    string? ReceivedByName,
+    /// <summary>Si lo que entró fue un vehículo o un equipo. Cambia rótulos, no la hoja.</summary>
+    AssetKind Kind = AssetKind.Vehicle);
 
 public static class ReceptionPdf
 {
@@ -66,7 +68,9 @@ public static class ReceptionPdf
                 page.Content().PaddingVertical(1, Unit.Centimetre)
                     .Element(c => Content(c, ficha, signature, photos ?? []));
                 page.Footer().AlignCenter().Text(
-                        "Esta hoja describe cómo entró el vehículo al taller. "
+                        $"Esta hoja describe cómo entró {(ficha.Kind == AssetKind.Equipment
+                            ? "el equipo"
+                            : "el vehículo")} al taller. "
                         + "Lo que no está anotado aquí, no venía así.")
                     .FontSize(8).FontColor(Colors.Grey.Darken1);
             });
@@ -112,8 +116,13 @@ public static class ReceptionPdf
 
             column.Item().Element(c => Datos(c, ficha));
 
-            column.Item().Element(c => Bloque(c, "GOLPES Y RAYONES QUE YA TRAÍA",
-                ficha.Damages, "Ninguno anotado al recibirlo."));
+            column.Item().Element(c => Bloque(
+                c,
+                ficha.Kind == AssetKind.Equipment
+                    ? "GOLPES Y DAÑOS QUE YA TRAÍA"
+                    : "GOLPES Y RAYONES QUE YA TRAÍA",
+                ficha.Damages,
+                "Ninguno anotado al recibirlo."));
 
             column.Item().Element(c => Bloque(c, "LO QUE DEJÓ EL CLIENTE",
                 ficha.Belongings, "Nada anotado."));
@@ -138,12 +147,21 @@ public static class ReceptionPdf
             column.Spacing(4);
             column.Item().Text(ficha.VehicleLabel).FontSize(13).Bold();
 
-            var placa = string.IsNullOrWhiteSpace(ficha.Plate) ? "sin placa" : $"Placa {ficha.Plate}";
+            var esEquipo = ficha.Kind == AssetKind.Equipment;
+            var rotulo = esEquipo ? "Serie" : "Placa";
+
+            var identificador = string.IsNullOrWhiteSpace(ficha.Plate)
+                ? $"sin {rotulo.ToLowerInvariant()}"
+                : $"{rotulo} {ficha.Plate}";
+
             var km = ficha.Mileage is { } m ? $" · {m:N0} km" : string.Empty;
-            column.Item().Text($"{placa}{km}").FontSize(10);
+            column.Item().Text($"{identificador}{km}").FontSize(10);
 
             column.Item().Text($"Cliente: {ficha.CustomerName} · {ficha.CustomerPhone}").FontSize(10);
-            column.Item().Text($"Combustible al recibirlo: {Combustible(ficha.FuelLevel)}").FontSize(10);
+
+            // Un equipo no trae tanque: la línea del combustible no se imprime.
+            if (!esEquipo)
+                column.Item().Text($"Combustible al recibirlo: {Combustible(ficha.FuelLevel)}").FontSize(10);
 
             if (!string.IsNullOrWhiteSpace(ficha.ReceivedByName))
                 column.Item().Text($"Lo recibió: {ficha.ReceivedByName}").FontSize(10);
@@ -171,7 +189,10 @@ public static class ReceptionPdf
         container.Column(column =>
         {
             column.Spacing(4);
-            column.Item().Text("FIRMA DE QUIEN ENTREGÓ EL VEHÍCULO")
+            column.Item()
+                .Text(ficha.Kind == AssetKind.Equipment
+                    ? "FIRMA DE QUIEN ENTREGÓ EL EQUIPO"
+                    : "FIRMA DE QUIEN ENTREGÓ EL VEHÍCULO")
                 .FontSize(9).Bold().FontColor(Colors.Grey.Darken2);
 
             if (signature is not null)

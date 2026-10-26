@@ -755,6 +755,8 @@ export interface PublicQuote {
    * cliente sigue con el mismo enlace: ve avanzar su vehículo y descarga la factura al final.
    */
   trackingToken: string | null
+  /** Vehículo o equipo: la página lo llama por su nombre. */
+  kind: AssetKind
 }
 
 /**
@@ -830,6 +832,8 @@ export interface OrderTracking {
     balance: number
     dueDate: string | null
   } | null
+  /** Vehículo o equipo: la página lo llama por su nombre. */
+  kind: AssetKind
 }
 
 export interface SaleLine {

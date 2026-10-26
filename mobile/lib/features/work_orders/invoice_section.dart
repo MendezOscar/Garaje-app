@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/customer_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/api/tenant_repository.dart';
@@ -725,7 +726,8 @@ class _CloseCard extends ConsumerWidget {
                     ),
                 ],
               ),
-              if (nextServiceAt != null) ...[
+              // El kilometraje solo donde existe: el recordatorio de un equipo es por fecha.
+              if (nextServiceAt != null && !ref.watch(esDeEquiposProvider)) ...[
                 const SizedBox(height: 8),
                 TextField(
                   controller: nextServiceMileage,

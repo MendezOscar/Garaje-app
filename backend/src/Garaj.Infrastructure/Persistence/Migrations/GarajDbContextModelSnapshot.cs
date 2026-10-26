@@ -1356,6 +1356,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("discount_total");
 
+                    b.Property<Guid?>("EquipmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipment_id");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -1439,6 +1443,9 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_quotes_customer_id");
+
+                    b.HasIndex("EquipmentId")
+                        .HasDatabaseName("ix_quotes_equipment_id");
 
                     b.HasIndex("PublicToken")
                         .IsUnique()
@@ -1595,6 +1602,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_date");
 
+                    b.Property<Guid?>("EquipmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("equipment_id");
+
                     b.Property<string>("FiscalCai")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -1707,6 +1718,9 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BranchId")
                         .HasDatabaseName("ix_sales_branch_id");
+
+                    b.HasIndex("EquipmentId")
+                        .HasDatabaseName("ix_sales_equipment_id");
 
                     b.HasIndex("VehicleId")
                         .HasDatabaseName("ix_sales_vehicle_id");

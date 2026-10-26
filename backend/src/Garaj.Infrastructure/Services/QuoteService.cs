@@ -72,9 +72,13 @@ public class QuoteService(
                 x.CustomerId,
                 x.Customer.FullName,
                 x.Customer.Phone,
-                db.Vehicles.Where(v => v.Id == x.VehicleId)
-                    .Select(v => v.Brand + " " + v.Model)
-                    .FirstOrDefault(),
+                x.EquipmentId != null
+                    ? db.Equipment.Where(e => e.Id == x.EquipmentId)
+                        .Select(e => e.Brand + " " + e.Model)
+                        .FirstOrDefault()
+                    : db.Vehicles.Where(v => v.Id == x.VehicleId)
+                        .Select(v => v.Brand + " " + v.Model)
+                        .FirstOrDefault(),
                 x.WorkOrderId,
                 db.WorkOrders.Where(w => w.Id == x.WorkOrderId).Select(w => w.Number).FirstOrDefault(),
                 x.Total,
@@ -157,6 +161,7 @@ public class QuoteService(
         {
             CustomerId = order.Vehicle?.CustomerId ?? order.Equipment!.CustomerId,
             VehicleId = order.VehicleId,
+            EquipmentId = order.EquipmentId,
             BranchId = order.BranchId,
             WorkOrderId = order.Id,
             ServiceRequestId = order.ServiceRequestId,
@@ -675,10 +680,9 @@ public class QuoteService(
         var tenant = await CurrentTenantAsync(ct);
         var url = PublicUrlFor(quote.PublicToken);
 
-        var vehicle = quote.VehicleId is { } vehicleId
-            ? await db.Vehicles.Where(v => v.Id == vehicleId)
-                .Select(v => v.Brand + " " + v.Model + (v.Plate == null ? "" : " (" + v.Plate + ")"))
-                .FirstOrDefaultAsync(ct)
+        var activo = await ActivoAsync(quote, ct);
+        var vehicle = activo is { } a
+            ? a.Label + (a.Plate is null ? "" : $" ({a.Plate})")
             : null;
 
         // El mensaje va armado para que el dueño no teclee nada: solo toca enviar.
@@ -751,17 +755,42 @@ public class QuoteService(
     private bool IsExpired(Quote quote) =>
         quote.ValidUntil is { } valid && valid < clock.UtcNow && quote.RespondedAt is null;
 
+    /// <summary>
+    /// Cómo se nombra en la cotización lo que se va a reparar: el vehículo con su placa, o el
+    /// equipo con su serie. Null cuando la cotización no cuelga de ninguno de los dos.
+    /// </summary>
+    private async Task<(string Label, string? Plate, AssetKind Kind)?> ActivoAsync(
+        Quote quote, CancellationToken ct)
+    {
+        if (quote.EquipmentId is { } equipmentId)
+        {
+            var equipo = await db.Equipment.AsNoTracking().IgnoreQueryFilters()
+                .Where(e => e.Id == equipmentId)
+                .Select(e => new { Label = e.Brand + " " + e.Model, Plate = e.SerialNumber ?? e.Tag })
+                .FirstOrDefaultAsync(ct);
+
+            return equipo is null ? null : (equipo.Label, equipo.Plate, AssetKind.Equipment);
+        }
+
+        if (quote.VehicleId is { } vehicleId)
+        {
+            var vehiculo = await db.Vehicles.AsNoTracking().IgnoreQueryFilters()
+                .Where(v => v.Id == vehicleId)
+                .Select(v => new { Label = v.Brand + " " + v.Model, v.Plate })
+                .FirstOrDefaultAsync(ct);
+
+            return vehiculo is null ? null : (vehiculo.Label, vehiculo.Plate, AssetKind.Vehicle);
+        }
+
+        return null;
+    }
+
     private async Task<QuoteDetailDto> MapAsync(Quote quote, CancellationToken ct)
     {
         var tenant = await db.Tenants.AsNoTracking().IgnoreQueryFilters()
             .FirstAsync(t => t.Id == quote.TenantId, ct);
 
-        var vehicle = quote.VehicleId is { } vehicleId
-            ? await db.Vehicles.AsNoTracking().IgnoreQueryFilters()
-                .Where(v => v.Id == vehicleId)
-                .Select(v => new { Label = v.Brand + " " + v.Model, v.Plate })
-                .FirstOrDefaultAsync(ct)
-            : null;
+        var vehicle = await ActivoAsync(quote, ct);
 
         var workOrderNumber = quote.WorkOrderId is { } orderId
             ? await db.WorkOrders.AsNoTracking().IgnoreQueryFilters()
@@ -808,7 +837,8 @@ public class QuoteService(
                     l.Id, l.LineType, l.PartId, l.LaborServiceId, l.Description,
                     l.Sequence, l.Quantity, l.UnitPrice, l.Discount, l.Total,
                     l.BoughtOutside, l.SupplierName))
-                .ToList());
+                .ToList(),
+            vehicle?.Kind ?? AssetKind.Vehicle);
     }
 
     private async Task<PublicQuoteDto> MapPublicAsync(Quote quote, CancellationToken ct)
@@ -822,12 +852,7 @@ public class QuoteService(
         var customer = await db.Customers.AsNoTracking().IgnoreQueryFilters()
             .FirstAsync(c => c.Id == quote.CustomerId, ct);
 
-        var vehicle = quote.VehicleId is { } vehicleId
-            ? await db.Vehicles.AsNoTracking().IgnoreQueryFilters()
-                .Where(v => v.Id == vehicleId)
-                .Select(v => new { Label = v.Brand + " " + v.Model, v.Plate })
-                .FirstOrDefaultAsync(ct)
-            : null;
+        var vehicle = await ActivoAsync(quote, ct);
 
         var photos = (await media.ListForQuotePublicAsync(quote.TenantId, quote.Id, ct))
             .Select(p => new PublicQuotePhotoDto(p.Url, p.ThumbnailUrl, p.Caption))
@@ -874,6 +899,7 @@ public class QuoteService(
                     l.BoughtOutside, l.SupplierName))
                 .ToList(),
             photos,
-            trackingToken);
+            trackingToken,
+            vehicle?.Kind ?? AssetKind.Vehicle);
     }
 }

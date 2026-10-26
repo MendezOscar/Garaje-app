@@ -19,6 +19,7 @@ public class QuoteConfiguration : IEntityTypeConfiguration<Quote>
 
         // El historial del vehículo lee por aquí: órdenes y servicios rápidos del mismo carro.
         b.HasIndex(x => x.VehicleId);
+        b.HasIndex(x => x.EquipmentId);
 
         // El link público resuelve la cotización solo por este token, así que debe ser único
         // globalmente: la consulta corre sin filtro de tenant.
@@ -65,6 +66,7 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
 
         // El historial del vehículo lee por aquí: órdenes y servicios rápidos del mismo carro.
         b.HasIndex(x => x.VehicleId);
+        b.HasIndex(x => x.EquipmentId);
 
         // Único entre los que tienen número fiscal: si dos cajas emiten a la vez, la segunda
         // falla en la base en lugar de repetir un correlativo del SAR.
