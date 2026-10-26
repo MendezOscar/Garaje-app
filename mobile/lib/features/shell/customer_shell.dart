@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/taller/vocabulario.dart';
 import '../customer/my_vehicles_screen.dart';
 import '../customer/vehicle_history_screen.dart';
 import 'more_screen.dart';
@@ -29,6 +30,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
 
   @override
   Widget build(BuildContext context) {
+    final esDeEquipos = ref.watch(esDeEquiposProvider);
     final pestanas = <Widget>[
       MyVehiclesScreen(
         onVerHistorial: (vehicleId) {
@@ -51,18 +53,18 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _ir,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined),
-            selectedIcon: Icon(Icons.directions_car),
-            label: 'Mi vehículo',
+            icon: Icon(esDeEquipos ? Icons.devices_other_outlined : Icons.directions_car_outlined),
+            selectedIcon: Icon(esDeEquipos ? Icons.devices_other : Icons.directions_car),
+            label: esDeEquipos ? 'Mi equipo' : 'Mi vehículo',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Historial',
           ),
-          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Más'),
+          const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Más'),
         ],
       ),
     );

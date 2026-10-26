@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/sucursal_activa.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
@@ -55,7 +56,9 @@ class WorkOrderListScreen extends ConsumerWidget {
               onPressed: () => context.push('/nueva-cita'),
               icon: const Icon(Icons.add),
               label: Text(
-                auth.user.role == AppRole.customer ? 'Pedir cita' : 'Recibir vehículo',
+                auth.user.role == AppRole.customer
+                    ? 'Pedir cita'
+                    : ref.watch(vocabularioProvider).recibir,
               ),
             )
           : null,

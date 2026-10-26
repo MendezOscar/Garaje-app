@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/customer_repository.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/models/work_order.dart';
 import '../../core/widgets/garaj_skeleton.dart';
 
@@ -46,6 +47,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final vocab = ref.watch(vocabularioProvider);
     final customers = ref.watch(customerSearchProvider(_search));
 
     return Scaffold(
@@ -102,6 +104,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) => _CustomerCard(
                           customer: list[i],
+                          vocab: vocab,
                           onTap: () => _open(list[i]),
                         ),
                       ),
@@ -115,9 +118,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 }
 
 class _CustomerCard extends StatelessWidget {
-  const _CustomerCard({required this.customer, required this.onTap});
+  const _CustomerCard({required this.customer, required this.vocab, required this.onTap});
 
   final Customer customer;
+  final Vocabulario vocab;
   final VoidCallback onTap;
 
   @override
@@ -141,8 +145,8 @@ class _CustomerCard extends StatelessWidget {
                     Text(customer.phone, style: theme.textTheme.bodySmall),
                     Text(
                       customer.vehicleCount == 1
-                          ? '1 vehículo'
-                          : '${customer.vehicleCount} vehículos',
+                          ? '1 ${vocab.activo}'
+                          : '${customer.vehicleCount} ${vocab.activos}',
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
@@ -213,9 +217,9 @@ class _CustomerSheetState extends ConsumerState<_CustomerSheet> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Podrá seguir la reparación de sus vehículos y aprobar cotizaciones. '
-              'Nada más.',
+            Text(
+              'Podrá seguir la reparación de sus '
+              '${ref.read(vocabularioProvider).activos} y aprobar cotizaciones. Nada más.',
             ),
             const SizedBox(height: 12),
             TextField(
@@ -271,6 +275,7 @@ class _CustomerSheetState extends ConsumerState<_CustomerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final customer = widget.customer;
+    final vocab = ref.watch(vocabularioProvider);
     final vehicles = ref.watch(customerVehiclesProvider(customer.id));
 
     return SizedBox(
@@ -318,7 +323,7 @@ class _CustomerSheetState extends ConsumerState<_CustomerSheet> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 Text(
-                  'VEHÍCULOS',
+                  vocab.activosMayus.toUpperCase(),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     letterSpacing: 0.6,
@@ -333,14 +338,17 @@ class _CustomerSheetState extends ConsumerState<_CustomerSheet> {
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               leading: Icon(
-                                vehicle.type == VehicleType.motorcycle
-                                    ? Icons.two_wheeler
-                                    : Icons.directions_car,
+                                vehicle.categoria != null
+                                    ? Icons.devices_other
+                                    : vehicle.type == VehicleType.motorcycle
+                                        ? Icons.two_wheeler
+                                        : Icons.directions_car,
                               ),
                               title: Text(vehicle.label),
                               subtitle: Text(
                                 [
                                   if (vehicle.plate != null) vehicle.plate!,
+                                  if (vehicle.categoria != null) vehicle.categoria!,
                                   if (vehicle.mileage != null) '${vehicle.mileage} km',
                                 ].join(' · '),
                               ),

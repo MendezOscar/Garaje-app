@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/api/work_order_repository.dart';
@@ -124,7 +125,7 @@ class _ServiceRequestsScreenState extends ConsumerState<ServiceRequestsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/nueva-cita'),
         icon: const Icon(Icons.add),
-        label: const Text('Recibir vehículo'),
+        label: Text(ref.watch(vocabularioProvider).recibir),
       ),
       body: Column(
         children: [

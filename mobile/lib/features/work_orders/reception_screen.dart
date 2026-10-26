@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/theme/garaj_brand.dart';
 
@@ -104,7 +105,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: 'application/pdf')],
-          text: 'Ficha de recepción de su vehículo',
+          text: 'Ficha de recepción de su ${ref.read(vocabularioProvider).activo}',
           // En iPad la hoja sale anclada a un punto; sin esto revienta.
           sharePositionOrigin: box == null
               ? Rect.zero
@@ -167,7 +168,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recepción del vehículo'),
+        title: Text('Recepción del ${ref.watch(vocabularioProvider).activo}'),
         actions: [
           TextButton(
             onPressed: _busy ? null : _guardar,

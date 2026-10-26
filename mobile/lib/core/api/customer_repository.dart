@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/work_order.dart';
+import '../taller/vocabulario.dart';
 
 /// Alguien del padrón del taller. El acceso a la app es opcional y nace de aquí: así todo
 /// usuario con perfil Cliente corresponde a una ficha, y no al revés.
@@ -72,7 +73,18 @@ class CustomerVehicle {
     this.year,
     this.plate,
     this.mileage,
+    this.categoria,
   });
+
+  /// Un equipo con la misma forma: la serie —o la etiqueta de bodega— hace de placa.
+  factory CustomerVehicle.deEquipo(Map<String, dynamic> json) => CustomerVehicle(
+        id: json['id'] as String,
+        type: VehicleType.car,
+        brand: json['brand'] as String,
+        model: json['model'] as String,
+        plate: (json['serialNumber'] ?? json['tag']) as String?,
+        categoria: json['equipmentTypeName'] as String?,
+      );
 
   factory CustomerVehicle.fromJson(Map<String, dynamic> json) => CustomerVehicle(
         id: json['id'] as String,
@@ -91,6 +103,9 @@ class CustomerVehicle {
   final int? year;
   final String? plate;
   final int? mileage;
+
+  /// Qué clase de equipo es. Vacío en un vehículo, que ya lo dice su tipo.
+  final String? categoria;
 
   String get label => '$brand $model${year == null ? '' : ' $year'}';
 }
@@ -135,6 +150,19 @@ class CustomerRepository {
 
     return (response.data!['items'] as List<dynamic>)
         .map((e) => CustomerVehicle.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Lo mismo en un taller de equipos. La ficha que devuelve es la misma: la serie ocupa el
+  /// lugar de la placa y el kilometraje se queda vacío, que es lo que un equipo tiene.
+  Future<List<CustomerVehicle>> equipment(String customerId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/equipment',
+      queryParameters: {'customerId': customerId, 'pageSize': 50},
+    );
+
+    return (response.data!['items'] as List<dynamic>)
+        .map((e) => CustomerVehicle.deEquipo(e as Map<String, dynamic>))
         .toList();
   }
 
@@ -186,7 +214,14 @@ final customerSearchProvider =
   (ref, search) => ref.watch(customerRepositoryProvider).search(search),
 );
 
+/// Lo que el cliente tiene en el taller: sus vehículos o sus equipos.
 final customerVehiclesProvider =
     FutureProvider.autoDispose.family<List<CustomerVehicle>, String>(
-  (ref, customerId) => ref.watch(customerRepositoryProvider).vehicles(customerId),
+  (ref, customerId) {
+    final repositorio = ref.watch(customerRepositoryProvider);
+
+    return ref.watch(esDeEquiposProvider)
+        ? repositorio.equipment(customerId)
+        : repositorio.vehicles(customerId);
+  },
 );

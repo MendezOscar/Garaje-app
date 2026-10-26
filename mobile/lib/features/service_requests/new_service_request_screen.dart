@@ -17,6 +17,7 @@ import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
 import '../../core/models/media.dart';
 import '../../core/models/work_order.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/widgets/garaj_skeleton.dart';
 
 /// Alta de un requerimiento. La misma pantalla para el cliente que pide cita desde su casa y
@@ -78,25 +79,28 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
   @override
   Widget build(BuildContext context) {
     final staff = _isStaff;
+    final vocab = ref.watch(vocabularioProvider);
+    final esEquipos = ref.watch(esDeEquiposProvider);
     final vehicles = ref.watch(vehicleOptionsProvider(_search));
     final branches = ref.watch(branchOptionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(staff ? 'Recibir vehículo' : 'Pedir cita')),
+      appBar: AppBar(title: Text(staff ? vocab.recibir : 'Pedir cita')),
       body: Column(
         children: [
-          if (staff) _buscador(),
+          if (staff) _buscador(vocab),
           Expanded(
             child: vehicles.when(
         loading: () => const GarajSkeletonList(rows: 4),
         error: (e, _) => Center(child: Text(apiErrorMessage(e, 'No se pudo cargar la información.'))),
         data: (vehicleList) {
           if (vehicleList.isEmpty && !staff) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: const EdgeInsets.all(32),
                 child: Text(
-                  'Todavía no tiene vehículos registrados. Pídale al taller que agregue el suyo.',
+                  'Todavía no tiene ${vocab.activos} registrados. Pídale al taller que '
+                  'agregue el suyo.',
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -117,16 +121,16 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
               padding: const EdgeInsets.all(16),
               children: [
                 if (staff && vehicleList.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text('Ningún vehículo coincide con la búsqueda.'),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('Ningún ${vocab.activo} coincide con la búsqueda.'),
                   ),
 
                 if (vehicleList.isNotEmpty)
                   DropdownButtonFormField<String>(
                     initialValue: _vehicleId,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Vehículo'),
+                    decoration: InputDecoration(labelText: vocab.activoMayus),
                     items: [
                       for (final vehicle in vehicleList)
                         DropdownMenuItem(
@@ -171,7 +175,9 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                   maxLines: 2,
                   textCapitalization: TextCapitalization.sentences,
                   validator: (value) => value == null || value.trim().isEmpty
-                      ? (staff ? 'Escriba por qué entra el vehículo.' : 'Cuéntenos qué necesita.')
+                      ? (staff
+                          ? 'Escriba por qué entra el ${vocab.activo}.'
+                          : 'Cuéntenos qué necesita.')
                       : null,
                 ),
                 const SizedBox(height: 12),
@@ -187,20 +193,23 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                 ),
                 const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: _mileage,
-                  decoration: const InputDecoration(
-                    labelText: 'Kilometraje (opcional)',
-                    counterText: '',
+                // Un equipo no lleva kilometraje: su historial es por fecha.
+                if (!esEquipos) ...[
+                  TextFormField(
+                    controller: _mileage,
+                    decoration: const InputDecoration(
+                      labelText: 'Kilometraje (opcional)',
+                      counterText: '',
+                    ),
+                    keyboardType: TextInputType.number,
+                    // El teclado numérico no impide pegar letras, y al enviar `int.tryParse`
+                    // devolvía `null` sin decir nada: el kilometraje mal escrito se perdía en
+                    // silencio. Siete cifras cubren cualquier vehículo.
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    maxLength: 7,
                   ),
-                  keyboardType: TextInputType.number,
-                  // El teclado numérico no impide pegar letras, y al enviar `int.tryParse`
-                  // devolvía `null` sin decir nada: el kilometraje mal escrito se perdía en
-                  // silencio. Siete cifras cubren cualquier vehículo.
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  maxLength: 7,
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
 
                 // Solo tiene sentido cuando se pide una cita a futuro. El vehículo que ya
                 // está en el mostrador entra hoy.
@@ -290,17 +299,17 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
   /// Busca solo mientras se escribe, con un respiro de por medio. Antes solo corría al pulsar
   /// la tecla de buscar del teclado: quien escribía y tocaba fuera no veía cambiar nada y
   /// concluía que el buscador no servía.
-  Widget _buscador() => Padding(
+  Widget _buscador(Vocabulario vocab) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Buscar vehículo',
-                hintText: 'Placa, marca, modelo o nombre del dueño',
-                prefixIcon: Icon(Icons.search),
+              decoration: InputDecoration(
+                labelText: 'Buscar ${vocab.activo}',
+                hintText: '${vocab.identificador}, marca, modelo o nombre del dueño',
+                prefixIcon: const Icon(Icons.search),
               ),
               textInputAction: TextInputAction.search,
               onChanged: (value) {
@@ -391,7 +400,8 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_vehicleId == null || _branchId == null) {
-      setState(() => _error = 'Elija el vehículo y la sucursal.');
+      setState(() => _error =
+          'Elija el ${ref.read(vocabularioProvider).activo} y la sucursal.');
       return;
     }
 
@@ -408,6 +418,7 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
             reportedSymptoms: _symptoms.text.trim().isEmpty ? null : _symptoms.text.trim(),
             preferredDate: _preferredDate,
             mileage: int.tryParse(_mileage.text.trim()),
+            esEquipo: ref.read(esDeEquiposProvider),
           );
 
       var failed = 0;
@@ -466,6 +477,10 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
   final _password = TextEditingController();
 
   VehicleType _type = VehicleType.motorcycle;
+
+  /// La categoría del equipo, en un taller de equipos. Null hasta que carguen las del taller.
+  String? _equipmentTypeId;
+
   bool _saving = false;
   String? _error;
 
@@ -507,14 +522,23 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
       // Si el cliente ya quedó registrado y lo que falló fue el acceso, no se vuelve a crear:
       // reintentar el alta completa chocaría con la placa repetida.
       final created = _created ??
-          await repository.registerCustomerAndVehicle(
-            fullName: _name.text.trim(),
-            phone: _phone.text.trim(),
-            vehicleType: _type.value,
-            brand: _brand.text.trim(),
-            model: _model.text.trim(),
-            plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(),
-          );
+          (ref.read(esDeEquiposProvider)
+              ? await repository.registerCustomerAndEquipment(
+                  fullName: _name.text.trim(),
+                  phone: _phone.text.trim(),
+                  equipmentTypeId: _equipmentTypeId!,
+                  brand: _brand.text.trim(),
+                  model: _model.text.trim(),
+                  serialNumber: _plate.text.trim().isEmpty ? null : _plate.text.trim(),
+                )
+              : await repository.registerCustomerAndVehicle(
+                  fullName: _name.text.trim(),
+                  phone: _phone.text.trim(),
+                  vehicleType: _type.value,
+                  brand: _brand.text.trim(),
+                  model: _model.text.trim(),
+                  plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(),
+                ));
 
       _created = created;
 
@@ -539,6 +563,14 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final vocab = ref.watch(vocabularioProvider);
+    final esEquipos = ref.watch(esDeEquiposProvider);
+    final categorias = esEquipos
+        ? ref.watch(equipmentTypeOptionsProvider).value ?? const <({String id, String name})>[]
+        : const <({String id, String name})>[];
+
+    _equipmentTypeId ??= categorias.firstOrNull?.id;
+
     return Padding(
       // Deja sitio al teclado: sin esto el último campo queda debajo y no se puede escribir.
       padding: EdgeInsets.only(
@@ -574,14 +606,28 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
             ),
             const SizedBox(height: 20),
 
-            SegmentedButton<VehicleType>(
-              segments: const [
-                ButtonSegment(value: VehicleType.motorcycle, label: Text('Moto')),
-                ButtonSegment(value: VehicleType.car, label: Text('Vehículo')),
-              ],
-              selected: {_type},
-              onSelectionChanged: (s) => setState(() => _type = s.first),
-            ),
+            if (esEquipos)
+              DropdownButtonFormField<String>(
+                initialValue: _equipmentTypeId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Qué es'),
+                items: [
+                  for (final categoria in categorias)
+                    DropdownMenuItem(value: categoria.id, child: Text(categoria.name)),
+                ],
+                onChanged: (value) => setState(() => _equipmentTypeId = value),
+                validator: (value) =>
+                    value == null ? 'Diga qué clase de equipo es.' : null,
+              )
+            else
+              SegmentedButton<VehicleType>(
+                segments: const [
+                  ButtonSegment(value: VehicleType.motorcycle, label: Text('Moto')),
+                  ButtonSegment(value: VehicleType.car, label: Text('Vehículo')),
+                ],
+                selected: {_type},
+                onSelectionChanged: (s) => setState(() => _type = s.first),
+              ),
             const SizedBox(height: 12),
 
             Row(
@@ -608,9 +654,11 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
 
             TextFormField(
               controller: _plate,
-              decoration: const InputDecoration(
-                labelText: 'Placa (opcional)',
-                helperText: 'Sin guiones ni espacios.',
+              decoration: InputDecoration(
+                labelText: '${vocab.identificador} (opcional)',
+                helperText: esEquipos
+                    ? 'Hay equipos que no la traen o la traen ilegible.'
+                    : 'Sin guiones ni espacios.',
               ),
               textCapitalization: TextCapitalization.characters,
             ),
@@ -622,7 +670,7 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
                 onChanged: (v) => setState(() => _withAccess = v),
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Darle acceso a la app'),
-                subtitle: const Text('Podrá seguir su vehículo y aprobar cotizaciones.'),
+                subtitle: Text('Podrá seguir su ${vocab.activo} y aprobar cotizaciones.'),
               ),
               if (_withAccess) ...[
                 TextFormField(
