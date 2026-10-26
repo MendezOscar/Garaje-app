@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
+using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -107,6 +108,21 @@ public class TenantService(
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
             tenant.DefaultPhoneCountryCode = code;
+
+        if (request.WorksWith is { } worksWith && worksWith != tenant.WorksWith)
+        {
+            tenant.WorksWith = worksWith;
+
+            // Un taller que acaba de decir que repara equipos no tiene con qué empezar: sin
+            // categorías no se puede dar de alta un solo aparato. Se le dejan unas cuantas,
+            // que puede renombrar o apagar.
+            if (worksWith == WorkshopKind.Equipment
+                && !await db.EquipmentTypes.AnyAsync(ct))
+            {
+                foreach (var (nombre, icono) in CategoriasIniciales)
+                    db.EquipmentTypes.Add(new EquipmentType { Name = nombre, Icon = icono });
+            }
+        }
 
         await db.SaveChangesAsync(ct);
 
@@ -374,6 +390,17 @@ public class TenantService(
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>Con lo que arranca un taller de equipos. Es un punto de partida, no un dogma.</summary>
+    private static readonly (string Nombre, string Icono)[] CategoriasIniciales =
+    [
+        ("Computadora", "laptop"),
+        ("Teléfono", "smartphone"),
+        ("Aire acondicionado", "ac_unit"),
+        ("Televisor", "tv"),
+        ("Electrodoméstico", "kitchen"),
+        ("Otro", "devices_other"),
+    ];
+
     private TenantSettingsDto Map(Tenant tenant) => new(
         tenant.Id,
         tenant.Name,
@@ -383,6 +410,7 @@ public class TenantService(
         tenant.Email,
         tenant.Address,
         tenant.Currency,
+        tenant.WorksWith,
         tenant.DefaultTaxRate,
         tenant.DefaultPhoneCountryCode,
         tenant.DefaultWarrantyDays,

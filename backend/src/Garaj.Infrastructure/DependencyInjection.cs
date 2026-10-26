@@ -97,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IVehicleService, VehicleService>();
+        services.AddScoped<IEquipmentService, EquipmentService>();
         services.AddScoped<IWorkOrderService, WorkOrderService>();
         services.AddScoped<IJobTemplateService, JobTemplateService>();
         services.AddScoped<IServiceRequestService, ServiceRequestService>();

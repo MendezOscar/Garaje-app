@@ -244,6 +244,7 @@ public class SaleService(
 
         var order = await db.WorkOrders
             .Include(w => w.Vehicle)
+            .Include(w => w.Equipment)
             .Include(w => w.Tasks)
             .FirstOrDefaultAsync(w => w.Id == request.WorkOrderId, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
@@ -280,7 +281,7 @@ public class SaleService(
         var sale = new Sale
         {
             BranchId = order.BranchId,
-            CustomerId = order.Vehicle.CustomerId,
+            CustomerId = order.Vehicle?.CustomerId ?? order.Equipment!.CustomerId,
             VehicleId = order.VehicleId,
             WorkOrderId = order.Id,
             Number = await NextNumberAsync(order.BranchId, ct),
@@ -1112,7 +1113,9 @@ public class SaleService(
                 {
                     w.Number,
                     w.VehicleId,
-                    Vehicle = w.Vehicle.Brand + " " + w.Vehicle.Model
+                    Vehicle = w.Vehicle != null
+                        ? w.Vehicle.Brand + " " + w.Vehicle.Model
+                        : w.Equipment!.Brand + " " + w.Equipment.Model
                 })
                 .FirstOrDefaultAsync(ct)
             : null;

@@ -67,13 +67,24 @@ public class AppointmentService(
     {
         var scope = AccessScope.From(tenantContext);
 
-        var vehicle = await db.Vehicles.Include(v => v.Customer)
-                          .FirstOrDefaultAsync(v => v.Id == request.VehicleId, ct)
-                      ?? throw new NotFoundException("El vehículo no existe.");
+        if ((request.VehicleId is null) == (request.EquipmentId is null))
+            throw new AppException("La cita es para un vehículo o para un equipo.");
 
-        // Sin esto, un cliente podría apartar cita sobre el vehículo de otro pasando un id ajeno.
-        if (scope.IsCustomer && vehicle.CustomerId != scope.CustomerId)
-            throw new NotFoundException("El vehículo no existe.");
+        var vehicle = request.VehicleId is { } vehicleId
+            ? await db.Vehicles.Include(v => v.Customer).FirstOrDefaultAsync(v => v.Id == vehicleId, ct)
+                ?? throw new NotFoundException("El vehículo no existe.")
+            : null;
+
+        var equipment = request.EquipmentId is { } equipmentId
+            ? await db.Equipment.Include(e => e.Customer).FirstOrDefaultAsync(e => e.Id == equipmentId, ct)
+                ?? throw new NotFoundException("El equipo no existe.")
+            : null;
+
+        var customer = vehicle?.Customer ?? equipment!.Customer;
+
+        // Sin esto, un cliente podría apartar cita sobre lo de otro pasando un id ajeno.
+        if (scope.IsCustomer && customer.Id != scope.CustomerId)
+            throw new NotFoundException(vehicle is null ? "El equipo no existe." : "El vehículo no existe.");
 
         await EnsureBranchExistsAsync(request.BranchId, ct);
         var dia = DiaValido(request.Day);
@@ -81,10 +92,11 @@ public class AppointmentService(
         var cita = new Appointment
         {
             BranchId = request.BranchId,
-            CustomerId = vehicle.CustomerId,
-            VehicleId = vehicle.Id,
-            ContactName = vehicle.Customer.FullName,
-            ContactPhone = vehicle.Customer.Phone,
+            CustomerId = customer.Id,
+            VehicleId = vehicle?.Id,
+            EquipmentId = equipment?.Id,
+            ContactName = customer.FullName,
+            ContactPhone = customer.Phone,
             Reason = Texto(request.Reason, "Diga qué necesita para poder apartarle el día."),
             Day = dia,
             Slot = request.Slot,
@@ -118,14 +130,23 @@ public class AppointmentService(
                       ?? throw new NotFoundException("El vehículo no existe.");
         }
 
+        Equipment? equipment = null;
+        if (request.EquipmentId is { } equipmentId)
+        {
+            equipment = await db.Equipment.Include(e => e.Customer)
+                            .FirstOrDefaultAsync(e => e.Id == equipmentId, ct)
+                        ?? throw new NotFoundException("El equipo no existe.");
+        }
+
         var cita = new Appointment
         {
             BranchId = request.BranchId,
-            CustomerId = vehicle?.CustomerId ?? request.CustomerId,
+            CustomerId = vehicle?.CustomerId ?? equipment?.CustomerId ?? request.CustomerId,
             VehicleId = vehicle?.Id,
+            EquipmentId = equipment?.Id,
             ContactName = Texto(
                 string.IsNullOrWhiteSpace(request.ContactName)
-                    ? vehicle?.Customer.FullName ?? string.Empty
+                    ? vehicle?.Customer.FullName ?? equipment?.Customer.FullName ?? string.Empty
                     : request.ContactName,
                 "Hace falta a nombre de quién va la cita."),
             ContactPhone = Telefono(
@@ -336,11 +357,15 @@ public class AppointmentService(
             a.Branch.Name,
             a.CustomerId,
             a.VehicleId,
+            a.EquipmentId,
             a.ContactName,
             a.ContactPhone,
             a.Vehicle != null
                 ? a.Vehicle.Brand + " " + a.Vehicle.Model + (a.Vehicle.Plate != null ? " · " + a.Vehicle.Plate : "")
-                : a.VehicleNote ?? "No lo dijo",
+                : a.Equipment != null
+                    ? a.Equipment.Brand + " " + a.Equipment.Model
+                      + (a.Equipment.SerialNumber != null ? " · " + a.Equipment.SerialNumber : "")
+                    : a.VehicleNote ?? "No lo dijo",
             a.Reason,
             a.Day,
             a.Slot,
@@ -378,6 +403,7 @@ public class AppointmentService(
         var cita = await db.Appointments.IgnoreQueryFilters().AsNoTracking()
                        .Include(a => a.Branch)
                        .Include(a => a.Vehicle)
+                       .Include(a => a.Equipment)
                        .FirstOrDefaultAsync(a => a.PublicToken == token, ct)
                    ?? throw new NotFoundException("La cita no existe o el enlace ya no es válido.");
 
@@ -393,7 +419,9 @@ public class AppointmentService(
             cita.ContactName,
             cita.Vehicle is not null
                 ? $"{cita.Vehicle.Brand} {cita.Vehicle.Model}"
-                : cita.VehicleNote ?? "—",
+                : cita.Equipment is not null
+                    ? $"{cita.Equipment.Brand} {cita.Equipment.Model}"
+                    : cita.VehicleNote ?? "—",
             cita.Reason,
             cita.Day,
             cita.Slot,

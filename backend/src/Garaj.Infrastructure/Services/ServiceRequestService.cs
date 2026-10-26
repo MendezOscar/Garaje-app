@@ -64,13 +64,23 @@ public class ServiceRequestService(
         // solo puede hacerlo en las sucursales que tiene asignadas.
         if (scope.IsTechnician || scope.IsManager) scope.EnsureBranchAllowed(request.BranchId);
 
-        var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == request.VehicleId, ct)
-            ?? throw new NotFoundException("El vehículo no existe.");
+        if ((request.VehicleId is null) == (request.EquipmentId is null))
+            throw new AppException("El requerimiento es de un vehículo o de un equipo.");
 
-        // Sin esto, un cliente podría abrir un requerimiento sobre el vehículo de otro
-        // pasando un id ajeno.
-        if (scope.IsCustomer && vehicle.CustomerId != scope.CustomerId)
-            throw new NotFoundException("El vehículo no existe.");
+        var vehicle = request.VehicleId is { } vehicleId
+            ? await db.Vehicles.FirstOrDefaultAsync(v => v.Id == vehicleId, ct)
+                ?? throw new NotFoundException("El vehículo no existe.")
+            : null;
+
+        var equipment = request.EquipmentId is { } equipmentId
+            ? await db.Equipment.FirstOrDefaultAsync(e => e.Id == equipmentId, ct)
+                ?? throw new NotFoundException("El equipo no existe.")
+            : null;
+
+        // Sin esto, un cliente podría abrir un requerimiento sobre lo de otro pasando un id
+        // ajeno. Se responde «no existe» y no «no puede»: lo que no es suyo, para él no está.
+        if (scope.IsCustomer && (vehicle?.CustomerId ?? equipment!.CustomerId) != scope.CustomerId)
+            throw new NotFoundException(vehicle is null ? "El equipo no existe." : "El vehículo no existe.");
 
         if (!await db.Branches.AnyAsync(b => b.Id == request.BranchId && b.IsActive, ct))
             throw new NotFoundException("La sucursal no existe.");
@@ -78,7 +88,8 @@ public class ServiceRequestService(
         var serviceRequest = new ServiceRequest
         {
             BranchId = request.BranchId,
-            VehicleId = vehicle.Id,
+            VehicleId = vehicle?.Id,
+            EquipmentId = equipment?.Id,
             Description = request.Description.Trim(),
             ReportedSymptoms = request.ReportedSymptoms?.Trim(),
             PreferredDate = request.PreferredDate,
@@ -88,7 +99,7 @@ public class ServiceRequestService(
 
         db.ServiceRequests.Add(serviceRequest);
 
-        if (request.Mileage is { } mileage && mileage > (vehicle.Mileage ?? 0))
+        if (vehicle is not null && request.Mileage is { } mileage && mileage > (vehicle.Mileage ?? 0))
             vehicle.Mileage = mileage;
 
         await db.SaveChangesAsync(ct);
@@ -100,13 +111,18 @@ public class ServiceRequestService(
             await notifications.NotifyOwnersAsync(serviceRequest.TenantId, new NotificationDraft(
                 NotificationType.ServiceRequestCreated,
                 scope.IsCustomer ? "Nuevo requerimiento de un cliente" : "Nuevo requerimiento en recepción",
-                $"{vehicle.Brand} {vehicle.Model}"
-                + (vehicle.Plate is null ? "" : $" · {vehicle.Plate}")
-                + $": {Summarize(serviceRequest.Description)}",
+                EtiquetaDe(vehicle, equipment) + $": {Summarize(serviceRequest.Description)}",
                 ServiceRequestId: serviceRequest.Id), ct);
 
         return await GetAsync(serviceRequest.Id, ct);
     }
+
+    /// <summary>Cómo se nombra en el aviso lo que entró, sea vehículo o equipo.</summary>
+    private static string EtiquetaDe(Vehicle? vehicle, Equipment? equipment) =>
+        vehicle is not null
+            ? $"{vehicle.Brand} {vehicle.Model}" + (vehicle.Plate is null ? "" : $" · {vehicle.Plate}")
+            : $"{equipment!.Brand} {equipment.Model}"
+              + ((equipment.SerialNumber ?? equipment.Tag) is { } etiqueta ? $" · {etiqueta}" : "");
 
     /// <summary>El cuerpo del aviso es una línea en una lista, no el motivo completo.</summary>
     private static string Summarize(string text) =>
@@ -131,13 +147,12 @@ public class ServiceRequestService(
         var order = await workOrders.CreateAsync(
             new CreateWorkOrderRequest(
                 serviceRequest.BranchId,
-                // Fase 1: todo requerimiento es de un vehículo. Cuando la orden sepa abrirse
-                // con un equipo, esto pasa a llevar el que venga lleno.
-                serviceRequest.VehicleId!.Value,
+                serviceRequest.VehicleId,
                 serviceRequest.Description,
                 request.AssignedTechnicianId,
                 serviceRequest.Mileage,
-                request.PromisedAt),
+                request.PromisedAt,
+                serviceRequest.EquipmentId),
             ct);
 
         serviceRequest.Status = ServiceRequestStatus.Converted;
@@ -196,10 +211,15 @@ public class ServiceRequestService(
             r.BranchId,
             r.Branch.Name,
             r.VehicleId,
-            r.Vehicle.Brand + " " + r.Vehicle.Model + (r.Vehicle.Plate == null ? "" : " · " + r.Vehicle.Plate),
-            r.Vehicle.CustomerId,
-            r.Vehicle.Customer.FullName,
-            r.Vehicle.Customer.Phone,
+            // Con un equipo, los campos de vehículo llevan los del equipo: la app publicada
+            // los pinta sin saber que los equipos existen.
+            r.Vehicle != null
+                ? r.Vehicle.Brand + " " + r.Vehicle.Model + (r.Vehicle.Plate == null ? "" : " · " + r.Vehicle.Plate)
+                : r.Equipment!.Brand + " " + r.Equipment.Model
+                  + (r.Equipment.SerialNumber == null ? "" : " · " + r.Equipment.SerialNumber),
+            r.Vehicle != null ? r.Vehicle.CustomerId : r.Equipment!.CustomerId,
+            r.Vehicle != null ? r.Vehicle.Customer.FullName : r.Equipment!.Customer.FullName,
+            r.Vehicle != null ? r.Vehicle.Customer.Phone : r.Equipment!.Customer.Phone,
             r.Description,
             r.ReportedSymptoms,
             r.Status,
@@ -210,5 +230,13 @@ public class ServiceRequestService(
             // Sin navegación a WorkOrder (la FK es opcional y unidireccional), así que el
             // número se trae por subconsulta.
             db.WorkOrders.Where(w => w.Id == r.WorkOrderId).Select(w => w.Number).FirstOrDefault(),
-            r.CreatedAt));
+            r.CreatedAt,
+            new AssetRefDto(
+                r.Vehicle != null ? AssetKind.Vehicle : AssetKind.Equipment,
+                r.Vehicle != null ? r.Vehicle.Id : r.Equipment!.Id,
+                r.Vehicle != null
+                    ? r.Vehicle.Brand + " " + r.Vehicle.Model
+                    : r.Equipment!.Brand + " " + r.Equipment.Model,
+                r.Vehicle != null ? r.Vehicle.Plate : (r.Equipment!.SerialNumber ?? r.Equipment.Tag),
+                r.Vehicle != null ? null : r.Equipment!.EquipmentType.Name)));
 }

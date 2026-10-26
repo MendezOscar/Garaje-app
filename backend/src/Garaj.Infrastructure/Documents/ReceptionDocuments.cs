@@ -31,10 +31,18 @@ public class ReceptionDocuments(
                 Ficha = new DatosDeRecepcion(
                     r.WorkOrder.Number,
                     r.WorkOrder.Branch.Name,
-                    r.WorkOrder.Vehicle.Brand + " " + r.WorkOrder.Vehicle.Model,
-                    r.WorkOrder.Vehicle.Plate,
-                    r.WorkOrder.Vehicle.Customer.FullName,
-                    r.WorkOrder.Vehicle.Customer.Phone,
+                    r.WorkOrder.Vehicle != null
+                        ? r.WorkOrder.Vehicle.Brand + " " + r.WorkOrder.Vehicle.Model
+                        : r.WorkOrder.Equipment!.Brand + " " + r.WorkOrder.Equipment.Model,
+                    r.WorkOrder.Vehicle != null
+                        ? r.WorkOrder.Vehicle.Plate
+                        : (r.WorkOrder.Equipment!.SerialNumber ?? r.WorkOrder.Equipment.Tag),
+                    r.WorkOrder.Vehicle != null
+                        ? r.WorkOrder.Vehicle.Customer.FullName
+                        : r.WorkOrder.Equipment!.Customer.FullName,
+                    r.WorkOrder.Vehicle != null
+                        ? r.WorkOrder.Vehicle.Customer.Phone
+                        : r.WorkOrder.Equipment!.Customer.Phone,
                     r.WorkOrder.MileageIn,
                     r.WorkOrder.OpenedAt,
                     r.WorkOrder.Description,
