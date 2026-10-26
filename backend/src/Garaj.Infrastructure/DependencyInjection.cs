@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<DbSeeder>();
         services.AddScoped<DemoSeeder>();
         services.AddScoped<TenantProvisioner>();
+        services.AddScoped<TenantEraser>();
         services.AddScoped<PlatformUserProvisioner>();
         services.AddScoped<IPlatformService, PlatformService>();
 
