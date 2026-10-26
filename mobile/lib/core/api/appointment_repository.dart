@@ -146,19 +146,20 @@ class AppointmentRepository {
         .toList();
   }
 
-  /// La pide el Cliente sobre uno de sus vehículos.
+  /// La pide el Cliente sobre uno de sus vehículos —o de sus equipos—.
   Future<AppointmentItem> request({
     required String branchId,
     required String vehicleId,
     required String reason,
     required DateTime day,
     required AppointmentSlot slot,
+    bool esEquipo = false,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/appointments/request',
       data: {
         'branchId': branchId,
-        'vehicleId': vehicleId,
+        if (esEquipo) 'equipmentId': vehicleId else 'vehicleId': vehicleId,
         'reason': reason,
         'day': diaApi(day),
         'slot': slot.value,

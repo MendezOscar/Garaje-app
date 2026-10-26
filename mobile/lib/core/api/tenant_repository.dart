@@ -81,6 +81,19 @@ class TenantRepository {
   }
 }
 
+/// Con qué trabaja el taller. Lo fija quien lo da de alta: el Dueño solo lo ve.
+enum WorkshopKind {
+  vehiculos(1),
+  equipos(2);
+
+  const WorkshopKind(this.value);
+
+  final int value;
+
+  static WorkshopKind fromValue(int? value) =>
+      value == equipos.value ? equipos : vehiculos;
+}
+
 /// Los ajustes del taller: lo que se imprime, lo que se cobra y lo que el técnico ve.
 class TenantSettings {
   const TenantSettings({
@@ -99,6 +112,7 @@ class TenantSettings {
     required this.techniciansSeePrices,
     required this.bookingEnabled,
     this.bookingUrl,
+    this.worksWith = WorkshopKind.vehiculos,
   });
 
   factory TenantSettings.fromJson(Map<String, dynamic> json) => TenantSettings(
@@ -117,6 +131,7 @@ class TenantSettings {
         techniciansSeePrices: json['techniciansSeePrices'] as bool? ?? true,
         bookingEnabled: json['bookingEnabled'] as bool? ?? true,
         bookingUrl: json['bookingUrl'] as String?,
+        worksWith: WorkshopKind.fromValue(json['worksWith'] as int?),
       );
 
   final String name;
@@ -138,6 +153,10 @@ class TenantSettings {
 
   /// El enlace ya armado por la API. Null si al servidor le falta `PublicBaseUrl`.
   final String? bookingUrl;
+
+  /// Vehículos o equipos. No se manda de vuelta al guardar: el servidor lo ignora, porque
+  /// esto se decide al dar de alta el taller y no desde aquí.
+  final WorkshopKind worksWith;
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -190,6 +209,7 @@ class TenantSettings {
         techniciansSeePrices: techniciansSeePrices ?? this.techniciansSeePrices,
         bookingEnabled: bookingEnabled ?? this.bookingEnabled,
         bookingUrl: bookingUrl,
+        worksWith: worksWith,
       );
 }
 

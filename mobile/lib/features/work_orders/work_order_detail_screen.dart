@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/claim_repository.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/job_template_repository.dart';
@@ -1280,6 +1281,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 const SizedBox(height: 14),
                 _Reclamo(
                   order: order,
+                  vocab: ref.watch(vocabularioProvider),
                   busy: _busy,
                   onDecidir: (cubre) => _run(() async {
                     await ref
@@ -1336,7 +1338,7 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
                   return _Fila(
                     icono: Icons.fact_check_outlined,
-                    titulo: 'Recepción del vehículo',
+                    titulo: 'Recepción del ${ref.watch(vocabularioProvider).activo}',
                     detalle: hoja == null
                         ? 'Sin llenar: combustible, golpes que ya traía, firma'
                         : [
@@ -1767,7 +1769,7 @@ class _VehicleHistorySectionState extends ConsumerState<_VehicleHistorySection> 
         final abierto = widget.siempreAbierto || _abierto;
 
         return _Section(
-          title: 'Historial del vehículo',
+          title: 'Historial del ${ref.watch(vocabularioProvider).activo}',
           child: Column(
             children: [
               if (!widget.siempreAbierto)
@@ -2761,6 +2763,7 @@ class _FilaHistorial extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historial = ref.watch(vehicleHistoryProvider(order.vehicleId)).value;
+    final vocab = ref.watch(vocabularioProvider);
     final otras = (historial ?? const []).where((o) => o.id != order.id).toList();
 
     // Mientras carga, o si falla, no se dibuja: es información de apoyo y no puede ensuciar
@@ -2769,7 +2772,7 @@ class _FilaHistorial extends ConsumerWidget {
 
     return _Fila(
       icono: Icons.history_edu_outlined,
-      titulo: 'Historial del vehículo',
+      titulo: 'Historial del ${vocab.activo}',
       detalle: '${otras.length} ${otras.length == 1 ? 'visita antes' : 'visitas antes'}',
       onTap: onTap,
     );
@@ -2841,12 +2844,14 @@ enum _CobroDelPaso {
 class _Reclamo extends StatelessWidget {
   const _Reclamo({
     required this.order,
+    required this.vocab,
     required this.busy,
     required this.onDecidir,
     required this.onCerrarReclamo,
   });
 
   final WorkOrderDetail order;
+  final Vocabulario vocab;
   final bool busy;
   final void Function(bool cubre) onDecidir;
   final VoidCallback onCerrarReclamo;
@@ -2907,8 +2912,8 @@ class _Reclamo extends StatelessWidget {
               const SizedBox(height: GarajSpace.sm),
               Text(
                 order.warrantyCovered!
-                    ? 'La paga el taller. No se factura: entregue el vehículo y pase la orden '
-                          'a Entregada.'
+                    ? 'La paga el taller. No se factura: entregue el ${vocab.activo} y pase '
+                        'la orden a Entregada.'
                     : 'Es un servicio nuevo: se le cobra al cliente.',
                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),

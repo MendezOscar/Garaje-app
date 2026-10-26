@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/appointment_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/api/service_request_repository.dart';
@@ -33,6 +34,7 @@ class MyVehiclesScreen extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     if (auth is! AuthSignedIn) return const SizedBox.shrink();
 
+    final vocab = ref.watch(vocabularioProvider);
     final ordenes = ref.watch(openOrdersProvider);
     final vehiculos = ref.watch(vehicleOptionsProvider(''));
     final cotizaciones = ref.watch(myQuotesProvider);
@@ -96,7 +98,7 @@ class MyVehiclesScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       Text(
-                        apiErrorMessage(e, 'No se pudieron cargar sus vehículos.'),
+                        apiErrorMessage(e, 'No se pudieron cargar sus ${vocab.activos}.'),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -122,11 +124,11 @@ class MyVehiclesScreen extends ConsumerWidget {
                   onTap: () => onVerHistorial(vehiculo.id),
                 ),
               if (enTaller.isEmpty && enCasa.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 48, horizontal: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 12),
                   child: Text(
-                    'Su taller todavía no le ha registrado un vehículo. Pida una cita y lo '
-                    'registran al recibirlo.',
+                    'Su taller todavía no le ha registrado un ${vocab.activo}. Pida una cita '
+                    'y lo registran al recibirlo.',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -138,7 +140,7 @@ class MyVehiclesScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'El taller le avisa cada vez que su vehículo cambia de estado.',
+                'El taller le avisa cada vez que su ${vocab.activo} cambia de estado.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/models/work_order.dart';
 import '../../core/widgets/garaj_skeleton.dart';
@@ -95,7 +96,11 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
               ),
             ),
 
-          Expanded(child: _busqueda.isEmpty ? const _Vacio() : _resultados()),
+          Expanded(
+            child: _busqueda.isEmpty
+                ? _Vacio(vocab: ref.watch(vocabularioProvider))
+                : _resultados(),
+          ),
         ],
       ),
     );
@@ -110,6 +115,7 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
         : vehicleHistoryProvider(_vehiculoId!);
 
     final visitas = ref.watch(provider);
+    final vocab = ref.watch(vocabularioProvider);
 
     return visitas.when(
       loading: () => const GarajSkeletonList(rows: 4),
@@ -133,7 +139,7 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
               Text(
-                '${vehiculos.length} vehículos con esa búsqueda. Elija cuál.',
+                '${vehiculos.length} ${vocab.activos} con esa búsqueda. Elija cuál.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -168,13 +174,15 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
 }
 
 class _Vacio extends StatelessWidget {
-  const _Vacio();
+  const _Vacio({required this.vocab});
+
+  final Vocabulario vocab;
 
   @override
-  Widget build(BuildContext context) => const GarajEmpty(
-        title: 'Busque un vehículo',
-        hint: 'Escriba la placa o el nombre del cliente y verá todo lo que se le ha hecho, '
-            'visita por visita.',
+  Widget build(BuildContext context) => GarajEmpty(
+        title: 'Busque un ${vocab.activo}',
+        hint: 'Escriba la ${vocab.identificador.toLowerCase()} o el nombre del cliente y verá '
+            'todo lo que se le ha hecho, visita por visita.',
       );
 }
 

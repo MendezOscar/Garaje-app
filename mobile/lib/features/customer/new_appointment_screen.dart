@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/appointment_repository.dart';
 import '../../core/api/service_request_repository.dart';
 
@@ -49,6 +50,7 @@ class _NewAppointmentScreenState extends ConsumerState<NewAppointmentScreen> {
       await ref.read(appointmentRepositoryProvider).request(
             branchId: sucursalId,
             vehicleId: vehiculoId,
+            esEquipo: ref.read(esDeEquiposProvider),
             reason: _motivo.text.trim(),
             day: _dia,
             slot: _franja,
@@ -74,6 +76,7 @@ class _NewAppointmentScreenState extends ConsumerState<NewAppointmentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final vocab = ref.watch(vocabularioProvider);
     final vehiculos = ref.watch(vehicleOptionsProvider(''));
     final sucursales = ref.watch(branchOptionsProvider);
 
@@ -87,7 +90,7 @@ class _NewAppointmentScreenState extends ConsumerState<NewAppointmentScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Aparte el día que va a traer su vehículo. El taller se lo confirma.',
+            'Aparte el día que va a traer su ${vocab.activo}. El taller se lo confirma.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -95,19 +98,19 @@ class _NewAppointmentScreenState extends ConsumerState<NewAppointmentScreen> {
           if (vehiculos.isLoading)
             const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
           else if (misVehiculos.isEmpty)
-            const Card(
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Su taller todavía no le ha registrado un vehículo. Escríbale para que se '
-                  'lo registren al recibirlo.',
+                  'Su taller todavía no le ha registrado un ${vocab.activo}. Escríbale para '
+                  'que se lo registren al recibirlo.',
                 ),
               ),
             )
           else ...[
             DropdownButtonFormField<String>(
               initialValue: _vehiculoId ?? misVehiculos.first.id,
-              decoration: const InputDecoration(labelText: 'Cuál vehículo'),
+              decoration: InputDecoration(labelText: 'Cuál ${vocab.activo}'),
               items: [
                 for (final v in misVehiculos)
                   DropdownMenuItem(value: v.id, child: Text(v.label)),

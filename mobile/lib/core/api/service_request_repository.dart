@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import '../taller/vocabulario.dart';
 import '../period.dart';
 
 /// Vehículo del cliente, en lo mínimo que hace falta para elegirlo en una lista.
@@ -25,6 +26,24 @@ class VehicleOption {
         searchTerm: (json['plate'] ?? json['brand']) as String,
         mileage: json['mileage'] as int?,
       );
+
+  /// Un equipo visto como lo que es para estas pantallas: algo que entra al taller con un
+  /// nombre y una forma de volver a encontrarlo. La serie hace de placa; si no hay, la
+  /// etiqueta que le pegó el taller.
+  factory VehicleOption.deEquipo(Map<String, dynamic> json) {
+    final identificador = (json['serialNumber'] ?? json['tag']) as String?;
+
+    return VehicleOption(
+      id: json['id'] as String,
+      label: [
+        json['brand'] as String,
+        json['model'] as String,
+        if (identificador != null) '· $identificador',
+      ].join(' '),
+      customerName: json['customerName'] as String? ?? '',
+      searchTerm: identificador ?? json['brand'] as String,
+    );
+  }
 
   final String id;
   final String label;
@@ -148,6 +167,34 @@ class ServiceRequestRepository {
         .toList();
   }
 
+  /// Lo mismo para un taller de equipos. Son dos llamadas distintas y no una con bandera
+  /// porque son dos recursos distintos: el taller que no trabaja con equipos recibe 404.
+  Future<List<VehicleOption>> equipment({String? search}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/equipment',
+      queryParameters: {
+        'pageSize': 50,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      },
+    );
+
+    return (response.data!['items'] as List<dynamic>)
+        .map((e) => VehicleOption.deEquipo(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Las categorías de equipo del taller, para el alta exprés del mostrador.
+  Future<List<({String id, String name})>> equipmentTypes() async {
+    final response = await _dio.get<List<dynamic>>('/api/equipment/types');
+
+    return response.data!
+        .map((e) => (
+              id: (e as Map<String, dynamic>)['id'] as String,
+              name: e['name'] as String,
+            ))
+        .toList();
+  }
+
   /// Da de alta cliente y vehículo de una vez: es lo que pasa en el mostrador cuando llega
   /// alguien que nunca ha venido. Devuelve el vehículo —que es lo que hace falta después— y
   /// el id del cliente, por si se le va a abrir acceso a la app.
@@ -181,6 +228,37 @@ class ServiceRequestRepository {
     );
   }
 
+  /// El alta exprés del mostrador en un taller de equipos: el cliente y su aparato.
+  Future<({VehicleOption vehicle, String customerId})> registerCustomerAndEquipment({
+    required String fullName,
+    required String phone,
+    required String equipmentTypeId,
+    required String brand,
+    required String model,
+    String? serialNumber,
+  }) async {
+    final customer = await _dio.post<Map<String, dynamic>>(
+      '/api/customers',
+      data: {'fullName': fullName, 'phone': phone},
+    );
+
+    final equipment = await _dio.post<Map<String, dynamic>>(
+      '/api/equipment',
+      data: {
+        'customerId': customer.data!['id'],
+        'equipmentTypeId': equipmentTypeId,
+        'brand': brand,
+        'model': model,
+        'serialNumber': serialNumber,
+      },
+    );
+
+    return (
+      vehicle: VehicleOption.deEquipo(equipment.data!),
+      customerId: customer.data!['id'] as String,
+    );
+  }
+
   /// Le abre acceso a la app a un cliente ya registrado. Solo el Dueño.
   Future<void> grantAppAccess(String customerId, String email, String password) async {
     await _dio.post<Map<String, dynamic>>(
@@ -205,12 +283,14 @@ class ServiceRequestRepository {
     String? reportedSymptoms,
     DateTime? preferredDate,
     int? mileage,
+    /// Lo que entró es un equipo, no un vehículo: el id viaja por la otra llave.
+    bool esEquipo = false,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/service-requests',
       data: {
         'branchId': branchId,
-        'vehicleId': vehicleId,
+        if (esEquipo) 'equipmentId': vehicleId else 'vehicleId': vehicleId,
         'description': description,
         'reportedSymptoms': reportedSymptoms,
         'preferredDate': preferredDate?.toUtc().toIso8601String(),
@@ -264,9 +344,21 @@ final serviceRequestsProvider =
 
 /// Parametrizado por el texto de búsqueda: cadena vacía es "los primeros que haya", que es
 /// todo lo que necesita el Cliente, y con texto es la búsqueda del mostrador.
+/// Lo que el taller puede recibir: sus vehículos o sus equipos, según con qué trabaje.
 final vehicleOptionsProvider =
     FutureProvider.autoDispose.family<List<VehicleOption>, String>(
-  (ref, search) => ref.watch(serviceRequestRepositoryProvider).vehicles(search: search),
+  (ref, search) {
+    final repositorio = ref.watch(serviceRequestRepositoryProvider);
+
+    return ref.watch(esDeEquiposProvider)
+        ? repositorio.equipment(search: search)
+        : repositorio.vehicles(search: search);
+  },
+);
+
+final equipmentTypeOptionsProvider =
+    FutureProvider.autoDispose<List<({String id, String name})>>(
+  (ref) => ref.watch(serviceRequestRepositoryProvider).equipmentTypes(),
 );
 
 final branchOptionsProvider =

@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/dashboard_repository.dart';
+import '../../core/taller/vocabulario.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
@@ -28,6 +29,7 @@ class MoreScreen extends ConsumerWidget {
     if (auth is! AuthSignedIn) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final vocab = ref.watch(vocabularioProvider);
     final role = auth.user.role;
 
     // Quien manda: el Dueño en todo el taller, el Encargado en sus sucursales. Al Técnico y
@@ -146,7 +148,7 @@ class MoreScreen extends ConsumerWidget {
                 _Row(
                   icon: Icons.history,
                   label: 'Historial',
-                  foot: 'qué se le hizo a un vehículo',
+                  foot: 'qué se le hizo a un ${vocab.activo}',
                   route: '/historial',
                 ),
                 // Los catálogos son del taller: lo que se cobra por cada trabajo es el
@@ -207,7 +209,7 @@ class MoreScreen extends ConsumerWidget {
                 // A veces el mostrador es él: recibir un vehículo no es solo del Dueño.
                 _Row(
                   icon: Icons.add_circle_outline,
-                  label: 'Recibir un vehículo',
+                  label: 'Recibir un ${vocab.activo}',
                   route: '/nueva-cita',
                 ),
               ],
