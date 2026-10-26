@@ -12,6 +12,9 @@ public class Quote : TenantEntity, IBranchEntity
     public Guid BranchId { get; set; }
     public Guid CustomerId { get; set; }
     public Guid? VehicleId { get; set; }
+
+    /// <summary>El equipo cotizado, en un taller de equipos. Excluyente con el anterior.</summary>
+    public Guid? EquipmentId { get; set; }
     public Guid? ServiceRequestId { get; set; }
     public Guid? WorkOrderId { get; set; }
 

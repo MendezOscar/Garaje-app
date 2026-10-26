@@ -188,31 +188,34 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
           ),
           const SizedBox(height: 16),
 
-          DropdownButtonFormField<FuelLevel>(
-            initialValue: _combustible,
-            decoration: const InputDecoration(
-              labelText: 'Combustible',
-              border: OutlineInputBorder(),
+          // Un equipo no trae tanque ni odómetro: los dos campos son de vehículos.
+          if (!ref.watch(esDeEquiposProvider)) ...[
+            DropdownButtonFormField<FuelLevel>(
+              initialValue: _combustible,
+              decoration: const InputDecoration(
+                labelText: 'Combustible',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final nivel in FuelLevel.values)
+                  DropdownMenuItem(value: nivel, child: Text(nivel.label)),
+              ],
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() => _combustible = value ?? _combustible),
             ),
-            items: [
-              for (final nivel in FuelLevel.values)
-                DropdownMenuItem(value: nivel, child: Text(nivel.label)),
-            ],
-            onChanged: _busy
-                ? null
-                : (value) => setState(() => _combustible = value ?? _combustible),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          TextField(
-            controller: _mileage,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Kilometraje de entrada',
-              border: OutlineInputBorder(),
+            TextField(
+              controller: _mileage,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Kilometraje de entrada',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
 
           TextField(
             controller: _damages,

@@ -170,7 +170,9 @@ public static class InvoicePdf
                 {
                     row.RelativeItem().Column(c =>
                     {
-                        c.Item().Text("Vehículo").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        c.Item()
+                            .Text(sale.Kind == AssetKind.Equipment ? "Equipo" : "Vehículo")
+                            .FontSize(8).FontColor(Colors.Grey.Darken1);
                         c.Item().Text(sale.VehicleLabel).SemiBold();
                     });
                 }

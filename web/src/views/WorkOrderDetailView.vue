@@ -7,6 +7,7 @@ import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
+import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
 import {
   ClaimStatus,
@@ -149,6 +150,9 @@ const garantiaDias = ref(0)
  */
 const bodegaje = ref(0)
 const taller = ref<TenantSettings | null>(null)
+
+// Con qué trabaja el taller: de ahí salen las palabras y qué campos tienen sentido.
+const { esDeEquipos, vocabulario, cargar: cargarTaller } = useTaller()
 /**
  * A nombre de quién sale la factura. Se precarga con lo que tenga la ficha y se puede
  * cambiar aquí: pasa que el cliente pide la factura a nombre de la empresa donde trabaja,
@@ -913,6 +917,8 @@ async function reenviarCotizacion(quoteId: string) {
 }
 
 onMounted(async () => {
+  await cargarTaller()
+
   if (auth.isOwner) {
     technicians.value = await usersApi.list('Technician').catch(() => [])
 
@@ -1654,7 +1660,7 @@ onMounted(async () => {
                 Le toca el
                 <input v-model="nextServiceAt" type="date" />
               </label>
-              <label>
+              <label v-if="!esDeEquipos">
                 O a los (km)
                 <input
                   v-model="nextServiceMileage"
@@ -1825,12 +1831,21 @@ onMounted(async () => {
               </select>
             </dd>
             <dd v-else>{{ order.assignedTechnicianName ?? 'Sin asignar' }}</dd>
-            <dt>Vehículo</dt>
-            <dd>{{ VEHICLE_TYPE_LABEL[order.vehicleType] }} · {{ order.vehicleLabel }}</dd>
+            <dt>{{ vocabulario.Activo }}</dt>
+            <dd>
+              <template v-if="esDeEquipos">
+                {{ order.asset?.category ?? 'Equipo' }} · {{ order.vehicleLabel }}
+              </template>
+              <template v-else>
+                {{ VEHICLE_TYPE_LABEL[order.vehicleType] }} · {{ order.vehicleLabel }}
+              </template>
+            </dd>
             <dt>Sucursal</dt>
             <dd>{{ order.branchName }}</dd>
-            <dt>Kilometraje</dt>
-            <dd class="num">{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
+            <template v-if="!esDeEquipos">
+              <dt>Kilometraje</dt>
+              <dd class="num">{{ order.mileageIn?.toLocaleString('es-HN') ?? '—' }}</dd>
+            </template>
             <dt>Abierta</dt>
             <dd>{{ formatDateTime(order.openedAt) }}</dd>
           </dl>
@@ -1896,12 +1911,15 @@ onMounted(async () => {
 
           <template v-if="!editandoRecepcion">
             <p v-if="!recepcion" class="muted small">
-              Sin llenar. Es lo que decide la discusión de después: con cuánto combustible
-              entró, qué golpes ya traía y qué dejó adentro el cliente, firmado por él.
+              Sin llenar. Es lo que decide la discusión de después:
+              <template v-if="!esDeEquipos">con cuánto combustible entró, </template>
+              qué golpes ya traía y qué dejó adentro el cliente, firmado por él.
             </p>
             <dl v-else class="cuentas">
-              <dt>Combustible</dt>
-              <dd>{{ FUEL_LEVEL_LABEL[recepcion.fuelLevel] }}</dd>
+              <template v-if="!esDeEquipos">
+                <dt>Combustible</dt>
+                <dd>{{ FUEL_LEVEL_LABEL[recepcion.fuelLevel] }}</dd>
+              </template>
               <template v-if="recepcion.mileageIn">
                 <dt>Kilometraje</dt>
                 <dd class="num">{{ recepcion.mileageIn }}</dd>
@@ -1933,13 +1951,13 @@ onMounted(async () => {
             <img
               v-else-if="recepcion"
               :src="apiUrl(recepcion.signatureUrl) ?? undefined"
-              alt="Firma del cliente al entregar el vehículo"
+              :alt="`Firma del cliente al entregar el ${vocabulario.activo}`"
               class="firma"
             />
           </template>
 
           <form v-else class="recepcion" @submit.prevent="guardarRecepcion">
-            <div class="row">
+            <div v-if="!esDeEquipos" class="row">
               <label>
                 Combustible
                 <select v-model.number="formRecepcion.fuelLevel">

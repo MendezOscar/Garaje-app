@@ -283,6 +283,7 @@ public class SaleService(
             BranchId = order.BranchId,
             CustomerId = order.Vehicle?.CustomerId ?? order.Equipment!.CustomerId,
             VehicleId = order.VehicleId,
+            EquipmentId = order.EquipmentId,
             WorkOrderId = order.Id,
             Number = await NextNumberAsync(order.BranchId, ct),
             SaleDate = saleDate,
@@ -1113,6 +1114,7 @@ public class SaleService(
                 {
                     w.Number,
                     w.VehicleId,
+                    w.EquipmentId,
                     Vehicle = w.Vehicle != null
                         ? w.Vehicle.Brand + " " + w.Vehicle.Model
                         : w.Equipment!.Brand + " " + w.Equipment.Model
@@ -1122,13 +1124,19 @@ public class SaleService(
 
         // El servicio rápido no tiene orden, pero sí vehículo: se lee de la venta.
         var vehicleId = sale.VehicleId ?? order?.VehicleId;
+        var equipmentId = sale.EquipmentId ?? order?.EquipmentId;
 
-        var vehicle = sale.VehicleId is { } ownVehicleId
-            ? await db.Vehicles.AsNoTracking()
-                .Where(v => v.Id == ownVehicleId)
-                .Select(v => v.Brand + " " + v.Model)
+        var vehicle = equipmentId is { } ownEquipmentId
+            ? await db.Equipment.AsNoTracking()
+                .Where(e => e.Id == ownEquipmentId)
+                .Select(e => e.Brand + " " + e.Model)
                 .FirstOrDefaultAsync(ct)
-            : order?.Vehicle;
+            : sale.VehicleId is { } ownVehicleId
+                ? await db.Vehicles.AsNoTracking()
+                    .Where(v => v.Id == ownVehicleId)
+                    .Select(v => v.Brand + " " + v.Model)
+                    .FirstOrDefaultAsync(ct)
+                : order?.Vehicle;
 
         var paid = sale.Payments.Sum(p => p.Amount);
 
@@ -1199,7 +1207,8 @@ public class SaleService(
                 .Select(p => new SalePaymentDto(
                     p.Id, p.Amount, p.Method, p.PaidAt, p.Reference, p.Notes,
                     names.GetValueOrDefault(p.CreatedByUserId ?? Guid.Empty)))
-                .ToList());
+                .ToList(),
+            equipmentId is null ? AssetKind.Vehicle : AssetKind.Equipment);
     }
 
     /// <summary>

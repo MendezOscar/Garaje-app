@@ -49,6 +49,9 @@ public class Sale : TenantEntity, IBranchEntity
     /// </summary>
     public Guid? VehicleId { get; set; }
 
+    /// <summary>El equipo al que se le hizo el trabajo, en un taller de equipos.</summary>
+    public Guid? EquipmentId { get; set; }
+
     /// <summary>
     /// Días de garantía de este trabajo, elegidos al facturar. Null es sin garantía.
     /// </summary>

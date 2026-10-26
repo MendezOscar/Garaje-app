@@ -5,7 +5,7 @@ import { apiUrl, errorMessage } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { publicQuotesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
-import { LINE_TYPE_LABEL, QuoteStatus, type PublicQuote } from '@/types/domain'
+import { AssetKind, LINE_TYPE_LABEL, QuoteStatus, type PublicQuote } from '@/types/domain'
 import { formatDate, sinIsv } from '@/utils/format'
 
 // Página anónima: la abre el cliente desde el link de WhatsApp, sin cuenta ni login. El
@@ -110,7 +110,7 @@ onMounted(load)
           <dd>{{ quote.customerName }}</dd>
         </div>
         <div v-if="quote.vehicleLabel">
-          <dt>Vehículo</dt>
+          <dt>{{ quote.kind === AssetKind.Equipment ? 'Equipo' : 'Vehículo' }}</dt>
           <dd>{{ quote.vehicleLabel }} <span v-if="quote.plate">· {{ quote.plate }}</span></dd>
         </div>
         <div v-if="quote.validUntil">

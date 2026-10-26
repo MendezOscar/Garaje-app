@@ -51,7 +51,8 @@ public class ReceptionDocuments(
                     r.Belongings,
                     r.Notes,
                     r.DeliveredByName,
-                    null),
+                    null,
+                    r.WorkOrder.Vehicle != null ? AssetKind.Vehicle : AssetKind.Equipment),
                 r.SignatureStorageKey,
                 r.ReceivedByUserId,
                 r.WorkOrder.TenantId

@@ -1030,7 +1030,8 @@ public class WorkOrderService(
             steps,
             timeline,
             photos,
-            await InvoiceOfAsync(order.Id, order.TenantId, ct));
+            await InvoiceOfAsync(order.Id, order.TenantId, ct),
+            order.Vehicle != null ? AssetKind.Vehicle : AssetKind.Equipment);
     }
 
     public async Task<TenantLogo?> TrackingLogoPublicAsync(

@@ -250,7 +250,9 @@ public record OrderTrackingDto(
     IReadOnlyList<OrderTrackingEntryDto> Timeline,
     IReadOnlyList<OrderTrackingPhotoDto> Photos,
     // La factura, cuando la orden ya se cerró. Null mientras el vehículo está en el taller.
-    OrderTrackingInvoiceDto? Invoice);
+    OrderTrackingInvoiceDto? Invoice,
+    /// <summary>Vehículo o equipo: la página pública lo llama por su nombre.</summary>
+    AssetKind Kind = AssetKind.Vehicle);
 
 /// <summary>Un paso del trabajo, sin precio: lo que se le hizo al carro, no lo que cuesta.</summary>
 public record OrderTrackingStepDto(string Title, bool IsDone, DateTimeOffset? CompletedAt);

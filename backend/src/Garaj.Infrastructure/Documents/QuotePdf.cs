@@ -105,7 +105,9 @@ public static class QuotePdf
                 {
                     row.RelativeItem().Column(c =>
                     {
-                        c.Item().Text("Vehículo").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        c.Item()
+                            .Text(quote.Kind == AssetKind.Equipment ? "Equipo" : "Vehículo")
+                            .FontSize(8).FontColor(Colors.Grey.Darken1);
                         c.Item().Text(quote.VehicleLabel).SemiBold();
                         if (quote.Plate is not null) c.Item().Text(quote.Plate).FontSize(9);
                     });
