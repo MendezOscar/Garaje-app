@@ -11,6 +11,50 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.6.0 (16)
+
+### Google Play — «Novedades» (es-419)
+
+```
+Repuestos: ahora le puede dar entrada a un producto nuevo desde el teléfono —cuánto entró, a
+qué costo y a qué bodega—, sin pasar por el panel.
+
+GarajApp ya no es solo para vehículos: un taller de electrónica, computadoras, celulares o
+aires acondicionados recibe el equipo por número de serie, y la app le habla de equipos en
+todas las pantallas. Se activa al dar de alta el taller.
+
+Además, la app vuelve a abrir en los iPhone con iOS 26.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+Repuestos y talleres de equipos.
+
+REPUESTOS
+· Le da entrada a un producto nuevo desde el teléfono: cuánto entró, a qué costo y a qué
+  bodega. Antes había que ir al panel.
+· Si el repuesto todavía no existe, se crea y se le da entrada seguido, sin salir de la
+  pantalla.
+
+TALLERES QUE NO REPARAN VEHÍCULOS
+· GarajApp también sirve para electrónica, computadoras, celulares y aires acondicionados.
+· El taller recibe el equipo con su número de serie o su etiqueta, en vez de placa y
+  kilometraje, y la app le habla de equipos en todas las pantallas: recibir, cotizar,
+  facturar y el enlace que ve el cliente.
+· La hoja de recepción sale con lo del equipo, y es opcional: hay equipos que no la piden.
+· Se elige al dar de alta el taller. Un taller mecánico no cambia en nada.
+
+ARREGLOS
+· La app vuelve a abrir en los iPhone con iOS 26.
+· Las palabras del taller ahora le llegan también al encargado y al técnico, no solo al dueño.
+```
+
+> La ficha de las dos tiendas sigue diciendo «taller mecánico». Es a propósito mientras no se
+> decida cómo se presenta GarajApp a los talleres de equipos (fase 6 de
+> [equipos.md](equipos.md)): cambiar el nombre y la descripción manda la ficha a revisión otra
+> vez, y conviene hacerlo una sola vez y con el texto ya pensado.
+
 ## 1.5.0 (15)
 
 Misma versión y mismas notas que la 14: lo único que cambia es que el botón de confirmar una
