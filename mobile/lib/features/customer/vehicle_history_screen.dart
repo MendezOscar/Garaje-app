@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/service_request_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/models/work_order.dart';
+import '../../core/taller/vocabulario.dart';
 
 /// Qué vehículo se está mirando en el historial. Fuera de la pantalla para que la tarjeta de
 /// «Mi vehículo» pueda elegirlo antes de cambiar de pestaña.
@@ -37,11 +38,12 @@ class VehicleHistoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Historial')),
       body: elegido == null
-          ? const Center(
+          ? Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Todavía no hay vehículos suyos registrados en el taller.',
+                  'Todavía no hay ${ref.watch(vocabularioProvider).activos} suyos '
+                  'registrados en el taller.',
                   textAlign: TextAlign.center,
                 ),
               ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/work_order.dart';
+import '../taller/vocabulario.dart';
 import 'sucursal_activa.dart';
 
 final workOrderRepositoryProvider = Provider<WorkOrderRepository>(
@@ -21,6 +22,7 @@ class WorkOrderRepository {
   Future<List<WorkOrderListItem>> list({
     bool onlyOpen = true,
     String? vehicleId,
+    String? equipmentId,
     String? search,
     String? branchId,
     WorkOrderStatus? status,
@@ -31,6 +33,7 @@ class WorkOrderRepository {
         'onlyOpen': onlyOpen,
         'pageSize': 100,
         if (vehicleId != null) 'vehicleId': vehicleId,
+        if (equipmentId != null) 'equipmentId': equipmentId,
         if (branchId != null) 'branchId': branchId,
         if (status != null) 'status': status.value,
         // El backend busca por número, por placa normalizada y por nombre del cliente.
@@ -592,9 +595,17 @@ final openOrdersProvider = FutureProvider.autoDispose<List<WorkOrderListItem>>(
 /// mostrador cuando el cliente vuelve: «¿qué le hicieron la vez pasada?».
 final vehicleHistoryProvider =
     FutureProvider.autoDispose.family<List<WorkOrderListItem>, String>(
-  (ref, vehicleId) => ref
-      .watch(workOrderRepositoryProvider)
-      .list(onlyOpen: false, vehicleId: vehicleId),
+  (ref, activoId) {
+    // El taller es de una cosa o de la otra, así que el id que llega es de un vehículo o de
+    // un equipo según con qué trabaje: no hace falta que lo diga cada pantalla.
+    final esEquipo = ref.watch(esDeEquiposProvider);
+
+    return ref.watch(workOrderRepositoryProvider).list(
+          onlyOpen: false,
+          vehicleId: esEquipo ? null : activoId,
+          equipmentId: esEquipo ? activoId : null,
+        );
+  },
 );
 
 /// Las visitas que coinciden con una búsqueda —placa, cliente o número—, entregadas

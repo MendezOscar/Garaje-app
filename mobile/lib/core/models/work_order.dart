@@ -43,6 +43,11 @@ enum VehicleType {
       VehicleType.values.firstWhere((t) => t.value == value, orElse: () => VehicleType.car);
 }
 
+/// El id de lo que entró al taller. En un taller de equipos `vehicleId` viene nulo —no hay
+/// vehículo— y el id está en `asset`, que es lo mismo para los dos casos.
+String _idDelActivo(Map<String, dynamic> json) =>
+    (json['vehicleId'] ?? (json['asset'] as Map<String, dynamic>?)?['id']) as String;
+
 class WorkOrderListItem {
   const WorkOrderListItem({
     required this.id,
@@ -69,7 +74,7 @@ class WorkOrderListItem {
         number: json['number'] as String,
         branchName: json['branchName'] as String,
         status: WorkOrderStatus.fromValue(json['status'] as int),
-        vehicleId: json['vehicleId'] as String,
+        vehicleId: _idDelActivo(json),
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
@@ -252,7 +257,7 @@ class WorkOrderDetail {
         allowedNextStatuses: (json['allowedNextStatuses'] as List<dynamic>)
             .map((v) => WorkOrderStatus.fromValue(v as int))
             .toList(),
-        vehicleId: json['vehicleId'] as String,
+        vehicleId: _idDelActivo(json),
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
