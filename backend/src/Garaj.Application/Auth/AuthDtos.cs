@@ -1,3 +1,5 @@
+using Garaj.Domain.Enums;
+
 namespace Garaj.Application.Auth;
 
 public record LoginRequest(string Email, string Password);
@@ -40,7 +42,10 @@ public record CurrentUserDto(
     SubscriptionInfoDto? Subscription = null,
     // Si este usuario ve precios. Falso solo para el técnico de un taller que lo apagó: la
     // pantalla necesita saberlo para no pedirle un precio que el servidor no le va a aceptar.
-    bool SeesPrices = true);
+    bool SeesPrices = true,
+    // Con qué trabaja el taller. Va aquí y no en la ficha del taller —que solo el Dueño puede
+    // leer— porque de esto salen las palabras de todas las pantallas, también las del técnico.
+    WorkshopKind WorksWith = WorkshopKind.Vehicles);
 
 public record BranchSummaryDto(Guid Id, string Name, string? Code);
 

@@ -1,6 +1,8 @@
 // Espejo de los DTOs de Garaj.Application. A partir de la Fase 1 conviene generarlos desde
 // el OpenAPI del backend (`openapi-typescript`) para que no se desincronicen.
 
+import type { WorkshopKind } from '@/types/domain'
+
 export const Roles = {
   Owner: 'Owner',
   /** Encargado de sucursal: manda en la suya como el Dueño manda en el taller. */
@@ -32,6 +34,11 @@ export interface CurrentUser {
   customerId: string | null
   /** Cómo va el taller con su mensualidad. Null salvo para el Dueño: el backend no lo manda. */
   subscription: SubscriptionInfo | null
+  /**
+   * Con qué trabaja el taller: vehículos o equipos. Viene en la sesión porque de aquí salen
+   * las palabras de todas las pantallas, y la ficha del taller solo la lee el Dueño.
+   */
+  worksWith: WorkshopKind
 }
 
 export type SubscriptionState = 'Active' | 'DueSoon' | 'Grace' | 'ReadOnly' | 'Suspended'

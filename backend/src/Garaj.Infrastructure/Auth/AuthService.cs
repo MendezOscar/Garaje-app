@@ -289,7 +289,8 @@ public class AuthService(
                 : null,
             // El técnico de un taller que apagó los precios no los ve. Lo sabe desde que
             // entra, para no pedirle un precio que el servidor no le va a aceptar.
-            role != AppRoles.Technician || tenant.TechniciansSeePrices);
+            role != AppRoles.Technician || tenant.TechniciansSeePrices,
+            tenant.WorksWith);
     }
 
     private async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)

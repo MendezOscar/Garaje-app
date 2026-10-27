@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { tenantApi } from '@/api/garaj'
+import { useAuthStore } from '@/stores/auth'
 import { WorkshopKind, type TenantSettings } from '@/types/domain'
 
 /**
@@ -16,7 +17,10 @@ const ajustes = ref<TenantSettings | null>(null)
 let enVuelo: Promise<TenantSettings | null> | null = null
 
 export function useTaller() {
-  const esDeEquipos = computed(() => ajustes.value?.worksWith === WorkshopKind.Equipment)
+  // De la sesión, no de la ficha del taller: la ficha solo la puede leer el Dueño y estas
+  // palabras las necesitan todas las pantallas, también las del Encargado y el Técnico.
+  const auth = useAuthStore()
+  const esDeEquipos = computed(() => auth.user?.worksWith === WorkshopKind.Equipment)
 
   const vocabulario = computed(() =>
     esDeEquipos.value
