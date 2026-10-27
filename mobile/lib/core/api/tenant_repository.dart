@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import '../models/current_user.dart';
 
 /// Rango de facturación autorizado por el SAR, visto desde el teléfono.
 ///
@@ -79,19 +80,6 @@ class TenantRepository {
         .map((e) => FiscalRange.fromJson(e as Map<String, dynamic>))
         .toList();
   }
-}
-
-/// Con qué trabaja el taller. Lo fija quien lo da de alta: el Dueño solo lo ve.
-enum WorkshopKind {
-  vehiculos(1),
-  equipos(2);
-
-  const WorkshopKind(this.value);
-
-  final int value;
-
-  static WorkshopKind fromValue(int? value) =>
-      value == equipos.value ? equipos : vehiculos;
 }
 
 /// Los ajustes del taller: lo que se imprime, lo que se cobra y lo que el técnico ve.

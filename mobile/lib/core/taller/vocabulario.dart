@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../api/tenant_repository.dart';
+import '../auth/auth_controller.dart';
+import '../models/current_user.dart';
 
 /// Con qué trabaja el taller y cómo se llaman las cosas en pantalla.
 ///
@@ -8,17 +9,13 @@ import '../api/tenant_repository.dart';
 /// equipos con número de serie. Es la misma pantalla con otras palabras, así que las palabras
 /// salen de aquí y no se escriben a mano en cada vista.
 ///
-/// Vive fuera de `tenantSettingsProvider` —que se descarta al salir de Ajustes— porque esto
-/// lo lee media aplicación y pedirlo en cada pantalla sería un viaje de red por pantalla.
-final tallerProvider = FutureProvider<TenantSettings>(
-  (ref) => ref.watch(tenantRepositoryProvider).settings(),
-);
-
-/// Falso mientras se carga: lo de hoy es un taller de vehículos, así que es lo que se asume
-/// hasta que el servidor conteste otra cosa.
-final esDeEquiposProvider = Provider<bool>(
-  (ref) => ref.watch(tallerProvider).value?.worksWith == WorkshopKind.equipos,
-);
+/// Sale de la sesión y no de la ficha del taller: la ficha solo la puede leer el Dueño, y
+/// estas palabras las necesitan todas las pantallas, también las del técnico y las del
+/// cliente. Además ya viene con el login, así que no es un viaje de red más.
+final esDeEquiposProvider = Provider<bool>((ref) {
+  final sesion = ref.watch(authControllerProvider);
+  return sesion is AuthSignedIn && sesion.user.worksWith == WorkshopKind.equipos;
+});
 
 class Vocabulario {
   const Vocabulario({

@@ -21,6 +21,19 @@ enum AppRole {
       );
 }
 
+/// Con qué trabaja el taller. Lo fija quien lo da de alta: el Dueño solo lo ve.
+enum WorkshopKind {
+  vehiculos(1),
+  equipos(2);
+
+  const WorkshopKind(this.value);
+
+  final int value;
+
+  static WorkshopKind fromValue(int? value) =>
+      value == equipos.value ? equipos : vehiculos;
+}
+
 class BranchSummary {
   const BranchSummary({required this.id, required this.name, this.code});
 
@@ -48,6 +61,7 @@ class CurrentUser {
     this.customerId,
     this.subscription,
     this.seesPrices = true,
+    this.worksWith = WorkshopKind.vehiculos,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) => CurrentUser(
@@ -63,6 +77,7 @@ class CurrentUser {
             .toList(),
         customerId: json['customerId'] as String?,
         seesPrices: json['seesPrices'] as bool? ?? true,
+        worksWith: WorkshopKind.fromValue(json['worksWith'] as int?),
         subscription: json['subscription'] == null
             ? null
             : SubscriptionInfo.fromJson(json['subscription'] as Map<String, dynamic>),
@@ -84,6 +99,10 @@ class CurrentUser {
 
   /// Si este usuario ve precios. Falso solo para el técnico de un taller que los apagó.
   final bool seesPrices;
+
+  /// Con qué trabaja el taller: vehículos o equipos. Viene en el login porque de aquí salen
+  /// las palabras de todas las pantallas, y la ficha del taller solo la puede leer el Dueño.
+  final WorkshopKind worksWith;
 
   /// Cómo va el taller con su mensualidad. **Null salvo para el Dueño**: el backend no se lo
   /// manda al Técnico ni al Cliente, así que aquí no hay que acordarse de esconderlo.
