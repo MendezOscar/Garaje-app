@@ -3,6 +3,7 @@ using Garaj.Application.Common;
 using Garaj.Application.Tenants;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
+using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -209,6 +210,26 @@ public class TenantService(
         await stream.CopyToAsync(buffer, ct);
 
         return new TenantLogo(buffer.ToArray(), LogoContentType);
+    }
+
+    public async Task<byte[]> BookingPosterAsync(CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var tenant = await CurrentAsync(ct);
+
+        var link = BookingUrl(tenant.BookingToken)
+            ?? throw new AppException(
+                "El servidor no tiene configurada la dirección pública, así que no se puede "
+                + "armar el enlace de citas.");
+
+        return BookingPosterPdf.Render(
+            tenant.Name,
+            link,
+            tenant.WorksWith,
+            tenant.Phone,
+            tenant.Address,
+            await TryGetLogoBytesAsync(tenant.Id, ct));
     }
 
     public async Task<byte[]?> TryGetLogoBytesAsync(Guid tenantId, CancellationToken ct = default)

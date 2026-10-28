@@ -90,6 +90,25 @@ async function copiarEnlace() {
   }
 }
 
+/**
+ * El mismo QR, pero en una hoja para imprimir: el taller la pega en el mostrador o la usa de
+ * publicidad. Lo arma el servidor —con el nombre, el logo y el teléfono del taller— porque
+ * aquí solo hay el código.
+ */
+const bajandoAfiche = ref(false)
+
+async function bajarAfiche() {
+  bajandoAfiche.value = true
+
+  try {
+    await tenantApi.downloadBookingPoster()
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo preparar el afiche.')
+  } finally {
+    bajandoAfiche.value = false
+  }
+}
+
 const loading = ref(false)
 const busy = ref(false)
 const error = ref('')
@@ -518,10 +537,15 @@ onMounted(async () => {
 
           <div class="qr">
             <img :src="qr" alt="Código QR del enlace de citas" width="132" height="132" />
-            <p class="muted small">
-              Imprímalo y péguelo en el mostrador: quien lo escanee con la cámara del teléfono
-              cae en la hoja para pedir su cita.
-            </p>
+            <div>
+              <p class="muted small">
+                Imprímalo y péguelo en el mostrador: quien lo escanee con la cámara del teléfono
+                cae en la hoja para pedir su cita.
+              </p>
+              <button type="button" class="btn-ghost" :disabled="bajandoAfiche" @click="bajarAfiche">
+                {{ bajandoAfiche ? 'Preparando…' : 'Descargar el afiche en PDF' }}
+              </button>
+            </div>
           </div>
 
           <label class="checkbox">
@@ -746,6 +770,10 @@ onMounted(async () => {
   align-items: center;
   gap: 1rem;
   margin-bottom: 0.75rem;
+}
+
+.qr button {
+  margin-top: 0.5rem;
 }
 
 .qr img {

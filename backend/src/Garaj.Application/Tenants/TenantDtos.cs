@@ -110,6 +110,12 @@ public interface ITenantService
     Task<TenantSettingsDto> RemoveLogoAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// El afiche del enlace de citas, en PDF: una hoja con el QR grande para imprimir y pegar
+    /// en el mostrador. Es publicidad del taller, no un documento del negocio.
+    /// </summary>
+    Task<byte[]> BookingPosterAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// Los bytes del logo de un taller cualquiera, sin contexto de sesión: lo sirve la ruta
     /// pública que consumen las etiquetas &lt;img&gt;. Null si ese taller no tiene logo.
     /// </summary>
