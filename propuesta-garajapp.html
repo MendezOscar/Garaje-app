@@ -5,13 +5,14 @@
   forma de pago del taller. Esto se manda por WhatsApp o correo, o se imprime a PDF
   (Cmd+P → Guardar como PDF) con los datos del cliente ya llenos.
 
-  Antes de mandarla, llene los tres campos marcados con «___» arriba a la derecha.
+  Esta copia está llena para LUBRISMART (27 de octubre de 2026). Para otro taller se cambian
+  el nombre y la fecha de arriba a la derecha, y los precios si no son los mismos.
 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Propuesta de implementación — GarajApp</title>
+<title>Propuesta de implementación — GarajApp para LUBRISMART</title>
 <style>
   :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -58,27 +59,34 @@
     </div>
     <div class="meta">
       <strong>Propuesta de implementación</strong><br />
-      Preparada para: <strong>___</strong><br />
-      Fecha: ___<br />
+      Preparada para: <strong>LUBRISMART</strong><br />
+      Fecha: 27 de octubre de 2026<br />
       Válida por 30 días
     </div>
   </div>
 
   <h2>1. Resumen</h2>
-  <p>GarajApp es una plataforma para administrar un taller de autos y motos: la orden de trabajo con evidencia fotográfica, el inventario de repuestos por sucursal, las cotizaciones que el cliente aprueba por WhatsApp y el cobro con abonos. Tiene <strong>app móvil</strong> para trabajar con el teléfono en la mano —que es como trabaja el taller— y <strong>panel web</strong> para la administración, los reportes y las exportaciones a Excel.</p>
-  <p style="margin-top:8px">Tres perfiles con lo que a cada uno le toca: el <strong>Dueño</strong> ve todo el taller, el <strong>Técnico</strong> solo su trabajo y su sucursal, y el <strong>Cliente</strong> el estado de sus vehículos.</p>
+  <p>GarajApp es una plataforma para administrar un taller de autos y motos: la orden de trabajo con evidencia fotográfica, el inventario de repuestos y lubricantes por sucursal, las cotizaciones que el cliente aprueba por WhatsApp y el cobro con abonos. Tiene <strong>app móvil</strong> para trabajar con el teléfono en la mano —que es como trabaja el taller— y <strong>panel web</strong> para la administración, los reportes y las exportaciones a Excel.</p>
+  <p style="margin-top:8px">Cuatro perfiles con lo que a cada uno le toca: el <strong>Dueño</strong> ve todo el taller, el <strong>Encargado</strong> manda en su sucursal, el <strong>Técnico</strong> ve solo su trabajo y el <strong>Cliente</strong> el estado de sus vehículos.</p>
+  <p style="margin-top:8px">La app <strong>ya está publicada</strong> en App Store y Google Play: su gente la descarga buscando «GarajApp», no hay que instalar nada a mano. El panel se abre desde cualquier navegador.</p>
 
   <h2>2. Alcance — qué incluye</h2>
   <ul>
-    <li><strong>Recepción y órdenes de trabajo</strong>: alta en mostrador con cliente, vehículo y motivo de ingreso; diagnóstico, pasos de la reparación y línea de tiempo de quién movió qué.</li>
-    <li><strong>Evidencia fotográfica</strong> de lo que se encontró y lo que se cambió, guardada con la orden.</li>
+    <li><strong>Recepción y órdenes de trabajo</strong>: alta en mostrador con cliente, vehículo y motivo de ingreso; diagnóstico, pasos del servicio y línea de tiempo de quién movió qué.</li>
+    <li><strong>Trabajos frecuentes</strong>: el cambio de aceite, la rotación, el lavado —lo que se repite todo el día— queda guardado con sus repuestos y su precio, y se aplica de un toque.</li>
+    <li><strong>Venta rápida de mostrador</strong>, sin abrirle orden al vehículo: para el servicio que entra y sale en veinte minutos.</li>
+    <li><strong>Evidencia fotográfica</strong> de lo que se encontró y lo que se cambió, guardada con la orden. Se toman aunque no haya señal y se suben solas.</li>
     <li><strong>Cotizaciones</strong> con repuestos y mano de obra, en PDF y como página que el cliente abre por WhatsApp sin instalar nada y aprueba con un toque.</li>
-    <li><strong>Inventario por sucursal</strong>: existencias, entradas de compra, ajustes por conteo, traslados y kardex. El stock no se edita a mano: cada movimiento queda con su responsable.</li>
-    <li><strong>Facturación y cobro</strong>: cierre de la orden con lo que de verdad se consumió, venta de mostrador, crédito con abonos y cuentas por cobrar con lo vencido aparte.</li>
+    <li><strong>Inventario por sucursal</strong>: existencias, entradas de compra, ajustes por conteo, traslados y kardex, con aviso de lo que está bajo mínimo. El stock no se edita a mano: cada movimiento queda con su responsable.</li>
+    <li><strong>Recordatorio del próximo servicio</strong>: al entregar se anota cuándo le toca volver, y el panel enseña a quién hay que llamar este mes y quién ya se atrasó. Es el trabajo que hoy se pierde por no acordarse.</li>
+    <li><strong>Citas</strong>: el cliente aparta el día desde la app, o desde un enlace que usted manda por WhatsApp o imprime en un QR, sin cuenta ni contraseña.</li>
+    <li><strong>Facturación y cobro</strong>: cierre de la orden con lo que de verdad se consumió, crédito con abonos, estado de cuenta del cliente y cuentas por cobrar con lo vencido aparte.</li>
     <li><strong>Facturación con CAI</strong> opcional: correlativo del SAR por sucursal, con aviso cuando el rango se está acabando.</li>
-    <li><strong>Reportes</strong> de lo facturado hoy, esta semana y este mes, separado en repuestos y mano de obra, con el reparto por sucursal y por técnico. Exportables a Excel.</li>
+    <li><strong>Cierre de caja del día</strong>: lo que de verdad entró, que no es lo mismo que lo facturado, y los gastos del taller con su comprobante.</li>
+    <li><strong>Garantía y reclamos</strong>: el trabajo sale con sus días de garantía impresos, y si el cliente vuelve el reclamo queda amarrado a la orden original.</li>
+    <li><strong>Reportes</strong> de lo facturado hoy, esta semana y este mes, separado en repuestos y mano de obra, con el reparto por sucursal y por técnico, y el estado de resultados. Exportables a Excel.</li>
     <li><strong>Usuarios y sucursales</strong> sin límite, con acceso a la app para los clientes que lo pidan.</li>
-    <li><strong>Avisos</strong> dentro de la app para cada perfil (aprobación de cotización, orden lista, stock bajo).</li>
+    <li><strong>Avisos</strong> al teléfono de cada perfil: cotización aprobada, orden lista, cita nueva, stock bajo.</li>
   </ul>
 
   <h2>3. Inversión</h2>
@@ -87,12 +95,12 @@
   <div class="cards">
     <div class="card pop">
       <div class="n">Taller <span class="tag">Una sucursal</span></div>
-      <div class="pr">L 1,200 <span>/ mes</span></div>
+      <div class="pr">L 850 <span>/ mes</span></div>
       <small>Un taller con una sucursal · usuarios, órdenes, fotos y cotizaciones sin límite · todos los módulos incluidos.</small>
     </div>
     <div class="card">
       <div class="n">Sucursal adicional</div>
-      <div class="pr">L 400 <span>/ mes</span></div>
+      <div class="pr">L 300 <span>/ mes</span></div>
       <small>Por cada sucursal después de la primera, con su propio inventario, sus técnicos y su reporte.</small>
     </div>
   </div>
@@ -108,18 +116,18 @@
       <tr>
         <td><strong>Mensualidad</strong><br /><span class="muted">todo incluido</span></td>
         <td>Alojamiento en la nube, respaldos, actualizaciones y soporte. Una sucursal incluida.</td>
-        <td class="num">L 1,200 / mes</td>
+        <td class="num">L 850 / mes</td>
       </tr>
       <tr>
         <td><strong>Sucursal adicional</strong></td>
         <td>Cada sucursal después de la primera.</td>
-        <td class="num">L 400 / mes</td>
+        <td class="num">L 300 / mes</td>
       </tr>
     </tbody>
   </table>
 
-  <div class="hl">💡 <strong>Pago anual:</strong> paga 10 meses y obtiene 2 gratis (un taller de una sucursal: <strong>L 12,000 al año</strong>).</div>
-  <p class="muted" style="margin-top:10px;font-size:13px">La publicación de la app en App Store y Google Play es opcional y se cotiza aparte; mientras tanto la app se instala directamente en los teléfonos del taller.</p>
+  <div class="hl">💡 <strong>Pago anual:</strong> paga 10 meses y obtiene 2 gratis (un taller de una sucursal: <strong>L 8,500 al año</strong>).</div>
+  <p class="muted" style="margin-top:10px;font-size:13px">La app en App Store y Google Play está incluida: se descarga buscando «GarajApp» y las actualizaciones llegan solas, sin costo.</p>
 
   <h2>4. Puesta en marcha — cómo sería</h2>
   <ul>
@@ -148,7 +156,7 @@
 
   <div class="foot">
     <strong>Óscar Méndez</strong> · GarajApp<br />
-    ✉️ soporte@garajeapp.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 garaje-app.pages.dev
+    ✉️ soporte@garajeapp.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 www.garajeapp.com
   </div>
 </div>
 </body>
