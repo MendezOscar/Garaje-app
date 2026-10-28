@@ -13,10 +13,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Propuesta de implementación — GarajApp para LUBRISMART</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
 <style>
   :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  h1, h2, h3, .card .n, .card .pr { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+  .card .pr, td.num { font-variant-numeric: tabular-nums; }
   .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
   h1 { font-size: 26px; letter-spacing:-0.02em; }
   h2 { font-size: 17px; color:var(--brand-dark); margin: 26px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
@@ -24,8 +29,6 @@
   p, li { font-size: 14.5px; }
   .muted { color: var(--muted); }
   .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
-  .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:22px; }
-  .logo { width:38px; height:38px; border-radius:10px; background:linear-gradient(160deg,var(--brand),var(--brand-dark)); display:grid; place-items:center; color:#fff; font-size:19px; }
   .meta { text-align:right; font-size:13px; color:var(--muted); }
   ul { margin: 6px 0 6px 20px; }
   ul li { margin: 3px 0; }
@@ -54,8 +57,13 @@
 <div class="page">
   <div class="head">
     <div>
-      <div class="brand"><span class="logo">🔧</span> GarajApp</div>
-      <p class="muted" style="margin-top:6px">El taller ordenado, desde el teléfono</p>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="246" height="77" role="img" aria-label="GarajApp">
+      <title>GarajApp — logotipo horizontal</title>
+      <path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#1F6FEB"></path>
+      <text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#14171C">G</text>
+      <g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#14171C">GarajApp</text></g>
+      </svg>
+      <p class="muted" style="margin-top:2px">El taller ordenado, desde el teléfono</p>
     </div>
     <div class="meta">
       <strong>Propuesta de implementación</strong><br />
