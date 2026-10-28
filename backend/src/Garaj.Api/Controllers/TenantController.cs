@@ -40,6 +40,14 @@ public class TenantController(ITenantService service) : ControllerBase
         return Ok(await service.SetLogoAsync(stream, file.ContentType, ct));
     }
 
+    /// <summary>
+    /// El afiche del enlace de citas, para imprimir y pegar en el mostrador. Va por aquí y no
+    /// por una ruta pública porque lleva el nombre y el teléfono del taller.
+    /// </summary>
+    [HttpGet("booking-poster.pdf")]
+    public async Task<IActionResult> BookingPoster(CancellationToken ct)
+        => File(await service.BookingPosterAsync(ct), "application/pdf", "afiche-citas.pdf");
+
     [HttpDelete("logo")]
     public async Task<ActionResult<TenantSettingsDto>> RemoveLogo(CancellationToken ct)
         => Ok(await service.RemoveLogoAsync(ct));

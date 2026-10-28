@@ -1291,6 +1291,10 @@ export const tenantApi = {
     const { data } = await api.delete<TenantSettings>('/api/tenant/logo')
     return data
   },
+  /** El afiche del enlace de citas, para imprimirlo y pegarlo en el mostrador. */
+  async downloadBookingPoster() {
+    await download('/api/tenant/booking-poster.pdf', 'afiche-citas.pdf')
+  },
 
   async fiscalRanges(): Promise<FiscalRange[]> {
     const { data } = await api.get<FiscalRange[]>('/api/tenant/fiscal-ranges')
