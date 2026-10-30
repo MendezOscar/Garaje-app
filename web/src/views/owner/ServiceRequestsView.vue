@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { serviceRequestsApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import FilterChip from '@/components/FilterChip.vue'
+import PeriodSelect from '@/components/PeriodSelect.vue'
 import ViewTabs from '@/components/ViewTabs.vue'
 import NewServiceRequestForm from '@/components/NewServiceRequestForm.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
@@ -15,7 +18,6 @@ import {
   type User,
 } from '@/types/domain'
 import { formatDate, relativeTime, whatsappLink } from '@/utils/format'
-import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -27,17 +29,41 @@ const error = ref('')
 const busyId = ref<string | null>(null)
 
 /** Filtro de fechas. Arranca en el mes: la bandeja de un taller con meses de uso es larga. */
-const period = ref<PeriodKey>('month')
+const desde = ref('')
+
+/**
+ * Los que ya se convirtieron en orden salen de la lista por defecto: ese vehículo ya está
+ * en el tablero, y la bandeja se llenaba de renglones que no piden nada.
+ */
+const verCerrados = ref(false)
+
+const visibles = computed(() =>
+  verCerrados.value
+    ? requests.value
+    : requests.value.filter(
+        (r) =>
+          r.status !== ServiceRequestStatus.Converted &&
+          r.status !== ServiceRequestStatus.Rejected,
+      ),
+)
+
+const cerrados = computed(() => requests.value.length - visibles.value.length)
 
 /** Técnico elegido por requerimiento, para poder asignar en el mismo gesto que se aprueba. */
 const chosenTechnician = ref<Record<string, string>>({})
+
+/** El periodo lo pone el selector de la barra; aquí solo se guarda y se recarga. */
+function cambiarPeriodo(rango: { desde: string; hasta: string }) {
+  desde.value = rango.desde
+  load()
+}
 
 async function load() {
   loading.value = true
   try {
     const result = await serviceRequestsApi.list({
       pageSize: 100,
-      from: periodFrom(period.value),
+      from: desde.value || undefined,
     })
     requests.value = result.items
   } catch (e) {
@@ -107,18 +133,12 @@ onMounted(async () => {
     />
 
 
-    <div class="periods">
-      <button
-        v-for="p in PERIODS"
-        :key="p.key"
-        type="button"
-        class="chip"
-        :class="{ on: period === p.key }"
-        @click="period = p.key; load()"
-      >
-        {{ p.label }}
-      </button>
-    </div>
+    <FilterBar>
+      <PeriodSelect inicial="mes" @cambio="cambiarPeriodo" />
+      <FilterChip v-model="verCerrados" :cuantos="cerrados">
+        Ver los ya recibidos
+      </FilterChip>
+    </FilterBar>
 
     <NewServiceRequestForm @created="load" />
 
@@ -126,7 +146,7 @@ onMounted(async () => {
     <SkeletonList v-if="loading" :rows="4" variant="lista" />
 
     <ul class="list">
-      <li v-for="request in requests" :key="request.id" class="card">
+      <li v-for="request in visibles" :key="request.id" class="card">
         <div class="head">
           <div>
             <strong>{{ request.vehicleLabel }}</strong>
