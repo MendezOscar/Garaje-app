@@ -554,7 +554,7 @@ onMounted(async () => {
 
           <div class="campos">
             <label v-if="!esDeEquipos">
-              Kilometraje
+              Kilometraje o millaje
               <input v-model="form.mileage" type="number" min="0" :placeholder="kmConocido" />
             </label>
 
