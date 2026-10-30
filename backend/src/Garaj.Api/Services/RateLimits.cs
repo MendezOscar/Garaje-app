@@ -18,4 +18,12 @@ public static class RateLimits
     /// del bucket y renderizar. Va aparte del resto de lo público, que es barato.
     /// </summary>
     public const string Documento = "documento";
+
+    /// <summary>
+    /// Cargar un catálogo desde Excel: se lee un libro entero en memoria y se escriben miles
+    /// de filas. Es lo más caro que puede pedir alguien con sesión, y se hace dos veces por
+    /// archivo —la vista previa y el guardado—, así que el cupo da para corregir y reintentar
+    /// sin dar para repetirlo en bucle.
+    /// </summary>
+    public const string Carga = "carga";
 }
