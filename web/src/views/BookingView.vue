@@ -40,7 +40,24 @@ const logo = computed(() =>
 )
 
 const hoy = new Date()
-const hoyISO = `${hoy.getFullYear()}-${`${hoy.getMonth() + 1}`.padStart(2, '0')}-${`${hoy.getDate()}`.padStart(2, '0')}`
+const hoyISO = comoISO(hoy)
+
+function comoISO(fecha: Date): string {
+  return `${fecha.getFullYear()}-${`${fecha.getMonth() + 1}`.padStart(2, '0')}-${`${fecha.getDate()}`.padStart(2, '0')}`
+}
+
+/**
+ * El día que viene puesto: mañana, y si cae domingo, el lunes.
+ *
+ * Venía puesto hoy, que a las nueve de la noche es pedir cita para un día que ya terminó.
+ * No adivina el horario del taller —eso lo confirma él—, pero no propone un imposible.
+ */
+function proximoDiaHabil(): string {
+  const dia = new Date(hoy)
+  dia.setDate(dia.getDate() + 1)
+  if (dia.getDay() === 0) dia.setDate(dia.getDate() + 1)
+  return comoISO(dia)
+}
 
 const form = ref({
   branchId: '',
@@ -48,8 +65,18 @@ const form = ref({
   contactPhone: '',
   vehicleNote: '',
   reason: '',
-  day: hoyISO,
+  day: proximoDiaHabil(),
   slot: AppointmentSlot.Morning as AppointmentSlot,
+})
+
+/** Lo primero que falte, dicho con palabras. */
+const loQueFalta = computed(() => {
+  const f = form.value
+  if (f.contactName.trim().length <= 1) return 'su nombre'
+  if (f.contactPhone.replace(/\D/g, '').length < 8) return 'su teléfono, de ocho números'
+  if (f.reason.trim().length <= 2) return 'decir qué necesita'
+  if (!f.day) return 'elegir el día'
+  return 'completar el formulario'
 })
 
 const listo = computed(
@@ -191,18 +218,21 @@ onMounted(async () => {
               required
             />
           </label>
-          <label>
-            A qué hora
-            <select v-model.number="form.slot">
-              <option
+          <div class="franja">
+            <span class="rotulo">A qué hora</span>
+            <!-- Dos opciones no son una lista desplegable: son dos botones. -->
+            <div class="opciones">
+              <button
                 v-for="(label, value) in APPOINTMENT_SLOT_LABEL"
                 :key="value"
-                :value="Number(value)"
+                type="button"
+                :class="{ activa: form.slot === Number(value) }"
+                @click="form.slot = Number(value) as AppointmentSlot"
               >
                 {{ label }}
-              </option>
-            </select>
-          </label>
+              </button>
+            </div>
+          </div>
         </div>
 
         <label v-if="taller.branches.length > 1">
@@ -224,6 +254,10 @@ onMounted(async () => {
           {{ enviando ? 'Enviando…' : 'Pedir la cita' }}
         </button>
 
+        <!-- Qué falta para poder mandarla: el botón apagado sin decir por qué deja a la
+             persona tocándolo sin entender. -->
+        <p v-if="!listo && !enviando" class="muted small">Falta {{ loQueFalta }}.</p>
+
         <p class="muted small">
           Queda <strong>por confirmar</strong> hasta que el taller le conteste. Si el día
           {{ formatDay(form.day) }} no les cabe, le proponen otro.
@@ -241,6 +275,35 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.franja .rotulo {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.franja .opciones {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.franja .opciones button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.franja .opciones button.activa {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
 .page {
   min-height: 100dvh;
   padding: 1rem;
