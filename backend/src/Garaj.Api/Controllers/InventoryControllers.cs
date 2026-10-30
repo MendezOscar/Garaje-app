@@ -1,7 +1,9 @@
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
+using Garaj.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Garaj.Api.Controllers;
 
@@ -41,6 +43,7 @@ public class PartsController(IPartService service) : ControllerBase
     /// <summary>La plantilla de Excel para cargar el catálogo de un golpe.</summary>
     [HttpGet("import/template")]
     [Authorize(Policy = AppPolicies.ManagementOnly)]
+    [EnableRateLimiting(RateLimits.Carga)]
     public IActionResult ImportTemplate()
         => File(
             service.ImportTemplate(),
@@ -56,6 +59,7 @@ public class PartsController(IPartService service) : ControllerBase
     /// </param>
     [HttpPost("import")]
     [Authorize(Policy = AppPolicies.ManagementOnly)]
+    [EnableRateLimiting(RateLimits.Carga)]
     [RequestSizeLimit(8 * 1024 * 1024)]
     public async Task<ActionResult<ImportResultDto>> Import(
         IFormFile file, [FromQuery] bool apply, [FromQuery] Guid? branchId, CancellationToken ct)

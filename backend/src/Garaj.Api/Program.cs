@@ -66,11 +66,22 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         }));
 
+    // Por usuario cuando hay sesión: un taller entero sale por una sola conexión, y con la
+    // IP como clave el primero que baja diez PDF deja sin cupo a sus compañeros.
     options.AddPolicy(RateLimits.Documento, http => RateLimitPartition.GetFixedWindowLimiter(
-        ClienteQuePide(http),
+        QuienPide(http),
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
+    options.AddPolicy(RateLimits.Carga, http => RateLimitPartition.GetFixedWindowLimiter(
+        QuienPide(http),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 12,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
         }));

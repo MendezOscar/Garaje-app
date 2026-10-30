@@ -38,6 +38,7 @@ public class LaborServicesController(ILaborServiceCatalog service) : ControllerB
     /// <summary>La plantilla de Excel para cargar el catálogo de un golpe.</summary>
     [HttpGet("import/template")]
     [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [EnableRateLimiting(RateLimits.Carga)]
     public IActionResult ImportTemplate()
         => File(
             service.ImportTemplate(),
@@ -50,6 +51,7 @@ public class LaborServicesController(ILaborServiceCatalog service) : ControllerB
     /// </summary>
     [HttpPost("import")]
     [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [EnableRateLimiting(RateLimits.Carga)]
     [RequestSizeLimit(8 * 1024 * 1024)]
     public async Task<ActionResult<ImportResultDto>> Import(
         IFormFile file, [FromQuery] bool apply, CancellationToken ct)
