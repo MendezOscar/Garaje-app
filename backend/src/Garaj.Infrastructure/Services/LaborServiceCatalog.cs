@@ -1,3 +1,4 @@
+using FluentValidation;
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Quotes;
@@ -12,7 +13,10 @@ namespace Garaj.Infrastructure.Services;
 /// Catálogo de mano de obra. Es lo que permite cotizar el trabajo sin teclear el precio cada
 /// vez, y lo que separa el ingreso por mano de obra del de repuestos en los reportes.
 /// </summary>
-public class LaborServiceCatalog(GarajDbContext db, ITenantContext tenantContext) : ILaborServiceCatalog
+public class LaborServiceCatalog(
+    GarajDbContext db,
+    ITenantContext tenantContext,
+    IValidator<SaveLaborServiceRequest> validador) : ILaborServiceCatalog
 {
     public async Task<IReadOnlyList<LaborServiceDto>> ListAsync(
         bool includeInactive, CancellationToken ct = default)
@@ -88,6 +92,7 @@ public class LaborServiceCatalog(GarajDbContext db, ITenantContext tenantContext
         AccessScope.From(tenantContext).EnsureOwner();
 
         var filas = CatalogSheets.LeerManoDeObra(file);
+        Importaciones.EnsureCabe(filas.Count);
 
         var codigos = filas.Where(f => f.Dato is not null)
             .Select(f => Normalizar(f.Dato!.Code))
@@ -97,53 +102,78 @@ public class LaborServiceCatalog(GarajDbContext db, ITenantContext tenantContext
             .Where(s => codigos.Contains(s.Code))
             .ToDictionaryAsync(s => s.Code, ct);
 
-        var renglones = new List<ImportRowDto>(filas.Count);
+        var errores = new List<ImportRowDto>();
+        var buenas = new List<ImportRowDto>();
         var vistos = new HashSet<string>();
-        int creados = 0, actualizados = 0, fallidos = 0;
+        int creados = 0, actualizados = 0;
 
-        foreach (var fila in filas)
+        // Igual que en repuestos: con la autodetección encendida, EF revisa en cada Add todo
+        // lo que lleva en memoria y el tiempo crece con el cuadrado de las filas.
+        var autodeteccion = db.ChangeTracker.AutoDetectChangesEnabled;
+        db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+        try
         {
-            var error = fila.Error;
-            var codigo = fila.Dato is null ? fila.Key : Normalizar(fila.Dato.Code);
-
-            // El mismo código dos veces: la segunda pisaría a la primera sin que nadie se
-            // entere, y casi siempre es que alguien copió un renglón y no lo cambió.
-            if (error is null && !vistos.Add(codigo))
-                error = $"El código {codigo} está repetido en el archivo.";
-
-            if (error is not null)
+            foreach (var fila in filas)
             {
-                fallidos++;
-                renglones.Add(new ImportRowDto(fila.Numero, codigo, fila.Name, "error", error));
-                continue;
-            }
+                var error = fila.Error;
+                var codigo = fila.Dato is null ? fila.Key : Normalizar(fila.Dato.Code);
 
-            if (existentes.TryGetValue(codigo, out var servicio))
-            {
-                actualizados++;
-                if (apply) Apply(servicio, fila.Dato!);
-                renglones.Add(new ImportRowDto(fila.Numero, codigo, fila.Dato!.Name, "actualiza", null));
-            }
-            else
-            {
-                creados++;
-                if (apply)
+                // Las mismas reglas que la pantalla de Mano de obra: largos de columna y la
+                // regla que hace que el precio exista. Sin esto, una celda larguísima revienta
+                // en Npgsql a mitad del archivo y nadie sabe qué fila fue.
+                if (error is null && validador.Validate(fila.Dato!) is { IsValid: false } malo)
+                    error = malo.Errors[0].ErrorMessage;
+
+                // El mismo código dos veces: la segunda pisaría a la primera sin que nadie se
+                // entere, y casi siempre es que alguien copió un renglón y no lo cambió.
+                if (error is null && !vistos.Add(codigo))
+                    error = $"El código {codigo} está repetido en el archivo.";
+
+                if (error is not null)
                 {
-                    servicio = new LaborService { Code = codigo };
-                    Apply(servicio, fila.Dato!);
-                    db.LaborServices.Add(servicio);
-                    existentes[codigo] = servicio;
+                    errores.Add(new ImportRowDto(fila.Numero, codigo, fila.Name, "error", error));
+                    continue;
                 }
 
-                renglones.Add(new ImportRowDto(fila.Numero, codigo, fila.Dato!.Name, "nuevo", null));
+                if (existentes.TryGetValue(codigo, out var servicio))
+                {
+                    actualizados++;
+                    if (apply) Apply(servicio, fila.Dato!);
+                    buenas.Add(new ImportRowDto(fila.Numero, codigo, fila.Dato!.Name, "actualiza", null));
+                }
+                else
+                {
+                    creados++;
+                    if (apply)
+                    {
+                        servicio = new LaborService { Code = codigo };
+                        Apply(servicio, fila.Dato!);
+                        db.LaborServices.Add(servicio);
+                        existentes[codigo] = servicio;
+                    }
+
+                    buenas.Add(new ImportRowDto(fila.Numero, codigo, fila.Dato!.Name, "nuevo", null));
+                }
+            }
+
+            if (apply)
+            {
+                // Con la autodetección apagada hay que pedirla una vez: los cambios sobre lo
+                // que ya existía —precios, tarifas— no se guardarían.
+                db.ChangeTracker.DetectChanges();
+
+                // Todo o nada: con un archivo a medio cargar nadie sabe por dónde iba.
+                await db.SaveChangesAsync(ct);
             }
         }
+        finally
+        {
+            db.ChangeTracker.AutoDetectChangesEnabled = autodeteccion;
+        }
 
-        // Todo o nada: con un archivo a medio cargar nadie sabe por dónde iba.
-        if (apply) await db.SaveChangesAsync(ct);
-
-        return new ImportResultDto(
-            apply, filas.Count, creados, actualizados, fallidos, renglones);
+        return Importaciones.Recortado(
+            apply, filas.Count, creados, actualizados, errores, buenas);
     }
 
     /// <summary>El código es la referencia que la gente teclea: sin espacios y en mayúscula.</summary>

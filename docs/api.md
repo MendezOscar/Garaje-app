@@ -611,6 +611,15 @@ Decisiones que conviene conocer:
   nombre de quien sube el archivo: el stock no se edita, se mueve. Volver a subir el mismo
   archivo la suma otra vez —para corregir una cantidad mal contada está el ajuste por conteo—,
   y la plantilla lo advierte en su hoja de instrucciones.
+- **Cada fila pasa por el validador de su DTO** (`SavePartValidator`,
+  `SaveLaborServiceValidator`), el mismo que usa la pantalla: una celda más larga que su
+  columna sale como el error de esa fila y no como un 500 de Npgsql a media carga.
+- **Hasta 5,000 filas por archivo**, y la respuesta trae una muestra de 200 renglones de cada
+  clase —los errores primero— en vez del archivo entero: los totales ya dicen cuántos son, y
+  pintar tres mil renglones en pantalla no le sirve a nadie.
+- **Dos consultas, no una por fila**: los SKU que ya existen y las existencias de esos mismos
+  repuestos en esa bodega. Durante la carga se apaga la autodetección de cambios de EF —con
+  tres mil filas el tiempo crecía con el cuadrado— y se pide una sola vez antes de guardar.
 
 ### Historial que se le manda al cliente
 

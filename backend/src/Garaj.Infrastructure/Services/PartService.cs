@@ -1,3 +1,4 @@
+using FluentValidation;
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
@@ -16,7 +17,8 @@ namespace Garaj.Infrastructure.Services;
 public class PartService(
     GarajDbContext db,
     ITenantContext tenantContext,
-    IDateTimeProvider clock) : IPartService
+    IDateTimeProvider clock,
+    IValidator<SavePartRequest> validador) : IPartService
 {
     public async Task<PagedResult<PartDto>> ListAsync(PartQuery query, CancellationToken ct = default)
     {
@@ -114,15 +116,19 @@ public class PartService(
         var scope = AccessScope.From(tenantContext);
         scope.EnsureManagement();
 
+        // Primero que exista —el filtro global ya la acota al taller— y después si es suya:
+        // una sucursal de otro taller tiene que responder 404 y no 403, que confirmaría que
+        // ese id existe en alguna parte.
         if (branchId is { } sucursal)
         {
-            scope.EnsureBranchAllowed(sucursal);
-
             if (!await db.Branches.AnyAsync(b => b.Id == sucursal, ct))
                 throw new NotFoundException("La sucursal no existe.");
+
+            scope.EnsureBranchAllowed(sucursal);
         }
 
         var filas = CatalogSheets.LeerRepuestos(file);
+        Importaciones.EnsureCabe(filas.Count);
 
         // Lo que ya existe, por SKU: decide si cada fila crea o actualiza, y evita una
         // consulta por renglón en un archivo de trescientos.
@@ -134,66 +140,101 @@ public class PartService(
             .Where(p => skus.Contains(p.Sku))
             .ToDictionaryAsync(p => p.Sku, ct);
 
-        // Las existencias de esa bodega, ya cargadas: en el archivo vienen por SKU y aquí se
-        // buscan por repuesto, así que se traen de una vez en vez de una consulta por fila.
-        var bodega = branchId is { } b2
-            ? await db.StockItems.Where(i => i.BranchId == b2).ToDictionaryAsync(i => i.PartId, ct)
+        // Las existencias de esos repuestos en esa bodega, no las de toda la bodega: un taller
+        // con diez mil renglones en stock no tiene por qué traerlos para cargar veinte.
+        var conocidos = existentes.Values.Select(p => p.Id).ToList();
+
+        var bodega = branchId is { } bodegaId && conocidos.Count > 0
+            ? await db.StockItems
+                .Where(i => i.BranchId == bodegaId && conocidos.Contains(i.PartId))
+                .ToDictionaryAsync(i => i.PartId, ct)
             : [];
 
-        var renglones = new List<ImportRowDto>(filas.Count);
+        var errores = new List<ImportRowDto>();
+        var buenas = new List<ImportRowDto>();
         var vistos = new HashSet<string>();
-        int creados = 0, actualizados = 0, fallidos = 0;
+        int creados = 0, actualizados = 0;
 
-        foreach (var fila in filas)
+        // Con tres mil filas, EF revisa todo lo que lleva en memoria en cada Add y el tiempo
+        // crece con el cuadrado de las filas. Aquí no hace falta: nada cambia fuera de este
+        // bucle, y al salir se vuelve a encender para que el resto del servicio no se entere.
+        var autodeteccion = db.ChangeTracker.AutoDetectChangesEnabled;
+        db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+        try
         {
-            var error = fila.Error;
-            var sku = fila.Dato is null ? fila.Key : NormalizeSku(fila.Dato.Parte.Sku);
-
-            // Lo de la bodega sin bodega a la que entrar: pasaría inadvertido y el taller
-            // creería que ya quedó cargado.
-            if (error is null && branchId is null && TieneDatosDeBodega(fila.Dato!))
-                error = "Elija a qué sucursal entran la existencia, el mínimo y la ubicación.";
-
-            // El mismo SKU dos veces en el archivo: la segunda pisaría a la primera sin que
-            // nadie se entere, y casi siempre es que alguien copió un renglón y no lo cambió.
-            if (error is null && !vistos.Add(sku))
-                error = $"El SKU {sku} está repetido en el archivo.";
-
-            if (error is not null)
+            foreach (var fila in filas)
             {
-                fallidos++;
-                renglones.Add(new ImportRowDto(fila.Numero, sku, fila.Name, "error", error));
-                continue;
-            }
+                var error = fila.Error;
+                var sku = fila.Dato is null ? fila.Key : NormalizeSku(fila.Dato.Parte.Sku);
 
-            if (existentes.TryGetValue(sku, out var parte))
-            {
-                actualizados++;
-                if (apply) Apply(parte, fila.Dato!.Parte);
-                renglones.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Parte.Name, "actualiza", null));
-            }
-            else
-            {
-                creados++;
-                if (apply)
+                // Las mismas reglas que la pantalla de Inventario: largos de columna, precios
+                // que no sean negativos. Sin esto, una celda de mil caracteres revienta en
+                // Npgsql a mitad del archivo y el taller recibe un 500 sin saber qué fila fue.
+                if (error is null
+                    && validador.Validate(fila.Dato!.Parte) is { IsValid: false } malo)
+                    error = malo.Errors[0].ErrorMessage;
+
+                // Lo de la bodega sin bodega a la que entrar: pasaría inadvertido y el taller
+                // creería que ya quedó cargado.
+                if (error is null && branchId is null && TieneDatosDeBodega(fila.Dato!))
+                    error = "Elija a qué sucursal entran la existencia, el mínimo y la ubicación.";
+
+                if (error is null && fila.Dato!.Ubicacion is { Length: > 80 })
+                    error = "La ubicación no puede pasar de 80 letras.";
+
+                // El mismo SKU dos veces en el archivo: la segunda pisaría a la primera sin que
+                // nadie se entere, y casi siempre es que alguien copió un renglón y no lo cambió.
+                if (error is null && !vistos.Add(sku))
+                    error = $"El SKU {sku} está repetido en el archivo.";
+
+                if (error is not null)
                 {
-                    parte = new Part { Sku = sku };
-                    Apply(parte, fila.Dato!.Parte);
-                    db.Parts.Add(parte);
-                    existentes[sku] = parte;
+                    errores.Add(new ImportRowDto(fila.Numero, sku, fila.Name, "error", error));
+                    continue;
                 }
 
-                renglones.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Parte.Name, "nuevo", null));
+                if (existentes.TryGetValue(sku, out var parte))
+                {
+                    actualizados++;
+                    if (apply) Apply(parte, fila.Dato!.Parte);
+                    buenas.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Parte.Name, "actualiza", null));
+                }
+                else
+                {
+                    creados++;
+                    if (apply)
+                    {
+                        parte = new Part { Sku = sku };
+                        Apply(parte, fila.Dato!.Parte);
+                        db.Parts.Add(parte);
+                        existentes[sku] = parte;
+                    }
+
+                    buenas.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Parte.Name, "nuevo", null));
+                }
+
+                if (apply && branchId is { } destino) Bodega(destino, parte!, fila.Dato!, bodega, scope);
             }
 
-            if (apply && branchId is { } destino) Bodega(destino, parte!, fila.Dato!, bodega, scope);
+            if (apply)
+            {
+                // Con la autodetección apagada hay que pedirla una vez: lo que se agregó ya
+                // está marcado, pero los cambios sobre lo que ya existía —precios, mínimos,
+                // saldos— no se guardarían.
+                db.ChangeTracker.DetectChanges();
+
+                // Todo o nada: con un archivo a medio cargar nadie sabe por dónde iba.
+                await db.SaveChangesAsync(ct);
+            }
+        }
+        finally
+        {
+            db.ChangeTracker.AutoDetectChangesEnabled = autodeteccion;
         }
 
-        // Todo o nada: con un archivo a medio cargar nadie sabe por dónde iba.
-        if (apply) await db.SaveChangesAsync(ct);
-
-        return new ImportResultDto(
-            apply, filas.Count, creados, actualizados, fallidos, renglones);
+        return Importaciones.Recortado(
+            apply, filas.Count, creados, actualizados, errores, buenas);
     }
 
     private static bool TieneDatosDeBodega(CatalogSheets.RepuestoDeExcel fila) =>
