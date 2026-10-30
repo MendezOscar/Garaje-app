@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
 using Garaj.Domain.Entities;
+using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -97,6 +98,76 @@ public class PartService(GarajDbContext db, ITenantContext tenantContext) : IPar
             .Distinct()
             .OrderBy(c => c)
             .ToListAsync(ct);
+    }
+
+    // ---------- Carga desde Excel ----------
+
+    public byte[] ImportTemplate() => CatalogSheets.PlantillaDeRepuestos();
+
+    public async Task<ImportResultDto> ImportAsync(
+        Stream file, bool apply, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureManagement();
+
+        var filas = CatalogSheets.LeerRepuestos(file);
+
+        // Lo que ya existe, por SKU: decide si cada fila crea o actualiza, y evita una
+        // consulta por renglón en un archivo de trescientos.
+        var skus = filas.Where(f => f.Dato is not null)
+            .Select(f => NormalizeSku(f.Dato!.Sku))
+            .ToHashSet();
+
+        var existentes = await db.Parts
+            .Where(p => skus.Contains(p.Sku))
+            .ToDictionaryAsync(p => p.Sku, ct);
+
+        var renglones = new List<ImportRowDto>(filas.Count);
+        var vistos = new HashSet<string>();
+        int creados = 0, actualizados = 0, fallidos = 0;
+
+        foreach (var fila in filas)
+        {
+            var error = fila.Error;
+            var sku = fila.Dato is null ? fila.Key : NormalizeSku(fila.Dato.Sku);
+
+            // El mismo SKU dos veces en el archivo: la segunda pisaría a la primera sin que
+            // nadie se entere, y casi siempre es que alguien copió un renglón y no lo cambió.
+            if (error is null && !vistos.Add(sku))
+                error = $"El SKU {sku} está repetido en el archivo.";
+
+            if (error is not null)
+            {
+                fallidos++;
+                renglones.Add(new ImportRowDto(fila.Numero, sku, fila.Name, "error", error));
+                continue;
+            }
+
+            if (existentes.TryGetValue(sku, out var parte))
+            {
+                actualizados++;
+                if (apply) Apply(parte, fila.Dato!);
+                renglones.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Name, "actualiza", null));
+            }
+            else
+            {
+                creados++;
+                if (apply)
+                {
+                    parte = new Part { Sku = sku };
+                    Apply(parte, fila.Dato!);
+                    db.Parts.Add(parte);
+                    existentes[sku] = parte;
+                }
+
+                renglones.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Name, "nuevo", null));
+            }
+        }
+
+        // Todo o nada: con un archivo a medio cargar nadie sabe por dónde iba.
+        if (apply) await db.SaveChangesAsync(ct);
+
+        return new ImportResultDto(
+            apply, filas.Count, creados, actualizados, fallidos, renglones);
     }
 
     /// <summary>

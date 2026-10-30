@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Quotes;
 using Garaj.Domain.Entities;
+using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -76,6 +77,77 @@ public class LaborServiceCatalog(GarajDbContext db, ITenantContext tenantContext
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
+
+    // ---------- Carga desde Excel ----------
+
+    public byte[] ImportTemplate() => CatalogSheets.PlantillaDeManoDeObra();
+
+    public async Task<ImportResultDto> ImportAsync(
+        Stream file, bool apply, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var filas = CatalogSheets.LeerManoDeObra(file);
+
+        var codigos = filas.Where(f => f.Dato is not null)
+            .Select(f => Normalizar(f.Dato!.Code))
+            .ToHashSet();
+
+        var existentes = await db.LaborServices
+            .Where(s => codigos.Contains(s.Code))
+            .ToDictionaryAsync(s => s.Code, ct);
+
+        var renglones = new List<ImportRowDto>(filas.Count);
+        var vistos = new HashSet<string>();
+        int creados = 0, actualizados = 0, fallidos = 0;
+
+        foreach (var fila in filas)
+        {
+            var error = fila.Error;
+            var codigo = fila.Dato is null ? fila.Key : Normalizar(fila.Dato.Code);
+
+            // El mismo código dos veces: la segunda pisaría a la primera sin que nadie se
+            // entere, y casi siempre es que alguien copió un renglón y no lo cambió.
+            if (error is null && !vistos.Add(codigo))
+                error = $"El código {codigo} está repetido en el archivo.";
+
+            if (error is not null)
+            {
+                fallidos++;
+                renglones.Add(new ImportRowDto(fila.Numero, codigo, fila.Name, "error", error));
+                continue;
+            }
+
+            if (existentes.TryGetValue(codigo, out var servicio))
+            {
+                actualizados++;
+                if (apply) Apply(servicio, fila.Dato!);
+                renglones.Add(new ImportRowDto(fila.Numero, codigo, fila.Dato!.Name, "actualiza", null));
+            }
+            else
+            {
+                creados++;
+                if (apply)
+                {
+                    servicio = new LaborService { Code = codigo };
+                    Apply(servicio, fila.Dato!);
+                    db.LaborServices.Add(servicio);
+                    existentes[codigo] = servicio;
+                }
+
+                renglones.Add(new ImportRowDto(fila.Numero, codigo, fila.Dato!.Name, "nuevo", null));
+            }
+        }
+
+        // Todo o nada: con un archivo a medio cargar nadie sabe por dónde iba.
+        if (apply) await db.SaveChangesAsync(ct);
+
+        return new ImportResultDto(
+            apply, filas.Count, creados, actualizados, fallidos, renglones);
+    }
+
+    /// <summary>El código es la referencia que la gente teclea: sin espacios y en mayúscula.</summary>
+    private static string Normalizar(string code) => code.Trim().ToUpperInvariant();
 
     private async Task<LaborServiceDto> GetAsync(Guid id, CancellationToken ct) =>
         await Project(db.LaborServices.AsNoTracking().Where(s => s.Id == id)).FirstAsync(ct);

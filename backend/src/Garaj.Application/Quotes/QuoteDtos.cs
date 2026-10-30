@@ -224,6 +224,15 @@ public interface ILaborServiceCatalog
     Task<IReadOnlyList<LaborServiceDto>> ListAsync(bool includeInactive, CancellationToken ct = default);
     Task<LaborServiceDto> CreateAsync(SaveLaborServiceRequest request, CancellationToken ct = default);
     Task<LaborServiceDto> UpdateAsync(Guid id, SaveLaborServiceRequest request, CancellationToken ct = default);
+
+    /// <summary>La plantilla de Excel en blanco, con sus ejemplos y sus instrucciones.</summary>
+    byte[] ImportTemplate();
+
+    /// <summary>
+    /// Lee la plantilla llena. Con <paramref name="apply"/> en falso es la vista previa: dice
+    /// qué entraría y qué fila está mal, sin guardar nada.
+    /// </summary>
+    Task<ImportResultDto> ImportAsync(Stream file, bool apply, CancellationToken ct = default);
 }
 
 public interface IQuoteService

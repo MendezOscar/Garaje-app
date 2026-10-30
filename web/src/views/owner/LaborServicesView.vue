@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { laborServicesApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
+import CatalogImport from '@/components/CatalogImport.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import type { LaborService } from '@/types/domain'
@@ -134,6 +135,7 @@ onMounted(load)
           se cobra por el servicio que lleve de esta lista.
         </p>
       </div>
+      <CatalogImport kind="labor" @imported="load" />
     </header>
 
     <ErrorNote v-if="error" :message="error" />

@@ -157,6 +157,27 @@ export const MediaOwnerType = {
 } as const
 export type MediaOwnerType = (typeof MediaOwnerType)[keyof typeof MediaOwnerType]
 
+/** Lo que dejó —o dejaría— la carga de un catálogo desde la plantilla de Excel. */
+export interface ImportResult {
+  /** Falso en la vista previa: nada se guardó todavía. */
+  applied: boolean
+  total: number
+  created: number
+  updated: number
+  failed: number
+  rows: ImportRow[]
+}
+
+export interface ImportRow {
+  /** La fila del Excel, para que quien lo llenó la encuentre. */
+  row: number
+  key: string
+  name: string
+  /** `nuevo`, `actualiza` o `error`. */
+  action: string
+  error: string | null
+}
+
 /** El historial que el cliente abre desde el enlace que le manda el taller. */
 export interface CustomerHistory {
   tenantName: string

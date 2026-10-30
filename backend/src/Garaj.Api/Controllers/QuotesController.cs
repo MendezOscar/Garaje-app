@@ -34,6 +34,32 @@ public class LaborServicesController(ILaborServiceCatalog service) : ControllerB
     public async Task<ActionResult<LaborServiceDto>> Update(
         Guid id, SaveLaborServiceRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
+
+    /// <summary>La plantilla de Excel para cargar el catálogo de un golpe.</summary>
+    [HttpGet("import/template")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    public IActionResult ImportTemplate()
+        => File(
+            service.ImportTemplate(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Plantilla de mano de obra.xlsx");
+
+    /// <summary>
+    /// Carga la plantilla llena. Con `apply=false` —lo primero que hace el panel— devuelve
+    /// qué entraría y qué fila está mal, sin guardar nada.
+    /// </summary>
+    [HttpPost("import")]
+    [Authorize(Policy = AppPolicies.OwnerOnly)]
+    [RequestSizeLimit(8 * 1024 * 1024)]
+    public async Task<ActionResult<ImportResultDto>> Import(
+        IFormFile file, [FromQuery] bool apply, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            throw new AppException("Adjunte el archivo de la plantilla.");
+
+        await using var stream = file.OpenReadStream();
+        return Ok(await service.ImportAsync(stream, apply, ct));
+    }
 }
 
 [ApiController]

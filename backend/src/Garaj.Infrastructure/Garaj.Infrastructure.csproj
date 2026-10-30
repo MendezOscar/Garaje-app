@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="3.7.416.7" />
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
     <!-- Solo para firmar el token OAuth2 de la cuenta de servicio que exige FCM HTTP v1.
          No arrastra el SDK de Firebase: el envío es una llamada HTTP corriente. -->

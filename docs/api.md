@@ -576,6 +576,35 @@ Decisiones que conviene conocer:
 - **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
   enlace, no por la ruta del taller.
 
+### Cargar el catálogo desde Excel
+
+Un taller que arranca tiene su catálogo en un cuaderno o en una hoja de cálculo. La carga
+existe para que no haya que teclearlo renglón por renglón.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/parts/import/template` | Dueño o Encargado | La plantilla de repuestos en blanco (.xlsx) |
+| POST | `/api/parts/import?apply=` | Dueño o Encargado | Lee la plantilla llena; con `apply=false` es la vista previa |
+| GET | `/api/labor-services/import/template` | Dueño | La plantilla de mano de obra |
+| POST | `/api/labor-services/import?apply=` | Dueño | Igual, para mano de obra |
+
+Decisiones que conviene conocer:
+
+- **La plantilla la genera el mismo código que la lee**
+  ([CatalogSheets.cs](../backend/src/Garaj.Infrastructure/Documents/CatalogSheets.cs)): no hay
+  un archivo suelto en el repositorio que se quede atrás cuando cambie una columna.
+- **Las columnas se buscan por el nombre del encabezado**, sin acentos ni mayúsculas: alguien
+  va a mover una columna o a agregar la suya, y eso no tiene por qué romper la carga.
+- **Primero la vista previa.** El panel sube el archivo con `apply=false`, enseña fila por fila
+  qué entra y qué está mal escrito, y solo entonces guarda. Cargar a ciegas trescientos
+  renglones y descubrir después que la mitad tenía el precio en blanco es peor que no cargar.
+- **Se actualiza por SKU o por código**, no se duplica: volver a subir el archivo con los
+  precios corregidos es la forma de actualizarlos en bloque.
+- **Las filas con error no entran, las demás sí.** Un archivo no se rechaza entero porque tres
+  renglones estén mal: se corrigen y se vuelve a subir.
+- **Mano de obra: «Cómo se cobra» decide**. Con `fijo` manda el precio fijo; con `hora`, la
+  tarifa por hora y las horas que el sistema propone en cada trabajo.
+
 ### Historial que se le manda al cliente
 
 Lo que el taller le ha hecho a lo suyo, visita por visita. Es la otra mitad de la pregunta del
