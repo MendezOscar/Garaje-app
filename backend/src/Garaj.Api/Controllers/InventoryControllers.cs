@@ -37,6 +37,32 @@ public class PartsController(IPartService service) : ControllerBase
     public async Task<ActionResult<PartDto>> Update(
         Guid id, SavePartRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
+
+    /// <summary>La plantilla de Excel para cargar el catálogo de un golpe.</summary>
+    [HttpGet("import/template")]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
+    public IActionResult ImportTemplate()
+        => File(
+            service.ImportTemplate(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Plantilla de repuestos.xlsx");
+
+    /// <summary>
+    /// Carga la plantilla llena. Con `apply=false` —lo primero que hace el panel— devuelve
+    /// qué entraría y qué fila está mal, sin guardar nada.
+    /// </summary>
+    [HttpPost("import")]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
+    [RequestSizeLimit(8 * 1024 * 1024)]
+    public async Task<ActionResult<ImportResultDto>> Import(
+        IFormFile file, [FromQuery] bool apply, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            throw new AppException("Adjunte el archivo de la plantilla.");
+
+        await using var stream = file.OpenReadStream();
+        return Ok(await service.ImportAsync(stream, apply, ct));
+    }
 }
 
 /// <summary>

@@ -189,6 +189,15 @@ public interface IPartService
 
     /// <summary>Categorías en uso, para los filtros de la interfaz.</summary>
     Task<IReadOnlyList<string>> CategoriesAsync(CancellationToken ct = default);
+
+    /// <summary>La plantilla de Excel en blanco, con sus ejemplos y sus instrucciones.</summary>
+    byte[] ImportTemplate();
+
+    /// <summary>
+    /// Lee la plantilla llena. Con <paramref name="apply"/> en falso es la vista previa: dice
+    /// qué entraría y qué fila está mal, sin guardar nada.
+    /// </summary>
+    Task<ImportResultDto> ImportAsync(Stream file, bool apply, CancellationToken ct = default);
 }
 
 public interface IStockService

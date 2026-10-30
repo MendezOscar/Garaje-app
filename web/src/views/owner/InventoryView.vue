@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, partsApi, stockApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
+import CatalogImport from '@/components/CatalogImport.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useEscape } from '@/composables/useEscape'
@@ -264,7 +265,10 @@ onMounted(async () => {
           El stock no se edita: se mueve. Cada cambio queda en el kardex con su responsable.
         </p>
       </div>
-      <button v-if="canManage" type="button" @click="openNewPart">Nuevo repuesto</button>
+      <div class="acciones">
+        <CatalogImport v-if="canManage" kind="parts" @imported="load" />
+        <button v-if="canManage" type="button" @click="openNewPart">Nuevo repuesto</button>
+      </div>
     </header>
 
     <ErrorNote v-if="error" :message="error" />
@@ -755,6 +759,12 @@ th {
 
 .col-acciones {
   width: 1%;
+}
+
+.top .acciones {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .col-acciones .acciones {
