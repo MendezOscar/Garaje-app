@@ -63,7 +63,22 @@ const statusNote = ref('')
 /** Lo que se escribe para cerrar el reclamo del que nació esta orden. */
 const resolucionReclamo = ref('')
 const noteIsInternal = ref(false)
-const newTask = ref({ title: '', laborServiceId: '', manualPrice: '' })
+const newTask = ref({ title: '', laborServiceId: '', manualPrice: '', guardarEnCatalogo: false })
+
+/**
+ * El paso nuevo: primero cómo se cobra, y después solo lo que ese camino necesita.
+ *
+ * Los tres campos a la vez no decían cuál mandaba: el del catálogo o el escrito a mano. Es la
+ * misma guía de la app, que es donde el taller agrega los pasos todos los días.
+ */
+const pasoNuevoAbierto = ref(false)
+type CobroDelPasoNuevo = 'catalogo' | 'aMano' | 'sinCobro'
+const comoSeCobraElPaso = ref<CobroDelPasoNuevo>('catalogo')
+const COBROS_DEL_PASO: { valor: CobroDelPasoNuevo; texto: string }[] = [
+  { valor: 'catalogo', texto: 'Del catálogo' },
+  { valor: 'aMano', texto: 'Precio a mano' },
+  { valor: 'sinCobro', texto: 'Sin cobro' },
+]
 
 /** Total de mano de obra en modo manual, mientras se edita. */
 const manualLabor = ref<number | string>('')
@@ -666,25 +681,108 @@ function bajarFicha() {
   return run(() => workOrdersApi.downloadReceptionPdf(id.value, order.value!.number))
 }
 
+function abrirPasoNuevo() {
+  newTask.value = { title: '', laborServiceId: '', manualPrice: '', guardarEnCatalogo: false }
+  // Sin catálogo de mano de obra, o con el catálogo vacío, el camino del catálogo no lleva a
+  // ninguna parte: se abre en el que sí se puede terminar.
+  comoSeCobraElPaso.value = isCatalog.value && laborServices.value.length ? 'catalogo' : 'aMano'
+  pasoNuevoAbierto.value = true
+}
+
+function cerrarPasoNuevo() {
+  pasoNuevoAbierto.value = false
+  showNewService.value = false
+  newTask.value = { title: '', laborServiceId: '', manualPrice: '', guardarEnCatalogo: false }
+}
+
+function elegirCobroDelPasoNuevo(valor: CobroDelPasoNuevo) {
+  comoSeCobraElPaso.value = valor
+  // El servicio es del camino del catálogo: dejarlo puesto al cambiar de camino sería un
+  // precio que ya nadie ve en pantalla pero que igual se cobra.
+  if (valor !== 'catalogo') newTask.value.laborServiceId = ''
+}
+
+/** Elegido el servicio, el nombre del paso es el suyo: escribirlo otra vez era escribir dos
+ *  veces lo mismo. */
+function copiarNombreDelServicio() {
+  const elegido = laborServices.value.find((s) => s.id === newTask.value.laborServiceId)
+  newTask.value.title = elegido?.name ?? ''
+}
+
+function usarDelCatalogo(servicio: LaborService) {
+  comoSeCobraElPaso.value = 'catalogo'
+  newTask.value.laborServiceId = servicio.id
+  newTask.value.title = servicio.name
+}
+
+/** Si el paso ya se puede agregar. Cada camino pide lo suyo y nada más. */
+const pasoCompleto = computed(() => {
+  const title = newTask.value.title.trim()
+  if (!isCatalog.value) return !!title
+  if (comoSeCobraElPaso.value === 'catalogo') return !!newTask.value.laborServiceId
+  if (comoSeCobraElPaso.value === 'aMano') return !!title && Number(newTask.value.manualPrice) > 0
+  return !!title
+})
+
 function addTask() {
   const title = newTask.value.title.trim()
-  if (!title) return
+  if (!title || !pasoCompleto.value) return
 
   return run(async () => {
-    const manual = Number(newTask.value.manualPrice)
+    // En modo manual el paso va suelto: el precio es uno solo para toda la orden.
+    let laborServiceId = isCatalog.value ? newTask.value.laborServiceId || null : null
+    let manual: number | null = null
 
-    await workOrdersApi.addTask(id.value, {
-      title,
-      // En modo manual el paso va suelto: el precio es uno solo para toda la orden.
-      laborServiceId: isCatalog.value ? newTask.value.laborServiceId || null : null,
-      // El precio escrito a mano es para el trabajo que no está en el catálogo y que no vale
-      // la pena meter en él: un destrabado, un favor, algo de una sola vez. Solo cuenta si no
-      // se eligió servicio: dos precios para el mismo paso serían dos respuestas distintas.
-      manualLaborPrice:
-        isCatalog.value && !newTask.value.laborServiceId && manual > 0 ? manual : null,
-    })
-    newTask.value = { title: '', laborServiceId: '', manualPrice: '' }
+    if (isCatalog.value && comoSeCobraElPaso.value === 'aMano') {
+      const cuanto = Number(newTask.value.manualPrice) || 0
+
+      if (newTask.value.guardarEnCatalogo) {
+        // Guardado en el catálogo el precio sale de ahí, y la próxima vez el trabajo ya está.
+        laborServiceId = await crearServicioDelPaso(title, cuanto)
+      } else {
+        // El precio escrito a mano es para el trabajo que no está en el catálogo y que no vale
+        // la pena meter en él: un destrabado, un favor, algo de una sola vez.
+        manual = cuanto > 0 ? cuanto : null
+      }
+    }
+
+    await workOrdersApi.addTask(id.value, { title, laborServiceId, manualLaborPrice: manual })
+    cerrarPasoNuevo()
   })
+}
+
+/** Guarda el trabajo escrito a mano como servicio de precio fijo, con el código que sigue. */
+async function crearServicioDelPaso(nombre: string, precio: number): Promise<string> {
+  const creado = await laborServicesApi.create({
+    code: siguienteCodigoDeServicio(),
+    name: nombre,
+    description: null,
+    category: null,
+    standardHours: 0,
+    hourlyRate: 0,
+    isFixedPrice: true,
+    fixedPrice: precio,
+    isActive: true,
+  })
+
+  laborServices.value = await laborServicesApi.list()
+  return creado.id
+}
+
+/** El código que sigue al del catálogo: el taller no tiene por qué inventarse uno a media orden. */
+function siguienteCodigoDeServicio(): string {
+  const partido = laborServices.value
+    .map((s) => /^([A-Za-z]+)[-\s]?(\d+)$/.exec(s.code))
+    .filter((m): m is RegExpExecArray => m !== null)
+
+  if (!partido.length) return 'MO-001'
+
+  const prefijo = partido[0][1].toUpperCase()
+  const mayor = partido
+    .filter(([, p]) => p.toUpperCase() === prefijo)
+    .reduce((alto, [, , numero]) => Math.max(alto, Number(numero)), 0)
+
+  return `${prefijo}-${String(mayor + 1).padStart(3, '0')}`
 }
 
 /**
@@ -839,6 +937,7 @@ function createService() {
 
     laborServices.value = await laborServicesApi.list()
     newTask.value.laborServiceId = created.id
+    newTask.value.title = created.name
     showNewService.value = false
     newService.value = { code: '', name: '', isFixedPrice: true, fixedPrice: 0, standardHours: 1, hourlyRate: 0 }
   })
@@ -1297,48 +1396,103 @@ onMounted(async () => {
 
           <p v-if="!order.tasks.length" class="muted">Todavía no hay pasos registrados.</p>
 
-          <form v-if="canEdit" class="inline new-task" @submit.prevent="addTask">
-            <input v-model="newTask.title" placeholder="Agregar paso…" />
-            <select v-if="isCatalog" v-model="newTask.laborServiceId">
-              <option value="">Sin servicio del catálogo</option>
-              <option v-for="s in laborServices" :key="s.id" :value="s.id">
-                {{ s.name }} · {{ formatMoney(s.price) }}
-              </option>
-            </select>
-            <!-- Sin servicio del catálogo, el precio se escribe aquí y queda en el paso: el
-                 catálogo se llenaba de entradas de un solo uso. Vacío, el paso no se cobra. -->
-            <input
-              v-if="isCatalog && !newTask.laborServiceId"
-              v-model="newTask.manualPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Precio"
-              class="precio-paso"
-            />
-            <button type="submit" :disabled="busy || !newTask.title.trim()">Agregar</button>
-          </form>
-          <p v-for="parecido in parecidosAlPaso" :key="parecido.id" class="muted small">
-            Ya está en el catálogo: «{{ parecido.name }}» a {{ formatMoney(parecido.price) }}.
-            <button
-              type="button"
-              class="link"
-              @click="((newTask.laborServiceId = parecido.id), (newTask.title = parecido.name))"
-            >
-              Usar ese
-            </button>
-          </p>
-          <p v-if="canEdit && isCatalog && !newTask.laborServiceId" class="muted small">
-            Sin precio el paso no se cobra. Si el trabajo se repite, conviene
-            <button type="button" class="link" @click="showNewService = true">
-              agregarlo al catálogo
-            </button>
-            y elegirlo arriba.
-          </p>
+          <!-- Agregar un paso era una fila de campos sueltos —nombre, selector del catálogo y
+               precio, los tres a la vez y sin decir cuál manda—. Ahora es el mismo camino que
+               en la app: primero cómo se cobra, y según eso se pide lo que hace falta y nada
+               más. -->
+          <button
+            v-if="canEdit && !pasoNuevoAbierto"
+            type="button"
+            class="agregar-paso"
+            @click="abrirPasoNuevo"
+          >
+            + Agregar paso
+          </button>
 
-          <!-- El servicio que falta se agrega aquí mismo: mandar al Dueño a otra pantalla a
-               media orden es la manera más segura de que el paso termine sin precio. -->
-          <template v-if="auth.isOwner && isCatalog">
+          <div v-else-if="canEdit" class="paso-nuevo">
+            <p class="paso-nuevo-titulo">Paso nuevo</p>
+
+            <template v-if="isCatalog">
+              <p class="etiqueta-grupo">Cómo se cobra</p>
+              <div class="opciones">
+                <button
+                  v-for="opcion in COBROS_DEL_PASO"
+                  :key="opcion.valor"
+                  type="button"
+                  class="opcion"
+                  :class="{ elegida: comoSeCobraElPaso === opcion.valor }"
+                  :aria-pressed="comoSeCobraElPaso === opcion.valor"
+                  @click="elegirCobroDelPasoNuevo(opcion.valor)"
+                >
+                  {{ opcion.texto }}
+                </button>
+              </div>
+            </template>
+
+            <!-- Del catálogo no se pregunta el nombre: el del servicio es como el taller llama
+                 a ese trabajo, y escribirlo otra vez era escribir dos veces lo mismo. -->
+            <label v-if="isCatalog && comoSeCobraElPaso === 'catalogo'">
+              ¿Qué hay que hacer?
+              <select v-model="newTask.laborServiceId" @change="copiarNombreDelServicio">
+                <option value="">— elija el servicio —</option>
+                <option v-for="s in laborServices" :key="s.id" :value="s.id">
+                  {{ s.name }} · {{ formatMoney(s.price) }}
+                </option>
+              </select>
+            </label>
+
+            <template v-else>
+              <label>
+                ¿Qué hay que hacer?
+                <input v-model="newTask.title" placeholder="Cambiar pastillas de adelante…" />
+              </label>
+
+              <p v-for="parecido in parecidosAlPaso" :key="parecido.id" class="muted small">
+                Ya está en el catálogo: «{{ parecido.name }}» a {{ formatMoney(parecido.price) }}.
+                <button type="button" class="link" @click="usarDelCatalogo(parecido)">
+                  Usar ese
+                </button>
+              </p>
+
+              <template v-if="isCatalog && comoSeCobraElPaso === 'aMano'">
+                <label>
+                  Precio del paso
+                  <input
+                    v-model="newTask.manualPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </label>
+
+                <!-- Guardarlo no es lo que pasa por defecto: así el catálogo se llenaba de
+                     entradas de un solo uso. -->
+                <label class="checkbox">
+                  <input v-model="newTask.guardarEnCatalogo" type="checkbox" />
+                  Guardarlo en el catálogo
+                </label>
+                <p class="muted small">
+                  Para no volver a escribirlo. Si es un trabajo de una sola vez, déjelo sin
+                  marcar.
+                </p>
+              </template>
+
+              <p v-else-if="isCatalog" class="muted small">
+                El paso se hace pero no se cobra: va dentro de otro trabajo.
+              </p>
+            </template>
+
+            <div class="actions">
+              <button type="button" :disabled="busy || !pasoCompleto" @click="addTask">
+                Agregar
+              </button>
+              <button type="button" class="link" @click="cerrarPasoNuevo">Cancelar</button>
+            </div>
+
+            <!-- El servicio que falta se agrega aquí mismo: mandar al Dueño a otra pantalla a
+                 media orden es la manera más segura de que el paso termine sin precio. -->
+            <template v-if="auth.isOwner && isCatalog && comoSeCobraElPaso === 'catalogo'">
             <button
               v-if="!showNewService"
               type="button"
@@ -1390,6 +1544,7 @@ onMounted(async () => {
               </div>
             </form>
           </template>
+          </div>
 
           <div v-if="canEdit && !isCatalog" class="manual-labor">
             <label>
@@ -2003,7 +2158,7 @@ onMounted(async () => {
                 </select>
               </label>
               <label>
-                Kilometraje de entrada
+                Kilometraje o millaje de entrada
                 <input v-model.number="formRecepcion.mileageIn" type="number" min="0" />
               </label>
             </div>
@@ -2573,9 +2728,6 @@ header p {
   font-size: var(--text-sm);
 }
 
-.precio-paso {
-  width: 7rem;
-}
 
 .card {
   padding: 1rem;
@@ -2669,9 +2821,85 @@ dd {
   font-size: 0.8125rem;
 }
 
-.new-task select {
+/* El botón que abre el paso nuevo: a lo ancho de la tarjeta, que es donde la vista cae
+   después de leer los pasos. */
+.agregar-paso {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-style: dashed;
+}
+
+.paso-nuevo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.paso-nuevo-titulo {
+  font-weight: 600;
+}
+
+.paso-nuevo > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.paso-nuevo .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.paso-nuevo .checkbox input {
   width: auto;
-  max-width: 12rem;
+}
+
+.paso-nuevo .actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.etiqueta-grupo {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Encendido se ve encendido: el camino elegido manda sobre lo que se pide abajo, y con tres
+   casillas iguales no se notaba cuál estaba puesta. */
+.opcion {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.opcion.elegida {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .labor-mode {
