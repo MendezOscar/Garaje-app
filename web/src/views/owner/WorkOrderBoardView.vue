@@ -223,8 +223,6 @@ const pestanas = computed(() => [
 
 const atrasadas = computed(() => orders.value.filter(isLate).length)
 
-const branches = computed(() => auth.user?.branches ?? [])
-
 /** Las tarjetas que tienen la lista de técnicos abierta. */
 const asignando = ref(new Set<string>())
 

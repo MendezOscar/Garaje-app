@@ -20,6 +20,27 @@ const busy = ref(false)
 const note = ref('')
 const confirming = ref<'approve' | 'reject' | null>(null)
 
+/**
+ * Lo que se dice del impuesto, una sola vez y en un solo lugar. Había tres textos distintos
+ * —«el ISV ya va dentro», «le suma el ISV» y «No incluye ISV»— y los tres en la misma página.
+ */
+const textoDelIsv = computed(() => {
+  const tasa = quote.value?.taxRate ?? 0
+  if (tasa <= 0) return 'Sin ISV: el taller no factura con impuesto'
+
+  return quote.value?.pricesIncludedTax
+    ? `Incluye el ISV del ${tasa}%`
+    : `Más el ISV del ${tasa}% si pide factura`
+})
+
+/**
+ * El renglón sin el código del catálogo: «PAS-FRE · Pastillas de freno» es para el taller,
+ * que lo teclea para buscarlo; al cliente le dice lo mismo que no decir nada.
+ */
+function sinCodigo(descripcion: string): string {
+  return descripcion.replace(/^[A-Z0-9][A-Z0-9-]{2,}\s*[·:-]\s*/u, '')
+}
+
 /** El logo llega bajo el token de la cotización, no bajo el id del taller. */
 const logoTaller = computed(() => apiUrl(quote.value?.tenantLogoUrl))
 

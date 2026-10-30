@@ -42,7 +42,7 @@ const pasosHechos = computed(() => order.value?.steps.filter((s) => s.isDone).le
  * El estado dicho como se lo diría el del mostrador: «Lo están reparando», no «En proceso».
  * Va primero y en grande, porque es lo único que el cliente abre a ver.
  */
-const ETAPAS = [
+const ETAPAS: { estados: WorkOrderStatus[]; texto: string }[] = [
   { estados: [WorkOrderStatus.Received], texto: 'Lo recibimos' },
   { estados: [WorkOrderStatus.Diagnosing], texto: 'Lo estamos revisando' },
   {
@@ -148,7 +148,7 @@ onMounted(async () => {
 
         <!-- Las cinco etapas, para ubicar de un vistazo dónde va sin leer la línea de tiempo. -->
         <ol v-if="etapa.indice >= 0" class="etapas" aria-hidden="true">
-          <li v-for="(e, i) in ETAPAS" :key="i" :class="{ pasada: i <= etapa.indice }" />
+          <li v-for="(_, i) in ETAPAS" :key="i" :class="{ pasada: i <= etapa.indice }" />
         </ol>
       </section>
 
