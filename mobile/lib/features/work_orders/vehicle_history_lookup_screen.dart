@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/taller/vocabulario.dart';
@@ -37,6 +38,20 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
   void dispose() {
     _buscador.dispose();
     super.dispose();
+  }
+
+  /// Le manda el historial al cliente por WhatsApp. El enlace es suyo —el mismo del estado
+  /// de cuenta— así que le enseña todo lo que trae al taller, no solo lo que se mira aquí.
+  Future<void> _mandar(String customerId) async {
+    try {
+      final url = await ref.read(workOrderRepositoryProvider).historyLink(customerId);
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(e, 'No se pudo armar el enlace.'))),
+      );
+    }
   }
 
   void _buscar(String texto) {
@@ -165,8 +180,22 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
 
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          itemCount: ordenadas.length,
-          itemBuilder: (context, i) => _Visita(orden: ordenadas[i]),
+          itemCount: ordenadas.length + 1,
+          itemBuilder: (context, i) {
+            // Es la pregunta de después de enseñárselo en pantalla: «¿me lo puede mandar?».
+            if (i == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => _mandar(ordenadas.first.customerId),
+                  icon: const Icon(Icons.send_outlined),
+                  label: const Text('Mandárselo al cliente'),
+                ),
+              );
+            }
+
+            return _Visita(orden: ordenadas[i - 1]);
+          },
         );
       },
     );

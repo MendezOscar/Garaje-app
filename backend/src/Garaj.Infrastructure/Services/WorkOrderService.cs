@@ -1129,6 +1129,128 @@ public class WorkOrderService(
         return $"{baseUrl}/o/{token}";
     }
 
+    // ---------- El historial que se le manda al cliente ----------
+
+    public async Task<WhatsAppLinkDto> HistoryLinkAsync(
+        Guid customerId, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsureManagement();
+
+        var customer = await db.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == customerId, ct)
+            ?? throw new NotFoundException("El cliente no existe.");
+
+        var tenant = await db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == customer.TenantId, ct)
+            ?? throw new NotFoundException("El taller no existe.");
+
+        var visitas = await VisitasDe(customer).CountAsync(ct);
+
+        if (visitas == 0)
+            throw new AppException("Este cliente todavía no tiene visitas que mandarle.");
+
+        var que = tenant.WorksWith == WorkshopKind.Equipment ? "sus equipos" : "sus vehículos";
+        var url = HistoryUrlFor(customer.PublicToken);
+
+        var message =
+            $"Hola {customer.FullName}, le saluda {tenant.Name}. "
+            + $"Aquí puede ver todo lo que le hemos hecho a {que}, visita por visita:\n{url}";
+
+        return new WhatsAppLinkDto(
+            $"https://wa.me/{Uri.EscapeDataString(customer.Phone)}?text={Uri.EscapeDataString(message)}",
+            customer.Phone,
+            message);
+    }
+
+    public async Task<CustomerHistoryDto> HistoryPublicAsync(
+        Guid token, CancellationToken ct = default)
+    {
+        var customer = await db.Customers.AsNoTracking().IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.PublicToken == token, ct)
+            ?? throw new NotFoundException("El enlace no es válido.");
+
+        // El taller sale del token, como en el seguimiento de la orden: aquí no hay sesión.
+        tenantContext.SetTenant(customer.TenantId);
+
+        var tenant = await db.Tenants.AsNoTracking().IgnoreQueryFilters()
+            .FirstAsync(t => t.Id == customer.TenantId, ct);
+
+        var visitas = await VisitasDe(customer)
+            .OrderByDescending(w => w.OpenedAt)
+            .Select(w => new
+            {
+                AssetId = w.Vehicle != null ? w.Vehicle.Id : w.Equipment!.Id,
+                Label = w.Vehicle != null
+                    ? w.Vehicle.Brand + " " + w.Vehicle.Model
+                    : w.Equipment!.Brand + " " + w.Equipment.Model,
+                Identifier = w.Vehicle != null
+                    ? w.Vehicle.Plate
+                    : (w.Equipment!.SerialNumber ?? w.Equipment.Tag),
+                Kind = w.Vehicle != null ? AssetKind.Vehicle : AssetKind.Equipment,
+                w.Number,
+                w.OpenedAt,
+                w.ClosedAt,
+                w.Description,
+                w.MileageIn,
+                // Solo los pasos terminados: lo que quedó a medias y se quitó de la orden no
+                // es parte de lo que se le hizo.
+                Steps = w.Tasks.Where(t => t.IsDone).OrderBy(t => t.Sequence)
+                    .Select(t => t.Title).ToList(),
+                Total = db.Sales.IgnoreQueryFilters()
+                    .Where(s => s.WorkOrderId == w.Id && !s.IsVoided)
+                    .Select(s => (decimal?)s.Total)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(ct);
+
+        var assets = visitas
+            .GroupBy(v => v.AssetId)
+            .Select(g => new HistoryAssetDto(
+                g.First().Label,
+                g.First().Identifier,
+                g.First().Kind,
+                g.Select(v => new HistoryVisitDto(
+                        v.Number, v.OpenedAt, v.ClosedAt, v.Description, v.MileageIn,
+                        v.Steps, v.Total))
+                    .ToList()))
+            // El que vino hace menos, primero: es el que el cliente está mirando.
+            .OrderByDescending(a => a.Visits[0].OpenedAt)
+            .ToList();
+
+        return new CustomerHistoryDto(
+            tenant.Name,
+            // Bajo el token y no bajo el id del taller, igual que en el seguimiento: en esta
+            // página el token es la única credencial y no se filtra ningún id interno.
+            tenant.LogoStorageKey is null ? null : $"/public/statements/{token}/logo",
+            tenant.Phone,
+            customer.FullName,
+            tenant.Currency,
+            assets);
+    }
+
+    /// <summary>
+    /// Las órdenes de lo que ese cliente trae, sea vehículo o equipo. Las canceladas quedan
+    /// fuera: no se le hizo nada.
+    /// </summary>
+    private IQueryable<WorkOrder> VisitasDe(Customer customer) =>
+        db.WorkOrders.AsNoTracking().IgnoreQueryFilters()
+            .Where(w => w.TenantId == customer.TenantId
+                        && w.Status != WorkOrderStatus.Cancelled
+                        && ((w.Vehicle != null && w.Vehicle.CustomerId == customer.Id)
+                            || (w.Equipment != null && w.Equipment.CustomerId == customer.Id)));
+
+    private string HistoryUrlFor(Guid token)
+    {
+        var baseUrl = configuration["PublicBaseUrl"]?.TrimEnd('/');
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            throw new AppException(
+                "Falta configurar PublicBaseUrl: sin ella el enlace del historial no lleva a "
+                + "ningún lado.");
+
+        return $"{baseUrl}/h/{token}";
+    }
+
     // ---------- Recordatorios del próximo servicio ----------
 
     public async Task<IReadOnlyList<ServiceReminderDto>> ServiceRemindersAsync(

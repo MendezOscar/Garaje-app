@@ -278,6 +278,43 @@ public record OrderTrackingInvoiceDto(
     decimal Balance,
     DateTimeOffset? DueDate);
 
+// ---------- Historial que se le manda al cliente ----------
+
+/// <summary>
+/// Todo lo que el taller le ha hecho a lo que el cliente trae, visto desde el enlace que se
+/// le manda por WhatsApp.
+/// </summary>
+/// <remarks>
+/// Cuelga del mismo token que su estado de cuenta: es la misma persona y el mismo enlace de
+/// siempre, así que no hay un token más que cuidar ni un id interno que enseñar. Sin precios
+/// de costo, sin quién atendió y sin notas internas: lo que se le hizo y, cuando ya se
+/// facturó, lo que pagó.
+/// </remarks>
+public record CustomerHistoryDto(
+    string TenantName,
+    string? LogoUrl,
+    string? TenantPhone,
+    string CustomerName,
+    string Currency,
+    IReadOnlyList<HistoryAssetDto> Assets);
+
+/// <summary>Un vehículo —o un equipo— del cliente, con sus visitas de la más nueva a la más vieja.</summary>
+public record HistoryAssetDto(
+    string Label,
+    string? Identifier,
+    AssetKind Kind,
+    IReadOnlyList<HistoryVisitDto> Visits);
+
+/// <param name="Total">Lo que se facturó por esa visita. Null mientras no se haya cobrado.</param>
+public record HistoryVisitDto(
+    string Number,
+    DateTimeOffset OpenedAt,
+    DateTimeOffset? ClosedAt,
+    string Description,
+    int? Mileage,
+    IReadOnlyList<string> Steps,
+    decimal? Total);
+
 // ---------- Recordatorios del próximo servicio ----------
 
 /// <summary>
@@ -474,4 +511,16 @@ public interface IWorkOrderService
     /// avisó: así no se le llama dos veces la misma semana.
     /// </summary>
     Task<WhatsAppLinkDto> ServiceReminderLinkAsync(Guid workOrderId, CancellationToken ct = default);
+
+    /// <summary>
+    /// El enlace de WhatsApp con el historial del cliente, listo para mandar. Falla si no
+    /// tiene ninguna visita: un historial en blanco no es nada que mandar.
+    /// </summary>
+    Task<WhatsAppLinkDto> HistoryLinkAsync(Guid customerId, CancellationToken ct = default);
+
+    /// <summary>
+    /// El historial que abre el cliente desde ese enlace, sin sesión. El token es el mismo de
+    /// su estado de cuenta y es la única credencial.
+    /// </summary>
+    Task<CustomerHistoryDto> HistoryPublicAsync(Guid token, CancellationToken ct = default);
 }

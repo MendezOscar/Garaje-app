@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { errorMessage } from '@/api/client'
-import { workOrdersApi } from '@/api/garaj'
+import { historyApi, workOrdersApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
@@ -72,6 +72,28 @@ async function buscar() {
   }
 }
 
+/**
+ * Le manda el historial al cliente por WhatsApp. El enlace es el suyo —el mismo del estado
+ * de cuenta— así que le enseña todo lo que trae al taller, no solo el vehículo que se está
+ * mirando aquí.
+ *
+ * La pestaña se abre antes de pedir el enlace: abrirla después, ya con la respuesta, cae en
+ * el bloqueador de ventanas emergentes.
+ */
+async function mandarHistorial(customerId: string) {
+  const tab = window.open('', '_blank')
+  error.value = ''
+
+  try {
+    const link = await historyApi.whatsappLink(customerId)
+    if (tab) tab.location.href = link.url
+    else window.location.href = link.url
+  } catch (e) {
+    tab?.close()
+    error.value = errorMessage(e, 'No se pudo armar el enlace del historial.')
+  }
+}
+
 function limpiar() {
   search.value = ''
   buscado.value = ''
@@ -124,10 +146,22 @@ function limpiar() {
           </button>
         </div>
 
-        <p class="muted small">
-          {{ lista.length }} {{ lista.length === 1 ? 'visita' : 'visitas' }}
-          <template v-if="elegido"> de {{ elegido.vehicleLabel }}</template>
-        </p>
+        <div class="resumen">
+          <p class="muted small">
+            {{ lista.length }} {{ lista.length === 1 ? 'visita' : 'visitas' }}
+            <template v-if="elegido"> de {{ elegido.vehicleLabel }}</template>
+          </p>
+          <!-- Es la pregunta de después de enseñarle el historial en pantalla: «¿me lo puede
+               mandar?». Va aquí, donde ya se está mirando. -->
+          <button
+            v-if="lista[0]?.customerId"
+            type="button"
+            class="btn-ghost"
+            @click="mandarHistorial(lista[0].customerId)"
+          >
+            Mandárselo al cliente
+          </button>
+        </div>
 
         <table class="tabla">
           <thead>
@@ -170,6 +204,14 @@ function limpiar() {
 </template>
 
 <style scoped>
+.resumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
 .historial {
   display: grid;
   gap: var(--space-4);

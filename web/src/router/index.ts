@@ -35,6 +35,14 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true },
   },
   {
+    // El historial de todo lo que el taller le ha hecho a lo suyo. Mismo token que `/c/`:
+    // es el mismo cliente y el mismo enlace de siempre, no uno más que cuidar.
+    path: '/h/:token',
+    name: 'public-history',
+    component: () => import('@/views/PublicHistoryView.vue'),
+    meta: { public: true },
+  },
+  {
     // El seguimiento de la orden. Es el enlace que el taller manda al recibir el vehículo y
     // el que más se va a abrir de los tres: casi ningún cliente instala la app.
     path: '/o/:token',
