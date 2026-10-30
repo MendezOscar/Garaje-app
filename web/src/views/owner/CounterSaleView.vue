@@ -740,7 +740,7 @@ onMounted(async () => {
             Factura con CAI
             <span v-if="rangoFiscal && !impedimentoCai" class="muted small">
               · siguiente {{ rangoFiscal.nextFiscalNumber }}<template v-if="tasaImpuesto">
-              · le suma el ISV {{ tasaImpuesto }}%</template>
+              · desglosa el ISV {{ tasaImpuesto }}%, que ya va dentro del precio</template>
             </span>
           </label>
           <p v-if="impedimentoCai" class="muted small">{{ impedimentoCai }}</p>
