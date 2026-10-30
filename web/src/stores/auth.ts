@@ -4,11 +4,32 @@ import { api } from '@/api/client'
 import { clearSession, loadSession, saveSession } from '@/api/session'
 import { Roles, type AuthResponse, type CurrentUser, type Role } from '@/types/api'
 
+/** Lo que se guarda cuando se eligió «todas», para distinguirlo de no haber elegido. */
+const TODAS = 'todas'
+
+function leerSucursalGuardada(user: CurrentUser | null): string | null {
+  const guardado = localStorage.getItem('garaj.activeBranch')
+
+  if (guardado === TODAS) return null
+  if (guardado) return guardado
+
+  // La primera vez se abre en la primera sucursal: es lo que el taller de una sola tiene,
+  // y para el de varias es una elección concreta en vez de un promedio de todo.
+  return user?.branches[0]?.id ?? null
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<CurrentUser | null>(loadSession()?.user ?? null)
-  const activeBranchId = ref<string | null>(
-    localStorage.getItem('garaj.activeBranch') ?? user.value?.branches[0]?.id ?? null,
-  )
+
+  /**
+   * La sucursal que se está mirando, y la obedece todo el panel.
+   *
+   * Null es «todas las sucursales», que no es lo mismo que «todavía no eligió»: por eso lo
+   * guardado puede decir TODAS. Antes cada pantalla traía su propio selector y abría en
+   * «todas» mientras la barra de arriba decía «Sucursal Centro»; las cifras no cuadraban
+   * entre Inicio, Por cobrar y Reportes y nadie sabía cuál creer.
+   */
+  const activeBranchId = ref<string | null>(leerSucursalGuardada(user.value))
 
   const isAuthenticated = computed(() => user.value !== null)
   const role = computed<Role | null>(() => user.value?.role ?? null)
@@ -65,13 +86,21 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setActiveBranch(branchId: string | null): void {
     activeBranchId.value = branchId
-    if (branchId) localStorage.setItem('garaj.activeBranch', branchId)
-    else localStorage.removeItem('garaj.activeBranch')
+    localStorage.setItem('garaj.activeBranch', branchId ?? TODAS)
   }
+
+  /** Cómo se llama lo que se está mirando. Va en el subtítulo de cada pantalla. */
+  const activeBranchName = computed(() =>
+    activeBranchId.value
+      ? (user.value?.branches.find((b) => b.id === activeBranchId.value)?.name ??
+        'Todas las sucursales')
+      : 'Todas las sucursales',
+  )
 
   return {
     user,
     activeBranchId,
+    activeBranchName,
     isAuthenticated,
     role,
     isOwner,

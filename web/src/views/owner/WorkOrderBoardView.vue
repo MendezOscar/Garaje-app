@@ -22,7 +22,8 @@ const { vocabulario, cargar: cargarTaller } = useTaller()
 const orders = ref<WorkOrderListItem[]>([])
 const technicians = ref<User[]>([])
 const search = ref('')
-const branchId = ref<string>('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 const tecnicoId = ref<string>('')
 
 /**
@@ -281,7 +282,12 @@ watch(pestana, (ahora, antes) => {
     <header class="cabecera">
       <div>
         <h1>Órdenes de trabajo</h1>
-        <p class="muted small">Todo lo que entra al taller, desde que se recibe hasta que se entrega.</p>
+        <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
+          Todo lo que entra al taller, desde que se recibe hasta que se entrega.
+        </p>
       </div>
       <div class="cabecera-acciones">
         <!-- Tablero para ver el patio; lista para cuando hay treinta órdenes vivas. -->
@@ -328,11 +334,6 @@ watch(pestana, (ahora, antes) => {
           :placeholder="`Número, ${vocabulario.identificador.toLowerCase()} o cliente`"
         />
       </span>
-
-      <select v-if="branches.length > 1" v-model="branchId">
-        <option value="">Todas las sucursales</option>
-        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
 
       <select v-model="tecnicoId">
         <option value="">Todos los técnicos</option>

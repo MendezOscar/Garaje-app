@@ -1,26 +1,27 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, reportsApi, usersApi } from '@/api/garaj'
+import { reportsApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   RevenueGrouping,
   WORK_ORDER_STATUS_LABEL,
-  type Branch,
   type Dashboard,
   type RevenueReport,
   type User,
 } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
 import { formatMoney, formatQuantity } from '@/utils/format'
 
 const dashboard = ref<Dashboard | null>(null)
 const report = ref<RevenueReport | null>(null)
-const branches = ref<Branch[]>([])
+const auth = useAuthStore()
 const technicians = ref<User[]>([])
 
 const groupBy = ref<RevenueGrouping>(RevenueGrouping.Day)
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 const technicianId = ref('')
 const from = ref('')
 const to = ref('')
@@ -103,7 +104,6 @@ const chart = computed(() => {
 watch([groupBy, branchId, technicianId], load)
 
 onMounted(async () => {
-  branches.value = await branchesApi.list().catch(() => [])
   technicians.value = await usersApi.list('Technician').catch(() => [])
   await load()
 })
@@ -115,13 +115,10 @@ onMounted(async () => {
       <div>
         <h1>Reportes</h1>
         <p class="muted small">
-          El desglose sale del tipo de línea de cada venta, así que siempre cuadra con lo facturado.
+          {{ auth.activeBranchName }} · el desglose sale del tipo de línea de cada venta,
+          así que siempre cuadra con lo facturado.
         </p>
       </div>
-      <select v-model="branchId">
-        <option value="">Todas las sucursales</option>
-        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
     </header>
 
     <ErrorNote v-if="error" :message="error" />

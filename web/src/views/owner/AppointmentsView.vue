@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { appointmentsApi, branchesApi } from '@/api/garaj'
@@ -14,6 +14,7 @@ import {
   type Appointment,
   type Branch,
 } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
 import { formatDay, whatsappLink } from '@/utils/format'
 
 /**
@@ -27,9 +28,14 @@ const router = useRouter()
 
 const { vocabulario, cargar: cargarTaller } = useTaller()
 
+const auth = useAuthStore()
+
 const citas = ref<Appointment[]>([])
+
+/** Las sucursales del taller. Aquí siguen haciendo falta: una cita se agenda en una. */
 const branches = ref<Branch[]>([])
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 
 const loading = ref(false)
 const busy = ref(false)
@@ -223,9 +229,14 @@ function esHoy(cita: Appointment) {
   return cita.day === hoyISO
 }
 
+// Al cambiar de sucursal en el menú, esta pantalla vuelve a pedir lo suyo.
+
+watch(branchId, load)
+
+
 onMounted(async () => {
-  await cargarTaller()
   branches.value = await branchesApi.list().catch(() => [])
+  await cargarTaller()
   await load()
 })
 </script>
@@ -236,15 +247,14 @@ onMounted(async () => {
       <div>
         <h1>Citas</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           Los días que los clientes apartaron, por el enlace o desde la aplicación. Confirme
           para que nadie se presente creyendo que tenía lugar.
         </p>
       </div>
       <div class="filtros">
-        <select v-if="branches.length > 1" v-model="branchId" @change="load">
-          <option value="">Todas las sucursales</option>
-          <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-        </select>
         <button type="button" @click="abrirNueva">Anotar una cita</button>
       </div>
     </header>

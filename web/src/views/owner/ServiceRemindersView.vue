@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, workOrdersApi } from '@/api/garaj'
+import { workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import { useTaller } from '@/composables/useTaller'
 import SkeletonList from '@/components/SkeletonList.vue'
-import type { Branch, ServiceReminder } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
+import type { ServiceReminder } from '@/types/domain'
 import { formatDate } from '@/utils/format'
 
 /**
@@ -19,11 +20,13 @@ import { formatDate } from '@/utils/format'
  */
 const { vocabulario, cargar: cargarTaller } = useTaller()
 
+const auth = useAuthStore()
+
 const reminders = ref<ServiceReminder[]>([])
-const branches = ref<Branch[]>([])
 
 const search = ref('')
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 /** Qué se está mirando: lo del mes, solo lo atrasado, o los que ya se recordaron. */
 const filtro = ref<'mes' | 'atrasados' | 'recordados'>('mes')
 
@@ -87,9 +90,13 @@ function cuando(reminder: ServiceReminder): string {
   return `en ${reminder.daysUntil} ${reminder.daysUntil === 1 ? 'día' : 'días'}`
 }
 
+// Al cambiar de sucursal en el menú, esta pantalla vuelve a pedir lo suyo.
+
+watch(branchId, load)
+
+
 onMounted(async () => {
   await cargarTaller()
-  branches.value = await branchesApi.list().catch(() => [])
   await load()
 })
 </script>
@@ -100,6 +107,9 @@ onMounted(async () => {
       <div>
         <h1>Recordatorios</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           A quién le toca servicio, según lo que se anotó al entregar. Los que ya volvieron al
           taller salen de la lista solos.
         </p>
@@ -119,10 +129,6 @@ onMounted(async () => {
         :placeholder="`Cliente, teléfono o ${vocabulario.identificador.toLowerCase()}`"
       />
 
-      <select v-if="branches.length > 1" v-model="branchId" @change="load">
-        <option value="">Todas las sucursales</option>
-        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
 
       <div class="chips">
         <button type="button" class="chip" :class="{ on: filtro === 'mes' }" @click="elegir('mes')">
