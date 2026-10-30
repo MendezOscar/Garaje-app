@@ -166,12 +166,12 @@ public static class QuotePdf
                     });
                     // Con ISV, la línea se muestra sin impuesto y el desglose va al pie: así
                     // el cliente puede sumar lo que lee y llegar al neto que ve abajo.
-                    var unitario = quote.TaxRate > 0
-                        ? Isv.Base(line.UnitPrice, quote.TaxRate)
-                        : line.UnitPrice;
-                    var importe = quote.TaxRate > 0
-                        ? Isv.Base(line.Total, quote.TaxRate)
-                        : line.Total;
+                    // Igual que en la factura: solo se le saca el impuesto a la línea cuando
+                    // el precio lo llevaba adentro.
+                    var desglosar = quote.TaxRate > 0 && quote.PricesIncludedTax;
+
+                    var unitario = desglosar ? Isv.Base(line.UnitPrice, quote.TaxRate) : line.UnitPrice;
+                    var importe = desglosar ? Isv.Base(line.Total, quote.TaxRate) : line.Total;
 
                     table.Cell().Element(BodyCell).AlignRight().Text(Quantity(line.Quantity));
                     table.Cell().Element(BodyCell).AlignRight().Text(Money(unitario, quote.Currency));
@@ -208,6 +208,12 @@ public static class QuotePdf
                 // cliente mira el precio y donde no se puede alegar que no lo vio.
                 if (quote.TaxRate == 0)
                     totals.Item().PaddingTop(4).Text("No incluye ISV.")
+                        .FontSize(8).FontColor(Colors.Grey.Darken2);
+                else if (!quote.PricesIncludedTax)
+                    // Con el impuesto aparte, el total de arriba ya lo lleva sumado: hay que
+                    // decirlo aquí o el cliente cree que la factura le va a subir otra vez.
+                    totals.Item().PaddingTop(4)
+                        .Text($"Incluye el ISV del {quote.TaxRate:0.##}%, que se suma al facturar.")
                         .FontSize(8).FontColor(Colors.Grey.Darken2);
             });
 

@@ -99,6 +99,7 @@ public class TenantService(
         tenant.Email = Trim(request.Email);
         tenant.Address = Trim(request.Address);
         tenant.DefaultTaxRate = request.DefaultTaxRate;
+        tenant.PricesIncludeTax = request.PricesIncludeTax;
         tenant.DefaultWarrantyDays = request.DefaultWarrantyDays;
         tenant.ChargesStorage = request.ChargesStorage;
         tenant.StorageFreeDays = Math.Clamp(request.StorageFreeDays, 0, 365);
@@ -407,6 +408,7 @@ public class TenantService(
         tenant.Currency,
         tenant.WorksWith,
         tenant.DefaultTaxRate,
+        tenant.PricesIncludeTax,
         tenant.DefaultPhoneCountryCode,
         tenant.DefaultWarrantyDays,
         tenant.ChargesStorage,

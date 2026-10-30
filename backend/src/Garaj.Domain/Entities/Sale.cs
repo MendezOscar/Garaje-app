@@ -24,6 +24,12 @@ public class Sale : TenantEntity, IBranchEntity
     public decimal Subtotal { get; set; }
     public decimal DiscountTotal { get; set; }
     public decimal TaxRate { get; set; }
+
+    /// <summary>
+    /// Si los precios llevaban el ISV adentro cuando esto se armó. Se congela como la tasa:
+    /// que el taller cambie mañana de modelo no puede reescribir lo que ya se cobró.
+    /// </summary>
+    public bool PricesIncludedTax { get; set; } = true;
     public decimal TaxTotal { get; set; }
     public decimal Total { get; set; }
 

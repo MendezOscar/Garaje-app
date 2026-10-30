@@ -76,6 +76,7 @@ class Quote {
     required this.subtotal,
     required this.taxRate,
     required this.taxTotal,
+    this.pricesIncludedTax = true,
     required this.currency,
     required this.lines,
     required this.isExpired,
@@ -101,6 +102,7 @@ class Quote {
         subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0,
         taxRate: (json['taxRate'] as num?)?.toDouble() ?? 0,
         taxTotal: (json['taxTotal'] as num?)?.toDouble() ?? 0,
+        pricesIncludedTax: json['pricesIncludedTax'] as bool? ?? true,
         total: (json['total'] as num).toDouble(),
         currency: json['currency'] as String? ?? 'HNL',
         validUntil: _date(json['validUntil']),
@@ -127,6 +129,10 @@ class Quote {
   final double subtotal;
   final double taxRate;
   final double taxTotal;
+
+  /// Si los precios llevaban el ISV adentro cuando se armó. Falso en el taller que lo suma
+  /// al facturar: ahí la línea ya es la base y no hay nada que sacarle.
+  final bool pricesIncludedTax;
   final double total;
   final String currency;
   final DateTime? validUntil;
@@ -150,6 +156,9 @@ class Quote {
       value == null ? null : DateTime.parse(value as String);
 }
 
+/// El precio sin el ISV que trae adentro, cuando lo trae. En el taller que suma el impuesto
+/// al facturar, la línea ya es la base y se devuelve igual.
+///
 /// El precio sin el ISV que ya trae adentro. El impuesto va dentro del precio, así que para
 /// desglosarlo se divide, no se resta un porcentaje: `425 / 1.15 = 369.57`, y lo que falta
 /// para el total es el impuesto. Con tasa cero devuelve el mismo precio.

@@ -732,6 +732,8 @@ export interface QuoteDetail extends Omit<QuoteListItem, 'vehicleLabel'> {
   discountTotal: number
   taxRate: number
   taxTotal: number
+  /** Si los precios llevaban el ISV adentro cuando se armó. */
+  pricesIncludedTax: boolean
   currency: string
   customerResponseNote: string | null
   isEditable: boolean
@@ -777,6 +779,8 @@ export interface PublicQuote {
   discountTotal: number
   taxRate: number
   taxTotal: number
+  /** Si los precios llevaban el ISV adentro cuando se armó. */
+  pricesIncludedTax: boolean
   total: number
   currency: string
   validUntil: string | null
@@ -945,6 +949,8 @@ export interface SaleDetail extends SaleListItem {
   discountTotal: number
   taxRate: number
   taxTotal: number
+  /** Si los precios llevaban el ISV adentro cuando se armó. */
+  pricesIncludedTax: boolean
   costTotal: number
   margin: number
   currency: string
@@ -1218,6 +1224,8 @@ export interface TenantSettings {
   /** Si el taller repara vehículos o equipos. */
   worksWith: WorkshopKind
   defaultTaxRate: number
+  /** Si los precios del catálogo ya llevan el ISV adentro. */
+  pricesIncludeTax: boolean
   defaultPhoneCountryCode: string
   /** Días de garantía que lleva un trabajo por defecto. Cero es sin garantía. */
   defaultWarrantyDays: number

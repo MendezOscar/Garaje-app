@@ -1371,6 +1371,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("number");
 
+                    b.Property<bool>("PricesIncludedTax")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("prices_included_tax");
+
                     b.Property<Guid>("PublicToken")
                         .HasColumnType("uuid")
                         .HasColumnName("public_token");
@@ -1647,6 +1653,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Property<int>("PaymentMethod")
                         .HasColumnType("integer")
                         .HasColumnName("payment_method");
+
+                    b.Property<bool>("PricesIncludedTax")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("prices_included_tax");
 
                     b.Property<DateTimeOffset>("SaleDate")
                         .HasColumnType("timestamp with time zone")
@@ -2334,6 +2346,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("plan_name");
+
+                    b.Property<bool>("PricesIncludeTax")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("prices_include_tax");
 
                     b.Property<decimal>("StorageDailyRate")
                         .HasPrecision(18, 2)
