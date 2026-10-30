@@ -135,6 +135,9 @@ const paymentMethod = ref<PaymentMethod>(PaymentMethod.Cash)
 const notas = ref('')
 
 const tasaImpuesto = ref(0)
+
+/** Si los precios del taller ya llevan el ISV adentro. Lo elige el Dueño en Datos del taller. */
+const precioConIsv = ref(true)
 const rangos = ref<FiscalRange[]>([])
 
 /**
@@ -170,15 +173,35 @@ const impedimentoCai = computed(() => {
   return null
 })
 
+/**
+ * Lo que se cobra en cada caso, los dos a la vista.
+ *
+ * Con el precio llevando el ISV adentro, los dos totales son el mismo y la factura solo lo
+ * desglosa. Con el impuesto aparte, con factura se paga más: quien cobra tiene que ver la
+ * diferencia antes de marcar la casilla, no deducirla.
+ */
 const cuenta = computed(() => {
   const subtotal = lineas.value.reduce((suma, l) => suma + l.cantidad * l.precio, 0)
   const descuento = lineas.value.reduce((suma, l) => suma + l.descuento, 0)
   const base = Math.max(0, subtotal - descuento)
+  const tasa = tasaImpuesto.value
 
-  // El precio ya lleva el ISV adentro: el total es lo cobrado y la factura solo lo desglosa.
-  const isv = Math.round((base - base / (1 + tasaImpuesto.value / 100)) * 100) / 100
-  const impuesto = conCai.value ? isv : 0
-  return { subtotal, descuento, base, impuesto, total: base }
+  const conFactura = precioConIsv.value
+    ? { total: base, impuesto: Math.round((base - base / (1 + tasa / 100)) * 100) / 100 }
+    : { total: Math.round(base * (1 + tasa / 100) * 100) / 100, impuesto: Math.round(base * tasa / 100 * 100) / 100 }
+
+  const elegido = conCai.value ? conFactura : { total: base, impuesto: 0 }
+
+  return {
+    subtotal,
+    descuento,
+    base,
+    impuesto: elegido.impuesto,
+    total: elegido.total,
+    sinFactura: base,
+    conFactura: conFactura.total,
+    cambiaElTotal: conFactura.total !== base,
+  }
 })
 
 /** Lo que se pide de más de lo que hay. El servidor lo rechaza, así que se avisa antes. */
@@ -408,6 +431,7 @@ onMounted(async () => {
 
   const taller = await tenantApi.get().catch(() => null)
   tasaImpuesto.value = taller?.defaultTaxRate ?? 0
+  precioConIsv.value = taller?.pricesIncludeTax ?? true
   garantiaDias.value = taller?.defaultWarrantyDays ?? 0
 
   rangos.value = await tenantApi.fiscalRanges().catch(() => [])
@@ -740,7 +764,9 @@ onMounted(async () => {
             Factura con CAI
             <span v-if="rangoFiscal && !impedimentoCai" class="muted small">
               · siguiente {{ rangoFiscal.nextFiscalNumber }}<template v-if="tasaImpuesto">
-              · desglosa el ISV {{ tasaImpuesto }}%, que ya va dentro del precio</template>
+              · {{ precioConIsv
+                ? `desglosa el ISV ${tasaImpuesto}%, que ya va dentro del precio`
+                : `le suma el ISV ${tasaImpuesto}%` }}</template>
             </span>
           </label>
           <p v-if="impedimentoCai" class="muted small">{{ impedimentoCai }}</p>
@@ -782,14 +808,23 @@ onMounted(async () => {
               <dd class="num">−{{ formatMoney(cuenta.descuento) }}</dd>
             </template>
             <template v-if="tasaImpuesto && conCai">
-              <dt>ISV {{ tasaImpuesto }}% incluido</dt>
+              <dt>ISV {{ tasaImpuesto }}% {{ precioConIsv ? 'incluido' : 'agregado' }}</dt>
               <dd class="num">{{ formatMoney(cuenta.impuesto) }}</dd>
             </template>
             <dt class="fuerte">Total</dt>
             <dd class="fuerte num grande">{{ formatMoney(cuenta.total) }}</dd>
           </dl>
-          <p v-if="tasaImpuesto && !conCai && cuenta.base" class="muted small">
-            Con factura el total es el mismo: el ISV ya va dentro del precio.
+          <!-- Los dos números, siempre: es lo que cambia al marcar la casilla del CAI. -->
+          <p v-if="tasaImpuesto && cuenta.base" class="muted small">
+            <template v-if="cuenta.cambiaElTotal">
+              Sin factura, {{ formatMoney(cuenta.sinFactura) }}. Con factura,
+              {{ formatMoney(cuenta.conFactura) }}: sus precios no llevan el ISV adentro y se
+              le suma al facturar.
+            </template>
+            <template v-else>
+              Con factura el total es el mismo, {{ formatMoney(cuenta.sinFactura) }}: el ISV ya
+              va dentro del precio y la factura solo lo desglosa.
+            </template>
           </p>
         </article>
 

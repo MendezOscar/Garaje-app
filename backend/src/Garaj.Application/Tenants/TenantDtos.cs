@@ -25,6 +25,9 @@ public record TenantSettingsDto(
     // alta a un cliente y cómo se llama en las pantallas.
     WorkshopKind WorksWith,
     decimal DefaultTaxRate,
+    // Si los precios del catálogo ya llevan el ISV adentro. De aquí sale el texto que ven el
+    // cliente y el mostrador, y el cálculo de la venta y de la cotización.
+    bool PricesIncludeTax,
     string DefaultPhoneCountryCode,
     // Días de garantía que lleva un trabajo por defecto. Cero es sin garantía.
     int DefaultWarrantyDays,
@@ -54,7 +57,8 @@ public record UpdateTenantRequest(
     int StorageFreeDays = 3,
     decimal StorageDailyRate = 0,
     bool TechniciansSeePrices = true,
-    bool BookingEnabled = true);
+    bool BookingEnabled = true,
+    bool PricesIncludeTax = true);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

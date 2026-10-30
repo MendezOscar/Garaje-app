@@ -1318,6 +1318,8 @@ export const tenantApi = {
     email: string | null
     address: string | null
     defaultTaxRate: number
+    /** Si los precios del catálogo ya llevan el ISV adentro. */
+    pricesIncludeTax: boolean
     defaultPhoneCountryCode: string | null
     defaultWarrantyDays: number
     techniciansSeePrices: boolean

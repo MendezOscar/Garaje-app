@@ -29,6 +29,7 @@ const form = ref({
   email: '',
   address: '',
   defaultTaxRate: 15,
+  pricesIncludeTax: true,
   defaultWarrantyDays: 0,
   techniciansSeePrices: true,
   bookingEnabled: true,
@@ -59,6 +60,17 @@ const enlaceDeCitas = computed(() => {
 })
 
 const copiado = ref(false)
+
+/** Los dos ejemplos del ajuste, con la tasa que el taller tenga escrita. */
+const ejemploIsv = computed(() => {
+  const tasa = Number(form.value.defaultTaxRate) || 0
+  return (115 - 115 / (1 + tasa / 100)).toFixed(2)
+})
+
+const ejemploConIsv = computed(() => {
+  const tasa = Number(form.value.defaultTaxRate) || 0
+  return (115 * (1 + tasa / 100)).toFixed(2)
+})
 
 /**
  * El mismo enlace, en QR, para imprimirlo y pegarlo en el mostrador. Se dibuja en el
@@ -208,6 +220,7 @@ function fill(data: TenantSettings) {
     email: data.email ?? '',
     address: data.address ?? '',
     defaultTaxRate: data.defaultTaxRate,
+    pricesIncludeTax: data.pricesIncludeTax,
     defaultWarrantyDays: data.defaultWarrantyDays,
     techniciansSeePrices: data.techniciansSeePrices,
     bookingEnabled: data.bookingEnabled,
@@ -294,6 +307,7 @@ async function save() {
         email: f.email.trim() || null,
         address: f.address.trim() || null,
         defaultTaxRate: Number(f.defaultTaxRate) || 0,
+        pricesIncludeTax: f.pricesIncludeTax,
         defaultWarrantyDays: Number(f.defaultWarrantyDays) || 0,
         techniciansSeePrices: f.techniciansSeePrices,
         bookingEnabled: f.bookingEnabled,
@@ -476,10 +490,36 @@ onMounted(async () => {
               step="0.01"
             />
             <small class="muted">
-              Sus precios ya llevan el impuesto dentro: esto no sube el total, solo lo desglosa
-              en la cotización y en la factura. En cero no se desglosa nada.
+              En cero, ni se cobra ni se desglosa.
             </small>
           </label>
+
+          <!-- Qué significa el precio del catálogo. Se elige una vez: si cambiara de venta en
+               venta, el mismo repuesto tendría dos precios y la cotización diría uno y la
+               factura otro. Lo que sí se decide en cada venta es si lleva CAI. -->
+          <div v-if="form.defaultTaxRate > 0" class="modelo">
+            <span class="rotulo">Sus precios del catálogo</span>
+            <label class="radio">
+              <input v-model="form.pricesIncludeTax" type="radio" :value="true" />
+              <span>
+                <strong>Ya llevan el ISV adentro</strong>
+                <small class="muted">
+                  Un repuesto de L 115 cuesta L 115 con factura y sin ella. Con CAI, la factura
+                  desglosa L {{ ejemploIsv }} de impuesto. Es lo que hace casi todo taller.
+                </small>
+              </span>
+            </label>
+            <label class="radio">
+              <input v-model="form.pricesIncludeTax" type="radio" :value="false" />
+              <span>
+                <strong>No lo llevan: se suma al facturar</strong>
+                <small class="muted">
+                  Ese repuesto son L 115 sin factura y L {{ ejemploConIsv }} con factura. El
+                  cliente paga más por llevarse la factura.
+                </small>
+              </span>
+            </label>
+          </div>
 
           <label>
             Garantía por defecto (días)
@@ -714,6 +754,30 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.modelo {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.modelo .rotulo {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.modelo .radio {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.modelo .radio span {
+  display: grid;
+  gap: 0.15rem;
+}
+
 .rubro {
   margin-bottom: 0.75rem;
 }

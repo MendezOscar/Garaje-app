@@ -40,6 +40,15 @@ public class Tenant : AuditableEntity
     public decimal DefaultTaxRate { get; set; }
 
     /// <summary>
+    /// Si los precios del catálogo ya llevan el ISV adentro.
+    ///
+    /// Verdadero es lo normal: el precio es lo que el cliente paga y la factura solo desglosa
+    /// el impuesto. Falso es el taller que cotiza sin impuesto y lo suma al facturar, donde
+    /// con factura se paga más que sin ella.
+    /// </summary>
+    public bool PricesIncludeTax { get; set; } = true;
+
+    /// <summary>
     /// Días de garantía que lleva un trabajo por defecto. Cero es sin garantía, y es como
     /// nace un taller: ofrecerla es una decisión suya, no nuestra. Se puede cambiar al
     /// facturar, trabajo por trabajo.

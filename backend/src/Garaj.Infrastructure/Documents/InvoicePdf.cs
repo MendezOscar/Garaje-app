@@ -225,14 +225,14 @@ public static class InvoicePdf
                         c.Item().Text(line.LineType == LineType.Part ? "Repuesto" : "Mano de obra")
                             .FontSize(8).FontColor(Colors.Grey.Darken1);
                     });
-                    // Con ISV la línea va sin impuesto, para que la columna sume el importe
-                    // gravado del pie en vez de un número que no aparece en ninguna parte.
-                    var unitario = sale.TaxRate > 0
-                        ? Isv.Base(line.UnitPrice, sale.TaxRate)
-                        : line.UnitPrice;
-                    var importe = sale.TaxRate > 0
-                        ? Isv.Base(line.Total, sale.TaxRate)
-                        : line.Total;
+                    // La columna va sin impuesto, para que sume el importe gravado del pie
+                    // en vez de un número que no aparece en ninguna parte. Con el precio ya
+                    // con ISV adentro hay que sacarlo; con el impuesto aparte, el precio de
+                    // la línea ya es la base y sacárselo lo cobraría dos veces.
+                    var desglosar = sale.TaxRate > 0 && sale.PricesIncludedTax;
+
+                    var unitario = desglosar ? Isv.Base(line.UnitPrice, sale.TaxRate) : line.UnitPrice;
+                    var importe = desglosar ? Isv.Base(line.Total, sale.TaxRate) : line.Total;
 
                     table.Cell().Element(BodyCell).AlignRight().Text(Quantity(line.Quantity));
                     table.Cell().Element(BodyCell).AlignRight().Text(Money(unitario, sale.Currency));

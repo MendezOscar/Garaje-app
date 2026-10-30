@@ -127,7 +127,8 @@ public class QuoteService(
             Status = QuoteStatus.Draft,
             ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim(),
-            TaxRate = request.TaxRate ?? SinImpuesto
+            TaxRate = request.TaxRate ?? SinImpuesto,
+            PricesIncludedTax = (await CurrentTenantAsync(ct)).PricesIncludeTax
         };
 
         db.Quotes.Add(quote);
@@ -169,7 +170,8 @@ public class QuoteService(
             Status = QuoteStatus.Draft,
             ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim() ?? order.Description,
-            TaxRate = SinImpuesto
+            TaxRate = SinImpuesto,
+            PricesIncludedTax = (await CurrentTenantAsync(ct)).PricesIncludeTax
         };
 
         db.Quotes.Add(quote);
@@ -663,10 +665,13 @@ public class QuoteService(
         quote.Subtotal = quote.Lines.Sum(l => l.Quantity * l.UnitPrice);
         quote.DiscountTotal = quote.Lines.Sum(l => l.Discount);
 
-        // Igual que en la venta: el precio lleva el ISV adentro y el total no cambia por
-        // desglosarlo. Lo que el cliente aprueba es lo que después se le cobra.
-        quote.Total = quote.Subtotal - quote.DiscountTotal;
-        quote.TaxTotal = Isv.Contenido(quote.Total, quote.TaxRate);
+        // La misma regla que la venta, en el mismo sitio: lo que el cliente aprueba aquí es
+        // lo que después se le cobra allá.
+        var (total, impuesto) = Isv.Totales(
+            quote.Subtotal - quote.DiscountTotal, quote.TaxRate, quote.PricesIncludedTax);
+
+        quote.Total = total;
+        quote.TaxTotal = impuesto;
 
         await db.SaveChangesAsync(ct);
     }
@@ -819,6 +824,7 @@ public class QuoteService(
             quote.DiscountTotal,
             quote.TaxRate,
             quote.TaxTotal,
+            quote.PricesIncludedTax,
             quote.Total,
             tenant.Currency,
             quote.ValidUntil,
@@ -886,6 +892,7 @@ public class QuoteService(
             quote.DiscountTotal,
             quote.TaxRate,
             quote.TaxTotal,
+            quote.PricesIncludedTax,
             quote.Total,
             tenant.Currency,
             quote.ValidUntil,

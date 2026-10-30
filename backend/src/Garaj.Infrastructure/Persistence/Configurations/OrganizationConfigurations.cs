@@ -22,6 +22,10 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         // Con valor por omisión en la base: los talleres que ya existen quedan en
         // vehículos al aplicar la migración, sin un UPDATE a mano.
         b.Property(x => x.WorksWith).HasDefaultValue(WorkshopKind.Vehicles);
+
+        // Verdadero por omisión: el precio con el impuesto adentro es lo que hace casi todo
+        // taller, y es lo que ya tenían los que existían antes de poder elegirlo.
+        b.Property(x => x.PricesIncludeTax).HasDefaultValue(true);
         b.Property(x => x.LogoStorageKey).HasMaxLength(500);
 
         b.Property(x => x.PlanName).HasMaxLength(60);

@@ -70,6 +70,8 @@ public record SaleDetailDto(
     decimal DiscountTotal,
     decimal TaxRate,
     decimal TaxTotal,
+    // Si los precios llevaban el ISV adentro cuando se cobró. Va congelado en la venta.
+    bool PricesIncludedTax,
     decimal Total,
     decimal CostTotal,
     // Total menos costo. Solo lo ve el Dueño.

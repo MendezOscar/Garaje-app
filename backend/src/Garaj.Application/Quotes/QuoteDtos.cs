@@ -87,6 +87,8 @@ public record QuoteDetailDto(
     decimal DiscountTotal,
     decimal TaxRate,
     decimal TaxTotal,
+    // Si los precios llevaban el ISV adentro. Lo que el cliente aprueba es lo que se le cobra.
+    bool PricesIncludedTax,
     decimal Total,
     string Currency,
     DateTimeOffset? ValidUntil,
@@ -183,6 +185,8 @@ public record PublicQuoteDto(
     decimal DiscountTotal,
     decimal TaxRate,
     decimal TaxTotal,
+    // Si los precios llevaban el ISV adentro. Lo que el cliente aprueba es lo que se le cobra.
+    bool PricesIncludedTax,
     decimal Total,
     string Currency,
     DateTimeOffset? ValidUntil,

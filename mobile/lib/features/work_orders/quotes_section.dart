@@ -553,12 +553,17 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                       child: Text(
                         '${line.description} (${line.lineType.label}'
                         '${_casa(line)}'
-                        '${quote.taxRate > 0 ? ' · sin ISV' : ''})',
+                        '${quote.taxRate > 0 && quote.pricesIncludedTax ? ' · sin ISV' : ''})',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
                     Text(
-                      _money(sinIsv(line.total, quote.taxRate), quote.currency),
+                      _money(
+                        quote.pricesIncludedTax
+                            ? sinIsv(line.total, quote.taxRate)
+                            : line.total,
+                        quote.currency,
+                      ),
                       style: theme.textTheme.bodySmall,
                     ),
                     if (editable)

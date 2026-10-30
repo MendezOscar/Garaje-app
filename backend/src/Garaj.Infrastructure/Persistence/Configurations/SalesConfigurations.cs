@@ -12,6 +12,9 @@ public class QuoteConfiguration : IEntityTypeConfiguration<Quote>
         b.Property(x => x.Notes).HasMaxLength(2000);
         b.Property(x => x.CustomerResponseNote).HasMaxLength(1000);
 
+        // Verdadero: lo que ya estaba se armó con el impuesto dentro del precio.
+        b.Property(x => x.PricesIncludedTax).HasDefaultValue(true);
+
         b.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
 
@@ -51,6 +54,9 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         b.Property(x => x.Number).HasMaxLength(30).IsRequired();
         b.Property(x => x.Notes).HasMaxLength(2000);
         b.Property(x => x.VoidReason).HasMaxLength(500);
+
+        // Verdadero: lo que ya se cobró se cobró con el impuesto dentro del precio.
+        b.Property(x => x.PricesIncludedTax).HasDefaultValue(true);
 
         b.Property(x => x.FiscalNumber).HasMaxLength(30);
         b.Property(x => x.FiscalCai).HasMaxLength(50);

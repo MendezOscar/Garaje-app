@@ -223,6 +223,7 @@ class _QuoteScreenState extends ConsumerState<QuoteScreen> {
                         line: q.lines[i],
                         currency: q.currency,
                         tasa: q.taxRate,
+                        conIsvAdentro: q.pricesIncludedTax,
                       ),
                     ],
                   ],
@@ -269,6 +270,7 @@ class _Linea extends StatelessWidget {
     required this.line,
     required this.currency,
     required this.tasa,
+    required this.conIsvAdentro,
   });
 
   final QuoteLine line;
@@ -276,6 +278,9 @@ class _Linea extends StatelessWidget {
 
   /// La del documento. Con ISV, la línea se muestra sin impuesto y el desglose va al pie.
   final double tasa;
+
+  /// Si el precio de la línea lleva el ISV adentro. Si no, ya es la base.
+  final bool conIsvAdentro;
 
   @override
   Widget build(BuildContext context) {
@@ -294,7 +299,7 @@ class _Linea extends StatelessWidget {
                 Text(
                   '${line.lineType == LineType.labor ? 'mano de obra' : 'repuesto · ${_cantidad(line.quantity)}'}'
                   '${_casa(line)}'
-                  '${tasa > 0 ? ' · sin ISV' : ''}',
+                  '${tasa > 0 && conIsvAdentro ? ' · sin ISV' : ''}',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -302,7 +307,7 @@ class _Linea extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            money(sinIsv(line.total, tasa), currency),
+            money(conIsvAdentro ? sinIsv(line.total, tasa) : line.total, currency),
             style: theme.textTheme.titleSmall?.copyWith(fontFamily: GarajFonts.mono),
           ),
         ],

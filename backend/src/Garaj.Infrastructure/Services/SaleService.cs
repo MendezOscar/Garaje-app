@@ -212,6 +212,7 @@ public class SaleService(
             SaleDate = saleDate,
             PaymentMethod = request.PaymentMethod,
             TaxRate = TaxRateFor(request.Fiscal, request.TaxRate, tenant),
+            PricesIncludedTax = tenant.PricesIncludeTax,
             WarrantyDays = warranty.Days,
             WarrantyUntil = warranty.Until,
             DueDate = request.DueDate,
@@ -289,6 +290,7 @@ public class SaleService(
             SaleDate = saleDate,
             PaymentMethod = request.PaymentMethod,
             TaxRate = TaxRateFor(request.Fiscal, request.TaxRate, tenant),
+            PricesIncludedTax = tenant.PricesIncludeTax,
             WarrantyDays = warranty.Days,
             WarrantyUntil = warranty.Until,
             DueDate = request.DueDate,
@@ -986,10 +988,13 @@ public class SaleService(
         sale.DiscountTotal = sale.Lines.Sum(l => l.Discount);
         sale.CostTotal = sale.Lines.Sum(l => l.Quantity * l.UnitCost);
 
-        // El precio ya trae el ISV adentro: el total es lo cobrado y el impuesto se saca hacia
-        // atrás. Ver Isv, que explica por qué.
-        sale.Total = sale.Subtotal - sale.DiscountTotal;
-        sale.TaxTotal = Isv.Contenido(sale.Total, sale.TaxRate);
+        // Con el impuesto dentro, el total es lo que suman las líneas y el ISV se saca hacia
+        // atrás; con el impuesto aparte, se le suma. La regla vive en Isv, no aquí.
+        var (total, impuesto) = Isv.Totales(
+            sale.Subtotal - sale.DiscountTotal, sale.TaxRate, sale.PricesIncludedTax);
+
+        sale.Total = total;
+        sale.TaxTotal = impuesto;
     }
 
     /// <summary>
@@ -1179,6 +1184,7 @@ public class SaleService(
             sale.DiscountTotal,
             sale.TaxRate,
             sale.TaxTotal,
+            sale.PricesIncludedTax,
             sale.Total,
             showCost ? sale.CostTotal : 0,
             showCost ? sale.Total - sale.CostTotal : 0,
