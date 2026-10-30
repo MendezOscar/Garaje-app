@@ -428,7 +428,12 @@ typedef _PasoNuevo = ({
   double? manualLaborPrice,
 });
 
-typedef _RepuestoNuevo = ({String? partId, String? description, double quantity});
+typedef _RepuestoNuevo = ({
+  String? partId,
+  String? description,
+  double quantity,
+  double? unitPrice,
+});
 
 class _NuevoTrabajo {
   const _NuevoTrabajo({
@@ -560,6 +565,9 @@ class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
         partId: elegido.partId,
         description: elegido.partId == null ? elegido.nombre : null,
         quantity: elegido.cantidad,
+        // Del catálogo el precio sale del repuesto, a precios de hoy; escrito a mano, del
+        // renglón, porque no hay catálogo de dónde sacarlo.
+        unitPrice: elegido.partId == null ? elegido.precio : null,
       ));
       _nombresDeRepuestos.add(elegido.nombre);
     });
@@ -697,12 +705,21 @@ class _FormularioTrabajoState extends ConsumerState<_FormularioTrabajo> {
 
 /// Lo que devuelve el selector de repuesto: del catálogo o escrito a mano.
 class _RepuestoElegido {
-  const _RepuestoElegido({this.partId, required this.nombre, required this.cantidad});
+  const _RepuestoElegido({
+    this.partId,
+    required this.nombre,
+    required this.cantidad,
+    this.precio,
+  });
 
   /// Null cuando se escribió a mano: es un repuesto que no está en el catálogo.
   final String? partId;
   final String nombre;
   final double cantidad;
+
+  /// Lo que cuesta el que no está en el catálogo. Null en el del catálogo: ahí el precio es
+  /// del repuesto y se mira cada vez.
+  final double? precio;
 }
 
 /// Elegir el repuesto que el trabajo lleva siempre.
@@ -718,15 +735,18 @@ class _ElegirRepuesto extends ConsumerStatefulWidget {
 
 class _ElegirRepuestoState extends ConsumerState<_ElegirRepuesto> {
   final _cantidad = TextEditingController(text: '1');
+  final _precio = TextEditingController();
   String _texto = '';
 
   @override
   void dispose() {
     _cantidad.dispose();
+    _precio.dispose();
     super.dispose();
   }
 
   double get _cuantos => double.tryParse(_cantidad.text.trim()) ?? 0;
+  double get _cuanto => double.tryParse(_precio.text.trim()) ?? 0;
 
   @override
   Widget build(BuildContext context) {
@@ -816,22 +836,41 @@ class _ElegirRepuestoState extends ConsumerState<_ElegirRepuesto> {
             ),
           ),
 
-          // A mano: lo que se compra de encargo y nunca entra a bodega.
+          // A mano: lo que se compra de encargo y nunca entra a bodega. Lleva su precio
+          // escrito, porque no hay catálogo del que sacarlo al aplicar el trabajo.
           const Divider(height: 24),
+          TextField(
+            controller: _precio,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Precio del que no está en el catálogo',
+              prefixText: 'L ',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: GarajSpace.sm),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _texto.trim().isEmpty || _cuantos <= 0
+              onPressed: _texto.trim().isEmpty || _cuantos <= 0 || _cuanto <= 0
                   ? null
                   : () => Navigator.pop(
                         context,
-                        _RepuestoElegido(nombre: _texto.trim(), cantidad: _cuantos),
+                        _RepuestoElegido(
+                          nombre: _texto.trim(),
+                          cantidad: _cuantos,
+                          precio: _cuanto,
+                        ),
                       ),
               icon: const Icon(Icons.edit_outlined),
               label: Text(
                 _texto.trim().isEmpty
                     ? 'No está en el catálogo: escriba el nombre arriba'
-                    : 'Agregar «${_texto.trim()}» a mano',
+                    : _cuanto <= 0
+                        ? 'Escriba cuánto cuesta «${_texto.trim()}»'
+                        : 'Agregar «${_texto.trim()}» a mano',
               ),
             ),
           ),

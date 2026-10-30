@@ -198,7 +198,7 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                   TextFormField(
                     controller: _mileage,
                     decoration: const InputDecoration(
-                      labelText: 'Kilometraje (opcional)',
+                      labelText: 'Kilometraje o millaje (opcional)',
                       counterText: '',
                     ),
                     keyboardType: TextInputType.number,

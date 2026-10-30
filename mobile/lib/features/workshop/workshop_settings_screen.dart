@@ -34,11 +34,20 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
   final _diasGracia = TextEditingController();
   final _porDia = TextEditingController();
 
+  bool _precioConIsv = true;
   bool _cobraBodegaje = false;
   bool _tecnicoVePrecios = true;
   bool _recibeCitas = true;
   bool _cargada = false;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // El interruptor de «mis precios llevan el ISV» solo tiene sentido con una tasa puesta, y
+    // sin esto no aparecería hasta volver a entrar a la pantalla.
+    _isv.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -65,6 +74,7 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
     _garantia.text = s.defaultWarrantyDays.toString();
     _diasGracia.text = s.storageFreeDays.toString();
     _porDia.text = _sinCerosDeMas(s.storageDailyRate);
+    _precioConIsv = s.pricesIncludeTax;
     _cobraBodegaje = s.chargesStorage;
     _tecnicoVePrecios = s.techniciansSeePrices;
     _recibeCitas = s.bookingEnabled;
@@ -92,6 +102,7 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
               defaultTaxRate: double.tryParse(_isv.text.trim()) ?? 0,
               defaultPhoneCountryCode: _vacioEsNulo(_codigoPais.text),
               defaultWarrantyDays: int.tryParse(_garantia.text.trim()) ?? 0,
+              pricesIncludeTax: _precioConIsv,
               chargesStorage: _cobraBodegaje,
               storageFreeDays: int.tryParse(_diasGracia.text.trim()) ?? 0,
               storageDailyRate: double.tryParse(_porDia.text.trim()) ?? 0,
@@ -104,6 +115,7 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
       // con los de antes, el taller cobraría con el ajuste viejo hasta reabrir la aplicación.
       ref.invalidate(tenantSettingsProvider);
       ref.invalidate(taxRateProvider);
+      ref.invalidate(precioConIsvProvider);
       ref.invalidate(defaultWarrantyDaysProvider);
 
       if (mounted) _avisar('Ajustes guardados.');
@@ -185,9 +197,26 @@ class _WorkshopSettingsScreenState extends ConsumerState<WorkshopSettingsScreen>
               _isv,
               'ISV (%)',
               teclado: const TextInputType.numberWithOptions(decimal: true),
-              ayuda: 'Sus precios ya llevan el impuesto dentro: esto no sube el total, solo '
-                  'lo desglosa. En cero no se desglosa nada.',
+              ayuda: 'Lo que el taller factura con CAI. En cero no se cobra ni se desglosa.',
             ),
+
+            // Qué significa el precio del catálogo. Se decide una vez: si cambiara de venta
+            // en venta, el mismo repuesto tendría dos precios y la cotización diría uno y la
+            // factura otro. Lo que sí se decide en cada venta es si lleva CAI.
+            if ((double.tryParse(_isv.text.trim()) ?? 0) > 0)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _precioConIsv,
+                title: const Text('Mis precios ya llevan el ISV adentro'),
+                subtitle: Text(
+                  _precioConIsv
+                      ? 'Un repuesto de L 115 cuesta L 115 con factura y sin ella: la factura '
+                          'solo desglosa el impuesto. Es lo que hace casi todo taller.'
+                      : 'Ese repuesto son L 115 sin factura, y con factura se le suma el ISV: '
+                          'el cliente paga más por llevársela.',
+                ),
+                onChanged: (v) => setState(() => _precioConIsv = v),
+              ),
             _campo(
               _garantia,
               'Garantía por defecto (días)',

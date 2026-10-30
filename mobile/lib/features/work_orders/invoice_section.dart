@@ -521,11 +521,21 @@ class _CloseCard extends ConsumerWidget {
         .fold<double>(0, (suma, p) => suma + p.total);
     final deBodega = order.partsTotal - afuera;
 
-    // El precio ya lleva el ISV adentro, así que facturar no cambia el total: solo lo
-    // desglosa. El impuesto se saca hacia atrás y únicamente cuando sale con CAI, que es la
-    // factura que lo respalda.
-    final total = deBodega + _labor + (cobrarLosDeAfuera ? afuera : 0);
-    final impuesto = fiscal && tasa > 0 ? total - total / (1 + tasa / 100) : 0.0;
+    // Qué hace facturar depende de cómo tenga el taller sus precios: con el ISV dentro, el
+    // total no cambia y la factura solo lo desglosa; sin él, se le suma al facturar. El
+    // impuesto cuenta únicamente cuando sale con CAI, que es la factura que lo respalda.
+    final conIsvAdentro = ref.watch(precioConIsvProvider).value ?? true;
+
+    final base = deBodega + _labor + (cobrarLosDeAfuera ? afuera : 0);
+
+    final impuestoSiFactura = tasa <= 0
+        ? 0.0
+        : conIsvAdentro
+            ? base - base / (1 + tasa / 100)
+            : base * tasa / 100;
+
+    final total = fiscal && !conIsvAdentro ? base + impuestoSiFactura : base;
+    final impuesto = fiscal ? impuestoSiFactura : 0.0;
 
     return _Section(
       title: 'Cerrar y facturar',
@@ -572,10 +582,16 @@ class _CloseCard extends ConsumerWidget {
               if (tasa > 0) ...[
                 const SizedBox(height: 4),
                 Text(
-                  fiscal
-                      ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% '
-                          '(${_money(impuesto, 'L')}), ya dentro del precio.'
-                      : 'El total es el mismo con factura: el ISV ya va en el precio.',
+                  conIsvAdentro
+                      ? (fiscal
+                          ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% '
+                              '(${_money(impuesto, 'L')}), ya dentro del precio.'
+                          : 'El total es el mismo con factura: el ISV ya va en el precio.')
+                      : (fiscal
+                          ? 'Más ISV ${tasa.toStringAsFixed(0)}% '
+                              '(${_money(impuesto, 'L')}), que se le suma al facturar.'
+                          : 'Con factura se le suma el ISV ${tasa.toStringAsFixed(0)}%: '
+                              '${_money(base + impuestoSiFactura, 'L')}.'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -638,8 +654,10 @@ class _CloseCard extends ConsumerWidget {
                 subtitle: Text(
                   _impedimento ??
                       'Consume el número ${fiscalRange!.nextFiscalNumber} del rango '
-                          'autorizado${tasa > 0 ? ' y desglosa el ISV '
-                              '${tasa.toStringAsFixed(0)}%, que ya va en el precio' : ''}.',
+                          'autorizado${tasa > 0 ? (conIsvAdentro
+                              ? ' y desglosa el ISV ${tasa.toStringAsFixed(0)}%, que ya va en '
+                                  'el precio'
+                              : ' y le suma el ISV ${tasa.toStringAsFixed(0)}%') : ''}.',
                 ),
               ),
 

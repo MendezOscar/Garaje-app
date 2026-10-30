@@ -146,7 +146,8 @@ class JobTemplateRepository {
               double? manualLaborPrice,
             })>
         tasks,
-    List<({String? partId, String? description, double quantity})> parts = const [],
+    List<({String? partId, String? description, double quantity, double? unitPrice})> parts =
+        const [],
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/job-templates',
@@ -172,6 +173,9 @@ class JobTemplateRepository {
               'partId': repuesto.partId,
               'description': repuesto.description,
               'quantity': repuesto.quantity,
+              // Fuera del catálogo no hay precio que mirar después: el que se escriba es el
+              // único que hay, y sin él el trabajo diría costar menos de lo que cuesta.
+              'unitPrice': repuesto.unitPrice,
             },
         ],
       },

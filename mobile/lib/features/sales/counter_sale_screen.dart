@@ -224,10 +224,18 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
         ? null
         : ref.watch(branchFiscalRangeProvider(_branchId!)).value;
 
-    // El precio ya lleva el ISV adentro: el total es lo cobrado, y facturar solo lo desglosa.
-    // Antes se sumaba encima y el cliente que pedía factura pagaba un 15% más.
-    final total = _base;
-    final impuesto = _fiscal && tasa > 0 ? total - total / (1 + tasa / 100) : 0.0;
+    // Qué hace el ISV al facturar depende de cómo tenga el taller sus precios: con el
+    // impuesto dentro, facturar no cambia el total y solo lo desglosa; sin él, se le suma y
+    // el cliente paga más por pedir la factura.
+    final conIsvAdentro = ref.watch(precioConIsvProvider).value ?? true;
+
+    final impuestoSiFactura = tasa <= 0
+        ? 0.0
+        : conIsvAdentro
+            ? _base - _base / (1 + tasa / 100)
+            : _base * tasa / 100;
+
+    final total = _fiscal && !conIsvAdentro ? _base + impuestoSiFactura : _base;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Venta rápida')),
@@ -413,7 +421,7 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                       ? null
                       : (value) => setState(() => _fiscal = value),
                   title: const Text('Factura con CAI'),
-                  subtitle: Text(_leyendaCai(rango, tasa)),
+                  subtitle: Text(_leyendaCai(rango, tasa, conIsvAdentro)),
                 ),
 
                 if (_fiscal) ...[
@@ -476,10 +484,7 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
                     ),
                     if (tasa > 0)
                       Text(
-                        _fiscal
-                            ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% '
-                                '(${money(impuesto, 'HNL')}), ya dentro del precio.'
-                            : 'El total es el mismo con factura: el ISV ya va en el precio.',
+                        _leyendaDelIsv(tasa, conIsvAdentro, impuestoSiFactura),
                         style: theme.textTheme.bodySmall,
                       ),
                     const SizedBox(height: 8),
@@ -502,14 +507,32 @@ class _CounterSaleScreenState extends ConsumerState<CounterSaleScreen> {
   bool _puedeCai(FiscalRange? rango) =>
       rango != null && !rango.isExpired && !rango.isExhausted;
 
-  String _leyendaCai(FiscalRange? rango, double tasa) {
+  /// Lo que cambia por facturar, dicho antes de cobrar y no al imprimir.
+  String _leyendaDelIsv(double tasa, bool conIsvAdentro, double impuesto) {
+    if (conIsvAdentro) {
+      return _fiscal
+          ? 'Incluye ISV ${tasa.toStringAsFixed(0)}% (${money(impuesto, 'HNL')}), ya dentro '
+              'del precio.'
+          : 'El total es el mismo con factura: el ISV ya va en el precio.';
+    }
+
+    return _fiscal
+        ? 'Más ISV ${tasa.toStringAsFixed(0)}% (${money(impuesto, 'HNL')}), que se le suma al '
+            'facturar.'
+        : 'Con factura se le suma el ISV ${tasa.toStringAsFixed(0)}%: '
+            '${money(_base + impuesto, 'HNL')}.';
+  }
+
+  String _leyendaCai(FiscalRange? rango, double tasa, bool conIsvAdentro) {
     if (rango == null) {
       return 'Esta sucursal no tiene CAI registrado. Se registra en el panel, en Taller.';
     }
     if (rango.isExpired) return 'El CAI de esta sucursal venció.';
     if (rango.isExhausted) return 'Se agotó el rango autorizado de esta sucursal.';
-    return 'Consume el número ${rango.nextFiscalNumber} del rango autorizado'
-        '${tasa > 0 ? ' y le suma el ISV ${tasa.toStringAsFixed(0)}%' : ''}.';
+    if (tasa <= 0) return 'Consume el número ${rango.nextFiscalNumber} del rango autorizado.';
+
+    return 'Consume el número ${rango.nextFiscalNumber} del rango autorizado y '
+        '${conIsvAdentro ? 'desglosa' : 'le suma'} el ISV ${tasa.toStringAsFixed(0)}%.';
   }
 
   static TextStyle? _rotulo(ThemeData theme) => theme.textTheme.labelSmall?.copyWith(

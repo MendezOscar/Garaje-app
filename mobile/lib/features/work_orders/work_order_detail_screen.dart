@@ -1959,12 +1959,28 @@ class _SuggestedPartsSheetState extends ConsumerState<_SuggestedPartsSheet> {
   final _cargados = <int>{};
   int? _cargando;
 
+  /// Lo de fuera del catálogo solo se puede cargar si el trabajo le guardó el precio: sin
+  /// él no hay cuánto cobrar, y se carga a mano abajo.
+  static bool _sePuedeCargar(SuggestedPart part) =>
+      part.partId != null || part.unitPrice > 0;
+
   Future<void> _cargar(int i, SuggestedPart part) async {
     setState(() => _cargando = i);
     try {
-      await ref
-          .read(inventoryRepositoryProvider)
-          .addPart(widget.workOrderId, partId: part.partId!, quantity: part.quantity);
+      final inventario = ref.read(inventoryRepositoryProvider);
+
+      // Del catálogo se carga por id, y eso descuenta la bodega. Lo escrito a mano va con su
+      // concepto y el precio que trae el trabajo, y no toca el inventario.
+      if (part.partId case final partId?) {
+        await inventario.addPart(widget.workOrderId, partId: partId, quantity: part.quantity);
+      } else {
+        await inventario.addManualPart(
+          widget.workOrderId,
+          description: part.description ?? part.partName,
+          quantity: part.quantity,
+          unitPrice: part.unitPrice,
+        );
+      }
       if (mounted) setState(() => _cargados.add(i));
     } catch (e) {
       if (mounted) {
@@ -2000,14 +2016,19 @@ class _SuggestedPartsSheetState extends ConsumerState<_SuggestedPartsSheet> {
               dense: true,
               title: Text('${_cantidad(part.quantity)} ${part.unit} · ${part.partName}'),
               subtitle: part.partId == null
-                  ? const Text('Fuera del catálogo: se carga aparte, con su precio')
+                  ? Text(
+                      _sePuedeCargar(part)
+                          ? 'Fuera del catálogo, a ${_money(part.unitPrice)}: no toca la '
+                              'bodega'
+                          : 'Fuera del catálogo y sin precio: se carga aparte, con el suyo',
+                    )
                   : part.isShort
                   ? Text(
                       'Quedan ${_cantidad(part.available)}',
                       style: TextStyle(color: theme.colorScheme.error),
                     )
                   : null,
-              trailing: part.partId == null
+              trailing: !_sePuedeCargar(part)
                   ? null
                   : _cargados.contains(i)
                   ? Icon(Icons.check, color: theme.colorScheme.primary)
@@ -2429,9 +2450,16 @@ class _TotalCard extends ConsumerWidget {
     final base = order.laborTotal + order.partsTotal;
     final facturable = base - afuera;
 
-    // Y el ISV ya va dentro del precio: facturar no cambia el total, solo lo desglosa. Antes
-    // se mostraba el «con factura» más caro, que era la cuenta del mostrador y ya no aplica.
-    final impuesto = tasa > 0 ? facturable - facturable / (1 + tasa / 100) : 0.0;
+    // Qué hace facturar depende de cómo tenga el taller sus precios: con el ISV dentro, el
+    // total no cambia y la factura solo lo desglosa; sin él, se le suma y el cliente paga más
+    // por pedirla. Los dos números se enseñan antes de cerrar.
+    final conIsvAdentro = ref.watch(precioConIsvProvider).value ?? true;
+
+    final impuesto = tasa <= 0
+        ? 0.0
+        : conIsvAdentro
+            ? facturable - facturable / (1 + tasa / 100)
+            : facturable * tasa / 100;
 
     // Lo que le queda al taller: lo que factura, sin el ISV —que no es suyo, lo recauda—,
     // menos lo que le costaron los repuestos. La mano de obra entra completa porque no tiene
@@ -2439,7 +2467,9 @@ class _TotalCard extends ConsumerWidget {
     final costo = order.parts
         .where((p) => !p.boughtOutside)
         .fold<double>(0, (suma, p) => suma + p.unitCost * p.quantity);
-    final neto = facturable - impuesto;
+    // El impuesto no es del taller, lo recauda: va fuera de la ganancia esté dentro del
+    // precio o sumado aparte.
+    final neto = conIsvAdentro ? facturable - impuesto : facturable;
     final ganancia = neto - costo;
     final margen = neto > 0 ? ganancia / neto * 100 : 0.0;
 
@@ -2486,11 +2516,12 @@ class _TotalCard extends ConsumerWidget {
                   ),
                 if (tasa > 0)
                   Text(
-                    afuera > 0
-                        ? 'La factura CAI no cambia ese monto '
+                    conIsvAdentro
+                        ? 'Con factura CAI es el mismo total '
                               '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})'
-                        : 'Con factura CAI es el mismo total '
-                              '(ISV ${tasa.toStringAsFixed(0)}% incluido: ${_money(impuesto)})',
+                        : 'Con factura CAI se le suma el ISV '
+                              '${tasa.toStringAsFixed(0)}%: ${_money(impuesto)} más, '
+                              '${_money(facturable + impuesto)} en total',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
