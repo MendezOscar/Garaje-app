@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, expensesApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import { useAuthStore } from '@/stores/auth'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
@@ -339,6 +340,13 @@ onUnmounted(() => window.removeEventListener('keydown', alTeclear))
         </button>
       </div>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'reports' }, label: 'Ingresos' },
+        { to: { name: 'income-statement' }, label: 'Gastos y utilidad' },
+      ]"
+    />
 
     <ErrorNote v-if="error" :message="error" />
     <SkeletonList v-if="loading" :rows="4" variant="lista" />

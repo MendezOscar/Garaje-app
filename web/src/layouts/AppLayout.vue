@@ -5,12 +5,16 @@ import { apiUrl } from '@/api/client'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useEscape } from '@/composables/useEscape'
 import { useOnline } from '@/composables/useOnline'
+import { usePendientes } from '@/composables/usePendientes'
 import { useTaller } from '@/composables/useTaller'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
 import { Roles } from '@/types/api'
 
 const auth = useAuthStore()
+
+/** Lo que está esperando a alguien, para los números del menú. */
+const pendientes = usePendientes()
 const { vocabulario, cargar: cargarTaller } = useTaller()
 const { online } = useOnline()
 const router = useRouter()
@@ -48,7 +52,13 @@ onMounted(() => {
   document.addEventListener('visibilitychange', alVolverALaPestana)
   // El rótulo del menú depende de con qué trabaja el taller.
   void cargarTaller()
+  void pendientes.cargar()
 })
+
+// Los pendientes son de la sucursal que se está mirando, y al navegar se refrescan: después
+// de confirmar una cita, el número del menú tiene que bajar sin recargar la página.
+watch(() => auth.activeBranchId, () => pendientes.cargar(true))
+watch(() => route.fullPath, () => pendientes.cargar(true))
 onUnmounted(() => document.removeEventListener('visibilitychange', alVolverALaPestana))
 
 /**
@@ -58,7 +68,12 @@ onUnmounted(() => document.removeEventListener('visibilitychange', alVolverALaPe
  * cada función nueva le añade otra. Los grupos siguen el día del taller —primero el trabajo,
  * después el dinero, luego lo que se configura una vez— y no el orden en que se construyeron.
  */
-const navGroups = computed<{ title: string | null; items: { to: object; label: string }[] }[]>(
+const navGroups = computed<
+  {
+    title: string | null
+    items: { to: object; label: string; cuantas?: string; tono?: string }[]
+  }[]
+>(
   () => {
     switch (auth.role) {
       // El Encargado ve el mismo menú menos lo que es del taller entero: los catálogos de
@@ -71,10 +86,22 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
             title: 'Trabajo',
             items: [
               { to: { name: 'home' }, label: 'Inicio' },
-              { to: { name: 'work-orders' }, label: 'Órdenes' },
-              { to: { name: 'receive-vehicle' }, label: vocabulario.value.recibir },
-              { to: { name: 'service-requests' }, label: 'Requerimientos' },
-              { to: { name: 'appointments' }, label: 'Citas' },
+              // Requerimientos vive dentro, como pestaña «Por recibir»: era otra lista de lo
+              // mismo —vehículos esperando entrar— con otro nombre.
+              {
+                to: { name: 'work-orders' },
+                label: 'Órdenes',
+                ...(pendientes.ordenesAtrasadas.value
+                  ? { cuantas: String(pendientes.ordenesAtrasadas.value), tono: 'alerta' }
+                  : {}),
+              },
+              {
+                to: { name: 'appointments' },
+                label: 'Citas',
+                ...(pendientes.citasPorConfirmar.value
+                  ? { cuantas: String(pendientes.citasPorConfirmar.value), tono: 'espera' }
+                  : {}),
+              },
               { to: { name: 'service-reminders' }, label: 'Recordatorios' },
               { to: { name: 'claims' }, label: 'Reclamos' },
             ],
@@ -83,38 +110,48 @@ const navGroups = computed<{ title: string | null; items: { to: object; label: s
             title: 'Dinero',
             items: [
               { to: { name: 'quotes' }, label: 'Cotizaciones' },
-              { to: { name: 'sales' }, label: 'Ventas' },
-              { to: { name: 'receivables' }, label: 'Por cobrar' },
+              // Ventas y Por cobrar son la misma pregunta vista de dos maneras: lo que se
+              // facturó y lo que de eso falta cobrar. Van juntas, en pestañas.
+              {
+                to: { name: 'sales' },
+                label: 'Ventas y cobros',
+                ...(pendientes.vencidoPorCobrar.value
+                  ? {
+                      cuantas: pendientes.montoCorto(pendientes.vencidoPorCobrar.value),
+                      tono: 'alerta',
+                    }
+                  : {}),
+              },
               // Se abre todos los días al cerrar, así que va en el menú y no dentro de Reportes.
-              { to: { name: 'cash-close' }, label: 'Caja' },
-              { to: { name: 'reports' }, label: 'Reportes' },
-              // Los gastos se registran aquí, porque es donde está el número que los justifica.
-              ...(auth.isOwner
-                ? [{ to: { name: 'income-statement' }, label: 'Resultados y gastos' }]
-                : []),
+              { to: { name: 'cash-close' }, label: 'Caja del día' },
+              { to: { name: 'reports' }, label: 'Reportes y resultados' },
             ],
           },
           {
             title: 'Catálogos',
             items: [
-              { to: { name: 'customers' }, label: 'Clientes' },
-              { to: { name: 'vehicle-history' }, label: 'Historial' },
-              { to: { name: 'inventory' }, label: 'Inventario' },
+              // El historial es del vehículo del cliente: se llega por su ficha, no por una
+              // entrada aparte que solo sabe buscar.
+              { to: { name: 'customers' }, label: 'Clientes y vehículos' },
+              {
+                to: { name: 'inventory' },
+                label: 'Inventario',
+                ...(pendientes.repuestosBajoMinimo.value
+                  ? { cuantas: String(pendientes.repuestosBajoMinimo.value), tono: 'espera' }
+                  : {}),
+              },
               ...(auth.isOwner
-                ? [
-                    { to: { name: 'labor-services' }, label: 'Mano de obra' },
-                    { to: { name: 'job-templates' }, label: 'Trabajos frecuentes' },
-                  ]
+                ? [{ to: { name: 'labor-services' }, label: 'Servicios y paquetes' }]
                 : []),
             ],
           },
           ...(auth.isOwner
             ? [
                 {
-                  title: 'Administración',
+                  title: 'Ajustes',
                   items: [
                     { to: { name: 'users' }, label: 'Usuarios' },
-                    { to: { name: 'workshop' }, label: 'Taller' },
+                    { to: { name: 'workshop' }, label: 'Datos del taller' },
                   ],
                 },
               ]
@@ -245,11 +282,27 @@ async function logout() {
         </select>
       </label>
 
+      <!-- Recibir no es una sección: es lo que más se hace en el día. Botón fijo y único
+           principal del menú, no un renglón más entre veintidós. -->
+      <RouterLink
+        v-if="auth.isManagement"
+        class="boton recibir"
+        :to="{ name: 'receive-vehicle' }"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+        </svg>
+        {{ vocabulario.recibir }}
+      </RouterLink>
+
       <nav>
         <template v-for="(group, i) in navGroups" :key="group.title ?? i">
           <p v-if="group.title" class="grupo">{{ group.title }}</p>
           <RouterLink v-for="item in group.items" :key="item.label" :to="item.to">
             {{ item.label }}
+            <span v-if="item.cuantas" class="pendiente" :class="item.tono">
+              {{ item.cuantas }}
+            </span>
           </RouterLink>
         </template>
       </nav>
@@ -308,6 +361,44 @@ async function logout() {
 </template>
 
 <style scoped>
+/* Rojo lo atrasado o vencido, ámbar lo que espera a alguien. Sin número, no hay distintivo:
+   un menú lleno de ceros no dice nada. */
+.pendiente {
+  margin-left: auto;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pendiente.alerta {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger);
+}
+
+.pendiente.espera {
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  color: var(--warning-text);
+}
+
+.recibir {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0 var(--space-4) var(--space-4);
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.recibir svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .sucursal {
   display: grid;
   gap: 0.25rem;

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { salesApi, statementsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import FilterChip from '@/components/FilterChip.vue'
 import RowMenu from '@/components/RowMenu.vue'
@@ -282,6 +283,13 @@ onMounted(async () => {
         </div>
       </div>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'sales' }, label: 'Ventas' },
+        { to: { name: 'receivables' }, label: 'Por cobrar' },
+      ]"
+    />
 
     <FilterBar
       v-model:search="search"
