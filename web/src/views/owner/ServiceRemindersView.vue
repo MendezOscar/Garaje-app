@@ -268,7 +268,7 @@ h1 {
 .chip.on {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 table {

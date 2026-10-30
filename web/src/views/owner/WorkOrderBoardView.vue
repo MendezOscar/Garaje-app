@@ -84,36 +84,48 @@ const CERRADAS: WorkOrderStatus[] = [WorkOrderStatus.Delivered, WorkOrderStatus.
  * columnas vacías que empujaban el trabajo fuera de la pantalla. El estado exacto no se
  * pierde —va en la insignia de cada tarjeta—, que es donde de verdad hace falta.
  */
-const CARRILES: { clave: string; titulo: string; tono: string; estados: WorkOrderStatus[] }[] = [
+const CARRILES: {
+  clave: string
+  titulo: string
+  tono: string
+  estados: WorkOrderStatus[]
+  /** Qué cae en este carril. Se enseña cuando está vacío, que es cuando hace falta. */
+  vacio: string
+}[] = [
   {
     clave: 'entrando',
     titulo: 'Entrando',
     tono: 'activo',
     estados: [WorkOrderStatus.Received, WorkOrderStatus.Diagnosing],
+    vacio: 'Aquí caen las recién recibidas y las que están en diagnóstico.',
   },
   {
     clave: 'trabajo',
     titulo: 'En trabajo',
     tono: 'activo',
     estados: [WorkOrderStatus.InProgress, WorkOrderStatus.Testing],
+    vacio: 'Aquí caen las que están en proceso y las que se están probando.',
   },
   {
     clave: 'detenidas',
     titulo: 'Detenidas',
     tono: 'detenido',
     estados: [WorkOrderStatus.WaitingApproval, WorkOrderStatus.WaitingParts],
+    vacio: 'Aquí caen las que esperan aprobación del cliente o un repuesto.',
   },
   {
     clave: 'listas',
     titulo: 'Listas para entrega',
     tono: 'listo',
     estados: [WorkOrderStatus.Ready],
+    vacio: 'Aquí caen las terminadas, esperando que el cliente las venga a traer.',
   },
   {
     clave: 'cerradas',
     titulo: 'Cerradas',
     tono: 'gris',
     estados: CERRADAS,
+    vacio: 'Aquí caen las entregadas y las canceladas.',
   },
 ]
 
@@ -210,9 +222,13 @@ const atrasadas = computed(() => orders.value.filter(isLate).length)
 
 const branches = computed(() => auth.user?.branches ?? [])
 
+/** Las tarjetas que tienen la lista de técnicos abierta. */
+const asignando = ref(new Set<string>())
+
 async function assign(order: WorkOrderListItem, technicianId: string) {
   try {
     await workOrdersApi.assign(order.id, technicianId || null)
+    asignando.value.delete(order.id)
     await load()
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo asignar el técnico.')
@@ -222,6 +238,19 @@ async function assign(order: WorkOrderListItem, technicianId: string) {
 /** Solo se ofrecen los técnicos de la sucursal de la orden: el backend rechaza los demás. */
 function techniciansFor(order: WorkOrderListItem) {
   return technicians.value.filter((t) => t.isActive && t.branchIds.includes(order.branchId))
+}
+
+/**
+ * Cuántos días lleva tarde. Es lo que el Dueño pregunta —«¿cuánto hace que debía estar?»—
+ * y lo que antes había que calcular leyendo «prometida hace 2 meses».
+ */
+function diasDeAtraso(order: WorkOrderListItem) {
+  if (!isLate(order)) return 0
+
+  const dias = Math.floor(
+    (Date.now() - new Date(order.promisedAt!).getTime()) / 86_400_000,
+  )
+  return Math.max(dias, 1)
 }
 
 function isLate(order: WorkOrderListItem) {
@@ -268,7 +297,7 @@ watch(pestana, (ahora, antes) => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke-linecap="round" />
           </svg>
-          Nueva orden
+          {{ vocabulario.recibir }}
         </RouterLink>
       </div>
     </header>
@@ -349,7 +378,9 @@ watch(pestana, (ahora, antes) => {
         >
           <div class="card-head">
             <strong class="num">{{ order.number }}</strong>
-            <span v-if="isLate(order)" class="late" title="Pasó la fecha prometida">Atrasada</span>
+            <span v-if="isLate(order)" class="late llena" title="Pasó la fecha prometida">
+              {{ diasDeAtraso(order) }} {{ diasDeAtraso(order) === 1 ? 'día' : 'días' }} tarde
+            </span>
             <span
               v-else-if="diasSinRetirar(order) > 0"
               class="late"
@@ -376,30 +407,49 @@ watch(pestana, (ahora, antes) => {
             <div class="track">
               <div class="bar" :style="{ width: `${(order.tasksDone / order.taskCount) * 100}%` }" />
             </div>
-            <span class="small muted">{{ order.tasksDone }}/{{ order.taskCount }}</span>
+            <span class="small muted">
+              {{ order.tasksDone }} de {{ order.taskCount }}
+              {{ order.taskCount === 1 ? 'paso' : 'pasos' }}
+            </span>
           </div>
 
-          <select
-            class="assign"
-            :value="order.assignedTechnicianId ?? ''"
-            @click.prevent.stop
-            @change="assign(order, ($event.target as HTMLSelectElement).value)"
-          >
-            <option value="">Sin asignar</option>
-            <option v-for="t in techniciansFor(order)" :key="t.id" :value="t.id">
-              {{ t.fullName }}
-            </option>
-          </select>
+          <!-- El técnico se lee, no se elige: veinte selectores azules en pantalla pesan
+               más que el dato que llevan dentro. Solo el que falta pide atención, en ámbar,
+               y al tocarlo aparece la lista. -->
+          <div class="tecnico" @click.prevent.stop>
+            <select
+              v-if="asignando.has(order.id)"
+              class="assign"
+              :value="order.assignedTechnicianId ?? ''"
+              @change="assign(order, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">Sin asignar</option>
+              <option v-for="t in techniciansFor(order)" :key="t.id" :value="t.id">
+                {{ t.fullName }}
+              </option>
+            </select>
+            <button
+              v-else
+              type="button"
+              class="quien"
+              :class="{ falta: !order.assignedTechnicianName }"
+              @click="asignando.add(order.id)"
+            >
+              {{ order.assignedTechnicianName ?? 'Sin técnico · Asignar' }}
+            </button>
+          </div>
 
           <div class="muted small">
             Abierta {{ relativeTime(order.openedAt) }}
-            <template v-if="order.promisedAt">
+            <!-- Cuando va tarde, el atraso ya lo dice la etiqueta roja de arriba: repetirlo
+                 aquí como «prometida hace 2 meses» es el mismo dato con otras palabras. -->
+            <template v-if="order.promisedAt && !isLate(order)">
               · prometida {{ relativeTime(order.promisedAt) }}
             </template>
           </div>
         </RouterLink>
 
-        <p v-if="!carril.items.length && !loading" class="empty">—</p>
+        <p v-if="!carril.items.length && !loading" class="empty">{{ carril.vacio }}</p>
       </div>
     </div>
 
@@ -506,7 +556,7 @@ watch(pestana, (ahora, antes) => {
   padding: 0.55rem 0.9rem;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -757,6 +807,14 @@ watch(pestana, (ahora, antes) => {
   font-size: 0.6875rem;
 }
 
+/* El atraso es lo único que se pinta lleno en la tarjeta: con veinte tarjetas en pantalla,
+   lo que lleva fondo sólido es lo que hay que mirar primero. */
+.late.llena {
+  background: var(--danger);
+  color: var(--on-danger);
+  font-weight: 600;
+}
+
 .vehicle {
   display: flex;
   align-items: center;
@@ -888,6 +946,25 @@ tbody td:last-child {
 
 .tramos span.hecho {
   background: var(--brand);
+}
+
+/* El nombre del técnico se lee como texto; solo cuando falta tiene aire de botón, en el
+   ámbar que en toda la app quiere decir «esto espera algo». */
+.tecnico .quien {
+  padding: 0.125rem 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+
+.tecnico .quien.falta {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning-text);
+  font-weight: 500;
 }
 
 /* El atraso se dice con el color de la fecha y una línea debajo: con veinte atrasadas,

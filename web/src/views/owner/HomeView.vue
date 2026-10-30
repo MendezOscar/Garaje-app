@@ -600,7 +600,7 @@ watch(() => auth.activeBranchId, load)
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 

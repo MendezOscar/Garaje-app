@@ -21,6 +21,13 @@
   /* Estado, y solo estado: el ámbar y el verde nunca se usan como fondo de marca. Si todo
      lleva color, el color deja de avisar de nada. */
   --accent: var(--brand);
+  /* La letra que va encima del azul lleno. En claro, blanco sobre #1F6FEB da 4,8:1; en
+     oscuro el azul sube de luminosidad y el blanco se cae a 2,7:1, así que allí la letra
+     es grafito y sube a 6,6:1. Todo lo que pinte `background: var(--accent)` usa esto. */
+  --on-accent: #ffffff;
+  /* Lo mismo para el rojo lleno: en claro la letra va blanca, y en oscuro —donde el rojo
+     sube de luminosidad— va grafito. */
+  --on-danger: #ffffff;
   --warning: #f2a31a; /* espera aprobación / espera repuestos */
   --success: #1fa971; /* listo, entregado, pagado */
   --danger: #c0392b; /* cancelado, sin stock */
@@ -59,6 +66,8 @@
     /* El azul de marca sube de luminosidad en oscuro: el #1F6FEB sobre #14161A no llega al
        contraste mínimo de AA para texto. */
     --brand: #5c9dff;
+    --on-accent: var(--ink);
+    --on-danger: var(--ink);
     --warning: #ffc14d;
     --success: #46c892;
     --danger: #ff6b5b;
@@ -125,7 +134,7 @@ button {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 500;
   cursor: pointer;
