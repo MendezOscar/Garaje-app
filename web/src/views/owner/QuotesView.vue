@@ -124,6 +124,15 @@ const catalog = computed(() =>
     : services.value.map((s) => ({ id: s.id, label: `${s.code} · ${s.name}`, price: s.price })),
 )
 
+/**
+ * Abre donde hay trabajo. Entrar a «Pendientes 0 · Nada en esta pestaña» mientras
+ * «Vencidas» tiene siete es hacerle buscar al Dueño lo que la pantalla ya sabe.
+ */
+function abrirDondeHayTrabajo() {
+  const conTrabajo = pestanas.value.find((p) => p.clave !== 'todas' && p.cuantas > 0)
+  if (conTrabajo) pestana.value = conTrabajo.clave
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -293,6 +302,7 @@ function respond(approve: boolean) {
 onMounted(async () => {
   tasaDelTaller.value = (await tenantApi.get().catch(() => null))?.defaultTaxRate ?? 0
   await load()
+  abrirDondeHayTrabajo()
   // Se puede llegar desde el detalle de una orden con ?id=…
   if (typeof route.query.id === 'string') await open(route.query.id)
 })

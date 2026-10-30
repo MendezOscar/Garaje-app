@@ -5,6 +5,8 @@ import { branchesApi, partsApi, stockApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import CatalogImport from '@/components/CatalogImport.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import FilterChip from '@/components/FilterChip.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useEscape } from '@/composables/useEscape'
 import { useAuthStore } from '@/stores/auth'
@@ -250,6 +252,14 @@ async function openKardex(item: StockItem) {
 
 watch([branchId, category, onlyBelowMinimum], load)
 
+/** Medio segundo de espera para no mandar una consulta por cada letra tecleada. */
+let tecleando: ReturnType<typeof setTimeout> | undefined
+
+watch(search, () => {
+  clearTimeout(tecleando)
+  tecleando = setTimeout(load, 500)
+})
+
 onMounted(async () => {
   branches.value = await branchesApi.list().catch(() => [])
   categories.value = await partsApi.categories().catch(() => [])
@@ -334,31 +344,22 @@ onMounted(async () => {
       </p>
     </article>
 
-    <form class="filters" @submit.prevent="load">
-      <span class="buscador">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
-        </svg>
-        <input v-model="search" placeholder="SKU, nombre o marca…" />
-      </span>
+    <FilterBar v-model:search="search" placeholder="SKU, nombre o marca…">
       <select v-model="category">
         <option value="">Todas las categorías</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
       </select>
-      <label class="checkbox">
-        <input v-model="onlyBelowMinimum" type="checkbox" />
-        Solo bajo mínimo
-      </label>
-      <button type="submit" :disabled="loading">Buscar</button>
-      <!-- Apagados: la acción principal de la pantalla es «Nuevo repuesto», arriba. Si los
-           cuatro botones van llenos, ninguno es el principal. -->
-      <template v-if="canManage">
+      <FilterChip v-model="onlyBelowMinimum" :cuantos="alerts.length">Por reponer</FilterChip>
+
+      <!-- Apagados y a la derecha: la acción principal de la pantalla es «Nuevo repuesto»,
+           arriba. Si los cuatro botones van llenos, ninguno es el principal. -->
+      <template v-if="canManage" #vista>
         <button type="button" class="btn-ghost" @click="openMovement('receive')">Entrada</button>
         <button type="button" class="btn-ghost" @click="openMovement('transfer')">
           Traslado
         </button>
       </template>
-    </form>
+    </FilterBar>
 
     <SkeletonList v-if="loading" :rows="4" variant="tabla" />
     <EmptyState v-else-if="!items.length" title="No hay existencias que coincidan" />
