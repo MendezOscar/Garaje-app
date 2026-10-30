@@ -11,6 +11,50 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.6.1 (17)
+
+### Google Play — «Novedades» (es-419)
+
+```
+Impuesto, como lo cobra cada taller.
+
+Si sus precios ya llevan el ISV adentro, facturar no cambia el total: la factura solo lo
+desglosa. Si no lo llevan, la app se lo suma al facturar y le enseña los dos totales antes de
+cobrar. Se elige una sola vez, en Taller.
+
+Trabajos frecuentes: el repuesto que no está en el catálogo ya lleva su precio, y al armar la
+orden se carga de un toque.
+
+Y donde decía kilometraje ahora dice kilometraje o millaje.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+El ISV, como lo cobra su taller.
+
+EL IMPUESTO
+· Usted decide si los precios de su catálogo ya llevan el ISV adentro o si se lo suma al
+  facturar. Se elige una sola vez, en Taller, y la app le enseña un ejemplo de cada caso.
+· Con el impuesto adentro, facturar no cambia el total: la factura solo lo desglosa.
+· Sin él, la app le suma el ISV al facturar y le enseña los dos totales —con factura y sin
+  ella— antes de cobrar, en la venta rápida y al cerrar la orden.
+· La cotización dice lo que de verdad va a pasar: «incluido, el total no cambia» o
+  «agregado, sube el total».
+
+TRABAJOS FRECUENTES
+· El repuesto que no está en el catálogo ya se guarda con su precio, así que el trabajo dice
+  lo que de verdad cuesta.
+· Al armar la orden con ese trabajo, ese repuesto se carga de un toque. No toca la bodega,
+  porque no salió de ella.
+
+DETALLES
+· Donde decía «kilometraje» ahora dice «kilometraje o millaje».
+```
+
+> El ajuste del impuesto lo cambia el dueño, y vale para el panel y para la app: el taller que
+> no lo toque sigue como estaba, con el ISV dentro del precio.
+
 ## 1.6.0 (16)
 
 ### Google Play — «Novedades» (es-419)
