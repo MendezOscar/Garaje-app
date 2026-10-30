@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { reportsApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import PeriodSelect from '@/components/PeriodSelect.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
@@ -129,6 +130,13 @@ onMounted(async () => {
         </p>
       </div>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'reports' }, label: 'Ingresos' },
+        { to: { name: 'income-statement' }, label: 'Gastos y utilidad' },
+      ]"
+    />
 
     <ErrorNote v-if="error" :message="error" />
 

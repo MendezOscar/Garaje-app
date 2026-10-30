@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { usersApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -299,6 +300,13 @@ watch(pestana, (ahora, antes) => {
         </RouterLink>
       </div>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'work-orders' }, label: 'En el taller' },
+        { to: { name: 'service-requests' }, label: 'Por recibir' },
+      ]"
+    />
 
     <div class="pestanas" role="tablist">
       <button

@@ -308,12 +308,6 @@ watch(() => auth.activeBranchId, load)
       <div class="cabecera-acciones">
         <RouterLink class="boton fantasma" :to="{ name: 'cash-close' }">Cerrar la caja</RouterLink>
         <!-- La acción más frecuente del mostrador, y hasta hoy estaba a dos pantallas. -->
-        <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" stroke-linecap="round" />
-          </svg>
-          {{ vocabulario.recibir }}
-        </RouterLink>
       </div>
     </header>
 

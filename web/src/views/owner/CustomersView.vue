@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { customersApi, equipmentApi, vehiclesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -202,6 +203,14 @@ watch(search, () => {
         {{ vocabulario.recibir }}
       </RouterLink>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'customers' }, label: 'Clientes' },
+        { to: { name: 'vehicle-history' }, label: 'Historial' },
+      ]"
+    />
+
 
     <ErrorNote v-if="error" :message="error" />
     <p v-if="notice" class="notice">{{ notice }}</p>

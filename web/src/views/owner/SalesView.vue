@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { salesApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import RowMenu from '@/components/RowMenu.vue'
 import FilterChip from '@/components/FilterChip.vue'
@@ -245,6 +246,13 @@ onMounted(async () => {
            entendía en qué se diferenciaban. -->
       <RouterLink class="boton" :to="{ name: 'counter-sale' }">Nueva venta</RouterLink>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'sales' }, label: 'Ventas' },
+        { to: { name: 'receivables' }, label: 'Por cobrar' },
+      ]"
+    />
 
     <FilterBar v-model:search="busqueda" placeholder="Cliente, número de venta o de orden">
       <PeriodSelect @cambio="cambiarPeriodo" />

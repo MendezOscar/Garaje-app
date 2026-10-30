@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { jobTemplatesApi, laborServicesApi, partsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import type { JobTemplate, LaborService, Part } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
@@ -211,6 +212,13 @@ onMounted(async () => {
         </p>
       </div>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'labor-services' }, label: 'Servicios' },
+        { to: { name: 'job-templates' }, label: 'Paquetes' },
+      ]"
+    />
 
     <ErrorNote v-if="error" :message="error" />
 

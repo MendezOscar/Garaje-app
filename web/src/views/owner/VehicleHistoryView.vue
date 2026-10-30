@@ -4,6 +4,7 @@ import { errorMessage } from '@/api/client'
 import { historyApi, workOrdersApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type { WorkOrderListItem } from '@/types/domain'
@@ -113,6 +114,14 @@ function limpiar() {
         </p>
       </div>
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'customers' }, label: 'Clientes' },
+        { to: { name: 'vehicle-history' }, label: 'Historial' },
+      ]"
+    />
+
 
     <form class="buscador" @submit.prevent="buscar">
       <input v-model="search" placeholder="Placa, cliente o número de orden" />

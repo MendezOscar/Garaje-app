@@ -5,6 +5,7 @@ import { laborServicesApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import CatalogImport from '@/components/CatalogImport.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import type { LaborService } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
@@ -137,6 +138,13 @@ onMounted(load)
       </div>
       <CatalogImport kind="labor" @imported="load" />
     </header>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'labor-services' }, label: 'Servicios' },
+        { to: { name: 'job-templates' }, label: 'Paquetes' },
+      ]"
+    />
 
     <ErrorNote v-if="error" :message="error" />
 

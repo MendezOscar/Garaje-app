@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { serviceRequestsApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import ViewTabs from '@/components/ViewTabs.vue'
 import NewServiceRequestForm from '@/components/NewServiceRequestForm.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -97,6 +98,14 @@ onMounted(async () => {
       Los pendientes aparecen primero.
       <template v-if="!auth.isOwner"> El Dueño es quien los aprueba.</template>
     </p>
+
+    <ViewTabs
+      :pestanas="[
+        { to: { name: 'work-orders' }, label: 'En el taller' },
+        { to: { name: 'service-requests' }, label: 'Por recibir' },
+      ]"
+    />
+
 
     <div class="periods">
       <button
