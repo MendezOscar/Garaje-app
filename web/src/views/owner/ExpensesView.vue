@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, expensesApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useAuthStore } from '@/stores/auth'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
@@ -33,7 +34,10 @@ const period = ref<PeriodKey>('month')
 
 /** Hasta dónde deja elegir el selector de mes: no hay resultados del mes que viene. */
 const mesCorriente = new Date().toISOString().slice(0, 7)
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
+const auth = useAuthStore()
+
 const branches = ref<Branch[]>([])
 
 const expenses = ref<Expense[]>([])
@@ -297,6 +301,9 @@ const composicion = computed(() => {
     .sort((a, b) => b.monto - a.monto)
 })
 
+// Al cambiar de sucursal en el menú, esta pantalla vuelve a pedir lo suyo.
+watch(branchId, load)
+
 onMounted(async () => {
   window.addEventListener('keydown', alTeclear)
   branches.value = await branchesApi.list().catch(() => [])
@@ -314,6 +321,9 @@ onUnmounted(() => window.removeEventListener('keydown', alTeclear))
       <div>
         <h1>Estado de resultados</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           Qué dejó el taller: lo que entró, lo que costó lo vendido, y lo que se gastó en
           tenerlo abierto.
         </p>
@@ -327,10 +337,6 @@ onUnmounted(() => window.removeEventListener('keydown', alTeclear))
         <button v-if="mes" type="button" class="btn-ghost btn-sm" @click="mes = ''; load()">
           Volver al periodo
         </button>
-        <select v-if="branches.length > 1" v-model="branchId" @change="load">
-          <option value="">Todas las sucursales</option>
-          <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-        </select>
       </div>
     </header>
 

@@ -43,7 +43,8 @@ const hasta = ref(comoInput(hoy))
 const busqueda = ref('')
 const conAnuladas = ref(false)
 const soloConSaldo = ref(false)
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 
 const ventas = ref<SaleListItem[]>([])
 const total = ref(0)
@@ -144,6 +145,9 @@ async function anular(venta: SaleListItem) {
   }
 }
 
+// Al cambiar de sucursal en el menú, esta pantalla vuelve a pedir lo suyo.
+watch(branchId, () => buscar())
+
 onMounted(async () => {
   branches.value = await branchesApi.list().catch(() => [])
   await cargar()
@@ -156,6 +160,9 @@ onMounted(async () => {
       <div>
         <h1>Ventas</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           Lo facturado, venga de una orden o del mostrador. Para lo cobrado de un día está
           <RouterLink :to="{ name: 'cash-close' }">Caja</RouterLink>, y para lo que falta cobrar,
           <RouterLink :to="{ name: 'receivables' }">Por cobrar</RouterLink>.
@@ -178,12 +185,6 @@ onMounted(async () => {
       </label>
       <label v-if="sucursalesPermitidas.length > 1">
         Sucursal
-        <select v-model="branchId">
-          <option value="">Todas</option>
-          <option v-for="branch in sucursalesPermitidas" :key="branch.id" :value="branch.id">
-            {{ branch.name }}
-          </option>
-        </select>
       </label>
       <label class="ancho">
         Buscar

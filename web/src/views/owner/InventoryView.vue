@@ -25,7 +25,8 @@ const items = ref<StockItem[]>([])
 const alerts = ref<StockItem[]>([])
 const parts = ref<Part[]>([])
 
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 const search = ref('')
 const category = ref('')
 const onlyBelowMinimum = ref(false)
@@ -262,6 +263,9 @@ onMounted(async () => {
       <div>
         <h1>Inventario</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           El stock no se edita: se mueve. Cada cambio queda en el kardex con su responsable.
         </p>
       </div>
@@ -337,10 +341,6 @@ onMounted(async () => {
         </svg>
         <input v-model="search" placeholder="SKU, nombre o marca…" />
       </span>
-      <select v-model="branchId">
-        <option value="">Todas las sucursales</option>
-        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
       <select v-model="category">
         <option value="">Todas las categorías</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>

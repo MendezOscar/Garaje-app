@@ -399,7 +399,12 @@ watch(branchId, () => {
 onMounted(async () => {
   await cargarTaller()
   branches.value = await branchesApi.list().catch(() => [])
-  branchId.value = sucursalesPermitidas.value[0]?.id ?? ''
+  // La del menú, si es una concreta y se puede cobrar ahí; si se está viendo «todas»,
+  // la primera: una venta se cobra en una sucursal, no en el promedio de las tres.
+  branchId.value =
+    sucursalesPermitidas.value.find((b) => b.id === auth.activeBranchId)?.id ??
+    sucursalesPermitidas.value[0]?.id ??
+    ''
 
   const taller = await tenantApi.get().catch(() => null)
   tasaImpuesto.value = taller?.defaultTaxRate ?? 0

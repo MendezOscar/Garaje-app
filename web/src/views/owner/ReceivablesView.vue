@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, salesApi, statementsApi } from '@/api/garaj'
+import { salesApi, statementsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
-  type Branch,
   type SaleDetail,
   type SaleListItem,
 } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
 import { formatDate, formatDateTime, formatMoney } from '@/utils/format'
 
 /**
@@ -18,11 +18,13 @@ import { formatDate, formatDateTime, formatMoney } from '@/utils/format'
  * cuando, y esto se trabaja —se busca al cliente que llamó, se ve cuánto debe y se le anota
  * el abono—. En Reportes queda solo el total, que sí es un indicador.
  */
+const auth = useAuthStore()
+
 const sales = ref<SaleListItem[]>([])
-const branches = ref<Branch[]>([])
 
 const search = ref('')
-const branchId = ref('')
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 /** Vencidas / por vencer / todas. Sin fecha acordada cuenta como «por vencer»: no se atrasó. */
 const vencimiento = ref<'todas' | 'vencidas' | 'porVencer'>('todas')
 
@@ -170,8 +172,12 @@ watch(search, () => {
   timer = setTimeout(load, 250)
 })
 
+// Al cambiar de sucursal en el menú, esta pantalla vuelve a pedir lo suyo.
+
+watch(branchId, load)
+
+
 onMounted(async () => {
-  branches.value = await branchesApi.list().catch(() => [])
   await load()
 })
 </script>
@@ -182,6 +188,9 @@ onMounted(async () => {
       <div>
         <h1>Por cobrar</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           Facturas con saldo, la que vence antes primero. Las que se entregaron sin fecha
           acordada van al final.
         </p>
@@ -205,10 +214,6 @@ onMounted(async () => {
         placeholder="Cliente, teléfono, número de venta o de orden"
       />
 
-      <select v-if="branches.length > 1" v-model="branchId" @change="load">
-        <option value="">Todas las sucursales</option>
-        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
 
       <div class="chips">
         <button

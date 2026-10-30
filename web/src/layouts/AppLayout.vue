@@ -229,6 +229,22 @@ async function logout() {
         </div>
       </div>
 
+      <!-- La sucursal se elige una vez, aquí, y todas las pantallas obedecen. Estaba en la
+           barra de arriba mientras cada pantalla traía su propio selector: la de arriba
+           decía «Centro» y la pantalla abría en «todas», así que las cifras no cuadraban. -->
+      <label v-if="auth.user && auth.user.branches.length > 1" class="sucursal">
+        <span>Viendo la sucursal</span>
+        <select
+          :value="auth.activeBranchId ?? ''"
+          @change="auth.setActiveBranch(($event.target as HTMLSelectElement).value || null)"
+        >
+          <option v-for="branch in auth.user.branches" :key="branch.id" :value="branch.id">
+            {{ branch.name }}
+          </option>
+          <option value="">Todas las sucursales</option>
+        </select>
+      </label>
+
       <nav>
         <template v-for="(group, i) in navGroups" :key="group.title ?? i">
           <p v-if="group.title" class="grupo">{{ group.title }}</p>
@@ -258,16 +274,6 @@ async function logout() {
              barra de arriba queda el isotipo, que también dice que esto no es un navegador
              cualquiera abierto en cualquier página. -->
         <BrandLogo class="marca-movil" variant="isotipo" :height="22" />
-
-        <select
-          v-if="auth.user && auth.user.branches.length > 1"
-          :value="auth.activeBranchId"
-          @change="auth.setActiveBranch(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="branch in auth.user.branches" :key="branch.id" :value="branch.id">
-            {{ branch.name }}
-          </option>
-        </select>
 
         <!-- Los avisos son del trabajo del taller, y la plataforma no tiene taller. -->
         <NotificationBell v-if="auth.role !== Roles.Platform" />
@@ -302,6 +308,23 @@ async function logout() {
 </template>
 
 <style scoped>
+.sucursal {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.sucursal span {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.sucursal select {
+  width: 100%;
+}
+
 .shell {
   min-height: 100dvh;
   display: flex;

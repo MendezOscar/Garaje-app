@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, reportsApi } from '@/api/garaj'
+import { reportsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
-import { PAYMENT_METHOD_LABEL, type Branch, type CashClose } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
+import { PAYMENT_METHOD_LABEL, type CashClose } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 
 /**
@@ -14,12 +15,15 @@ import { formatMoney } from '@/utils/format'
  * el abono de una factura de hace tres meses solo aparece aquí. Es la hoja que se cuadra contra
  * el efectivo del cajón al cerrar, así que lo primero que se ve es el total por forma de pago.
  */
+const auth = useAuthStore()
+
 const cierre = ref<CashClose | null>(null)
-const branches = ref<Branch[]>([])
 
 /** El día en formato `yyyy-MM-dd`, que es lo que entiende `<input type="date">`. */
 const dia = ref(hoyLocal())
-const branchId = ref('')
+
+/** La sucursal sale del menú, no de esta pantalla: es la misma para todo el panel. */
+const branchId = computed(() => auth.activeBranchId ?? '')
 
 const loading = ref(false)
 const error = ref('')
@@ -72,8 +76,9 @@ function hora(value: string): string {
   })
 }
 
+watch(branchId, load)
+
 onMounted(async () => {
-  branches.value = await branchesApi.list().catch(() => [])
   await load()
 })
 </script>
@@ -84,6 +89,9 @@ onMounted(async () => {
       <div>
         <h1>Cierre de caja</h1>
         <p class="muted small">
+          <template v-if="auth.user && auth.user.branches.length > 1">
+            <strong>{{ auth.activeBranchName }}</strong> ·
+          </template>
           Lo cobrado en el día. No es lo facturado: aquí entra el abono de una factura vieja, y
           no entra lo que se facturó a crédito y todavía nadie pagó.
         </p>
@@ -99,11 +107,6 @@ onMounted(async () => {
 
     <form class="filters" @submit.prevent="load">
       <input v-model="dia" type="date" @change="load" />
-
-      <select v-if="branches.length > 1" v-model="branchId" @change="load">
-        <option value="">Todas las sucursales</option>
-        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
 
       <button type="button" :disabled="loading || !cierre" @click="bajarPdf">PDF</button>
     </form>
