@@ -8,6 +8,7 @@ import SkeletonList from '@/components/SkeletonList.vue'
 import {
   WorkshopKind,
   type CreatedTenant,
+  type PlatformSettings,
   type PlatformTenantDetail,
 } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
@@ -26,7 +27,52 @@ const error = ref('')
 
 const tenant = computed(() => data.value?.tenant ?? null)
 
-const pago = ref({ amount: 0, paidOn: '', method: 'Transferencia', reference: '', months: 1 })
+const pago = ref({
+  amount: 0,
+  paidOn: '',
+  method: 'Transferencia',
+  reference: '',
+  months: 1,
+  emitir: true,
+  conCai: false,
+})
+
+/**
+ * Nuestros datos de emisor. De aquí sale el ISV con que se arma el documento y si hay CAI
+ * para emitir con él; sin esto el formulario no podría decir por cuánto va a salir la factura
+ * antes de registrarla.
+ */
+const emisor = ref<PlatformSettings | null>(null)
+
+/** Lo que el taller tiene que depositar: la mensualidad más el ISV, si va por encima. */
+function conImpuesto(neto: number): number {
+  const tasa = emisor.value?.defaultTaxRate ?? 0
+  if (tasa <= 0 || emisor.value?.pricesIncludeTax !== false) return neto
+  return Math.round(neto * (1 + tasa / 100) * 100) / 100
+}
+
+/**
+ * Cómo queda repartido el monto recibido en el documento. Se enseña antes de registrar: el
+ * número que se le dice al taller por teléfono es este, no el de la mensualidad pelada.
+ */
+const documento = computed(() => {
+  const tasa = emisor.value?.defaultTaxRate ?? 0
+  const total = Number(pago.value.amount) || 0
+
+  if (tasa <= 0) return { neto: total, impuesto: 0, total }
+
+  // Con el ISV por encima, el neto sale de dividir lo recibido; con el ISV adentro, el total
+  // ya es lo cobrado y el impuesto se desglosa hacia atrás. En los dos casos cuadra con el
+  // depósito, que es lo que no puede fallar.
+  const neto = Math.round((total / (1 + tasa / 100)) * 100) / 100
+
+  return { neto, impuesto: Math.round((total - neto) * 100) / 100, total }
+})
+
+const sinCai = computed(() => {
+  const rango = emisor.value?.fiscalRange
+  return !rango || rango.isExpired || rango.isExhausted
+})
 const acuerdo = ref({ unblockedThrough: '', note: '' })
 const plan = ref({ planName: '', monthlyFee: 0, paidThrough: '', graceDays: 5 })
 const nuevoDueno = ref({ email: '', fullName: '', password: '' })
@@ -55,7 +101,7 @@ async function load() {
     data.value = await platformApi.get(id)
 
     const t = data.value.tenant
-    pago.value.amount = t.monthlyFee
+    pago.value.amount = conImpuesto(t.monthlyFee)
     plan.value = {
       planName: t.planName ?? '',
       monthlyFee: t.monthlyFee,
@@ -93,8 +139,24 @@ function registrarPago() {
         method: pago.value.method || null,
         reference: pago.value.reference.trim() || null,
         months: Number(pago.value.months) || 1,
+        invoice: pago.value.emitir,
+        fiscal: pago.value.emitir && pago.value.conCai,
       }),
     'No se pudo registrar el pago.',
+  )
+}
+
+function bajarDocumento(invoiceId: string, numero: string) {
+  return platformApi.invoicePdf(invoiceId, numero)
+}
+
+function anularDocumento(invoiceId: string) {
+  const motivo = prompt('¿Por qué se anula? Queda escrito en el documento.')
+  if (!motivo?.trim()) return
+
+  return accion(
+    () => platformApi.voidInvoice(invoiceId, motivo.trim()),
+    'No se pudo anular el documento.',
   )
 }
 
@@ -165,7 +227,11 @@ function reactivar() {
   return accion(() => platformApi.reactivate(id), 'No se pudo reactivar.')
 }
 
-onMounted(load)
+onMounted(async () => {
+  // El emisor primero: de él sale el ISV con que se propone el monto del pago.
+  emisor.value = await platformApi.billingSettings().catch(() => null)
+  await load()
+})
 </script>
 
 <template>
@@ -223,6 +289,39 @@ onMounted(load)
           Número de referencia
           <input v-model="pago.reference" placeholder="Número de depósito" />
         </label>
+
+        <!-- El documento nace con el pago, así que lo que va a decir se ve aquí, antes de
+             registrarlo. Después solo se puede anular. -->
+        <div class="documento">
+          <label class="checkbox">
+            <input v-model="pago.emitir" type="checkbox" />
+            Emitir documento
+          </label>
+
+          <template v-if="pago.emitir">
+            <label class="checkbox" :class="{ apagado: sinCai }">
+              <input v-model="pago.conCai" type="checkbox" :disabled="sinCai" />
+              Con CAI
+            </label>
+
+            <p v-if="sinCai" class="muted small">
+              Sin CAI vigente sale un comprobante con numeración propia
+              ({{ emisor?.invoicePrefix ?? 'C' }}-{{
+                String(emisor?.nextInvoiceNumber ?? 1).padStart(6, '0')
+              }}). El CAI se registra en Facturación.
+            </p>
+            <p v-else-if="pago.conCai" class="muted small">
+              Consume el número {{ emisor?.fiscalRange?.nextFiscalNumber }} del rango
+              autorizado.
+            </p>
+
+            <p v-if="documento.impuesto > 0" class="muted small">
+              Sale por {{ formatMoney(documento.total) }}: neto
+              {{ formatMoney(documento.neto) }} + ISV
+              {{ emisor?.defaultTaxRate }}% {{ formatMoney(documento.impuesto) }}.
+            </p>
+          </template>
+        </div>
 
         <div class="actions">
           <button type="submit" :disabled="busy">Registrar</button>
@@ -376,6 +475,7 @@ onMounted(load)
           <th scope="col">Forma</th>
           <th scope="col">Referencia</th>
           <th scope="col">Cubrió hasta</th>
+          <th scope="col">Documento</th>
         </tr>
       </thead>
       <tbody>
@@ -385,6 +485,29 @@ onMounted(load)
           <td>{{ p.method ?? '—' }}</td>
           <td class="mono">{{ p.reference ?? '—' }}</td>
           <td>{{ formatDay(p.coversThrough) }}</td>
+          <td>
+            <template v-if="p.invoiceId && p.invoiceNumber">
+              <button
+                type="button"
+                class="link"
+                @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
+              >
+                {{ p.invoiceNumber }}
+              </button>
+              <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
+              <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
+              <button
+                v-else
+                type="button"
+                class="link danger"
+                :disabled="busy"
+                @click="anularDocumento(p.invoiceId)"
+              >
+                Anular
+              </button>
+            </template>
+            <span v-else class="muted">—</span>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -531,4 +654,34 @@ td {
   font-family: var(--font-mono);
 }
 
+
+.documento {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.documento p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.documento .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Apagado y con el motivo a la vista: que se sepa que el sistema puede emitir con CAI
+   aunque hoy falte registrarlo. */
+.documento .apagado {
+  opacity: 0.6;
+}
+
+.anulado {
+  color: var(--danger);
+}
 </style>

@@ -173,7 +173,15 @@ const navGroups = computed<
         return [{ title: null, items: [{ to: { name: 'my-vehicles' }, label: 'Mis vehículos' }] }]
       case Roles.Platform:
         // Nosotros. No hay órdenes ni clientes que ver: este perfil administra el cobro.
-        return [{ title: null, items: [{ to: { name: 'platform-tenants' }, label: 'Talleres' }] }]
+        return [
+          {
+            title: null,
+            items: [
+              { to: { name: 'platform-tenants' }, label: 'Talleres' },
+              { to: { name: 'platform-billing' }, label: 'Facturación' },
+            ],
+          },
+        ]
       default:
         return []
     }
@@ -214,7 +222,10 @@ const barraAbajo = computed<{ to: object; label: string }[]>(() => {
     case Roles.Customer:
       return [{ to: { name: 'my-vehicles' }, label: 'Mis vehículos' }]
     case Roles.Platform:
-      return [{ to: { name: 'platform-tenants' }, label: 'Talleres' }]
+      return [
+        { to: { name: 'platform-tenants' }, label: 'Talleres' },
+        { to: { name: 'platform-billing' }, label: 'Facturación' },
+      ]
     default:
       return []
   }

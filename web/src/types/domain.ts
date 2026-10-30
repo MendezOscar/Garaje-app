@@ -1291,6 +1291,79 @@ export interface SubscriptionPayment {
   coversThrough: string
   note: string | null
   createdAt: string
+  /** El documento que dejó este pago, o null si se registró sin emitir. */
+  invoiceId: string | null
+  invoiceNumber: string | null
+  invoiceIsFiscal: boolean
+  invoiceIsVoided: boolean
+}
+
+/** Nuestros datos de emisor: lo que sale en el documento que recibe el taller. */
+export interface PlatformSettings {
+  name: string
+  legalName: string | null
+  taxId: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  defaultTaxRate: number
+  /** Falso —como cobramos— significa que el ISV se le suma a la mensualidad. */
+  pricesIncludeTax: boolean
+  invoicePrefix: string
+  nextInvoiceNumber: number
+  currency: string
+  /** El rango autorizado vigente, o null mientras no haya CAI. */
+  fiscalRange: PlatformFiscalRange | null
+}
+
+export interface PlatformFiscalRange {
+  id: string
+  cai: string
+  establishmentCode: string
+  pointOfSaleCode: string
+  documentType: string
+  rangeStart: number
+  rangeEnd: number
+  nextNumber: number
+  nextFiscalNumber: string
+  rangeText: string
+  issueDeadline: string
+  isActive: boolean
+  remaining: number
+  isExpired: boolean
+  isExhausted: boolean
+}
+
+export interface SubscriptionInvoice {
+  id: string
+  tenantId: string
+  number: string
+  issuedOn: string
+  customerName: string
+  customerLegalName: string | null
+  customerTaxId: string | null
+  subtotal: number
+  taxRate: number
+  taxTotal: number
+  total: number
+  pricesIncludedTax: boolean
+  currency: string
+  note: string | null
+  /** Con CAI es factura; sin él, comprobante con numeración propia. */
+  fiscal: boolean
+  fiscalCai: string | null
+  fiscalRangeText: string | null
+  fiscalIssueDeadline: string | null
+  isVoided: boolean
+  voidReason: string | null
+  lines: SubscriptionInvoiceLine[]
+}
+
+export interface SubscriptionInvoiceLine {
+  description: string
+  quantity: number
+  unitPrice: number
+  total: number
 }
 
 /**

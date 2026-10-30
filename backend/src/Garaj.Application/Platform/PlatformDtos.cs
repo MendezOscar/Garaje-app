@@ -38,6 +38,7 @@ public record PlatformTenantDetailDto(
     PlatformTenantDto Tenant,
     IReadOnlyList<SubscriptionPaymentDto> Payments);
 
+/// <param name="InvoiceId">El documento que dejó este pago, o null si se registró sin emitir.</param>
 public record SubscriptionPaymentDto(
     Guid Id,
     DateOnly PaidOn,
@@ -47,7 +48,11 @@ public record SubscriptionPaymentDto(
     string? Reference,
     DateOnly CoversThrough,
     string? Note,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? InvoiceId = null,
+    string? InvoiceNumber = null,
+    bool InvoiceIsFiscal = false,
+    bool InvoiceIsVoided = false);
 
 /// <summary>
 /// Alta de un taller nuevo desde el panel. Los primeros cuatro campos son los mismos que pide
@@ -91,13 +96,28 @@ public record CreatedTenantDto(Guid TenantId, Guid BranchId, string OwnerEmail, 
 
 /// <param name="Months">Cuántos meses cubre el pago. Casi siempre 1.</param>
 /// <param name="PaidOn">Cuándo pagó el taller. Si se omite, hoy.</param>
+/// <param name="Invoice">
+/// Si el pago deja documento. Verdadero es lo normal; se apaga para registrar un pago viejo
+/// que ya se facturó por fuera, o un ajuste que no se le entrega a nadie.
+/// </param>
+/// <param name="Fiscal">
+/// Si el documento sale con CAI. Sin rango vigente no se puede y el servidor lo dice, en vez
+/// de emitir en silencio un comprobante donde se esperaba una factura.
+/// </param>
+/// <param name="Lines">
+/// Los conceptos. Vacío factura una sola línea «Mensualidad» por el neto del pago: es el 90%
+/// de los casos, y escribir lo mismo todos los meses no es trabajo de nadie.
+/// </param>
 public record RegisterPaymentRequest(
     decimal Amount,
     DateOnly? PaidOn = null,
     string? Method = null,
     string? Reference = null,
     int Months = 1,
-    string? Note = null);
+    string? Note = null,
+    bool Invoice = true,
+    bool Fiscal = false,
+    IReadOnlyList<SaveInvoiceLineRequest>? Lines = null);
 
 /// <summary>
 /// Alta de un Dueño para un taller que ya existe. Es el rescate: si el único Dueño perdió la
@@ -155,4 +175,36 @@ public interface IPlatformService
 
     /// <summary>Suspender corta el acceso entero, no solo la escritura: el taller ni entra.</summary>
     Task<PlatformTenantDto> SetActiveAsync(Guid tenantId, bool active, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Lo nuestro como empresa: quiénes somos en el documento, nuestro CAI, y las facturas que le
+/// entregamos a cada taller. Separado de <see cref="IPlatformService"/> —que administra el
+/// cobro— porque esto es el papel, no la cuenta.
+/// </summary>
+public interface IPlatformBillingService
+{
+    Task<PlatformSettingsDto> GetSettingsAsync(CancellationToken ct = default);
+
+    Task<PlatformSettingsDto> SaveSettingsAsync(
+        SavePlatformSettingsRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Registra un rango autorizado nuevo y da de baja el anterior: emitir con dos rangos
+    /// vivos es la forma de saltarse un número sin enterarse.
+    /// </summary>
+    Task<PlatformSettingsDto> SaveFiscalRangeAsync(
+        SavePlatformFiscalRangeRequest request, CancellationToken ct = default);
+
+    Task<SubscriptionInvoiceDto> GetInvoiceAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>El PDF que se le manda al taller por WhatsApp o por correo.</summary>
+    Task<byte[]> InvoicePdfAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Anula el documento. No lo borra ni toca el pago: el dinero entró igual, y un número
+    /// autorizado que desaparece es el que el SAR viene a preguntar.
+    /// </summary>
+    Task<SubscriptionInvoiceDto> VoidInvoiceAsync(
+        Guid id, VoidInvoiceRequest request, CancellationToken ct = default);
 }

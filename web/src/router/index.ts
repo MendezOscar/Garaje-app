@@ -263,6 +263,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/platform/TenantDetailView.vue'),
         meta: { roles: [Roles.Platform] },
       },
+      {
+        // Cómo facturamos nosotros: el emisor y el CAI. El documento se emite con el pago.
+        path: 'plataforma/facturacion',
+        name: 'platform-billing',
+        component: () => import('@/views/platform/BillingView.vue'),
+        meta: { roles: [Roles.Platform] },
+      },
     ],
   },
   {

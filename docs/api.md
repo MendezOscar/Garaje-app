@@ -811,6 +811,32 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
 | PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
 | POST | `/api/platform/tenants/{id}/suspend` \| `/reactivate` | Plataforma | El corte definitivo |
+| GET/PUT | `/api/platform/billing/settings` | Plataforma | Nuestros datos de emisor y el ISV con que facturamos |
+| POST | `/api/platform/billing/fiscal-range` | Plataforma | Registra nuestro CAI y da de baja el anterior |
+| GET | `/api/platform/billing/invoices/{id}` | Plataforma | El documento emitido |
+| GET | `/api/platform/billing/invoices/{id}.pdf` | Plataforma | Su PDF, para mandárselo al taller |
+| POST | `/api/platform/billing/invoices/{id}/void` | Plataforma | Lo anula. El pago queda |
+
+### Nuestra factura, la que recibe el taller
+
+El documento **nace con el pago**: `POST /api/platform/tenants/{id}/payments` registra el
+depósito y emite en la misma transacción. No hay facturas por cobrar que después haya que
+anular, y no hay pago sin documento esperando a que alguien se acuerde.
+
+- **Con CAI es factura; sin él, comprobante.** Mientras no haya rango vigente, el número sale
+  de nuestra propia numeración (`C-000008`) y el PDF dice que no sustituye una factura fiscal.
+  Pedir `fiscal: true` sin rango vigente **falla**, en vez de emitir en silencio un comprobante
+  donde se esperaba una factura.
+- **El ISV va por encima** (`pricesIncludeTax: false`): la mensualidad es neta y el impuesto se
+  suma. El monto recibido manda: sin conceptos escritos se factura una línea por lo que entró,
+  con el neto sacado hacia atrás, y así el documento siempre cuadra con el depósito del banco.
+- **Lo del taller se copia al emitir** —nombre, razón social y RTN—: si corrige su RTN el mes
+  que viene, el documento de este mes tiene que seguir diciendo lo que decía.
+- **El número de depósito es la llave contra el doble registro.** Si ya hay un pago de ese
+  taller con esa referencia, el servidor responde 409: el doble clic corría el vencimiento dos
+  meses y quemaba dos números del CAI.
+- **Se anula, no se borra.** El pago queda —el dinero entró igual— y el documento sale marcado
+  con su motivo: un número autorizado que desaparece es el que el SAR viene a preguntar.
 
 ### El portón de versión
 
