@@ -952,9 +952,11 @@ tr.anulada td:last-child {
   text-decoration: none;
 }
 
+/* Mitad y mitad: en una pantalla ancha, la columna fija dejaba un hueco a la mitad de la
+   página y el formulario del pago estirado a lo bobo. */
 .columnas {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: start;
 }
