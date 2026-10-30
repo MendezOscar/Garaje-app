@@ -266,7 +266,7 @@ h2 {
   padding: 0.25rem 0.625rem;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.8125rem;
   font-weight: 600;
 }

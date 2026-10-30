@@ -205,7 +205,7 @@ onMounted(async () => {
 .chip.on {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 h1 {

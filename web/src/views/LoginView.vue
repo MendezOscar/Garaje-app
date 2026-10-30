@@ -268,7 +268,7 @@ input:focus-visible {
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--brand);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
 }
 

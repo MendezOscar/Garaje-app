@@ -416,7 +416,7 @@ h1 {
   padding: 0.55rem 0.9rem;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 

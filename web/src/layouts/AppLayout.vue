@@ -243,7 +243,9 @@ async function logout() {
           <span class="nombre">{{ auth.user?.fullName }}</span>
           <span class="role">{{ auth.role }}</span>
         </div>
-        <button type="button" @click="logout">Salir</button>
+        <!-- Apagado: salir no es lo que el taller viene a hacer, y el azul lleno lo ponía
+             a competir con la acción principal de cada pantalla. -->
+        <button type="button" class="btn-ghost" @click="logout">Salir</button>
       </div>
     </aside>
 

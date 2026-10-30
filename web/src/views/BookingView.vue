@@ -369,7 +369,7 @@ header p.small {
   padding: 0.7rem 1rem;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
