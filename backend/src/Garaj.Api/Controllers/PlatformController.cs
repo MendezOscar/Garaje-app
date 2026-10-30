@@ -66,6 +66,15 @@ public class PlatformController(IPlatformService service) : ControllerBase
         Guid id, Guid paymentId, VoidPaymentRequest request, CancellationToken ct)
         => Ok(await service.VoidPaymentAsync(id, paymentId, request, ct));
 
+    /// <summary>
+    /// Corrige la ficha del taller: nombre, razón social, RTN y contactos. Es lo que sale
+    /// impreso en la factura que le emitimos.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<PlatformTenantDto>> Update(
+        Guid id, UpdateTenantRequest request, CancellationToken ct)
+        => Ok(await service.UpdateTenantAsync(id, request, ct));
+
     /// <summary>Acuerdo de pago: el taller sigue trabajando hasta la fecha acordada.</summary>
     [HttpPut("{id:guid}/agreement")]
     public async Task<ActionResult<PlatformTenantDto>> SetAgreement(

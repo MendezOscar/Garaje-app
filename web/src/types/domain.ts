@@ -1275,6 +1275,7 @@ export interface PlatformTenant {
   worksWith: WorkshopKind
   /** Su RTN: es lo que lleva impreso la factura que le emitimos. */
   taxId: string | null
+  address: string | null
 }
 
 export interface PlatformTenantDetail {

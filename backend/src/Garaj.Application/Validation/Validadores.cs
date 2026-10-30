@@ -316,6 +316,22 @@ public class SavePlatformFiscalRangeValidator : AbstractValidator<SavePlatformFi
     }
 }
 
+public class UpdateTenantValidator : AbstractValidator<UpdateTenantRequest>
+{
+    public UpdateTenantValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("El taller necesita un nombre.")
+            .MaximumLength(200);
+
+        RuleFor(x => x.LegalName).MaximumLength(200);
+        RuleFor(x => x.TaxId).MaximumLength(20);
+        RuleFor(x => x.Phone).MaximumLength(40);
+        RuleFor(x => x.Email).MaximumLength(200);
+        RuleFor(x => x.Address).MaximumLength(300);
+    }
+}
+
 public class VoidPaymentValidator : AbstractValidator<VoidPaymentRequest>
 {
     public VoidPaymentValidator() =>

@@ -25,6 +25,9 @@ const creado = ref<CreatedTenant | null>(null)
 
 const vacio = {
   name: '',
+  legalName: '',
+  taxId: '',
+  email: '',
   ownerEmail: '',
   ownerName: '',
   branchName: '',
@@ -90,6 +93,11 @@ async function crear() {
   try {
     creado.value = await platformApi.create({
       name: f.name.trim(),
+      legalName: f.legalName.trim() || null,
+      // El RTN de aquí es el del taller como cliente nuestro: es lo que lleva impreso la
+      // factura de su mensualidad. Sin él sale a consumidor final y no la puede deducir.
+      taxId: f.taxId.trim() || null,
+      email: f.email.trim() || null,
       ownerEmail: f.ownerEmail.trim(),
       ownerName: f.ownerName.trim(),
       branchName: f.branchName.trim(),
@@ -163,8 +171,26 @@ onMounted(load)
           <input v-model="form.name" placeholder="Taller Martínez" required />
         </label>
         <label>
+          Razón social
+          <input v-model="form.legalName" placeholder="Como está en el RTN" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label>
+          RTN del taller
+          <input v-model="form.taxId" placeholder="0801…" />
+          <span class="ayuda">
+            Lo que lleva impreso su factura. Sin él sale a consumidor final.
+          </span>
+        </label>
+        <label>
           Teléfono
           <input v-model="form.phone" placeholder="9888-1111" />
+        </label>
+        <label>
+          Correo del taller
+          <input v-model="form.email" type="email" placeholder="taller@correo.hn" />
         </label>
       </div>
 

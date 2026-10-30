@@ -245,6 +245,28 @@ public class PlatformService(
         return await MapAsync(tenant, ct);
     }
 
+    public async Task<PlatformTenantDto> UpdateTenantAsync(
+        Guid tenantId, UpdateTenantRequest request, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new AppException("El taller necesita un nombre.");
+
+        var tenant = await FindAsync(tenantId, ct);
+
+        tenant.Name = request.Name.Trim();
+        tenant.LegalName = Trim(request.LegalName);
+        tenant.TaxId = Trim(request.TaxId);
+        tenant.Phone = Trim(request.Phone);
+        tenant.Email = Trim(request.Email);
+        tenant.Address = Trim(request.Address);
+
+        await db.SaveChangesAsync(ct);
+
+        return await MapAsync(tenant, ct);
+    }
+
     public async Task<PlatformTenantDto> UpdateSubscriptionAsync(
         Guid tenantId, UpdateSubscriptionRequest request, CancellationToken ct = default)
     {
@@ -570,7 +592,8 @@ public class PlatformService(
             branchCount,
             tenant.CreatedAt,
             tenant.WorksWith,
-            tenant.TaxId);
+            tenant.TaxId,
+            tenant.Address);
     }
 
     /// <summary>Sin tope los días de gracia se vuelven «gratis para siempre» por un cero de más.</summary>

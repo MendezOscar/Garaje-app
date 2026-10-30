@@ -1396,6 +1396,10 @@ export const platformApi = {
   /** La contraseña del Dueño vuelve una sola vez: hay que entregarla en el momento. */
   async create(body: {
     name: string
+    legalName?: string | null
+    /** El RTN del taller: lo que lleva impreso la factura de su mensualidad. */
+    taxId?: string | null
+    email?: string | null
     ownerEmail: string
     ownerName: string
     branchName: string
@@ -1446,6 +1450,21 @@ export const platformApi = {
       `/api/platform/tenants/${id}/payments`,
       body,
     )
+    return data
+  },
+  /** Corrige la ficha del taller: nombre, razón social, RTN y contactos. */
+  async updateTenant(
+    id: string,
+    body: {
+      name: string
+      legalName?: string | null
+      taxId?: string | null
+      phone?: string | null
+      email?: string | null
+      address?: string | null
+    },
+  ): Promise<PlatformTenant> {
+    const { data } = await api.put<PlatformTenant>(`/api/platform/tenants/${id}`, body)
     return data
   },
   /** Anula un pago registrado por error. No se borra: el historial de cobro se conserva. */

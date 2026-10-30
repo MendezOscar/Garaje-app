@@ -101,6 +101,9 @@ const sinCai = computed(() => {
   return !rango || rango.isExpired || rango.isExhausted
 })
 const acuerdo = ref({ unblockedThrough: '', note: '' })
+
+/** La ficha del taller como cliente nuestro: es lo que sale impreso en su factura. */
+const ficha = ref({ name: '', legalName: '', taxId: '', phone: '', email: '', address: '' })
 const plan = ref({ planName: '', monthlyFee: 0, paidThrough: '', graceDays: 5 })
 const nuevoDueno = ref({ email: '', fullName: '', password: '' })
 const creado = ref<CreatedTenant | null>(null)
@@ -129,6 +132,14 @@ async function load() {
 
     const t = data.value.tenant
     pago.value.amount = conImpuesto(t.monthlyFee)
+    ficha.value = {
+      name: t.name,
+      legalName: t.legalName ?? '',
+      taxId: t.taxId ?? '',
+      phone: t.phone ?? '',
+      email: t.email ?? '',
+      address: t.address ?? '',
+    }
     plan.value = {
       planName: t.planName ?? '',
       monthlyFee: t.monthlyFee,
@@ -221,6 +232,39 @@ function quitarAcuerdo() {
   return accion(() => platformApi.clearAgreement(id), 'No se pudo quitar el acuerdo.')
 }
 
+/** Sin cambios el botón no hace nada, y decirlo apagado evita el clic de más. */
+const fichaCambiada = computed(() => {
+  const t = tenant.value
+  if (!t) return false
+
+  const f = ficha.value
+  return (
+    f.name.trim() !== t.name ||
+    f.legalName.trim() !== (t.legalName ?? '') ||
+    f.taxId.trim() !== (t.taxId ?? '') ||
+    f.phone.trim() !== (t.phone ?? '') ||
+    f.email.trim() !== (t.email ?? '') ||
+    f.address.trim() !== (t.address ?? '')
+  )
+})
+
+function guardarFicha() {
+  if (!ficha.value.name.trim()) return
+
+  return accion(
+    () =>
+      platformApi.updateTenant(id, {
+        name: ficha.value.name.trim(),
+        legalName: ficha.value.legalName.trim() || null,
+        taxId: ficha.value.taxId.trim() || null,
+        phone: ficha.value.phone.trim() || null,
+        email: ficha.value.email.trim() || null,
+        address: ficha.value.address.trim() || null,
+      }),
+    'No se pudieron guardar los datos del taller.',
+  )
+}
+
 function guardarPlan() {
   return accion(
     () =>
@@ -299,174 +343,296 @@ onMounted(async () => {
 
     <p class="situacion" :class="tenant.state.toLowerCase()">{{ situacion }}</p>
 
-    <div class="grid">
-      <form class="card" @submit.prevent="revisar">
-        <h2>Registrar pago</h2>
+    <!-- Lo de todos los meses a la izquierda y grande; a la derecha, los datos del taller,
+         que es lo que hay que mirar al emitirle la factura. Lo que se toca una vez al año
+         queda plegado abajo: cuatro tarjetas al mismo nivel no decían cuál era el trabajo. -->
+    <div class="columnas">
+      <div class="principal">
+        <form class="card" @submit.prevent="revisar">
+          <h2>Registrar pago</h2>
 
-        <div class="row">
+          <div class="row">
+            <label>
+              Monto
+              <input v-model.number="pago.amount" type="number" min="0" step="0.01" required />
+            </label>
+            <label>
+              Meses
+              <input v-model.number="pago.months" type="number" min="1" max="24" />
+            </label>
+          </div>
+
+          <div class="row">
+            <label>
+              Fecha del pago
+              <input v-model="pago.paidOn" type="date" />
+            </label>
+            <label>
+              Forma
+              <select v-model="pago.method">
+                <option>Transferencia</option>
+                <option>Depósito</option>
+                <option>Efectivo</option>
+              </select>
+            </label>
+          </div>
+
           <label>
-            Monto
-            <input v-model.number="pago.amount" type="number" min="0" step="0.01" required />
-          </label>
-          <label>
-            Meses
-            <input v-model.number="pago.months" type="number" min="1" max="24" />
-          </label>
-        </div>
-
-        <div class="row">
-          <label>
-            Fecha del pago
-            <input v-model="pago.paidOn" type="date" />
-          </label>
-          <label>
-            Forma
-            <select v-model="pago.method">
-              <option>Transferencia</option>
-              <option>Depósito</option>
-              <option>Efectivo</option>
-            </select>
-          </label>
-        </div>
-
-        <label>
-          Número de referencia
-          <input v-model="pago.reference" placeholder="Número de depósito" />
-        </label>
-
-        <!-- El documento nace con el pago, así que lo que va a decir se ve aquí, antes de
-             registrarlo. Después solo se puede anular. -->
-        <div class="documento">
-          <label class="checkbox">
-            <input v-model="pago.emitir" type="checkbox" />
-            Emitir documento
+            Número de referencia
+            <input v-model="pago.reference" placeholder="Número de depósito" />
           </label>
 
-          <template v-if="pago.emitir">
-            <label class="checkbox" :class="{ apagado: sinCai }">
-              <input v-model="pago.conCai" type="checkbox" :disabled="sinCai" />
-              Con CAI
+          <!-- El documento nace con el pago, así que lo que va a decir se ve aquí, antes de
+               registrarlo. Después solo se puede anular. -->
+          <div class="documento">
+            <label class="checkbox">
+              <input v-model="pago.emitir" type="checkbox" />
+              Emitir documento
             </label>
 
-            <p v-if="sinCai" class="muted small">
-              Sin CAI vigente sale un comprobante con numeración propia
-              ({{ emisor?.invoicePrefix ?? 'C' }}-{{
-                String(emisor?.nextInvoiceNumber ?? 1).padStart(6, '0')
-              }}). El CAI se registra en Facturación.
+            <template v-if="pago.emitir">
+              <label class="checkbox" :class="{ apagado: sinCai }">
+                <input v-model="pago.conCai" type="checkbox" :disabled="sinCai" />
+                Con CAI
+              </label>
+
+              <p v-if="sinCai" class="muted small">
+                Sin CAI vigente sale un comprobante con numeración propia
+                ({{ emisor?.invoicePrefix ?? 'C' }}-{{
+                  String(emisor?.nextInvoiceNumber ?? 1).padStart(6, '0')
+                }}). El CAI se registra en Facturación.
+              </p>
+              <p v-else-if="pago.conCai" class="muted small">
+                Consume el número {{ emisor?.fiscalRange?.nextFiscalNumber }} del rango
+                autorizado.
+              </p>
+
+              <p v-if="documento.impuesto > 0" class="muted small">
+                Sale por {{ formatMoney(documento.total) }}: neto
+                {{ formatMoney(documento.neto) }} + ISV
+                {{ emisor?.defaultTaxRate }}% {{ formatMoney(documento.impuesto) }}.
+              </p>
+            </template>
+          </div>
+
+          <div class="actions">
+            <button type="submit" :disabled="busy">Revisar</button>
+          </div>
+
+          <p class="muted small">
+            La fecha se corre desde el vencimiento anterior, no desde hoy: quien paga con atraso
+            no pierde los días que ya había pagado.
+          </p>
+        </form>
+
+          <article v-if="revisando" class="card revision">
+            <h2>Revise antes de registrar</h2>
+
+            <dl>
+              <dt>Taller</dt>
+              <dd>{{ tenant.name }}<span v-if="tenant.taxId"> · RTN {{ tenant.taxId }}</span></dd>
+
+              <dt>Monto recibido</dt>
+              <dd class="num">{{ formatMoney(documento.total) }}</dd>
+
+              <template v-if="pago.emitir">
+                <dt>Documento</dt>
+                <dd>
+                  {{ pago.conCai && !sinCai ? 'Factura con CAI' : 'Comprobante sin CAI' }}
+                  <strong class="mono">{{ numeroQueSale }}</strong>
+                </dd>
+
+                <template v-if="documento.impuesto > 0">
+                  <dt>Neto</dt>
+                  <dd class="num">{{ formatMoney(documento.neto) }}</dd>
+                  <dt>ISV {{ emisor?.defaultTaxRate }}%</dt>
+                  <dd class="num">{{ formatMoney(documento.impuesto) }}</dd>
+                </template>
+              </template>
+              <template v-else>
+                <dt>Documento</dt>
+                <dd>No se emite ninguno.</dd>
+              </template>
+
+              <dt>Queda cubierto hasta</dt>
+              <dd>{{ formatDay(cubreHasta) }}</dd>
+            </dl>
+
+            <!-- Sin RTN la factura sale a consumidor final, y entonces al taller no le sirve para
+                 deducirla. Mejor enterarse ahora que cuando la lleve a su contador. -->
+            <p v-if="pago.emitir && pago.conCai && !sinCai && !tenant.taxId" class="aviso">
+              Este taller no tiene RTN registrado: la factura va a salir a consumidor final.
+              Agrégueselo en el plan antes de emitir si lo va a deducir.
             </p>
-            <p v-else-if="pago.conCai" class="muted small">
-              Consume el número {{ emisor?.fiscalRange?.nextFiscalNumber }} del rango
-              autorizado.
+
+            <p v-if="pago.conCai && !sinCai" class="aviso">
+              Consume el número {{ numeroQueSale }} del rango autorizado. Un número emitido no se
+              devuelve: si se registra por error, el documento se anula pero el número ya se usó.
             </p>
 
-            <p v-if="documento.impuesto > 0" class="muted small">
-              Sale por {{ formatMoney(documento.total) }}: neto
-              {{ formatMoney(documento.neto) }} + ISV
-              {{ emisor?.defaultTaxRate }}% {{ formatMoney(documento.impuesto) }}.
-            </p>
-          </template>
-        </div>
+            <div class="actions">
+              <button type="button" :disabled="busy" @click="registrarPago">
+                Confirmar y registrar
+              </button>
+              <button type="button" class="link" @click="revisando = false">Corregir</button>
+            </div>
+          </article>
+      </div>
 
-        <div class="actions">
-          <button type="submit" :disabled="busy">Revisar</button>
-        </div>
+      <div class="lateral">
+        <form class="card" @submit.prevent="guardarFicha">
+          <h2>Datos del taller</h2>
+          <p class="muted small">
+            Es lo que sale impreso en la factura de su mensualidad. El Dueño edita la ficha de
+            su taller desde su panel; esto es para corregirla de este lado.
+          </p>
 
-        <p class="muted small">
-          La fecha se corre desde el vencimiento anterior, no desde hoy: quien paga con atraso
-          no pierde los días que ya había pagado.
-        </p>
-      </form>
-
-      <form class="card" @submit.prevent="darAcuerdo">
-        <h2>Acuerdo de pago</h2>
-
-        <p v-if="tenant.unblockedThrough" class="vigente">
-          Vigente hasta el {{ formatDay(tenant.unblockedThrough) }}.
-          <span v-if="tenant.unblockNote" class="muted">{{ tenant.unblockNote }}</span>
-        </p>
-
-        <label>
-          Desbloqueado hasta
-          <input v-model="acuerdo.unblockedThrough" type="date" required />
-        </label>
-        <label>
-          Motivo
-          <input v-model="acuerdo.note" placeholder="Paga el 30, habló con él el 15" />
-        </label>
-
-        <div class="actions">
-          <button type="submit" :disabled="busy">Dar acuerdo</button>
-          <button
-            v-if="tenant.unblockedThrough"
-            type="button"
-            class="link"
-            :disabled="busy"
-            @click="quitarAcuerdo"
-          >
-            Quitarlo
-          </button>
-        </div>
-
-        <p class="muted small">
-          El taller sigue trabajando aunque deba. Se cancela solo al registrar el pago.
-        </p>
-      </form>
-
-      <form class="card" @submit.prevent="guardarPlan">
-        <h2>Plan y vencimiento</h2>
-
-        <div class="row">
           <label>
-            Plan
-            <input v-model="plan.planName" placeholder="Básico" />
+            Nombre
+            <input v-model="ficha.name" required />
           </label>
           <label>
-            Cuota mensual
-            <input v-model.number="plan.monthlyFee" type="number" min="0" step="0.01" />
-          </label>
-        </div>
-
-        <div class="row">
-          <label>
-            Pagado hasta
-            <input v-model="plan.paidThrough" type="date" />
+            Razón social
+            <input v-model="ficha.legalName" placeholder="Como está en el RTN" />
           </label>
           <label>
-            Días de gracia
-            <input v-model.number="plan.graceDays" type="number" min="0" max="60" />
+            RTN
+            <input v-model="ficha.taxId" placeholder="0801…" />
+            <small v-if="!ficha.taxId.trim()" class="muted">
+              Sin RTN, su factura sale a consumidor final.
+            </small>
           </label>
-        </div>
 
-        <div class="actions">
-          <button type="submit" :disabled="busy">Guardar</button>
-        </div>
+          <div class="row">
+            <label>
+              Teléfono
+              <input v-model="ficha.phone" placeholder="9888-1111" />
+            </label>
+            <label>
+              Correo
+              <input v-model="ficha.email" type="email" placeholder="taller@correo.hn" />
+            </label>
+          </div>
 
-        <p class="muted small">
-          Sin fecha de «pagado hasta», el taller nunca se bloquea.
-        </p>
-      </form>
-
-      <article class="card">
-        <h2>Qué repara</h2>
-        <p class="muted small">
-          Decide qué se le puede dar de alta y cómo se llama en sus pantallas. Se fija al
-          crear el taller; esto es para corregirlo, no para cambiarle el rubro andando.
-        </p>
-
-        <div class="row">
           <label>
-            <select
-              :value="tenant.worksWith"
-              :disabled="busy"
-              @change="cambiarRubro(Number(($event.target as HTMLSelectElement).value) as WorkshopKind)"
-            >
-              <option :value="WorkshopKind.Vehicles">Vehículos y motos</option>
-              <option :value="WorkshopKind.Equipment">Equipos (cómputo, celulares, aires)</option>
-            </select>
+            Dirección
+            <input v-model="ficha.address" />
           </label>
-        </div>
-      </article>
+
+          <div class="actions">
+            <button type="submit" :disabled="busy || !fichaCambiada">Guardar</button>
+          </div>
+        </form>
+
+        <form class="card" @submit.prevent="guardarPlan">
+          <h2>Plan y vencimiento</h2>
+
+          <div class="row">
+            <label>
+              Plan
+              <input v-model="plan.planName" placeholder="Básico" />
+            </label>
+            <label>
+              Cuota mensual
+              <input v-model.number="plan.monthlyFee" type="number" min="0" step="0.01" />
+            </label>
+          </div>
+
+          <div class="row">
+            <label>
+              Pagado hasta
+              <input v-model="plan.paidThrough" type="date" />
+            </label>
+            <label>
+              Días de gracia
+              <input v-model.number="plan.graceDays" type="number" min="0" max="60" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" :disabled="busy">Guardar</button>
+          </div>
+
+          <p class="muted small">
+            Sin fecha de «pagado hasta», el taller nunca se bloquea.
+          </p>
+        </form>
+      </div>
     </div>
+
+    <!-- Abierto solo cuando hace falta: con el taller al día, un formulario de acuerdo de pago
+         es una tarjeta pidiendo que se le haga caso sin motivo. -->
+    <details class="ajuste" :open="tenant.state !== 'Active' || !!tenant.unblockedThrough">
+      <summary>
+        Acuerdo de pago
+        <span v-if="tenant.unblockedThrough" class="muted small">
+          · vigente hasta el {{ formatDay(tenant.unblockedThrough) }}
+        </span>
+      </summary>
+        <form class="card" @submit.prevent="darAcuerdo">
+          <h2>Acuerdo de pago</h2>
+
+          <p v-if="tenant.unblockedThrough" class="vigente">
+            Vigente hasta el {{ formatDay(tenant.unblockedThrough) }}.
+            <span v-if="tenant.unblockNote" class="muted">{{ tenant.unblockNote }}</span>
+          </p>
+
+          <label>
+            Desbloqueado hasta
+            <input v-model="acuerdo.unblockedThrough" type="date" required />
+          </label>
+          <label>
+            Motivo
+            <input v-model="acuerdo.note" placeholder="Paga el 30, habló con él el 15" />
+          </label>
+
+          <div class="actions">
+            <button type="submit" :disabled="busy">Dar acuerdo</button>
+            <button
+              v-if="tenant.unblockedThrough"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="quitarAcuerdo"
+            >
+              Quitarlo
+            </button>
+          </div>
+
+          <p class="muted small">
+            El taller sigue trabajando aunque deba. Se cancela solo al registrar el pago.
+          </p>
+        </form>
+    </details>
+
+    <details class="ajuste">
+      <summary>
+        Qué repara
+        <span class="muted small">
+          · {{ tenant.worksWith === WorkshopKind.Equipment ? 'Equipos' : 'Vehículos y motos' }}
+        </span>
+      </summary>
+        <article class="card">
+          <h2>Qué repara</h2>
+          <p class="muted small">
+            Decide qué se le puede dar de alta y cómo se llama en sus pantallas. Se fija al
+            crear el taller; esto es para corregirlo, no para cambiarle el rubro andando.
+          </p>
+
+          <div class="row">
+            <label>
+              <select
+                :value="tenant.worksWith"
+                :disabled="busy"
+                @change="cambiarRubro(Number(($event.target as HTMLSelectElement).value) as WorkshopKind)"
+              >
+                <option :value="WorkshopKind.Vehicles">Vehículos y motos</option>
+                <option :value="WorkshopKind.Equipment">Equipos (cómputo, celulares, aires)</option>
+              </select>
+            </label>
+          </div>
+        </article>
+    </details>
 
     <!-- Se enseña una sola vez: la contraseña no queda guardada en claro en ninguna parte. -->
     <article v-if="creado" class="card credenciales">
@@ -509,58 +675,6 @@ onMounted(async () => {
 
     <!-- Lo que va a pasar al confirmar, con todos sus efectos a la vista. Es el paso que
          faltaba: el botón emitía el documento y corría el vencimiento de un solo clic. -->
-    <article v-if="revisando" class="card revision">
-      <h2>Revise antes de registrar</h2>
-
-      <dl>
-        <dt>Taller</dt>
-        <dd>{{ tenant.name }}<span v-if="tenant.taxId"> · RTN {{ tenant.taxId }}</span></dd>
-
-        <dt>Monto recibido</dt>
-        <dd class="num">{{ formatMoney(documento.total) }}</dd>
-
-        <template v-if="pago.emitir">
-          <dt>Documento</dt>
-          <dd>
-            {{ pago.conCai && !sinCai ? 'Factura con CAI' : 'Comprobante sin CAI' }}
-            <strong class="mono">{{ numeroQueSale }}</strong>
-          </dd>
-
-          <template v-if="documento.impuesto > 0">
-            <dt>Neto</dt>
-            <dd class="num">{{ formatMoney(documento.neto) }}</dd>
-            <dt>ISV {{ emisor?.defaultTaxRate }}%</dt>
-            <dd class="num">{{ formatMoney(documento.impuesto) }}</dd>
-          </template>
-        </template>
-        <template v-else>
-          <dt>Documento</dt>
-          <dd>No se emite ninguno.</dd>
-        </template>
-
-        <dt>Queda cubierto hasta</dt>
-        <dd>{{ formatDay(cubreHasta) }}</dd>
-      </dl>
-
-      <!-- Sin RTN la factura sale a consumidor final, y entonces al taller no le sirve para
-           deducirla. Mejor enterarse ahora que cuando la lleve a su contador. -->
-      <p v-if="pago.emitir && pago.conCai && !sinCai && !tenant.taxId" class="aviso">
-        Este taller no tiene RTN registrado: la factura va a salir a consumidor final.
-        Agrégueselo en el plan antes de emitir si lo va a deducir.
-      </p>
-
-      <p v-if="pago.conCai && !sinCai" class="aviso">
-        Consume el número {{ numeroQueSale }} del rango autorizado. Un número emitido no se
-        devuelve: si se registra por error, el documento se anula pero el número ya se usó.
-      </p>
-
-      <div class="actions">
-        <button type="button" :disabled="busy" @click="registrarPago">
-          Confirmar y registrar
-        </button>
-        <button type="button" class="link" @click="revisando = false">Corregir</button>
-      </div>
-    </article>
 
     <h2 class="historial">Pagos</h2>
 
@@ -670,13 +784,6 @@ h1 {
 .situacion.suspended {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 12%, transparent);
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 1rem;
-  align-items: start;
 }
 
 .card {
@@ -843,5 +950,49 @@ tr.anulada td {
 tr.anulada td:first-child,
 tr.anulada td:last-child {
   text-decoration: none;
+}
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 64rem) {
+  .columnas {
+    grid-template-columns: 1fr;
+  }
+}
+
+.principal,
+.lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* Lo que se toca una vez al año: plegado, y con lo que vale ahora dicho en el título. */
+.ajuste {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ajuste > summary {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ajuste[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.ajuste .card {
+  border: 0;
+  background: none;
 }
 </style>
