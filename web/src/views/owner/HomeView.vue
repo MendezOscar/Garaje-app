@@ -116,36 +116,31 @@ const detallePorEstado = computed(() =>
 )
 
 /**
- * La gráfica de los últimos catorce días, dibujada a mano en SVG.
+ * Lo facturado en los últimos catorce días, una barra por día.
  *
- * Sin librería a propósito: son catorce puntos y una línea, y traer una de gráficas costaría
- * más kilobytes que todo el panel. `preserveAspectRatio="none"` deja que el trazo se estire
- * al ancho que tenga la tarjeta.
+ * Era un área: con ingresos en dos días de catorce, la línea se iba de un punto al otro e
+ * inventaba ingresos en los doce de en medio. Un día sin facturar es una barra que no está,
+ * que es exactamente lo que pasó.
+ *
+ * Sin librería a propósito: son catorce barras, y traer una de gráficas costaría más
+ * kilobytes que todo el panel.
  */
 const grafica = computed(() => {
   const puntos = dashboard.value?.lastDays ?? []
   if (puntos.length < 2) return null
 
-  const alto = 60
   const max = Math.max(...puntos.map((p) => p.total), 1)
-  const paso = 100 / (puntos.length - 1)
-
-  const coords = puntos.map((p, i) => ({
-    x: i * paso,
-    y: alto - (p.total / max) * (alto - 6),
-    punto: p,
-  }))
-
-  const linea = coords.map((c, i) => `${i ? 'L' : 'M'}${c.x.toFixed(2)} ${c.y.toFixed(2)}`).join(' ')
 
   return {
-    linea,
-    area: `${linea} L100 ${alto} L0 ${alto} Z`,
-    alto,
+    barras: puntos.map((p) => ({
+      etiqueta: p.periodLabel,
+      total: p.total,
+      // Mínimo visible para que un día con poco no desaparezca contra el eje.
+      alto: p.total > 0 ? Math.max((p.total / max) * 100, 4) : 0,
+    })),
     total: puntos.reduce((suma, p) => suma + p.total, 0),
     dias: puntos.length,
     conVenta: puntos.filter((p) => p.total > 0).length,
-    ultimo: coords[coords.length - 1],
   }
 })
 
@@ -161,6 +156,7 @@ const atencion = computed(() => {
   const filas = [
     {
       clave: 'atrasadas',
+      accion: 'Ver cuáles y avisarle al cliente',
       icono: 'reloj',
       tono: 'alerta',
       texto: `${d.lateWorkOrders} ${d.lateWorkOrders === 1 ? 'orden pasó' : 'órdenes pasaron'} su fecha de entrega.`,
@@ -169,6 +165,7 @@ const atencion = computed(() => {
     },
     {
       clave: 'requerimientos',
+      accion: 'Recibir o rechazar',
       icono: 'bandeja',
       tono: 'espera',
       texto: `${d.pendingRequests} ${d.pendingRequests === 1 ? 'requerimiento' : 'requerimientos'} sin atender.`,
@@ -177,6 +174,7 @@ const atencion = computed(() => {
     },
     {
       clave: 'citas-hoy',
+      accion: 'Ver la agenda del día',
       icono: 'calendario',
       tono: 'espera',
       texto: `${d.appointmentsToday} ${d.appointmentsToday === 1 ? 'cita apartada' : 'citas apartadas'} para hoy.`,
@@ -185,6 +183,7 @@ const atencion = computed(() => {
     },
     {
       clave: 'citas-por-confirmar',
+      accion: 'Confirmar o mover el día',
       icono: 'calendario',
       tono: 'espera',
       texto: `${d.appointmentsToConfirm} ${d.appointmentsToConfirm === 1 ? 'cita espera' : 'citas esperan'} que el taller confirme.`,
@@ -193,6 +192,7 @@ const atencion = computed(() => {
     },
     {
       clave: 'cotizaciones',
+      accion: 'Recordarle por WhatsApp',
       icono: 'papel',
       tono: 'espera',
       texto: `${d.quotesAwaitingResponse} ${d.quotesAwaitingResponse === 1 ? 'cotización' : 'cotizaciones'} sin respuesta del cliente.`,
@@ -201,6 +201,7 @@ const atencion = computed(() => {
     },
     {
       clave: 'vencido',
+      accion: 'Cobrar o mandar el estado de cuenta',
       icono: 'dinero',
       tono: 'alerta',
       texto: `${formatMoney(d.overdueReceivables)} vencidos, de ${formatMoney(d.receivables)} por cobrar.`,
@@ -209,6 +210,7 @@ const atencion = computed(() => {
     },
     {
       clave: 'bodega',
+      accion: 'Armar la lista de compras',
       icono: 'caja',
       tono: 'espera',
       texto: `${d.partsBelowMinimum} ${d.partsBelowMinimum === 1 ? 'repuesto' : 'repuestos'} en o por debajo del mínimo.`,
@@ -412,47 +414,6 @@ watch(() => auth.activeBranchId, load)
       <div class="medio">
         <article class="panel">
           <header class="panel-cabecera">
-            <div>
-              <h2>Ingresos</h2>
-              <p class="muted small">Lo facturado en los últimos {{ grafica?.dias ?? 14 }} días</p>
-            </div>
-            <RouterLink class="ver" :to="{ name: 'reports' }">Ver reportes</RouterLink>
-          </header>
-
-          <div v-if="grafica" class="grafica">
-            <div class="grafica-cifras">
-              <div>
-                <span class="muted small">Total del periodo</span>
-                <strong class="num">{{ formatMoney(grafica.total) }}</strong>
-              </div>
-              <div>
-                <span class="muted small">Días con ingresos</span>
-                <strong class="num">{{ grafica.conVenta }}</strong>
-              </div>
-            </div>
-
-            <svg class="trazo" :viewBox="`0 0 100 ${grafica.alto}`" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="relleno" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="var(--brand)" stop-opacity="0.28" />
-                  <stop offset="100%" stop-color="var(--brand)" stop-opacity="0" />
-                </linearGradient>
-              </defs>
-              <path :d="grafica.area" fill="url(#relleno)" />
-              <path :d="grafica.linea" fill="none" stroke="var(--brand)" stroke-width="1.5"
-                    vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
-            </svg>
-
-            <div class="grafica-pie muted small">
-              <span>{{ dashboard.lastDays[0]?.periodLabel }}</span>
-              <span>{{ dashboard.lastDays[dashboard.lastDays.length - 1]?.periodLabel }}</span>
-            </div>
-          </div>
-          <p v-else class="muted small">Todavía no hay movimiento que graficar.</p>
-        </article>
-
-        <article class="panel">
-          <header class="panel-cabecera">
             <h2>Pide atención</h2>
           </header>
 
@@ -483,13 +444,57 @@ watch(() => auth.activeBranchId, load)
                 <path d="M4 8.5 12 5l8 3.5v7L12 19l-8-3.5z" stroke-linejoin="round" /><path d="M4 8.5 12 12l8-3.5M12 12v7" />
               </svg>
             </span>
-            <span class="fila-texto">{{ fila.texto }}</span>
+            <span class="fila-texto">
+              {{ fila.texto }}
+              <!-- Qué hacer con eso: el aviso sin acción obliga a adivinar a dónde lleva. -->
+              <span class="fila-accion">{{ fila.accion }}</span>
+            </span>
             <svg class="fila-flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </RouterLink>
         </article>
-      </div>
+              <article class="panel">
+          <header class="panel-cabecera">
+            <div>
+              <h2>Ingresos</h2>
+              <p class="muted small">Lo facturado en los últimos {{ grafica?.dias ?? 14 }} días</p>
+            </div>
+            <RouterLink class="ver" :to="{ name: 'reports' }">Ver reportes</RouterLink>
+          </header>
+
+          <div v-if="grafica" class="grafica">
+            <div class="grafica-cifras">
+              <div>
+                <span class="muted small">Total del periodo</span>
+                <strong class="num">{{ formatMoney(grafica.total) }}</strong>
+              </div>
+              <div>
+                <span class="muted small">Días con ingresos</span>
+                <strong class="num">{{ grafica.conVenta }}</strong>
+              </div>
+            </div>
+
+            <div class="barras">
+              <div
+                v-for="(barra, i) in grafica.barras"
+                :key="i"
+                class="columna"
+                :title="`${barra.etiqueta}: ${formatMoney(barra.total)}`"
+              >
+                <div class="barra" :style="{ height: `${barra.alto}%` }" />
+              </div>
+            </div>
+
+            <div class="grafica-pie muted small">
+              <span>{{ dashboard.lastDays[0]?.periodLabel }}</span>
+              <span>{{ dashboard.lastDays[dashboard.lastDays.length - 1]?.periodLabel }}</span>
+            </div>
+          </div>
+          <p v-else class="muted small">Todavía no hay movimiento que graficar.</p>
+        </article>
+
+</div>
 
       <!-- ------------------------------------------------------------ patio y entradas -->
       <div class="abajo">
@@ -554,6 +559,36 @@ watch(() => auth.activeBranchId, load)
 </template>
 
 <style scoped>
+.fila-accion {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* Una barra por día, con su hueco cuando no se facturó. */
+.barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 7.5rem;
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.columna {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.barra {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
 /* ------------------------------------------------------------------ cabecera */
 
 .cabecera {

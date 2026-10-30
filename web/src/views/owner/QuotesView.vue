@@ -5,6 +5,8 @@ import { errorMessage } from '@/api/client'
 import { laborServicesApi, partsApi, quotesApi, tenantApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import PeriodSelect from '@/components/PeriodSelect.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
@@ -18,7 +20,6 @@ import {
   type QuoteListItem,
 } from '@/types/domain'
 import { formatDate, formatMoney, formatQuantity, sinIsv } from '@/utils/format'
-import { PERIODS, periodFrom, type PeriodKey } from '@/utils/period'
 
 const route = useRoute()
 
@@ -98,7 +99,7 @@ const cifras = computed(() => {
 })
 
 /** Filtro de fechas, por cuándo se hizo la cotización. */
-const period = ref<PeriodKey>('month')
+const desde = ref('')
 const error = ref('')
 const loading = ref(false)
 const busy = ref(false)
@@ -133,12 +134,18 @@ function abrirDondeHayTrabajo() {
   if (conTrabajo) pestana.value = conTrabajo.clave
 }
 
+/** El periodo lo pone el selector de la barra; aquí solo se guarda y se recarga. */
+function cambiarPeriodo(rango: { desde: string; hasta: string }) {
+  desde.value = rango.desde
+  load()
+}
+
 async function load() {
   loading.value = true
   error.value = ''
   try {
     const page = await quotesApi.list({
-      from: periodFrom(period.value),
+      from: desde.value || undefined,
       pageSize: 100,
     })
     quotes.value = page.items
@@ -357,18 +364,10 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div class="periods">
-      <button
-        v-for="p in PERIODS"
-        :key="p.key"
-        type="button"
-        class="chip"
-        :class="{ on: period === p.key }"
-        @click="period = p.key; load()"
-      >
-        {{ p.label }}
-      </button>
-    </div>
+    <FilterBar>
+      <PeriodSelect inicial="mes" @cambio="cambiarPeriodo" />
+    </FilterBar>
+
 
     <ErrorNote v-if="error" :message="error" />
 
