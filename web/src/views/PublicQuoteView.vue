@@ -28,10 +28,22 @@ const textoDelIsv = computed(() => {
   const tasa = quote.value?.taxRate ?? 0
   if (tasa <= 0) return 'Sin ISV: el taller no factura con impuesto'
 
-  return quote.value?.pricesIncludedTax
-    ? `Incluye el ISV del ${tasa}%`
-    : `Más el ISV del ${tasa}% si pide factura`
+  // En los dos modelos del taller el impuesto ya está sumado en este total: lo que cambia es
+  // si venía dentro de los precios o se agregó al final, y eso al cliente no le cambia nada.
+  return `Incluye el ISV del ${tasa}%`
 })
+
+/**
+ * El renglón sin el impuesto, que es lo que suma al neto del pie.
+ *
+ * Solo hay que sacárselo cuando el precio lo llevaba adentro: con el ISV aparte la línea ya
+ * viene neta, y dividirla otra vez dejaba las líneas sin sumar al neto de abajo.
+ */
+function netoDeLinea(valor: number): number {
+  const q = quote.value
+  if (!q || q.taxRate <= 0 || !q.pricesIncludedTax) return valor
+  return sinIsv(valor, q.taxRate)
+}
 
 /**
  * El renglón sin el código del catálogo: «PAS-FRE · Pastillas de freno» es para el taller,
@@ -179,8 +191,8 @@ onMounted(load)
               </div>
             </td>
             <td class="num">{{ quantity(line.quantity) }}</td>
-            <td class="num unitario">{{ money(sinIsv(line.unitPrice, quote.taxRate)) }}</td>
-            <td class="num">{{ money(sinIsv(line.total, quote.taxRate)) }}</td>
+            <td class="num unitario">{{ money(netoDeLinea(line.unitPrice)) }}</td>
+            <td class="num">{{ money(netoDeLinea(line.total)) }}</td>
           </tr>
         </tbody>
       </table>
