@@ -3,6 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { salesApi, statementsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import FilterChip from '@/components/FilterChip.vue'
+import RowMenu from '@/components/RowMenu.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   PAYMENT_METHOD_LABEL,
@@ -38,6 +41,12 @@ const error = ref('')
 const abierta = ref<string | null>(null)
 const detalle = ref<SaleDetail | null>(null)
 
+/** Recordarle por WhatsApp lo que debe, desde la fila de su factura. */
+async function recordar(sale: SaleListItem) {
+  if (!sale.customerId) return
+  await mandarEstadoDeCuenta(sale)
+}
+
 /** La venta a la que se le está anotando un abono, o null. */
 const cobrando = ref<SaleListItem | null>(null)
 const abono = ref({ amount: 0, method: PaymentMethod.Cash as PaymentMethod, reference: '' })
@@ -50,6 +59,66 @@ const aviso = ref('')
  * abajo es peor que no darlo.
  */
 const total = computed(() => sales.value.reduce((sum, s) => sum + s.balance, 0))
+
+/**
+ * Las facturas agrupadas por cliente.
+ *
+ * Un cliente con cuatro facturas eran cuatro filas, y para saber cuánto debía en total había
+ * que sumarlas de cabeza. Ahora es una fila con su saldo, que se despliega para ver cuáles
+ * son. El de mostrador sin cliente en el padrón va junto, que es lo que es: ventas sueltas.
+ */
+const grupos = computed(() => {
+  const porCliente = new Map<
+    string,
+    {
+      clave: string
+      cliente: string
+      customerId: string | null
+      saldo: number
+      vencido: number
+      diasDelMasViejo: number
+      facturas: SaleListItem[]
+    }
+  >()
+
+  for (const venta of sales.value) {
+    const clave = venta.customerId ?? 'mostrador'
+    const grupo = porCliente.get(clave) ?? {
+      clave,
+      cliente: venta.customerName ?? 'Mostrador',
+      customerId: venta.customerId ?? null,
+      saldo: 0,
+      vencido: 0,
+      diasDelMasViejo: 0,
+      facturas: [],
+    }
+
+    grupo.saldo += venta.balance
+    if (venta.isOverdue) grupo.vencido += venta.balance
+    grupo.diasDelMasViejo = Math.max(grupo.diasDelMasViejo, atraso(venta))
+    grupo.facturas.push(venta)
+
+    porCliente.set(clave, grupo)
+  }
+
+  // El que más debe primero: es a quien hay que llamar hoy.
+  return [...porCliente.values()].sort((a, b) => b.saldo - a.saldo)
+})
+
+/** Quién debe más y qué tan vieja es la factura más atrasada. Van en el encabezado. */
+const quienDebeMas = computed(() => grupos.value[0] ?? null)
+
+const masVieja = computed(() =>
+  sales.value.reduce((dias, venta) => Math.max(dias, atraso(venta)), 0),
+)
+
+/** Los clientes desplegados. Con uno solo, se abre solo: no hay nada que elegir. */
+const desplegados = ref(new Set<string>())
+
+function desplegar(clave: string) {
+  if (desplegados.value.has(clave)) desplegados.value.delete(clave)
+  else desplegados.value.add(clave)
+}
 const vencido = computed(() =>
   sales.value.filter((s) => s.isOverdue).reduce((sum, s) => sum + s.balance, 0),
 )
@@ -199,49 +268,45 @@ onMounted(async () => {
         <div>
           <span class="muted small">Total de lo filtrado</span>
           <strong>{{ formatMoney(total) }}</strong>
+          <span v-if="vencido" class="danger small">{{ formatMoney(vencido) }} vencido</span>
         </div>
-        <div v-if="vencido">
-          <span class="muted small">Vencido</span>
-          <strong class="danger">{{ formatMoney(vencido) }}</strong>
+        <div v-if="quienDebeMas">
+          <span class="muted small">Quien más debe</span>
+          <strong>{{ quienDebeMas.cliente }}</strong>
+          <span class="muted small">{{ formatMoney(quienDebeMas.saldo) }}</span>
+        </div>
+        <div v-if="masVieja">
+          <span class="muted small">La más vieja</span>
+          <strong class="danger">{{ masVieja }} días</strong>
+          <span class="muted small">de atraso</span>
         </div>
       </div>
     </header>
 
-    <form class="filters" @submit.prevent="load">
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Cliente, teléfono, número de venta o de orden"
-      />
-
-
-      <div class="chips">
-        <button
-          type="button"
-          class="chip"
-          :class="{ on: vencimiento === 'todas' }"
-          @click="vencimiento = 'todas'; load()"
-        >
-          Todas
-        </button>
-        <button
-          type="button"
-          class="chip"
-          :class="{ on: vencimiento === 'vencidas' }"
-          @click="vencimiento = 'vencidas'; load()"
-        >
-          Vencidas
-        </button>
-        <button
-          type="button"
-          class="chip"
-          :class="{ on: vencimiento === 'porVencer' }"
-          @click="vencimiento = 'porVencer'; load()"
-        >
-          Por vencer
-        </button>
-      </div>
-    </form>
+    <FilterBar
+      v-model:search="search"
+      placeholder="Cliente, teléfono, número de venta o de orden"
+    >
+      <!-- Excluyentes: una factura o está vencida o no lo está. -->
+      <FilterChip
+        :model-value="vencimiento === 'todas'"
+        @update:model-value="vencimiento = 'todas'; load()"
+      >
+        Todas
+      </FilterChip>
+      <FilterChip
+        :model-value="vencimiento === 'vencidas'"
+        @update:model-value="vencimiento = 'vencidas'; load()"
+      >
+        Vencidas
+      </FilterChip>
+      <FilterChip
+        :model-value="vencimiento === 'porVencer'"
+        @update:model-value="vencimiento = 'porVencer'; load()"
+      >
+        Por vencer
+      </FilterChip>
+    </FilterBar>
 
     <ErrorNote v-if="error" :message="error" />
     <p v-if="aviso" class="notice">{{ aviso }}</p>
@@ -266,115 +331,154 @@ onMounted(async () => {
         </tr>
       </thead>
       <tbody>
-        <template v-for="sale in sales" :key="sale.id">
-          <tr :class="{ overdue: sale.isOverdue }">
+        <template v-for="grupo in grupos" :key="grupo.clave">
+          <!-- Una fila por cliente: lo que debe en total, y cuántas facturas lo componen. -->
+          <tr class="grupo" :class="{ overdue: grupo.vencido > 0 }" @click="desplegar(grupo.clave)">
             <td>
-              <strong>{{ sale.customerName ?? 'Mostrador' }}</strong>
+              <strong>{{ grupo.cliente }}</strong>
               <div class="muted small">
-                {{ sale.number }}
-                <template v-if="sale.workOrderNumber"> · {{ sale.workOrderNumber }}</template>
-                · {{ sale.branchName }}
+                {{ grupo.facturas.length }}
+                {{ grupo.facturas.length === 1 ? 'factura' : 'facturas' }}
+                <template v-if="grupo.diasDelMasViejo">
+                  · la más vieja, {{ grupo.diasDelMasViejo }}
+                  {{ grupo.diasDelMasViejo === 1 ? 'día' : 'días' }} de atraso
+                </template>
               </div>
             </td>
-            <td>
-              <template v-if="sale.dueDate">
-                {{ formatDate(sale.dueDate) }}
-                <div v-if="sale.isOverdue" class="danger small">
-                  hace {{ atraso(sale) }} {{ atraso(sale) === 1 ? 'día' : 'días' }}
-                </div>
-              </template>
-              <span v-else class="muted">sin fecha acordada</span>
+            <td colspan="2" class="muted small">
+              {{ desplegados.has(grupo.clave) ? 'Toque para cerrar' : 'Toque para ver sus facturas' }}
             </td>
-            <td class="num muted">
-              {{ formatMoney(sale.amountPaid) }} de {{ formatMoney(sale.total) }}
-            </td>
-            <td class="num"><strong>{{ formatMoney(sale.balance) }}</strong></td>
+            <td class="num"><strong>{{ formatMoney(grupo.saldo) }}</strong></td>
             <td class="num acciones">
-              <button type="button" class="link" @click="cobrar(sale)">Abonar</button>
-              <button type="button" class="link muted" @click="abrir(sale)">
-                {{ abierta === sale.id ? 'Ocultar' : 'Abonos' }}
+              <button
+                v-if="grupo.customerId"
+                type="button"
+                class="link"
+                @click.stop="recordar(grupo.facturas[0])"
+              >
+                Recordar
               </button>
             </td>
           </tr>
 
-          <!-- Los abonos que ya se le hicieron a esta factura. -->
-          <tr v-if="abierta === sale.id" class="detalle">
-            <td colspan="5">
-              <p v-if="!detalle" class="muted small">Cargando abonos…</p>
-
-              <template v-else>
-                <p v-if="!detalle.payments.length" class="muted small">
-                  Todavía no ha abonado nada a esta factura.
-                </p>
-
-                <ul v-else>
-                  <li v-for="pago in detalle.payments" :key="pago.id">
-                    <span>
-                      {{ formatDateTime(pago.paidAt) }}
-                      · {{ PAYMENT_METHOD_LABEL[pago.method] }}
-                      <template v-if="pago.reference"> · {{ pago.reference }}</template>
-                      <template v-if="pago.registeredByName">
-                        · lo recibió {{ pago.registeredByName }}
-                      </template>
-                    </span>
-                    <strong>{{ formatMoney(pago.amount) }}</strong>
-                  </li>
-                </ul>
-
-                <p v-if="sale.customerId" class="estado">
-                  <button type="button" class="link" @click="mandarEstadoDeCuenta(sale)">
-                    Mandar estado de cuenta por WhatsApp
+          <template v-if="desplegados.has(grupo.clave)">
+            <tr v-for="sale in grupo.facturas" :key="sale.id" class="factura" :class="{ overdue: sale.isOverdue }">
+              <td>
+                {{ sale.number }}
+                <div class="muted small">
+                  <template v-if="sale.workOrderNumber">{{ sale.workOrderNumber }} · </template>
+                  {{ sale.branchName }}
+                </div>
+              </td>
+              <td>
+                <template v-if="sale.dueDate">
+                  {{ formatDate(sale.dueDate) }}
+                  <div v-if="sale.isOverdue" class="danger small">
+                    hace {{ atraso(sale) }} {{ atraso(sale) === 1 ? 'día' : 'días' }}
+                  </div>
+                </template>
+                <span v-else class="muted">sin fecha acordada</span>
+              </td>
+              <td class="num muted">
+                {{ formatMoney(sale.amountPaid) }} de {{ formatMoney(sale.total) }}
+              </td>
+              <td class="num"><strong>{{ formatMoney(sale.balance) }}</strong></td>
+              <td class="num acciones">
+                <!-- La acción común a la vista; el resto, en el menú. -->
+                <button type="button" class="link" @click="cobrar(sale)">Abonar</button>
+                <RowMenu>
+                  <button type="button" @click="abrir(sale)">
+                    {{ abierta === sale.id ? 'Ocultar abonos' : 'Ver abonos' }}
                   </button>
-                  <button type="button" class="link muted" @click="bajarEstadoDeCuenta(sale)">
-                    Bajar en PDF
+                  <button
+                    v-if="sale.customerId"
+                    type="button"
+                    @click="mandarEstadoDeCuenta(sale)"
+                  >
+                    Mandar estado de cuenta
                   </button>
-                  <span class="muted small">
-                    Lleva todas las facturas con saldo de este cliente, no solo esta.
-                  </span>
-                </p>
-                <p v-else class="muted small">
-                  Venta de mostrador sin cliente en el padrón: no hay a quién mandarle un
-                  estado de cuenta.
-                </p>
-              </template>
-            </td>
-          </tr>
+                  <button
+                    v-if="sale.customerId"
+                    type="button"
+                    @click="bajarEstadoDeCuenta(sale)"
+                  >
+                    Bajar el estado en PDF
+                  </button>
+                  <RouterLink
+                    v-if="sale.workOrderId"
+                    :to="{ name: 'work-order', params: { id: sale.workOrderId } }"
+                  >
+                    Ir a la orden
+                  </RouterLink>
+                </RowMenu>
+              </td>
+            </tr>
 
-          <tr v-if="cobrando?.id === sale.id" class="cobro">
-            <td colspan="5">
-              <form @submit.prevent="guardarAbono">
-                <label>
-                  Monto
-                  <input
-                    v-model.number="abono.amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    :max="sale.balance"
-                    required
-                  />
-                </label>
-                <label>
-                  Forma de pago
-                  <select v-model="abono.method">
-                    <option
-                      v-for="(label, value) in PAYMENT_METHOD_LABEL"
-                      :key="value"
-                      :value="Number(value)"
-                    >
-                      {{ label }}
-                    </option>
-                  </select>
-                </label>
-                <label>
-                  Referencia
-                  <input v-model="abono.reference" placeholder="Opcional" />
-                </label>
-                <button type="submit" :disabled="busy">Anotar</button>
-                <button type="button" @click="cobrando = null">Cancelar</button>
-              </form>
-            </td>
-          </tr>
+            <!-- Los abonos que ya se le hicieron a esa factura. -->
+            <tr v-if="abierta && grupo.facturas.some((f) => f.id === abierta)" class="detalle">
+              <td colspan="5">
+                <p v-if="!detalle" class="muted small">Cargando abonos…</p>
+
+                <template v-else>
+                  <p v-if="!detalle.payments.length" class="muted small">
+                    Todavía no ha abonado nada a esa factura.
+                  </p>
+
+                  <ul v-else>
+                    <li v-for="pago in detalle.payments" :key="pago.id">
+                      <span>
+                        {{ formatDateTime(pago.paidAt) }}
+                        · {{ PAYMENT_METHOD_LABEL[pago.method] }}
+                        <template v-if="pago.reference"> · {{ pago.reference }}</template>
+                        <template v-if="pago.registeredByName">
+                          · lo recibió {{ pago.registeredByName }}
+                        </template>
+                      </span>
+                      <strong>{{ formatMoney(pago.amount) }}</strong>
+                    </li>
+                  </ul>
+                </template>
+              </td>
+            </tr>
+
+            <tr v-if="cobrando && grupo.facturas.some((f) => f.id === cobrando?.id)" class="cobro">
+              <td colspan="5">
+                <form @submit.prevent="guardarAbono">
+                  <label>
+                    Monto
+                    <input
+                      v-model.number="abono.amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      :max="cobrando?.balance"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Forma de pago
+                    <select v-model="abono.method">
+                      <option
+                        v-for="(label, value) in PAYMENT_METHOD_LABEL"
+                        :key="value"
+                        :value="Number(value)"
+                      >
+                        {{ label }}
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    Referencia
+                    <input v-model="abono.reference" placeholder="Opcional" />
+                  </label>
+                  <button type="submit" :disabled="busy">Anotar el abono</button>
+                  <button type="button" class="btn-ghost" @click="cobrando = null">
+                    Cancelar
+                  </button>
+                </form>
+              </td>
+            </tr>
+          </template>
         </template>
       </tbody>
     </table>
@@ -382,6 +486,28 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* La fila del cliente se toca para abrirla; las de sus facturas van metidas un poco. */
+.grupo {
+  cursor: pointer;
+}
+
+.grupo:hover td {
+  background: var(--surface-alt);
+}
+
+.factura td:first-child {
+  padding-left: var(--space-5);
+}
+
+.acciones {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
 .top {
   display: flex;
   align-items: flex-start;

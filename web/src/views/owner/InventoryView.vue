@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import CatalogImport from '@/components/CatalogImport.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import RowMenu from '@/components/RowMenu.vue'
 import FilterChip from '@/components/FilterChip.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useEscape } from '@/composables/useEscape'
@@ -398,32 +399,31 @@ onMounted(async () => {
           <td v-if="canManage" class="num muted">{{ formatMoney(item.costPrice) }}</td>
           <td class="num">{{ formatMoney(item.salePrice) }}</td>
           <td class="muted small">{{ item.location ?? '—' }}</td>
-          <!-- Apagados y no llenos: cuatro botones azules por fila, veinte filas, y la
-               pantalla deja de decir qué es lo importante. -->
+          <!-- A la vista, lo que se hace todos los días: darle entrada a lo que llegó. El
+               resto —ajuste, traslado, kardex, editar— en el menú, que cuatro botones por
+               fila en veinte filas dejan de decir qué es lo importante. -->
           <td class="col-acciones">
             <div class="acciones">
-              <button type="button" class="btn-ghost btn-sm" @click="openKardex(item)">
-                Kardex
+              <button
+                v-if="canManage"
+                type="button"
+                class="btn-ghost btn-sm"
+                @click="openMovement('receive', item)"
+              >
+                + Entrada
               </button>
-              <template v-if="canManage">
-                <button
-                  type="button"
-                  class="btn-ghost btn-sm"
-                  @click="openMovement('receive', item)"
-                >
-                  Entrada
+              <RowMenu>
+                <button v-if="canManage" type="button" @click="openMovement('adjust', item)">
+                  Ajuste por conteo
                 </button>
-                <button
-                  type="button"
-                  class="btn-ghost btn-sm"
-                  @click="openMovement('adjust', item)"
-                >
-                  Ajuste
+                <button v-if="canManage" type="button" @click="openMovement('transfer', item)">
+                  Trasladar a otra sucursal
                 </button>
-                <button type="button" class="btn-ghost btn-sm" @click="openEditPart(item)">
-                  Editar
+                <button type="button" @click="openKardex(item)">Ver el kardex</button>
+                <button v-if="canManage" type="button" @click="openEditPart(item)">
+                  Editar el repuesto
                 </button>
-              </template>
+              </RowMenu>
             </div>
           </td>
         </tr>
