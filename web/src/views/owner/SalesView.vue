@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { branchesApi, salesApi } from '@/api/garaj'
+import { salesApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import RowMenu from '@/components/RowMenu.vue'
 import FilterChip from '@/components/FilterChip.vue'
 import PeriodSelect from '@/components/PeriodSelect.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
-import { type Branch, type SaleListItem } from '@/types/domain'
-import { formatMoney } from '@/utils/format'
+import {
+  PAYMENT_METHOD_LABEL,
+  type OrderMessageKind,
+  type SaleDetail,
+  type SaleListItem,
+} from '@/types/domain'
+import { formatMoney, whatsappLink } from '@/utils/format'
 import { useAuthStore } from '@/stores/auth'
 
 /**
@@ -57,18 +63,62 @@ const soloConSaldo = ref(false)
 const branchId = computed(() => auth.activeBranchId ?? '')
 
 const ventas = ref<SaleListItem[]>([])
+
+/**
+ * La venta abierta, a la derecha. Antes tocar la fila no abría nada: para saber qué llevaba
+ * una venta había que bajar el PDF, y para eso hay que tener dónde abrirlo.
+ */
+const abierta = ref<SaleDetail | null>(null)
+const abriendo = ref(false)
+
+async function abrir(venta: SaleListItem) {
+  abriendo.value = true
+  try {
+    abierta.value = await salesApi.get(venta.id)
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo abrir la venta.')
+  } finally {
+    abriendo.value = false
+  }
+}
+
+/**
+ * Mandarle al cliente lo que compró. Si la venta salió de una orden, el enlace es el de
+ * seguimiento, que ya le entrega la factura; si fue de mostrador, se le escribe al teléfono
+ * que quedó en la venta.
+ */
+async function mandarPorWhatsApp(venta: SaleListItem) {
+  const tab = window.open('', '_blank')
+
+  try {
+    if (venta.workOrderId) {
+      const factura: OrderMessageKind = 'invoice'
+      const link = await workOrdersApi.whatsappLink(venta.workOrderId, factura)
+      if (tab) tab.location.href = link.url
+      return
+    }
+
+    const detalle = abierta.value?.id === venta.id ? abierta.value : await salesApi.get(venta.id)
+
+    if (!detalle.customerPhone) {
+      tab?.close()
+      error.value = 'Esa venta no tiene teléfono del cliente.'
+      return
+    }
+
+    const texto = `Su comprobante ${detalle.number} por ${formatMoney(detalle.total)}.`
+    if (tab) tab.location.href = whatsappLink(detalle.customerPhone, texto)
+  } catch (e) {
+    tab?.close()
+    error.value = errorMessage(e, 'No se pudo armar el mensaje.')
+  }
+}
 const total = ref(0)
 const page = ref(1)
 const pageSize = 25
 const cargando = ref(false)
 const error = ref('')
 
-const branches = ref<Branch[]>([])
-const sucursalesPermitidas = computed(() =>
-  auth.user?.branches.length
-    ? branches.value.filter((b) => auth.user?.branches.some((suya) => suya.id === b.id))
-    : branches.value,
-)
 
 const paginas = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
@@ -172,7 +222,6 @@ async function anular(venta: SaleListItem) {
 watch(branchId, () => buscar())
 
 onMounted(async () => {
-  branches.value = await branchesApi.list().catch(() => [])
   await cargar()
 })
 </script>
@@ -240,7 +289,13 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="venta in ventas" :key="venta.id" :class="{ anulada: venta.isVoided }">
+            <tr
+              v-for="venta in ventas"
+              :key="venta.id"
+              class="clicable"
+              :class="{ anulada: venta.isVoided, abierta: abierta?.id === venta.id }"
+              @click="abrir(venta)"
+            >
               <td class="num">{{ fechaCorta(venta.saleDate) }}</td>
               <td class="num">{{ venta.number }}</td>
               <td>
@@ -257,24 +312,93 @@ onMounted(async () => {
               <td class="num" :class="{ vencido: venta.isOverdue }">
                 {{ venta.balance ? formatMoney(venta.balance) : '—' }}
               </td>
-              <td>
-                <div class="acciones">
-                  <button type="button" class="btn-ghost btn-sm" @click="comprobante(venta)">PDF</button>
-                  <button
-                    v-if="!venta.isVoided"
-                    type="button"
-                    class="btn-danger btn-sm"
-                    @click="anular(venta)"
-                  >
-                    Anular
+              <td class="col-menu">
+                <span v-if="venta.isVoided" class="muted small">Anulada</span>
+                <RowMenu v-else>
+                  <button type="button" @click="comprobante(venta)">Ver la factura (PDF)</button>
+                  <button type="button" @click="mandarPorWhatsApp(venta)">
+                    Mandar por WhatsApp
                   </button>
-                  <span v-else class="muted small">Anulada</span>
-                </div>
+                  <RouterLink
+                    v-if="venta.workOrderId"
+                    :to="{ name: 'work-order', params: { id: venta.workOrderId } }"
+                  >
+                    Ir a la orden
+                  </RouterLink>
+                  <button type="button" class="peligro" @click="anular(venta)">
+                    Anular la venta…
+                  </button>
+                </RowMenu>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <!-- El detalle a la derecha, como en Cotizaciones: se mira una venta sin salir de la
+           lista ni bajar un PDF para saber qué llevaba. -->
+      <aside v-if="abierta" class="detalle">
+        <header>
+          <div>
+            <strong class="num">{{ abierta.number }}</strong>
+            <div class="muted small">
+              {{ fechaCorta(abierta.saleDate) }} · {{ abierta.branchName }}
+              <template v-if="abierta.customerName"> · {{ abierta.customerName }}</template>
+            </div>
+          </div>
+          <button type="button" class="btn-ghost btn-sm" @click="abierta = null">Cerrar</button>
+        </header>
+
+        <p v-if="abierta.fiscalNumber" class="muted small">
+          Factura {{ abierta.fiscalNumber }} · CAI {{ abierta.fiscalCai }}
+        </p>
+        <p v-else class="muted small">Comprobante de entrega, sin CAI.</p>
+
+        <table class="lineas">
+          <tbody>
+            <tr v-for="linea in abierta.lines" :key="linea.id">
+              <td>
+                {{ linea.description }}
+                <span v-if="linea.quantity !== 1" class="muted small">
+                  × {{ linea.quantity }}
+                </span>
+              </td>
+              <td class="num">{{ formatMoney(linea.total) }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <dl class="totales">
+          <div v-if="abierta.discountTotal">
+            <dt>Descuento</dt>
+            <dd class="num">−{{ formatMoney(abierta.discountTotal) }}</dd>
+          </div>
+          <div v-if="abierta.taxTotal">
+            <dt>ISV {{ abierta.taxRate }}%</dt>
+            <dd class="num">{{ formatMoney(abierta.taxTotal) }}</dd>
+          </div>
+          <div class="total">
+            <dt>Total</dt>
+            <dd class="num">{{ formatMoney(abierta.total) }}</dd>
+          </div>
+        </dl>
+
+        <h3>Pagos</h3>
+        <p v-if="!abierta.payments.length" class="muted small">
+          Sin abonos. Queda {{ formatMoney(abierta.balance ?? abierta.total) }} por cobrar.
+        </p>
+        <ul v-else class="pagos">
+          <li v-for="pago in abierta.payments" :key="pago.id">
+            <span>
+              {{ fechaCorta(pago.paidAt) }} · {{ PAYMENT_METHOD_LABEL[pago.method] }}
+              <span v-if="pago.registeredByName" class="muted small">
+                · {{ pago.registeredByName }}
+              </span>
+            </span>
+            <span class="num">{{ formatMoney(pago.amount) }}</span>
+          </li>
+        </ul>
+      </aside>
 
       <div v-if="paginas > 1" class="paginas">
         <button type="button" :disabled="page <= 1" @click="irA(page - 1)">Anterior</button>
@@ -286,6 +410,90 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* Lo abierto se marca en la lista: sin esto, el panel de la derecha parece de cualquiera. */
+.clicable {
+  cursor: pointer;
+}
+
+tr.abierta td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.col-menu {
+  text-align: right;
+  width: 1%;
+}
+
+.detalle {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.detalle header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.detalle h3 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 0.9375rem;
+}
+
+.lineas {
+  width: 100%;
+  margin-top: var(--space-3);
+  border-collapse: collapse;
+}
+
+.lineas td {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.totales {
+  margin: var(--space-3) 0 0;
+  margin-left: auto;
+  width: min(18rem, 100%);
+}
+
+.totales div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.totales dt,
+.totales dd {
+  margin: 0;
+}
+
+.totales .total {
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.pagos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pagos li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9375rem;
+}
+
 .titulo {
   display: flex;
   flex-wrap: wrap;
