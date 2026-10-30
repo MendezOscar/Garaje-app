@@ -196,11 +196,13 @@ watch(search, () => {
           Las personas y empresas que atiende su taller, con sus {{ vocabulario.activos }} y su RTN.
         </p>
       </div>
+      <!-- Dice lo que hace desde aquí: dar de alta a un cliente. El alta vive en la
+           pantalla de recibir, que empieza justamente por el cliente. -->
       <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M12 5v14M5 12h14" stroke-linecap="round" />
         </svg>
-        {{ vocabulario.recibir }}
+        Nuevo cliente
       </RouterLink>
     </header>
 

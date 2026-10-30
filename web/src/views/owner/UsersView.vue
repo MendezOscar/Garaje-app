@@ -4,6 +4,7 @@ import { errorMessage } from '@/api/client'
 import { branchesApi, usersApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
+import RowMenu from '@/components/RowMenu.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   PAY_MODE_LABEL,
@@ -25,6 +26,9 @@ const branches = ref<Branch[]>([])
 
 const loading = ref(false)
 const busy = ref(false)
+
+/** Si la contraseña nueva se ve mientras se escribe. */
+const verClave = ref(false)
 const error = ref('')
 const notice = ref('')
 
@@ -333,46 +337,31 @@ onMounted(async () => {
               </td>
               <td class="col-acciones">
                 <div class="acciones">
+                  <!-- Editar a la vista, que es lo que se hace; lo demás en el menú, con
+                       dar de baja al final porque le quita la entrada a alguien. -->
                   <button
                     v-if="u.role === 'Technician' || u.role === 'Manager'"
                     type="button"
-                    class="icono"
-                    title="Editar"
+                    class="btn-ghost btn-sm"
                     :disabled="busy"
                     @click="edit(u)"
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                      <path d="M4 20h4L19 9l-4-4L4 16z" stroke-linejoin="round" />
-                    </svg>
+                    Editar
                   </button>
-                  <button
-                    type="button"
-                    class="icono"
-                    title="Cambiarle la contraseña"
-                    :disabled="busy"
-                    @click="resetPassword(u)"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                      <circle cx="8" cy="12" r="3.5" /><path d="M11.5 12H20v3m-3-3v2.5" stroke-linecap="round" />
-                    </svg>
-                  </button>
-                  <button
-                    v-if="u.role !== 'Owner'"
-                    type="button"
-                    class="icono peligro"
-                    :title="u.isActive ? 'Dar de baja' : 'Reactivar'"
-                    :disabled="busy"
-                    @click="toggleActive(u)"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                      <path
-                        v-if="u.isActive"
-                        d="M16 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M4 20c0-3.3 3.6-5 8-5m3 4h6"
-                        stroke-linecap="round"
-                      />
-                      <path v-else d="M16 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M4 20c0-3.3 3.6-5 8-5m3 4h6m-3-3 3 3-3 3" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                  </button>
+                  <RowMenu>
+                    <button type="button" :disabled="busy" @click="resetPassword(u)">
+                      Cambiarle la contraseña
+                    </button>
+                    <button
+                      v-if="u.role !== 'Owner'"
+                      type="button"
+                      class="peligro"
+                      :disabled="busy"
+                      @click="toggleActive(u)"
+                    >
+                      {{ u.isActive ? 'Dar de baja…' : 'Reactivar' }}
+                    </button>
+                  </RowMenu>
                 </div>
               </td>
             </tr>
@@ -444,7 +433,19 @@ onMounted(async () => {
 
         <label v-if="!editing">
           Contraseña
-          <input v-model="form.password" type="text" placeholder="Mínimo 8 caracteres" required />
+          <!-- Se escribe delante de quien sea: el Dueño la teclea en el mostrador. Oculta
+               por defecto, con el ojo para comprobar lo que puso. -->
+          <span class="clave">
+            <input
+              v-model="form.password"
+              :type="verClave ? 'text' : 'password'"
+              placeholder="Mínimo 8 caracteres"
+              required
+            />
+            <button type="button" class="btn-ghost btn-sm" @click="verClave = !verClave">
+              {{ verClave ? 'Ocultar' : 'Ver' }}
+            </button>
+          </span>
         </label>
         <p v-if="!editing" class="muted small">
           Se la entrega usted en persona. Él la puede cambiar después.
@@ -455,7 +456,9 @@ onMounted(async () => {
             {{ form.role === 'Manager' ? 'Sucursales que maneja' : 'Sucursales donde trabaja' }}
           </legend>
           <label v-for="b in branches" :key="b.id" class="checkbox">
-            <input v-model="form.branchIds" type="checkbox" :value="b.id" />
+            <!-- Con `aria-label`: sin él, el lector lee el valor de la casilla, que es el
+                 identificador interno de la sucursal. -->
+            <input v-model="form.branchIds" type="checkbox" :value="b.id" :aria-label="b.name" />
             {{ b.name }}
           </label>
         </fieldset>
@@ -511,6 +514,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.clave {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.clave input {
+  flex: 1;
+  min-width: 0;
+}
+
 .cabecera {
   margin-bottom: 1.25rem;
 }
