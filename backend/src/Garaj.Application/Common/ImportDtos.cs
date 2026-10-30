@@ -26,3 +26,38 @@ public record ImportRowDto(
     string Name,
     string Action,
     string? Error);
+
+/// <summary>Lo que las dos cargas —repuestos y mano de obra— hacen igual.</summary>
+public static class Importaciones
+{
+    /// <summary>
+    /// Cuántas filas se pueden cargar de una vez.
+    ///
+    /// No es el tope de lo que aguanta —cinco mil entran en un par de segundos—, sino el
+    /// punto donde un archivo deja de ser un catálogo y es otra cosa: una exportación entera
+    /// de otro sistema, o el archivo equivocado. Mejor decirlo que tardar un minuto.
+    /// </summary>
+    public const int MaximoDeFilas = 5_000;
+
+    /// <summary>Cuántas filas de cada clase viajan de vuelta. El resto va en los totales.</summary>
+    public const int Muestra = 200;
+
+    public static void EnsureCabe(int filas)
+    {
+        if (filas > MaximoDeFilas)
+            throw new AppException(
+                $"El archivo trae {filas:N0} filas y se cargan hasta {MaximoDeFilas:N0} por vez. "
+                + "Pártalo en dos y súbalos uno tras otro.");
+    }
+
+    /// <summary>
+    /// La respuesta con una muestra, no con el archivo entero: con tres mil filas, pintar
+    /// tres mil renglones en pantalla no le dice nada a nadie y pone lenta la página. Los
+    /// errores van primero porque son los únicos que hay que leer uno por uno.
+    /// </summary>
+    public static ImportResultDto Recortado(
+        bool applied, int total, int creados, int actualizados,
+        List<ImportRowDto> errores, List<ImportRowDto> buenas) =>
+        new(applied, total, creados, actualizados, errores.Count,
+            [.. errores.Take(Muestra), .. buenas.Take(Muestra)]);
+}

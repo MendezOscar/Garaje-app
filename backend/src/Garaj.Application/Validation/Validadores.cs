@@ -2,6 +2,7 @@ using FluentValidation;
 using Garaj.Application.Appointments;
 using Garaj.Application.Auth;
 using Garaj.Application.Customers;
+using Garaj.Application.Inventory;
 using Garaj.Application.Media;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
@@ -170,6 +171,73 @@ public class CreateServiceRequestValidator : AbstractValidator<CreateServiceRequ
         RuleFor(x => x.Mileage).GreaterThanOrEqualTo(0)
             .When(x => x.Mileage.HasValue)
             .WithMessage("El kilometraje no puede ser negativo.");
+    }
+}
+
+/// <summary>
+/// El repuesto del catálogo. Lo usa la pantalla de Inventario y, renglón por renglón, la
+/// carga desde Excel: así una celda de mil caracteres sale como el error de esa fila y no
+/// como un 500 de Npgsql a mitad de un archivo de trescientas.
+/// </summary>
+public class SavePartValidator : AbstractValidator<SavePartRequest>
+{
+    public SavePartValidator()
+    {
+        // Con mensaje propio: estos errores los lee el taller renglón por renglón al cargar
+        // su catálogo, y el de la librería nombra la propiedad en inglés.
+        RuleFor(x => x.Sku).NotEmpty().WithMessage("Falta el SKU.")
+            .MaximumLength(50).WithMessage("El SKU no puede pasar de 50 letras.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Falta el nombre.")
+            .MaximumLength(200).WithMessage("El nombre no puede pasar de 200 letras.");
+        RuleFor(x => x.Description)
+            .MaximumLength(1000).WithMessage("La descripción no puede pasar de 1000 letras.");
+        RuleFor(x => x.Brand)
+            .MaximumLength(80).WithMessage("La marca no puede pasar de 80 letras.");
+        RuleFor(x => x.Category)
+            .MaximumLength(80).WithMessage("La categoría no puede pasar de 80 letras.");
+        RuleFor(x => x.Unit).NotEmpty().MaximumLength(10)
+            .WithMessage("La unidad no puede pasar de 10 letras: u, lt, jgo, par…");
+
+        RuleFor(x => x.CostPrice).GreaterThanOrEqualTo(0)
+            .WithMessage("El costo no puede ser negativo.");
+        RuleFor(x => x.SalePrice).GreaterThanOrEqualTo(0)
+            .WithMessage("El precio de venta no puede ser negativo.");
+    }
+}
+
+/// <summary>
+/// El servicio de mano de obra. Mismo papel que el de repuestos, y además la regla que hace
+/// que el precio exista: con precio fijo manda <c>FixedPrice</c>; si no, horas × tarifa.
+/// </summary>
+public class SaveLaborServiceValidator : AbstractValidator<SaveLaborServiceRequest>
+{
+    public SaveLaborServiceValidator()
+    {
+        RuleFor(x => x.Code).NotEmpty().WithMessage("Falta el código.")
+            .MaximumLength(30).WithMessage("El código no puede pasar de 30 letras.");
+        RuleFor(x => x.Name).NotEmpty().WithMessage("Falta el nombre.")
+            .MaximumLength(200).WithMessage("El nombre no puede pasar de 200 letras.");
+        RuleFor(x => x.Description)
+            .MaximumLength(1000).WithMessage("La descripción no puede pasar de 1000 letras.");
+        RuleFor(x => x.Category)
+            .MaximumLength(80).WithMessage("La categoría no puede pasar de 80 letras.");
+
+        RuleFor(x => x.FixedPrice).GreaterThan(0)
+            .When(x => x.IsFixedPrice)
+            .WithMessage("Cobro fijo: falta el precio fijo.");
+
+        RuleFor(x => x.HourlyRate).GreaterThan(0)
+            .When(x => !x.IsFixedPrice)
+            .WithMessage("Cobro por hora: falta la tarifa por hora.");
+
+        RuleFor(x => x.StandardHours).GreaterThan(0)
+            .When(x => !x.IsFixedPrice)
+            .WithMessage("Cobro por hora: falta cuántas horas lleva.");
+
+        // Negativos en el otro camino: no los usa nadie, pero guardados quedan de trampa.
+        RuleFor(x => x.FixedPrice).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.HourlyRate).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.StandardHours).GreaterThanOrEqualTo(0);
     }
 }
 

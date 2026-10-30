@@ -38,6 +38,23 @@ const error = ref('')
 /** Lo que de verdad va a entrar: los renglones sin error. */
 const buenos = computed(() => (previa.value?.created ?? 0) + (previa.value?.updated ?? 0))
 
+/**
+ * El servidor manda una muestra, no el archivo entero: con tres mil filas, pintar tres mil
+ * renglones no le dice nada a nadie. Aquí se cuenta lo que quedó fuera para decirlo.
+ */
+const sinEnseñar = computed(() => {
+  if (!previa.value) return { buenas: 0, errores: 0 }
+
+  const enseñadas = previa.value.rows
+  const buenasEnseñadas = enseñadas.filter((f) => f.action !== 'error').length
+  const erroresEnseñados = enseñadas.length - buenasEnseñadas
+
+  return {
+    buenas: buenos.value - buenasEnseñadas,
+    errores: previa.value.failed - erroresEnseñados,
+  }
+})
+
 async function abrir() {
   abierto.value = true
   limpiar()
@@ -174,6 +191,16 @@ async function guardar() {
             </tr>
           </tbody>
         </table>
+
+        <p v-if="sinEnseñar.buenas > 0 || sinEnseñar.errores > 0" class="muted small">
+          Se enseñan los primeros renglones de cada clase.
+          <template v-if="sinEnseñar.errores > 0">
+            Hay {{ sinEnseñar.errores }} filas con error más;
+          </template>
+          <template v-if="sinEnseñar.buenas > 0">
+            {{ sinEnseñar.buenas }} filas más entran bien.
+          </template>
+        </p>
 
         <button type="button" :disabled="busy || !buenos" @click="guardar">
           Guardar {{ buenos }} {{ buenos === 1 ? 'renglón' : 'renglones' }}
