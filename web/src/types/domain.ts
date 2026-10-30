@@ -650,6 +650,8 @@ export interface JobTemplateTask {
   laborServiceName: string | null
   estimatedHours: number | null
   price: number | null
+  /** Precio escrito a mano, para el paso que no sale del catálogo. */
+  manualLaborPrice: number | null
 }
 
 export interface JobTemplatePart {

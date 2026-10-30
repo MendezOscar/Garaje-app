@@ -152,7 +152,10 @@ public class JobTemplateService(
             {
                 PartId = g.Key.PartId,
                 Description = g.Key.Description,
-                Quantity = g.Sum(p => p.Quantity)
+                Quantity = g.Sum(p => p.Quantity),
+                // Lo comprado afuera no tiene catálogo del que sacar el precio después, así
+                // que se guarda el que se le cobró en esta orden.
+                UnitPrice = g.Key.PartId is null ? g.First().UnitPrice : null
             });
 
         foreach (var part in parts) template.Parts.Add(part);
@@ -229,7 +232,7 @@ public class JobTemplateService(
                 if (line.PartId is not { } partId || !catalog.TryGetValue(partId, out var part))
                     return new SuggestedPartDto(
                         null, "", line.Description ?? "Repuesto", "unidad",
-                        line.Quantity, 0, 0, line.Description);
+                        line.Quantity, line.UnitPrice ?? 0, 0, line.Description);
 
                 return new SuggestedPartDto(
                     part.Id, part.Sku, part.Name, part.Unit,
@@ -311,7 +314,10 @@ public class JobTemplateService(
                 JobTemplateId = template.Id,
                 PartId = part.PartId,
                 Description = part.PartId is null ? Clean(part.Description) : null,
-                Quantity = part.Quantity
+                Quantity = part.Quantity,
+                // Del catálogo el precio sale del repuesto, a precios de hoy: dos precios
+                // para el mismo repuesto serían dos respuestas a la misma pregunta.
+                UnitPrice = part.PartId is null ? part.UnitPrice : null
             });
         }
 
@@ -363,14 +369,17 @@ public class JobTemplateService(
             {
                 var part = p.PartId is { } id ? parts.GetValueOrDefault(id) : null;
 
+                // Del catálogo, el precio de hoy; escrito a mano, el que se guardó.
+                var unitario = part?.SalePrice ?? p.UnitPrice ?? 0;
+
                 return new JobTemplatePartDto(
                     p.Id, p.PartId,
                     part?.Sku ?? "",
                     part?.Name ?? p.Description ?? "Repuesto",
                     part?.Unit ?? "unidad",
                     p.Quantity,
-                    part?.SalePrice ?? 0,
-                    p.Quantity * (part?.SalePrice ?? 0));
+                    unitario,
+                    p.Quantity * unitario);
             }).ToList();
 
             var labor = tasks.Sum(t => t.Price ?? 0);

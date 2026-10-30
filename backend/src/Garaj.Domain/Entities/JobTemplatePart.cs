@@ -24,6 +24,13 @@ public class JobTemplatePart : TenantEntity
 
     public decimal Quantity { get; set; }
 
+    /// <summary>
+    /// Precio escrito a mano. Solo lo llevan las líneas manuales: del catálogo el precio sale
+    /// del repuesto cada vez que se mira, y copiarlo aquí dejaría la plantilla mintiendo en
+    /// cuanto suba.
+    /// </summary>
+    public decimal? UnitPrice { get; set; }
+
     public JobTemplate JobTemplate { get; set; } = null!;
     public Part? Part { get; set; }
 }

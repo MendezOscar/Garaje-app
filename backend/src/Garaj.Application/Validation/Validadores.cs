@@ -7,6 +7,7 @@ using Garaj.Application.Media;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
+using Garaj.Application.WorkOrders;
 using Garaj.Domain.Rules;
 
 namespace Garaj.Application.Validation;
@@ -258,6 +259,52 @@ public class SaveExpenseValidator : AbstractValidator<SaveExpenseRequest>
 
         RuleFor(x => x.SupplierName).MaximumLength(200);
         RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+/// <summary>
+/// El trabajo frecuente, que es la pantalla donde se teclea más de una fila a la vez: sin
+/// esto, un título largo en el paso catorce revienta en Npgsql y el taller recibe un 500 mudo
+/// después de haber escrito todo el paquete.
+/// </summary>
+public class SaveJobTemplateValidator : AbstractValidator<SaveJobTemplateRequest>
+{
+    public SaveJobTemplateValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("El trabajo necesita un nombre.")
+            .MaximumLength(120);
+
+        RuleFor(x => x.Description).MaximumLength(1000);
+
+        RuleForEach(x => x.Tasks).ChildRules(paso =>
+        {
+            paso.RuleFor(t => t.Title)
+                .NotEmpty().WithMessage("Cada paso necesita decir qué se hace.")
+                .MaximumLength(200);
+
+            paso.RuleFor(t => t.Description).MaximumLength(2000);
+
+            paso.RuleFor(t => t.EstimatedHours)
+                .GreaterThanOrEqualTo(0).When(t => t.EstimatedHours.HasValue)
+                .WithMessage("Las horas no pueden ser negativas.");
+
+            paso.RuleFor(t => t.ManualLaborPrice)
+                .GreaterThanOrEqualTo(0).When(t => t.ManualLaborPrice.HasValue)
+                .WithMessage("El precio del paso no puede ser negativo.");
+        });
+
+        RuleForEach(x => x.Parts).ChildRules(repuesto =>
+        {
+            repuesto.RuleFor(p => p.Description).MaximumLength(200);
+
+            repuesto.RuleFor(p => p.Quantity)
+                .GreaterThan(0).WithMessage("La cantidad de cada repuesto debe ser mayor que cero.");
+
+            repuesto.RuleFor(p => p.UnitPrice)
+                .GreaterThanOrEqualTo(0).When(p => p.UnitPrice.HasValue)
+                .WithMessage("El precio del repuesto no puede ser negativo.");
+        });
     }
 }
 
