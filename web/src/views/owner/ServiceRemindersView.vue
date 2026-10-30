@@ -200,7 +200,12 @@ onMounted(async () => {
             <!-- El div por dentro y no `display: flex` en el `td`: una celda con flex deja de
                  ser celda, la columna pierde la alineación y el botón se sale de la fila. -->
             <div class="accion">
-              <button type="button" class="btn-sm" @click="recordar(r)">
+              <!-- Apagado: con cinco filas eran cinco botones principales a la vez, y
+                   ninguno lo era. El ícono dice por dónde sale el mensaje. -->
+              <button type="button" class="btn-ghost btn-sm" @click="recordar(r)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.6-4A8 8 0 1 1 20 11.5Z" stroke-linejoin="round" />
+                </svg>
                 Recordar por WhatsApp
               </button>
               <span v-if="r.remindedAt" class="muted small">
@@ -215,6 +220,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.accion button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: 0.3rem;
+  vertical-align: -2px;
+}
+
 .top {
   display: flex;
   align-items: flex-start;

@@ -46,6 +46,10 @@ const selected = ref<StockItem | null>(null)
 const movements = ref<StockMovement[]>([])
 
 const partForm = ref({
+  branchId: '',
+  quantity: 0,
+  minQuantity: 0,
+  location: '',
   id: '',
   sku: '',
   name: '',
@@ -125,6 +129,9 @@ function openNewPart() {
   partForm.value = {
     id: '', sku: '', name: '', description: '', brand: '', category: '',
     unit: 'u', costPrice: 0, salePrice: 0, isActive: true,
+    // La bodega que se está mirando, que es a la que va a entrar lo que se dé de alta.
+    branchId: branchId.value || branches.value[0]?.id || '',
+    quantity: 0, minQuantity: 0, location: '',
   }
   panel.value = 'part'
 }
@@ -135,6 +142,7 @@ async function openEditPart(item: StockItem) {
   if (!part) return
 
   partForm.value = {
+    ...partForm.value,
     id: part.id,
     sku: part.sku,
     name: part.name,
@@ -164,8 +172,35 @@ function savePart() {
   }
 
   return run(async () => {
-    if (form.id) await partsApi.update(form.id, body)
-    else await partsApi.create(body)
+    if (form.id) {
+      await partsApi.update(form.id, body)
+    } else {
+      const creado = await partsApi.create(body)
+      const bodega = form.branchId || branchId.value || branches.value[0]?.id
+
+      // Lo de la bodega va después y solo si se llenó: el catálogo es del taller y la
+      // existencia es de una sucursal, así que son dos cosas distintas que se guardan juntas
+      // porque el que da de alta un repuesto las tiene las dos en la mano.
+      if (bodega && (form.minQuantity > 0 || form.location.trim())) {
+        await stockApi.saveSettings({
+          branchId: bodega,
+          partId: creado.id,
+          minQuantity: Number(form.minQuantity) || 0,
+          location: form.location.trim() || undefined,
+        })
+      }
+
+      if (bodega && form.quantity > 0) {
+        await stockApi.receive({
+          branchId: bodega,
+          partId: creado.id,
+          quantity: Number(form.quantity),
+          unitCost: Number(form.costPrice) || undefined,
+          reference: 'Alta del repuesto',
+        })
+      }
+    }
+
     categories.value = await partsApi.categories()
   })
 }
@@ -461,6 +496,38 @@ onMounted(async () => {
           <label class="checkbox">
             <input v-model="partForm.isActive" type="checkbox" /> Activo
           </label>
+
+          <!-- Un repuesto nuevo sin existencia, sin mínimo y sin ubicación es media ficha:
+               hay que volver a entrar a darle entrada y a decir dónde está. Al editar no
+               aparece, que eso se cambia desde su fila. -->
+          <template v-if="!partForm.id">
+            <fieldset class="bodega">
+              <legend>Lo que entra a la bodega</legend>
+              <label v-if="branches.length > 1">
+                Sucursal
+                <select v-model="partForm.branchId">
+                  <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                </select>
+              </label>
+              <label>
+                Existencia inicial
+                <input v-model.number="partForm.quantity" type="number" step="0.001" min="0" />
+              </label>
+              <label>
+                Mínimo
+                <input v-model.number="partForm.minQuantity" type="number" step="0.001" min="0" />
+              </label>
+              <label>
+                Ubicación
+                <input v-model="partForm.location" placeholder="Estante A1" />
+              </label>
+              <p class="muted small">
+                La existencia entra como un movimiento del kardex, con su fecha y a su nombre.
+                Déjela en cero si todavía va a contar.
+              </p>
+            </fieldset>
+          </template>
+
           <button type="submit" :disabled="busy">Guardar</button>
         </form>
 
@@ -549,6 +616,21 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.bodega {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.bodega legend {
+  padding: 0 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
 .top {
   display: flex;
   align-items: flex-start;

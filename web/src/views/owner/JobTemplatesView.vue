@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { jobTemplatesApi, laborServicesApi, partsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import RowMenu from '@/components/RowMenu.vue'
 import ViewTabs from '@/components/ViewTabs.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import type { JobTemplate, LaborService, Part } from '@/types/domain'
@@ -250,7 +251,11 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in visible" :key="t.id" :class="{ inactive: !t.isActive }">
+            <tr
+              v-for="t in visible"
+              :key="t.id"
+              :class="{ inactive: !t.isActive, editando: editing && form.id === t.id }"
+            >
               <td>
                 {{ t.name }}
                 <div v-if="t.description" class="muted small">{{ t.description }}</div>
@@ -263,16 +268,13 @@ onMounted(async () => {
               <td class="num muted">{{ t.usageCount }}</td>
               <td>
                 <div class="acciones">
+                  <!-- Dar de baja no se repite en rojo en cada fila: va en el menú, al final. -->
                   <button type="button" class="link" @click="edit(t)">Editar</button>
-                  <button
-                    v-if="t.isActive"
-                    type="button"
-                    class="link danger"
-                    :disabled="busy"
-                    @click="deactivate(t)"
-                  >
-                    Dar de baja
-                  </button>
+                  <RowMenu v-if="t.isActive">
+                    <button type="button" class="peligro" :disabled="busy" @click="deactivate(t)">
+                      Dar de baja…
+                    </button>
+                  </RowMenu>
                 </div>
               </td>
             </tr>
@@ -357,6 +359,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* La fila que se está editando, marcada: el formulario está al lado. */
+tr.editando td {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 h1 {
   margin: 0;
 }

@@ -89,7 +89,34 @@ function edit(service: LaborService) {
 
 function reset() {
   editing.value = false
-  form.value = { ...empty }
+  form.value = { ...empty, code: siguienteCodigo() }
+}
+
+/**
+ * El código que sigue, para que el catálogo no termine con MO-003, MO-01, MO-001 y CCC-1
+ * conviviendo. Toma el prefijo más usado y le suma uno al número más alto, con tres cifras.
+ * Es una sugerencia: el campo se puede escribir encima.
+ */
+function siguienteCodigo(): string {
+  const partido = services.value
+    .map((s) => /^([A-Za-z]+)[-\s]?(\d+)$/.exec(s.code))
+    .filter((m): m is RegExpExecArray => m !== null)
+
+  if (!partido.length) return 'MO-001'
+
+  const cuantos = new Map<string, number>()
+  for (const [, prefijo] of partido) {
+    const clave = prefijo.toUpperCase()
+    cuantos.set(clave, (cuantos.get(clave) ?? 0) + 1)
+  }
+
+  const prefijo = [...cuantos.entries()].sort((a, b) => b[1] - a[1])[0][0]
+
+  const mayor = partido
+    .filter(([, p]) => p.toUpperCase() === prefijo)
+    .reduce((alto, [, , numero]) => Math.max(alto, Number(numero)), 0)
+
+  return `${prefijo}-${String(mayor + 1).padStart(3, '0')}`
 }
 
 async function save() {
@@ -123,7 +150,10 @@ async function save() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  if (!editing.value) form.value.code = siguienteCodigo()
+})
 </script>
 
 <template>
@@ -176,7 +206,11 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in visible" :key="s.id" :class="{ inactive: !s.isActive }">
+            <tr
+              v-for="s in visible"
+              :key="s.id"
+              :class="{ inactive: !s.isActive, editando: editing && form.id === s.id }"
+            >
               <td class="code">{{ s.code }}</td>
               <td>
                 {{ s.name }}
@@ -259,6 +293,12 @@ onMounted(load)
 </template>
 
 <style scoped>
+/* La fila que se está editando, marcada: el formulario está al lado y sin esto no se sabe
+   de cuál de veinte filas es. */
+tr.editando td {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 h1 {
   margin: 0;
 }
