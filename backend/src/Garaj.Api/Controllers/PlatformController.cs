@@ -2,6 +2,8 @@ using Garaj.Application.Common;
 using Garaj.Application.Platform;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Garaj.Api.Services;
 
 namespace Garaj.Api.Controllers;
 
@@ -84,4 +86,55 @@ public class PlatformController(IPlatformService service) : ControllerBase
     [HttpPost("{id:guid}/reactivate")]
     public async Task<ActionResult<PlatformTenantDto>> Reactivate(Guid id, CancellationToken ct)
         => Ok(await service.SetActiveAsync(id, true, ct));
+}
+
+/// <summary>
+/// Nuestra facturación: quiénes somos en el documento, nuestro CAI y las facturas emitidas.
+/// </summary>
+/// <remarks>
+/// La factura no se emite desde aquí: nace con el pago, en
+/// <c>POST /api/platform/tenants/{id}/payments</c>. Esto es lo que se configura una vez y lo
+/// que se consulta después.
+/// </remarks>
+[ApiController]
+[Authorize(Policy = AppPolicies.PlatformOnly)]
+[Route("api/platform/billing")]
+public class PlatformBillingController(IPlatformBillingService service) : ControllerBase
+{
+    /// <summary>Los datos del emisor y el rango autorizado vigente, si lo hay.</summary>
+    [HttpGet("settings")]
+    public async Task<ActionResult<PlatformSettingsDto>> Settings(CancellationToken ct)
+        => Ok(await service.GetSettingsAsync(ct));
+
+    [HttpPut("settings")]
+    public async Task<ActionResult<PlatformSettingsDto>> SaveSettings(
+        SavePlatformSettingsRequest request, CancellationToken ct)
+        => Ok(await service.SaveSettingsAsync(request, ct));
+
+    /// <summary>Registra el CAI nuevo del SAR y da de baja el anterior.</summary>
+    [HttpPost("fiscal-range")]
+    public async Task<ActionResult<PlatformSettingsDto>> SaveFiscalRange(
+        SavePlatformFiscalRangeRequest request, CancellationToken ct)
+        => Ok(await service.SaveFiscalRangeAsync(request, ct));
+
+    [HttpGet("invoices/{id:guid}")]
+    public async Task<ActionResult<SubscriptionInvoiceDto>> Invoice(Guid id, CancellationToken ct)
+        => Ok(await service.GetInvoiceAsync(id, ct));
+
+    /// <summary>El PDF, para mandárselo al taller por WhatsApp o por correo.</summary>
+    [HttpGet("invoices/{id:guid}.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> InvoicePdf(Guid id, CancellationToken ct)
+    {
+        var factura = await service.GetInvoiceAsync(id, ct);
+        var pdf = await service.InvoicePdfAsync(id, ct);
+
+        return File(pdf, "application/pdf", $"{factura.Number}.pdf");
+    }
+
+    /// <summary>Anula el documento. El pago queda: el dinero entró igual.</summary>
+    [HttpPost("invoices/{id:guid}/void")]
+    public async Task<ActionResult<SubscriptionInvoiceDto>> VoidInvoice(
+        Guid id, VoidInvoiceRequest request, CancellationToken ct)
+        => Ok(await service.VoidInvoiceAsync(id, request, ct));
 }

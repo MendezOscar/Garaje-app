@@ -128,3 +128,82 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class PlatformSettingsConfiguration : IEntityTypeConfiguration<PlatformSettings>
+{
+    public void Configure(EntityTypeBuilder<PlatformSettings> b)
+    {
+        b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+        b.Property(x => x.LegalName).HasMaxLength(200);
+        b.Property(x => x.TaxId).HasMaxLength(20);
+        b.Property(x => x.Phone).HasMaxLength(40);
+        b.Property(x => x.Email).HasMaxLength(200);
+        b.Property(x => x.Address).HasMaxLength(300);
+        b.Property(x => x.InvoicePrefix).HasMaxLength(8).IsRequired();
+        b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+    }
+}
+
+public class PlatformFiscalRangeConfiguration : IEntityTypeConfiguration<PlatformFiscalRange>
+{
+    public void Configure(EntityTypeBuilder<PlatformFiscalRange> b)
+    {
+        b.Property(x => x.Cai).HasMaxLength(50).IsRequired();
+        b.Property(x => x.EstablishmentCode).HasMaxLength(3).IsRequired();
+        b.Property(x => x.PointOfSaleCode).HasMaxLength(3).IsRequired();
+        b.Property(x => x.DocumentType).HasMaxLength(2).IsRequired();
+
+        // Se busca siempre igual: el rango vigente para emitir.
+        b.HasIndex(x => x.IsActive);
+    }
+}
+
+public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<SubscriptionInvoice>
+{
+    public void Configure(EntityTypeBuilder<SubscriptionInvoice> b)
+    {
+        b.Property(x => x.Number).HasMaxLength(40).IsRequired();
+        b.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.CustomerLegalName).HasMaxLength(200);
+        b.Property(x => x.CustomerTaxId).HasMaxLength(20);
+        b.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+        b.Property(x => x.Note).HasMaxLength(300);
+        b.Property(x => x.FiscalCai).HasMaxLength(50);
+        b.Property(x => x.FiscalRangeText).HasMaxLength(60);
+        b.Property(x => x.VoidReason).HasMaxLength(300);
+
+        // Dos documentos con el mismo número no se pueden distinguir, y uno de los dos es el
+        // que el SAR no va a encontrar.
+        b.HasIndex(x => x.Number).IsUnique();
+
+        // Un pago, un documento: emitir dos veces por el mismo depósito es facturar de más.
+        b.HasIndex(x => x.SubscriptionPaymentId).IsUnique();
+
+        b.HasIndex(x => new { x.TenantId, x.IssuedOn });
+
+        b.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(x => x.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne<SubscriptionPayment>()
+            .WithMany()
+            .HasForeignKey(x => x.SubscriptionPaymentId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class SubscriptionInvoiceLineConfiguration : IEntityTypeConfiguration<SubscriptionInvoiceLine>
+{
+    public void Configure(EntityTypeBuilder<SubscriptionInvoiceLine> b)
+    {
+        b.Property(x => x.Description).HasMaxLength(200).IsRequired();
+
+        b.HasOne(x => x.SubscriptionInvoice)
+            .WithMany(i => i.Lines)
+            .HasForeignKey(x => x.SubscriptionInvoiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasIndex(x => x.SubscriptionInvoiceId);
+    }
+}

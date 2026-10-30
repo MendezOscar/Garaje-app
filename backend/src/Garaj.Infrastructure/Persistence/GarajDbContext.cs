@@ -20,6 +20,10 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
 
     /// <summary>Lo que cada taller nos ha pagado a nosotros. Solo lo lee el usuario de plataforma.</summary>
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
+    public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
+    public DbSet<PlatformFiscalRange> PlatformFiscalRanges => Set<PlatformFiscalRange>();
+    public DbSet<SubscriptionInvoice> SubscriptionInvoices => Set<SubscriptionInvoice>();
+    public DbSet<SubscriptionInvoiceLine> SubscriptionInvoiceLines => Set<SubscriptionInvoiceLine>();
 
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();

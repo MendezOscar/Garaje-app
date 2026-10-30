@@ -7,6 +7,7 @@ using Garaj.Application.Media;
 using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
+using Garaj.Application.Platform;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Rules;
 
@@ -259,6 +260,100 @@ public class SaveExpenseValidator : AbstractValidator<SaveExpenseRequest>
 
         RuleFor(x => x.SupplierName).MaximumLength(200);
         RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+/// <summary>
+/// Nuestra facturación. Los largos salen de las columnas, y los rangos del régimen: un CAI
+/// mal tecleado se descubre cuando el taller lleva la factura al contador, que es tarde.
+/// </summary>
+public class SavePlatformSettingsValidator : AbstractValidator<SavePlatformSettingsRequest>
+{
+    public SavePlatformSettingsValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Hace falta el nombre con el que se emite.")
+            .MaximumLength(120);
+
+        RuleFor(x => x.LegalName).MaximumLength(200);
+        RuleFor(x => x.TaxId).MaximumLength(20);
+        RuleFor(x => x.Phone).MaximumLength(40);
+        RuleFor(x => x.Email).MaximumLength(200);
+        RuleFor(x => x.Address).MaximumLength(300);
+
+        RuleFor(x => x.DefaultTaxRate)
+            .InclusiveBetween(0, 100).WithMessage("El ISV tiene que ir entre 0 y 100.");
+
+        RuleFor(x => x.InvoicePrefix)
+            .NotEmpty().WithMessage("El comprobante necesita un prefijo, como «C».")
+            .MaximumLength(8);
+    }
+}
+
+public class SavePlatformFiscalRangeValidator : AbstractValidator<SavePlatformFiscalRangeRequest>
+{
+    public SavePlatformFiscalRangeValidator()
+    {
+        RuleFor(x => x.Cai)
+            .NotEmpty().WithMessage("Escriba el CAI que autorizó el SAR.")
+            .MaximumLength(50);
+
+        RuleFor(x => x.EstablishmentCode)
+            .NotEmpty().MaximumLength(3).WithMessage("El código del establecimiento lleva 3 dígitos.");
+
+        RuleFor(x => x.PointOfSaleCode)
+            .NotEmpty().MaximumLength(3).WithMessage("El código del punto de emisión lleva 3 dígitos.");
+
+        RuleFor(x => x.DocumentType)
+            .NotEmpty().MaximumLength(2).WithMessage("El tipo de documento lleva 2 dígitos.");
+
+        RuleFor(x => x.RangeStart)
+            .GreaterThan(0).WithMessage("El inicio del rango tiene que ser mayor que cero.");
+
+        RuleFor(x => x.RangeEnd)
+            .GreaterThanOrEqualTo(x => x.RangeStart)
+            .WithMessage("El final del rango no puede ser menor que el inicio.");
+    }
+}
+
+public class VoidInvoiceValidator : AbstractValidator<VoidInvoiceRequest>
+{
+    public VoidInvoiceValidator() =>
+        RuleFor(x => x.Reason)
+            .NotEmpty().WithMessage("Diga por qué se anula: es lo que explica el número que falta.")
+            .MaximumLength(300);
+}
+
+/// <summary>
+/// El pago de la mensualidad y, con él, el documento que se le entrega al taller.
+/// </summary>
+public class RegisterSubscriptionPaymentValidator
+    : AbstractValidator<Garaj.Application.Platform.RegisterPaymentRequest>
+{
+    public RegisterSubscriptionPaymentValidator()
+    {
+        RuleFor(x => x.Amount)
+            .GreaterThan(0).WithMessage("El monto del pago debe ser mayor que cero.");
+
+        RuleFor(x => x.Months)
+            .InclusiveBetween(1, 24).WithMessage("El pago cubre entre 1 y 24 meses.");
+
+        RuleFor(x => x.Method).MaximumLength(40);
+        RuleFor(x => x.Reference).MaximumLength(80);
+        RuleFor(x => x.Note).MaximumLength(300);
+
+        RuleForEach(x => x.Lines).ChildRules(linea =>
+        {
+            linea.RuleFor(l => l.Description)
+                .NotEmpty().WithMessage("Cada concepto necesita decir de qué es.")
+                .MaximumLength(200);
+
+            linea.RuleFor(l => l.Quantity)
+                .GreaterThan(0).WithMessage("La cantidad del concepto debe ser mayor que cero.");
+
+            linea.RuleFor(l => l.UnitPrice)
+                .GreaterThanOrEqualTo(0).WithMessage("El precio del concepto no puede ser negativo.");
+        });
     }
 }
 

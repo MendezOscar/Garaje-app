@@ -91,6 +91,7 @@ public static class DependencyInjection
         services.AddScoped<TenantEraser>();
         services.AddScoped<PlatformUserProvisioner>();
         services.AddScoped<IPlatformService, PlatformService>();
+        services.AddScoped<IPlatformBillingService, PlatformBillingService>();
 
         services.AddScoped<ITenantService, TenantService>();
 

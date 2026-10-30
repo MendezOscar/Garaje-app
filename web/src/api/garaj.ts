@@ -25,8 +25,10 @@ import type {
   Paged,
   Part,
   PaymentMethod,
+  PlatformSettings,
   PlatformTenant,
   PlatformTenantDetail,
+  SubscriptionInvoice,
   CreatedTenant,
   PresignedUpload,
   PublicQuote,
@@ -1432,11 +1434,63 @@ export const platformApi = {
       reference?: string | null
       months: number
       note?: string | null
+      /** Si el pago deja documento. Verdadero salvo que ya se haya facturado por fuera. */
+      invoice?: boolean
+      /** Con CAI. Sin rango vigente el servidor lo niega en vez de emitir un comprobante. */
+      fiscal?: boolean
+      /** Vacío factura una sola línea «Mensualidad» por el neto de lo que entró. */
+      lines?: { description: string; quantity: number; unitPrice: number }[]
     },
   ): Promise<PlatformTenantDetail> {
     const { data } = await api.post<PlatformTenantDetail>(
       `/api/platform/tenants/${id}/payments`,
       body,
+    )
+    return data
+  },
+  async billingSettings(): Promise<PlatformSettings> {
+    const { data } = await api.get<PlatformSettings>('/api/platform/billing/settings')
+    return data
+  },
+  async saveBillingSettings(body: {
+    name: string
+    legalName?: string | null
+    taxId?: string | null
+    phone?: string | null
+    email?: string | null
+    address?: string | null
+    defaultTaxRate: number
+    pricesIncludeTax: boolean
+    invoicePrefix: string
+  }): Promise<PlatformSettings> {
+    const { data } = await api.put<PlatformSettings>('/api/platform/billing/settings', body)
+    return data
+  },
+  /** Registra el CAI nuevo del SAR. El anterior queda dado de baja. */
+  async saveFiscalRange(body: {
+    cai: string
+    establishmentCode: string
+    pointOfSaleCode: string
+    documentType: string
+    rangeStart: number
+    rangeEnd: number
+    issueDeadline: string
+  }): Promise<PlatformSettings> {
+    const { data } = await api.post<PlatformSettings>('/api/platform/billing/fiscal-range', body)
+    return data
+  },
+  async invoice(id: string): Promise<SubscriptionInvoice> {
+    const { data } = await api.get<SubscriptionInvoice>(`/api/platform/billing/invoices/${id}`)
+    return data
+  },
+  /** Baja el PDF del documento para mandárselo al taller. */
+  invoicePdf(id: string, number: string) {
+    return download(`/api/platform/billing/invoices/${id}.pdf`, `${number}.pdf`)
+  },
+  async voidInvoice(id: string, reason: string): Promise<SubscriptionInvoice> {
+    const { data } = await api.post<SubscriptionInvoice>(
+      `/api/platform/billing/invoices/${id}/void`,
+      { reason },
     )
     return data
   },

@@ -162,6 +162,18 @@ public class PlatformService(
         var tenant = await FindAsync(tenantId, ct);
         var today = clock.Today();
         var paidOn = request.PaidOn ?? today;
+
+        // El número de depósito identifica el pago en el banco: si ya está registrado, es el
+        // mismo dinero. Sin esto, el doble clic —o el reintento cuando se cae el internet—
+        // corre la fecha dos meses y quema dos números del CAI.
+        var referencia = Trim(request.Reference);
+
+        if (referencia is not null && await db.SubscriptionPayments
+                .AnyAsync(p => p.TenantId == tenant.Id && p.Reference == referencia, ct))
+        {
+            throw new ConflictException(
+                $"El pago con referencia «{referencia}» ya está registrado para este taller.");
+        }
         var months = Math.Clamp(request.Months, 1, 24);
 
         // Se corre desde donde estaba, no desde hoy: quien paga con una semana de atraso no
@@ -170,18 +182,23 @@ public class PlatformService(
         var desde = tenant.PaidThrough ?? paidOn;
         var coversThrough = desde.AddMonths(months);
 
-        db.SubscriptionPayments.Add(new SubscriptionPayment
+        var payment = new SubscriptionPayment
         {
             TenantId = tenant.Id,
             PaidOn = paidOn,
             Amount = request.Amount,
             Currency = tenant.Currency,
             Method = Trim(request.Method),
-            Reference = Trim(request.Reference),
+            Reference = referencia,
             CoversThrough = coversThrough,
             Note = Trim(request.Note),
             RegisteredByUserId = tenantContext.UserId
-        });
+        };
+
+        db.SubscriptionPayments.Add(payment);
+
+        if (request.Invoice)
+            await EmitirAsync(tenant, payment, request, paidOn, ct);
 
         tenant.PaidThrough = coversThrough;
 
@@ -292,16 +309,164 @@ public class PlatformService(
         await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct)
         ?? throw new NotFoundException("El taller no existe.");
 
+    /// <summary>
+    /// Arma el documento del pago: los conceptos, el impuesto y el número.
+    /// </summary>
+    /// <remarks>
+    /// Va en la misma transacción que el pago a propósito. Un pago sin su documento se queda
+    /// esperando a que alguien se acuerde, y un documento sin su pago es un número quemado.
+    ///
+    /// El monto que se recibió manda sobre todo lo demás: si no se escriben conceptos, se
+    /// factura uno solo por lo que entró, con el impuesto sacado hacia atrás o hacia adelante
+    /// según cómo cobremos. Así el documento siempre cuadra con el depósito del banco.
+    /// </remarks>
+    private async Task EmitirAsync(
+        Tenant tenant, SubscriptionPayment payment, RegisterPaymentRequest request,
+        DateOnly paidOn, CancellationToken ct)
+    {
+        var settings = await SettingsAsync(ct);
+        var tasa = settings.DefaultTaxRate;
+        var conImpuestoAdentro = settings.PricesIncludeTax;
+
+        var lineas = (request.Lines ?? []).Where(l => !string.IsNullOrWhiteSpace(l.Description)).ToList();
+
+        // Sin conceptos escritos: una línea por lo que entró. El neto depende de cómo
+        // cobremos —con el ISV adentro el total ya es el neto más el impuesto; con el ISV
+        // aparte hay que sacarlo del monto recibido para no cobrarlo dos veces—.
+        if (lineas.Count == 0)
+        {
+            var neto = tasa <= 0 || conImpuestoAdentro
+                ? request.Amount
+                : Math.Round(request.Amount / (1 + tasa / 100), 2, MidpointRounding.AwayFromZero);
+
+            var meses = Math.Clamp(request.Months, 1, 24);
+
+            lineas =
+            [
+                new SaveInvoiceLineRequest(
+                    meses == 1 ? "Mensualidad GarajApp" : $"Mensualidad GarajApp ({meses} meses)",
+                    1, neto)
+            ];
+        }
+
+        var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
+        var (total, impuesto) = Isv.Totales(suma, tasa, conImpuestoAdentro);
+
+        var factura = new SubscriptionInvoice
+        {
+            TenantId = tenant.Id,
+            SubscriptionPaymentId = payment.Id,
+            IssuedOn = paidOn,
+            // Copiados, no leídos por relación: el RTN que corrija el taller el mes que viene
+            // no puede reescribir el documento de este mes.
+            CustomerName = tenant.Name,
+            CustomerLegalName = tenant.LegalName,
+            CustomerTaxId = tenant.TaxId,
+            Subtotal = suma,
+            TaxRate = tasa,
+            TaxTotal = impuesto,
+            Total = total,
+            PricesIncludedTax = conImpuestoAdentro,
+            Currency = settings.Currency,
+            Note = Trim(request.Note),
+            IssuedByUserId = tenantContext.UserId
+        };
+
+        foreach (var linea in lineas)
+        {
+            factura.Lines.Add(new SubscriptionInvoiceLine
+            {
+                Description = linea.Description.Trim(),
+                Quantity = linea.Quantity,
+                UnitPrice = linea.UnitPrice,
+                Total = Math.Round(linea.Quantity * linea.UnitPrice, 2, MidpointRounding.AwayFromZero)
+            });
+        }
+
+        factura.Number = request.Fiscal
+            ? await NumeroAutorizadoAsync(factura, ct)
+            : NumeroPropio(settings);
+
+        db.SubscriptionInvoices.Add(factura);
+    }
+
+    /// <summary>
+    /// Toma el siguiente número del rango autorizado y lo avanza. Se niega —en vez de emitir
+    /// un comprobante por su cuenta— cuando no hay rango, venció o se acabó: quien pidió
+    /// factura con CAI tiene que enterarse ahí, no al imprimir.
+    /// </summary>
+    private async Task<string> NumeroAutorizadoAsync(SubscriptionInvoice factura, CancellationToken ct)
+    {
+        var rango = await db.PlatformFiscalRanges
+            .Where(r => r.IsActive)
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new AppException(
+                "Todavía no hay un CAI registrado. Regístrelo en Ajustes de facturación, o "
+                + "emita el comprobante sin CAI.");
+
+        if (rango.IssueDeadline < clock.UtcNow)
+            throw new AppException("El CAI registrado venció. Registre el rango nuevo del SAR.");
+
+        if (rango.NextNumber > rango.RangeEnd)
+            throw new AppException("Se agotó el rango autorizado. Registre el rango nuevo del SAR.");
+
+        var numero = rango.Format(rango.NextNumber);
+
+        factura.PlatformFiscalRangeId = rango.Id;
+        factura.FiscalCai = rango.Cai;
+        factura.FiscalRangeText = rango.RangeText;
+        factura.FiscalIssueDeadline = rango.IssueDeadline;
+
+        rango.NextNumber++;
+
+        return numero;
+    }
+
+    /// <summary>El correlativo nuestro, el del comprobante sin CAI: «C-000007».</summary>
+    private static string NumeroPropio(PlatformSettings settings)
+    {
+        var numero = $"{settings.InvoicePrefix}-{settings.NextInvoiceNumber:D6}";
+        settings.NextInvoiceNumber++;
+        return numero;
+    }
+
+    /// <summary>
+    /// Nuestros datos de emisor. La fila nace sola la primera vez que se necesita: pedirle al
+    /// instalador que la cree antes de poder cobrar es una trampa para el primer día.
+    /// </summary>
+    private async Task<PlatformSettings> SettingsAsync(CancellationToken ct)
+    {
+        var settings = await db.PlatformSettings.FirstOrDefaultAsync(ct);
+        if (settings is not null) return settings;
+
+        settings = new PlatformSettings();
+        db.PlatformSettings.Add(settings);
+
+        return settings;
+    }
+
     private async Task<PlatformTenantDetailDto> BuildDetailAsync(Tenant tenant, CancellationToken ct)
     {
+        // El documento se trae con el pago, de un solo viaje: la fila del historial enseña su
+        // número y el botón para bajarlo, y sin esto haría falta una consulta por fila.
         var payments = await db.SubscriptionPayments
             .AsNoTracking()
             .Where(p => p.TenantId == tenant.Id)
             .OrderByDescending(p => p.PaidOn)
             .ThenByDescending(p => p.CreatedAt)
-            .Select(p => new SubscriptionPaymentDto(
-                p.Id, p.PaidOn, p.Amount, p.Currency, p.Method, p.Reference,
-                p.CoversThrough, p.Note, p.CreatedAt))
+            .GroupJoin(
+                db.SubscriptionInvoices.AsNoTracking(),
+                p => p.Id,
+                f => f.SubscriptionPaymentId,
+                (p, facturas) => new { Pago = p, Factura = facturas.FirstOrDefault() })
+            .Select(x => new SubscriptionPaymentDto(
+                x.Pago.Id, x.Pago.PaidOn, x.Pago.Amount, x.Pago.Currency, x.Pago.Method,
+                x.Pago.Reference, x.Pago.CoversThrough, x.Pago.Note, x.Pago.CreatedAt,
+                x.Factura == null ? null : x.Factura.Id,
+                x.Factura == null ? null : x.Factura.Number,
+                x.Factura != null && x.Factura.FiscalCai != null,
+                x.Factura != null && x.Factura.IsVoided))
             .ToListAsync(ct);
 
         return new PlatformTenantDetailDto(
