@@ -80,6 +80,20 @@ const COBROS_DEL_PASO: { valor: CobroDelPasoNuevo; texto: string }[] = [
   { valor: 'sinCobro', texto: 'Sin cobro' },
 ]
 
+/**
+ * Dónde va el precio escrito a mano: en este paso, o en un total único para toda la orden.
+ *
+ * Es la misma decisión que antes vivía abajo, plegada, como «cómo se cobra la mano de obra».
+ * Decía lo mismo que los botones de arriba y en otra parte de la pantalla: aquí se pregunta
+ * una sola vez, cuando hace falta, como en la app.
+ */
+type DondeVaElPrecio = 'enEstePaso' | 'totalAlFinal'
+const dondeVaElPrecio = ref<DondeVaElPrecio>('enEstePaso')
+const DONDE_VA_EL_PRECIO: { valor: DondeVaElPrecio; texto: string }[] = [
+  { valor: 'enEstePaso', texto: 'En este paso' },
+  { valor: 'totalAlFinal', texto: 'Un total al final' },
+]
+
 /** Total de mano de obra en modo manual, mientras se edita. */
 const manualLabor = ref<number | string>('')
 
@@ -686,6 +700,7 @@ function abrirPasoNuevo() {
   // Sin catálogo de mano de obra, o con el catálogo vacío, el camino del catálogo no lleva a
   // ninguna parte: se abre en el que sí se puede terminar.
   comoSeCobraElPaso.value = isCatalog.value && laborServices.value.length ? 'catalogo' : 'aMano'
+  dondeVaElPrecio.value = 'enEstePaso'
   pasoNuevoAbierto.value = true
 }
 
@@ -704,6 +719,16 @@ function elegirCobroDelPasoNuevo(valor: CobroDelPasoNuevo) {
 
 /** Elegido el servicio, el nombre del paso es el suyo: escribirlo otra vez era escribir dos
  *  veces lo mismo. */
+function elegirDondeVaElPrecio(valor: DondeVaElPrecio) {
+  dondeVaElPrecio.value = valor
+
+  // Sin total escrito se propone lo que los pasos ya suman: es el número que el Dueño tenía
+  // en la cabeza, y arrancar en cero dejaría la orden sin nada que cobrar.
+  if (valor === 'totalAlFinal' && !Number(manualLabor.value)) {
+    manualLabor.value = String(order.value?.laborTotal ?? 0)
+  }
+}
+
 function copiarNombreDelServicio() {
   const elegido = laborServices.value.find((s) => s.id === newTask.value.laborServiceId)
   newTask.value.title = elegido?.name ?? ''
@@ -720,7 +745,11 @@ const pasoCompleto = computed(() => {
   const title = newTask.value.title.trim()
   if (!isCatalog.value) return !!title
   if (comoSeCobraElPaso.value === 'catalogo') return !!newTask.value.laborServiceId
-  if (comoSeCobraElPaso.value === 'aMano') return !!title && Number(newTask.value.manualPrice) > 0
+  if (comoSeCobraElPaso.value === 'aMano') {
+    return dondeVaElPrecio.value === 'totalAlFinal'
+      ? !!title && Number(manualLabor.value) > 0
+      : !!title && Number(newTask.value.manualPrice) > 0
+  }
   return !!title
 })
 
@@ -732,6 +761,18 @@ function addTask() {
     // En modo manual el paso va suelto: el precio es uno solo para toda la orden.
     let laborServiceId = isCatalog.value ? newTask.value.laborServiceId || null : null
     let manual: number | null = null
+
+    // Un total para toda la orden: primero se cambia el modo —que es lo que hace valer el
+    // total— y después entra el paso, que en ese modo va sin precio propio.
+    if (isCatalog.value && comoSeCobraElPaso.value === 'aMano' && dondeVaElPrecio.value === 'totalAlFinal') {
+      await workOrdersApi.setLaborMode(id.value, {
+        mode: LaborMode.Manual,
+        total: Number(manualLabor.value) || 0,
+      })
+      await workOrdersApi.addTask(id.value, { title, laborServiceId: null, manualLaborPrice: null })
+      cerrarPasoNuevo()
+      return
+    }
 
     if (isCatalog.value && comoSeCobraElPaso.value === 'aMano') {
       const cuanto = Number(newTask.value.manualPrice) || 0
@@ -1455,27 +1496,66 @@ onMounted(async () => {
               </p>
 
               <template v-if="isCatalog && comoSeCobraElPaso === 'aMano'">
-                <label>
-                  Precio del paso
-                  <input
-                    v-model="newTask.manualPrice"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                  />
-                </label>
+                <p class="etiqueta-grupo">Dónde va el precio</p>
+                <div class="opciones">
+                  <button
+                    v-for="opcion in DONDE_VA_EL_PRECIO"
+                    :key="opcion.valor"
+                    type="button"
+                    class="opcion"
+                    :class="{ elegida: dondeVaElPrecio === opcion.valor }"
+                    :aria-pressed="dondeVaElPrecio === opcion.valor"
+                    @click="elegirDondeVaElPrecio(opcion.valor)"
+                  >
+                    {{ opcion.texto }}
+                  </button>
+                </div>
 
-                <!-- Guardarlo no es lo que pasa por defecto: así el catálogo se llenaba de
-                     entradas de un solo uso. -->
-                <label class="checkbox">
-                  <input v-model="newTask.guardarEnCatalogo" type="checkbox" />
-                  Guardarlo en el catálogo
-                </label>
-                <p class="muted small">
-                  Para no volver a escribirlo. Si es un trabajo de una sola vez, déjelo sin
-                  marcar.
-                </p>
+                <template v-if="dondeVaElPrecio === 'enEstePaso'">
+                  <label>
+                    Precio del paso
+                    <input
+                      v-model="newTask.manualPrice"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </label>
+
+                  <!-- Guardarlo no es lo que pasa por defecto: así el catálogo se llenaba de
+                       entradas de un solo uso. -->
+                  <label class="checkbox">
+                    <input v-model="newTask.guardarEnCatalogo" type="checkbox" />
+                    Guardarlo en el catálogo
+                  </label>
+                  <p class="muted small">
+                    Para no volver a escribirlo. Si es un trabajo de una sola vez, déjelo sin
+                    marcar.
+                  </p>
+                </template>
+
+                <template v-else>
+                  <label>
+                    Total de mano de obra
+                    <input v-model="manualLabor" type="number" min="0" step="0.01" placeholder="0.00" />
+                  </label>
+                  <p class="muted small">
+                    La orden pasa a cobrarse con un total único: los pasos quedan como registro
+                    de lo que se hizo y a la factura va el total.
+                  </p>
+
+                  <!-- Lo que ya está puesto y va a dejar de contar. Sin este aviso, quien ya le
+                       puso precio a tres pasos escribe un total y no se entera de que esos tres
+                       precios quedan fuera de la factura. -->
+                  <p v-if="pasosConPrecio.cuantos" class="aviso-modo">
+                    Esta orden ya tiene {{ pasosConPrecio.cuantos }}
+                    {{ pasosConPrecio.cuantos === 1 ? 'paso' : 'pasos' }} con precio, que
+                    {{ pasosConPrecio.cuantos === 1 ? 'suma' : 'suman' }}
+                    {{ formatMoney(pasosConPrecio.suman) }}. Con un total único esos precios
+                    dejan de contar —no se borran— y a la factura va solo el total.
+                  </p>
+                </template>
               </template>
 
               <p v-else-if="isCatalog" class="muted small">
@@ -1566,52 +1646,19 @@ onMounted(async () => {
             >
               Guardar
             </button>
+            <!-- La vuelta atrás: sin esto, la orden que pasó a total único se quedaba así y no
+                 había dónde decir que cada paso vuelva a llevar su precio. -->
+            <button
+              v-if="auth.isOwner"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="setLaborMode(LaborMode.Catalog)"
+            >
+              Cobrar paso por paso
+            </button>
           </div>
 
-          <!-- Plegado y al final: es un ajuste de cómo se cobra la orden, no trabajo del día,
-               y arriba se llevaba el sitio que le toca a los pasos. -->
-          <details v-if="auth.isOwner" class="ajuste">
-            <summary>Cómo se cobra la mano de obra</summary>
-            <label>
-              <input
-                type="radio"
-                :checked="isCatalog"
-                :disabled="busy"
-                @change="setLaborMode(LaborMode.Catalog)"
-              />
-              Con el catálogo: cada paso lleva su servicio y su precio
-            </label>
-            <label>
-              <input
-                type="radio"
-                :checked="!isCatalog"
-                :disabled="busy"
-                @change="setLaborMode(LaborMode.Manual)"
-              />
-              A mano: los pasos van sueltos y se cobra un total
-            </label>
-            <p class="muted small">
-              <template v-if="isCatalog">
-                El paso que quede sin precio —ni del catálogo ni escrito— no entra en la
-                factura.
-              </template>
-              <template v-else>
-                Los pasos quedan como registro de lo que se hizo; a la factura va el total.
-              </template>
-            </p>
-
-            <!-- Lo que ya está puesto y va a dejar de contar. Sin este aviso, quien ya le puso
-                 precio a tres pasos cambia el modo y no se entera de que esos tres precios
-                 quedan fuera de la factura. -->
-            <p v-if="isCatalog && pasosConPrecio.cuantos" class="aviso-modo">
-              Esta orden ya tiene {{ pasosConPrecio.cuantos }}
-              {{ pasosConPrecio.cuantos === 1 ? 'paso' : 'pasos' }} con precio, que
-              {{ pasosConPrecio.cuantos === 1 ? 'suma' : 'suman' }}
-              {{ formatMoney(pasosConPrecio.suman) }}. Pasando a «a mano» esos precios dejan de
-              contar —no se borran— y a la factura va solo el total. Volviendo al catálogo
-              vuelven a contar.
-            </p>
-          </details>
 
           <p v-if="canEdit" class="labor-total">
             Mano de obra <strong>{{ formatMoney(order.laborTotal) }}</strong>
@@ -2480,29 +2527,6 @@ header p {
 }
 
 /* Un ajuste, no trabajo del día: cerrado ocupa una línea. */
-.ajuste {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.875rem;
-}
-
-.ajuste summary {
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.ajuste label {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  margin-top: 0.375rem;
-}
-
-.ajuste p {
-  margin-top: 0.375rem;
-}
-
 .cuentas {
   grid-template-columns: 1fr auto;
   gap: 0.375rem 1rem;
