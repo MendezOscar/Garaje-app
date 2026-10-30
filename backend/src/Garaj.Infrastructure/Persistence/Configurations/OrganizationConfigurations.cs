@@ -47,6 +47,7 @@ public class SubscriptionPaymentConfiguration : IEntityTypeConfiguration<Subscri
         b.Property(x => x.Method).HasMaxLength(40);
         b.Property(x => x.Reference).HasMaxLength(80);
         b.Property(x => x.Note).HasMaxLength(300);
+        b.Property(x => x.VoidReason).HasMaxLength(300);
 
         // Cascade: si algún día se borra un taller de verdad, su historial de cobro se va con él.
         b.HasOne<Tenant>()

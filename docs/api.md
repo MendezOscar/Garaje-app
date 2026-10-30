@@ -808,6 +808,7 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | POST | `/api/platform/tenants` | Plataforma | **Da de alta un taller**, su sucursal y su Dueño |
 | POST | `/api/platform/tenants/{id}/owner` | Plataforma | Le crea un Dueño a un taller que ya existe |
 | POST | `/api/platform/tenants/{id}/payments` | Plataforma | Registra el pago y corre el vencimiento |
+| POST | `/api/platform/tenants/{id}/payments/{paymentId}/void` | Plataforma | Anula un pago registrado por error |
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
 | PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
 | POST | `/api/platform/tenants/{id}/suspend` \| `/reactivate` | Plataforma | El corte definitivo |
@@ -835,8 +836,12 @@ anular, y no hay pago sin documento esperando a que alguien se acuerde.
 - **El número de depósito es la llave contra el doble registro.** Si ya hay un pago de ese
   taller con esa referencia, el servidor responde 409: el doble clic corría el vencimiento dos
   meses y quemaba dos números del CAI.
-- **Se anula, no se borra.** El pago queda —el dinero entró igual— y el documento sale marcado
-  con su motivo: un número autorizado que desaparece es el que el SAR viene a preguntar.
+- **Se anula, no se borra.** El documento sale marcado con su motivo: un número autorizado que
+  desaparece es el que el SAR viene a preguntar. El **pago** también se anula en vez de
+  borrarse, y al anularlo el vencimiento vuelve a donde estaba —cada pago guarda
+  `PreviousPaidThrough`, porque restar meses no sirve: la fecha se corre desde donde estaba y
+  no desde hoy—. Con pagos posteriores encima la fecha no se toca, para no quitarle al taller
+  meses que sí pagó.
 
 ### El portón de versión
 

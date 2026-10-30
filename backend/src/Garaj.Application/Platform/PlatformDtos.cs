@@ -32,7 +32,9 @@ public record PlatformTenantDto(
     int BranchCount,
     DateTimeOffset CreatedAt,
     /// <summary>Con qué trabaja el taller. Lo decidimos nosotros, no él.</summary>
-    WorkshopKind WorksWith = WorkshopKind.Vehicles);
+    WorkshopKind WorksWith = WorkshopKind.Vehicles,
+    /// <summary>Su RTN, que es lo que lleva impreso la factura que le emitimos.</summary>
+    string? TaxId = null);
 
 public record PlatformTenantDetailDto(
     PlatformTenantDto Tenant,
@@ -52,7 +54,12 @@ public record SubscriptionPaymentDto(
     Guid? InvoiceId = null,
     string? InvoiceNumber = null,
     bool InvoiceIsFiscal = false,
-    bool InvoiceIsVoided = false);
+    bool InvoiceIsVoided = false,
+    bool IsVoided = false,
+    string? VoidReason = null);
+
+/// <summary>Deshacer un pago registrado por error. Se anula, no se borra.</summary>
+public record VoidPaymentRequest(string Reason);
 
 /// <summary>
 /// Alta de un taller nuevo desde el panel. Los primeros cuatro campos son los mismos que pide
@@ -175,6 +182,13 @@ public interface IPlatformService
 
     /// <summary>Suspender corta el acceso entero, no solo la escritura: el taller ni entra.</summary>
     Task<PlatformTenantDto> SetActiveAsync(Guid tenantId, bool active, CancellationToken ct = default);
+
+    /// <summary>
+    /// Anula un pago registrado por error: devuelve el vencimiento a donde estaba y anula con
+    /// él el documento que hubiera dejado.
+    /// </summary>
+    Task<PlatformTenantDetailDto> VoidPaymentAsync(
+        Guid tenantId, Guid paymentId, VoidPaymentRequest request, CancellationToken ct = default);
 }
 
 /// <summary>

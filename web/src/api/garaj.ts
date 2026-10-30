@@ -1448,6 +1448,14 @@ export const platformApi = {
     )
     return data
   },
+  /** Anula un pago registrado por error. No se borra: el historial de cobro se conserva. */
+  async voidPayment(id: string, paymentId: string, reason: string): Promise<PlatformTenantDetail> {
+    const { data } = await api.post<PlatformTenantDetail>(
+      `/api/platform/tenants/${id}/payments/${paymentId}/void`,
+      { reason },
+    )
+    return data
+  },
   async billingSettings(): Promise<PlatformSettings> {
     const { data } = await api.get<PlatformSettings>('/api/platform/billing/settings')
     return data

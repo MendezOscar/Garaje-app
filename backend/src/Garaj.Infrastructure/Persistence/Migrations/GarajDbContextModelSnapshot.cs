@@ -2565,6 +2565,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency");
 
+                    b.Property<bool>("IsVoided")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_voided");
+
                     b.Property<string>("Method")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
@@ -2578,6 +2582,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("PaidOn")
                         .HasColumnType("date")
                         .HasColumnName("paid_on");
+
+                    b.Property<DateOnly?>("PreviousPaidThrough")
+                        .HasColumnType("date")
+                        .HasColumnName("previous_paid_through");
 
                     b.Property<string>("Reference")
                         .HasMaxLength(80)
@@ -2599,6 +2607,15 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("void_reason");
+
+                    b.Property<DateTimeOffset?>("VoidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("voided_at");
 
                     b.HasKey("Id")
                         .HasName("pk_subscription_payments");
