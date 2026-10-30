@@ -142,7 +142,17 @@ public enum MediaOwnerType
     Quote = 4,
 
     /// <summary>La foto del comprobante del gasto. Es lo que lo respalda.</summary>
-    Expense = 5
+    Expense = 5,
+
+    /// <summary>
+    /// Cómo entró el vehículo o el equipo, fotografiado al recibirlo. El dueño es la orden,
+    /// igual que en <see cref="WorkOrder"/>: la recepción es una por orden.
+    ///
+    /// Van aparte de las fotos del proceso porque contestan otra pregunta —«¿ese rayón ya
+    /// venía?»— y porque son las que tienen que salir en la ficha de recepción, no las que
+    /// se tomaron tres días después con el motor abierto.
+    /// </summary>
+    Reception = 6
 }
 
 public enum StockMovementType

@@ -303,7 +303,7 @@ public class MediaService(
     {
         var workOrderId = ownerType switch
         {
-            MediaOwnerType.WorkOrder => ownerId,
+            MediaOwnerType.WorkOrder or MediaOwnerType.Reception => ownerId,
             MediaOwnerType.WorkOrderTask => await db.WorkOrderTasks
                 .Where(t => t.Id == ownerId)
                 .Select(t => (Guid?)t.WorkOrderId)
@@ -435,6 +435,7 @@ public class MediaService(
             MediaOwnerType.WorkOrderTask => "work-order-tasks",
             MediaOwnerType.Quote => "quotes",
             MediaOwnerType.Expense => "expenses",
+            MediaOwnerType.Reception => "receptions",
             _ => "other"
         };
 

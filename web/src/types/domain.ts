@@ -152,6 +152,8 @@ export const MediaOwnerType = {
   Quote: 4,
   /** El comprobante del gasto. Es lo que lo respalda. */
   Expense: 5,
+  /** Cómo entró el vehículo o el equipo. Son las que salen en la ficha de recepción. */
+  Reception: 6,
 } as const
 export type MediaOwnerType = (typeof MediaOwnerType)[keyof typeof MediaOwnerType]
 

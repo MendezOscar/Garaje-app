@@ -14,6 +14,8 @@ const props = defineProps<{
   quoteId?: string
   /** El comprobante de un gasto: es lo que lo respalda cuando alguien lo discute. */
   expenseId?: string
+  /** Cómo entró el vehículo: el id de la orden, que es de quien es la recepción. */
+  receptionId?: string
   /** Falso para el Cliente: mira el proceso, no lo documenta. */
   canEdit: boolean
 }>()
@@ -22,6 +24,7 @@ const props = defineProps<{
 const owner = computed(() => {
   if (props.quoteId) return { ownerType: MediaOwnerType.Quote, ownerId: props.quoteId }
   if (props.expenseId) return { ownerType: MediaOwnerType.Expense, ownerId: props.expenseId }
+  if (props.receptionId) return { ownerType: MediaOwnerType.Reception, ownerId: props.receptionId }
   return { ownerType: MediaOwnerType.WorkOrder, ownerId: props.workOrderId! }
 })
 
@@ -35,12 +38,15 @@ const owner = computed(() => {
 const titulo = computed(() => {
   if (props.quoteId) return 'Fotos de la cotización'
   if (props.expenseId) return 'Comprobante'
+  if (props.receptionId) return 'Fotos de cómo entró'
   return 'Fotos del proceso'
 })
 
 const vacio = computed(() => {
   if (props.quoteId) return 'Sin fotos. Las que agregue aquí las verá el cliente junto al precio.'
   if (props.expenseId) return 'Sin comprobante. Un gasto sin recibo es el que después se discute.'
+  if (props.receptionId)
+    return 'Sin fotos de cómo entró. Son las que salen en la ficha y las que contestan después si el golpe ya venía.'
   return 'Todavía no hay fotos de esta orden.'
 })
 

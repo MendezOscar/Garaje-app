@@ -138,6 +138,8 @@ public class DemoSeeder(
         await db.VehicleReceptions.ExecuteDeleteAsync(ct);
         await db.WorkOrders.ExecuteDeleteAsync(ct);
         await db.Vehicles.ExecuteDeleteAsync(ct);
+        await db.Equipment.ExecuteDeleteAsync(ct);
+        await db.EquipmentTypes.ExecuteDeleteAsync(ct);
         await db.Customers.ExecuteDeleteAsync(ct);
         await db.JobTemplateParts.ExecuteDeleteAsync(ct);
         await db.JobTemplateTasks.ExecuteDeleteAsync(ct);
