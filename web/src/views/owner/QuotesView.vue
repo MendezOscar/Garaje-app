@@ -123,6 +123,16 @@ const tasaDelTaller = ref(0)
  *  total o solo dice cuánto de ese total es impuesto. */
 const precioConIsv = ref(true)
 
+/**
+ * El renglón sin el impuesto, que es lo que suma al neto del pie. Solo hay que sacárselo
+ * cuando el precio lo llevaba adentro: con el ISV aparte la línea ya viene neta.
+ */
+function netoDeLinea(valor: number): number {
+  const q = selected.value
+  if (!q || q.taxRate <= 0 || !q.pricesIncludedTax) return valor
+  return sinIsv(valor, q.taxRate)
+}
+
 const catalog = computed(() =>
   newLine.value.lineType === LineType.Part
     ? parts.value.map((p) => ({ id: p.id, label: `${p.sku} · ${p.name}`, price: p.salePrice }))
@@ -445,11 +455,11 @@ onMounted(async () => {
               </td>
               <td class="num muted">
                 {{ formatQuantity(line.quantity) }} ×
-                {{ formatMoney(sinIsv(line.unitPrice, selected.taxRate)) }}
+                {{ formatMoney(netoDeLinea(line.unitPrice)) }}
                 <template v-if="selected.taxRate > 0"> sin ISV</template>
                 <div v-if="line.discount" class="small">−{{ formatMoney(line.discount) }}</div>
               </td>
-              <td class="num">{{ formatMoney(sinIsv(line.total, selected.taxRate)) }}</td>
+              <td class="num">{{ formatMoney(netoDeLinea(line.total)) }}</td>
               <td v-if="selected.isEditable" class="num">
                 <button type="button" class="link danger" :disabled="busy" @click="removeLine(line.id)">
                   Quitar
