@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { claimsApi, salesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterChip from '@/components/FilterChip.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   CLAIM_STATUS_LABEL,
@@ -164,10 +165,9 @@ onMounted(load)
           qué se hizo y si entró en garantía.
         </p>
       </div>
-      <label class="checkbox">
-        <input v-model="soloAbiertos" type="checkbox" @change="load" />
+      <FilterChip v-model="soloAbiertos" @update:model-value="load">
         Solo los abiertos
-      </label>
+      </FilterChip>
     </header>
 
     <ErrorNote v-if="error" :message="error" />

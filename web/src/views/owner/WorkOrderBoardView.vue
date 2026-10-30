@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { usersApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { useTaller } from '@/composables/useTaller'
@@ -290,15 +291,6 @@ watch(pestana, (ahora, antes) => {
         </p>
       </div>
       <div class="cabecera-acciones">
-        <!-- Tablero para ver el patio; lista para cuando hay treinta órdenes vivas. -->
-        <div class="segmento">
-          <button type="button" :class="{ on: vista === 'lista' }" @click="vista = 'lista'">
-            Lista
-          </button>
-          <button type="button" :class="{ on: vista === 'tablero' }" @click="vista = 'tablero'">
-            Tablero
-          </button>
-        </div>
         <RouterLink class="boton" :to="{ name: 'receive-vehicle' }">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke-linecap="round" />
@@ -323,18 +315,10 @@ watch(pestana, (ahora, antes) => {
       </button>
     </div>
 
-    <div class="filtros">
-      <span class="buscador">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" stroke-linecap="round" />
-        </svg>
-        <input
-          v-model="search"
-          type="search"
-          :placeholder="`Número, ${vocabulario.identificador.toLowerCase()} o cliente`"
-        />
-      </span>
-
+    <FilterBar
+      v-model:search="search"
+      :placeholder="`Número, ${vocabulario.identificador.toLowerCase()} o cliente`"
+    >
       <select v-model="tecnicoId">
         <option value="">Todos los técnicos</option>
         <option v-for="t in technicians.filter((x) => x.isActive)" :key="t.id" :value="t.id">
@@ -345,7 +329,19 @@ watch(pestana, (ahora, antes) => {
       <span v-if="search" class="muted small">
         Buscando también entre las entregadas.
       </span>
-    </div>
+
+      <!-- Tablero para ver el patio; lista para cuando hay treinta órdenes vivas. -->
+      <template #vista>
+        <div class="segmento">
+          <button type="button" :class="{ on: vista === 'lista' }" @click="vista = 'lista'">
+            Lista
+          </button>
+          <button type="button" :class="{ on: vista === 'tablero' }" @click="vista = 'tablero'">
+            Tablero
+          </button>
+        </div>
+      </template>
+    </FilterBar>
 
     <ErrorNote v-if="error" :message="error" />
     <SkeletonList v-if="loading" :rows="4" variant="tabla" />

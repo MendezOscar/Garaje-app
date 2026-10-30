@@ -3,6 +3,8 @@ import { onMounted, ref, computed, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import FilterChip from '@/components/FilterChip.vue'
 import { useTaller } from '@/composables/useTaller'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -122,36 +124,27 @@ onMounted(async () => {
       </div>
     </header>
 
-    <form class="filters" @submit.prevent="load">
-      <input
-        v-model="search"
-        type="search"
-        :placeholder="`Cliente, teléfono o ${vocabulario.identificador.toLowerCase()}`"
-      />
-
-
-      <div class="chips">
-        <button type="button" class="chip" :class="{ on: filtro === 'mes' }" @click="elegir('mes')">
-          Este mes
-        </button>
-        <button
-          type="button"
-          class="chip"
-          :class="{ on: filtro === 'atrasados' }"
-          @click="elegir('atrasados')"
-        >
-          Ya les tocaba
-        </button>
-        <button
-          type="button"
-          class="chip"
-          :class="{ on: filtro === 'recordados' }"
-          @click="elegir('recordados')"
-        >
-          Ya recordados
-        </button>
-      </div>
-    </form>
+    <FilterBar
+      v-model:search="search"
+      :placeholder="`Cliente, teléfono o ${vocabulario.identificador.toLowerCase()}`"
+    >
+      <!-- Son excluyentes: no se filtra por «este mes» y «ya recordados» a la vez. -->
+      <FilterChip :model-value="filtro === 'mes'" @update:model-value="elegir('mes')">
+        Este mes
+      </FilterChip>
+      <FilterChip
+        :model-value="filtro === 'atrasados'"
+        @update:model-value="elegir('atrasados')"
+      >
+        Ya les tocaba
+      </FilterChip>
+      <FilterChip
+        :model-value="filtro === 'recordados'"
+        @update:model-value="elegir('recordados')"
+      >
+        Ya recordados
+      </FilterChip>
+    </FilterBar>
 
     <ErrorNote v-if="error" :message="error" />
     <p v-if="aviso" class="notice">{{ aviso }}</p>

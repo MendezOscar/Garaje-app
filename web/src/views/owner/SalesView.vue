@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, salesApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import FilterChip from '@/components/FilterChip.vue'
+import PeriodSelect from '@/components/PeriodSelect.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { type Branch, type SaleListItem } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
@@ -40,6 +43,13 @@ function fechaCorta(valor: string) {
 
 const desde = ref(comoInput(primeroDelMes))
 const hasta = ref(comoInput(hoy))
+
+/** El periodo lo pone el selector de la barra; aquí solo se guarda y se recarga. */
+function cambiarPeriodo(rango: { desde: string; hasta: string }) {
+  desde.value = rango.desde
+  hasta.value = rango.hasta
+  buscar()
+}
 const busqueda = ref('')
 const conAnuladas = ref(false)
 const soloConSaldo = ref(false)
@@ -101,6 +111,19 @@ function buscar() {
   page.value = 1
   cargar()
 }
+
+/**
+ * Lo filtrado se pide solo. Medio segundo de espera en la búsqueda para no mandar una
+ * consulta por letra; los chips y el periodo no esperan, que son un solo toque.
+ */
+let tecleando: ReturnType<typeof setTimeout> | undefined
+
+watch(busqueda, () => {
+  clearTimeout(tecleando)
+  tecleando = setTimeout(buscar, 500)
+})
+
+watch([soloConSaldo, conAnuladas], buscar)
 
 function irA(destino: number) {
   page.value = Math.min(paginas.value, Math.max(1, destino))
@@ -174,37 +197,11 @@ onMounted(async () => {
       <RouterLink class="boton" :to="{ name: 'counter-sale' }">Nueva venta</RouterLink>
     </header>
 
-    <div class="filtros">
-      <label>
-        Desde
-        <input v-model="desde" type="date" />
-      </label>
-      <label>
-        Hasta
-        <input v-model="hasta" type="date" />
-      </label>
-      <label v-if="sucursalesPermitidas.length > 1">
-        Sucursal
-      </label>
-      <label class="ancho">
-        Buscar
-        <input
-          v-model="busqueda"
-          type="search"
-          placeholder="Cliente, número de venta o de orden"
-          @keydown.enter.prevent="buscar"
-        />
-      </label>
-      <label class="checkbox">
-        <input v-model="soloConSaldo" type="checkbox" />
-        Solo con saldo
-      </label>
-      <label class="checkbox">
-        <input v-model="conAnuladas" type="checkbox" />
-        Incluir anuladas
-      </label>
-      <button type="button" :disabled="cargando" @click="buscar">Aplicar</button>
-    </div>
+    <FilterBar v-model:search="busqueda" placeholder="Cliente, número de venta o de orden">
+      <PeriodSelect @cambio="cambiarPeriodo" />
+      <FilterChip v-model="soloConSaldo">Solo con saldo</FilterChip>
+      <FilterChip v-model="conAnuladas">Incluir anuladas</FilterChip>
+    </FilterBar>
 
     <ErrorNote v-if="error" :message="error" />
     <SkeletonList v-if="cargando" :rows="4" variant="tabla" />

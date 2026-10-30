@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { reportsApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import FilterBar from '@/components/FilterBar.vue'
+import PeriodSelect from '@/components/PeriodSelect.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
   RevenueGrouping,
@@ -36,6 +38,13 @@ const query = computed(() => ({
   branchId: branchId.value || undefined,
   technicianId: technicianId.value || undefined,
 }))
+
+/** El periodo lo pone el selector de la barra; aquí solo se guarda y se recarga. */
+function cambiarPeriodo(rango: { desde: string; hasta: string }) {
+  from.value = rango.desde
+  to.value = rango.hasta
+  load()
+}
 
 async function load() {
   loading.value = true
@@ -184,9 +193,8 @@ onMounted(async () => {
     <article class="card">
       <header class="filters">
         <h2>Ingresos</h2>
-        <div class="row">
-          <label>Desde<input v-model="from" type="date" /></label>
-          <label>Hasta<input v-model="to" type="date" /></label>
+        <FilterBar>
+          <PeriodSelect @cambio="cambiarPeriodo" />
           <select v-model="technicianId">
             <option value="">Todos los técnicos</option>
             <option v-for="t in technicians" :key="t.id" :value="t.id">{{ t.fullName }}</option>
@@ -196,9 +204,12 @@ onMounted(async () => {
             <option :value="RevenueGrouping.Week">Por semana</option>
             <option :value="RevenueGrouping.Month">Por mes</option>
           </select>
-          <button type="button" :disabled="loading" @click="load">Aplicar</button>
-          <button type="button" :disabled="loading" @click="downloadCsv">CSV</button>
-        </div>
+          <template #vista>
+            <button type="button" class="btn-ghost" :disabled="loading" @click="downloadCsv">
+              CSV
+            </button>
+          </template>
+        </FilterBar>
       </header>
 
       <SkeletonList v-if="loading" :rows="4" variant="tabla" />
