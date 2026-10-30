@@ -411,9 +411,16 @@ onMounted(load)
   padding: 0.5rem;
   text-align: left;
   background: none;
+  /* Sin esto el número del reclamo heredaba el color del texto sobre el acento —oscuro sobre
+     oscuro—, y en el tema oscuro no se leía. */
+  color: inherit;
   border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
   border-radius: 8px;
   cursor: pointer;
+}
+
+.resultado:hover {
+  border-color: var(--accent);
 }
 
 .estado {
