@@ -31,6 +31,23 @@ public class SubscriptionPayment : AuditableEntity
     /// <summary>A qué fecha quedó corrida la suscripción con este pago.</summary>
     public DateOnly CoversThrough { get; set; }
 
+    /// <summary>
+    /// Hasta dónde estaba pagado <b>antes</b> de este pago. Es lo que permite deshacerlo sin
+    /// adivinar: restar meses no sirve, porque el vencimiento se corre desde donde estaba y no
+    /// desde hoy. Null en los pagos registrados antes de que esto existiera.
+    /// </summary>
+    public DateOnly? PreviousPaidThrough { get; set; }
+
+    /// <summary>
+    /// Anulado: se registró por error. No se borra —el historial de cobro es lo que contesta
+    /// «¿yo ya te pagué junio?»— pero deja de contar y se ve tachado, con su motivo.
+    /// </summary>
+    public bool IsVoided { get; set; }
+
+    public string? VoidReason { get; set; }
+
+    public DateTimeOffset? VoidedAt { get; set; }
+
     public string? Note { get; set; }
 
     /// <summary>Quién de nosotros lo registró.</summary>

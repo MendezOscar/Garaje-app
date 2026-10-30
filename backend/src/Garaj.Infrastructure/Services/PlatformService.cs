@@ -169,7 +169,7 @@ public class PlatformService(
         var referencia = Trim(request.Reference);
 
         if (referencia is not null && await db.SubscriptionPayments
-                .AnyAsync(p => p.TenantId == tenant.Id && p.Reference == referencia, ct))
+                .AnyAsync(p => p.TenantId == tenant.Id && p.Reference == referencia && !p.IsVoided, ct))
         {
             throw new ConflictException(
                 $"El pago con referencia «{referencia}» ya está registrado para este taller.");
@@ -191,6 +191,8 @@ public class PlatformService(
             Method = Trim(request.Method),
             Reference = referencia,
             CoversThrough = coversThrough,
+            // Desde dónde se corrió: es lo que deja deshacerlo sin adivinar.
+            PreviousPaidThrough = tenant.PaidThrough,
             Note = Trim(request.Note),
             RegisteredByUserId = tenantContext.UserId
         };
@@ -308,6 +310,59 @@ public class PlatformService(
     private async Task<Tenant> FindAsync(Guid tenantId, CancellationToken ct) =>
         await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct)
         ?? throw new NotFoundException("El taller no existe.");
+
+    public async Task<PlatformTenantDetailDto> VoidPaymentAsync(
+        Guid tenantId, Guid paymentId, VoidPaymentRequest request, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            throw new AppException("Diga por qué se anula el pago.");
+
+        var tenant = await FindAsync(tenantId, ct);
+
+        var pago = await db.SubscriptionPayments
+            .FirstOrDefaultAsync(p => p.Id == paymentId && p.TenantId == tenantId, ct)
+            ?? throw new NotFoundException("El pago no existe.");
+
+        if (pago.IsVoided) throw new ConflictException("Ese pago ya está anulado.");
+
+        pago.IsVoided = true;
+        pago.VoidReason = request.Reason.Trim();
+        pago.VoidedAt = clock.UtcNow;
+
+        // El documento se va con él: cobrarle al taller por un pago que no existió es
+        // exactamente lo que el SAR viene a preguntar.
+        var factura = await db.SubscriptionInvoices
+            .FirstOrDefaultAsync(f => f.SubscriptionPaymentId == pago.Id, ct);
+
+        if (factura is not null && !factura.IsVoided)
+        {
+            factura.IsVoided = true;
+            factura.VoidReason = $"Pago anulado: {pago.VoidReason}";
+            factura.VoidedAt = clock.UtcNow;
+        }
+
+        // Devolver el vencimiento solo si este pago es el que lo dejó donde está. Con pagos
+        // posteriores encima, restaurar la fecha vieja le quitaría al taller meses que sí
+        // pagó; ahí se anula el pago y la fecha se corrige a mano, que es lo que hay.
+        var hayPosteriores = await db.SubscriptionPayments
+            .AnyAsync(p => p.TenantId == tenantId && !p.IsVoided && p.Id != pago.Id
+                && p.CreatedAt > pago.CreatedAt, ct);
+
+        // Y solo si sabemos desde dónde se corrió: en un pago viejo —de antes de que esto se
+        // guardara— poner null diría «nunca pagó» y le cortaría el sistema al taller.
+        if (!hayPosteriores
+            && tenant.PaidThrough == pago.CoversThrough
+            && pago.PreviousPaidThrough is { } anterior)
+        {
+            tenant.PaidThrough = anterior;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return await BuildDetailAsync(tenant, ct);
+    }
 
     /// <summary>
     /// Arma el documento del pago: los conceptos, el impuesto y el número.
@@ -466,7 +521,8 @@ public class PlatformService(
                 x.Factura == null ? null : x.Factura.Id,
                 x.Factura == null ? null : x.Factura.Number,
                 x.Factura != null && x.Factura.FiscalCai != null,
-                x.Factura != null && x.Factura.IsVoided))
+                x.Factura != null && x.Factura.IsVoided,
+                x.Pago.IsVoided, x.Pago.VoidReason))
             .ToListAsync(ct);
 
         return new PlatformTenantDetailDto(
@@ -477,7 +533,7 @@ public class PlatformService(
     private async Task<PlatformTenantDto> MapAsync(Tenant tenant, CancellationToken ct)
     {
         var lastPayment = await db.SubscriptionPayments
-            .Where(p => p.TenantId == tenant.Id)
+            .Where(p => p.TenantId == tenant.Id && !p.IsVoided)
             .OrderByDescending(p => p.PaidOn)
             .Select(p => (DateOnly?)p.PaidOn)
             .FirstOrDefaultAsync(ct);
@@ -513,7 +569,8 @@ public class PlatformService(
             lastPaymentOn,
             branchCount,
             tenant.CreatedAt,
-            tenant.WorksWith);
+            tenant.WorksWith,
+            tenant.TaxId);
     }
 
     /// <summary>Sin tope los días de gracia se vuelven «gratis para siempre» por un cero de más.</summary>

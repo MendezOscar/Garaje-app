@@ -316,6 +316,14 @@ public class SavePlatformFiscalRangeValidator : AbstractValidator<SavePlatformFi
     }
 }
 
+public class VoidPaymentValidator : AbstractValidator<VoidPaymentRequest>
+{
+    public VoidPaymentValidator() =>
+        RuleFor(x => x.Reason)
+            .NotEmpty().WithMessage("Diga por qué se anula el pago.")
+            .MaximumLength(300);
+}
+
 public class VoidInvoiceValidator : AbstractValidator<VoidInvoiceRequest>
 {
     public VoidInvoiceValidator() =>

@@ -56,6 +56,16 @@ public class PlatformController(IPlatformService service) : ControllerBase
         Guid id, RegisterPaymentRequest request, CancellationToken ct)
         => Ok(await service.RegisterPaymentAsync(id, request, ct));
 
+    /// <summary>
+    /// Anula un pago registrado por error: devuelve el vencimiento a donde estaba y anula el
+    /// documento que hubiera dejado. No lo borra: el historial de cobro es lo que contesta
+    /// «¿yo ya te pagué junio?».
+    /// </summary>
+    [HttpPost("{id:guid}/payments/{paymentId:guid}/void")]
+    public async Task<ActionResult<PlatformTenantDetailDto>> VoidPayment(
+        Guid id, Guid paymentId, VoidPaymentRequest request, CancellationToken ct)
+        => Ok(await service.VoidPaymentAsync(id, paymentId, request, ct));
+
     /// <summary>Acuerdo de pago: el taller sigue trabajando hasta la fecha acordada.</summary>
     [HttpPut("{id:guid}/agreement")]
     public async Task<ActionResult<PlatformTenantDto>> SetAgreement(

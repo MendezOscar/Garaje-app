@@ -69,6 +69,33 @@ const documento = computed(() => {
   return { neto, impuesto: Math.round((total - neto) * 100) / 100, total }
 })
 
+/**
+ * El paso de revisión. Registrar el pago emite el documento y corre el vencimiento —y con CAI
+ * quema un número autorizado—, así que primero se enseña exactamente qué va a salir y recién
+ * el segundo botón lo hace.
+ */
+const revisando = ref(false)
+
+/** Qué número va a llevar el documento, dicho antes de emitirlo. */
+const numeroQueSale = computed(() => {
+  if (!pago.value.emitir) return null
+  if (pago.value.conCai && !sinCai.value) return emisor.value?.fiscalRange?.nextFiscalNumber ?? null
+
+  const prefijo = emisor.value?.invoicePrefix ?? 'C'
+  return `${prefijo}-${String(emisor.value?.nextInvoiceNumber ?? 1).padStart(6, '0')}`
+})
+
+/** Hasta cuándo queda cubierto el taller con este pago, que es el otro efecto del botón. */
+const cubreHasta = computed(() => {
+  const desde = tenant.value?.paidThrough ? new Date(`${tenant.value.paidThrough}T00:00:00`) : new Date()
+  const meses = Number(pago.value.months) || 1
+
+  const fecha = new Date(desde)
+  fecha.setMonth(fecha.getMonth() + meses)
+
+  return fecha.toISOString().slice(0, 10)
+})
+
 const sinCai = computed(() => {
   const rango = emisor.value?.fiscalRange
   return !rango || rango.isExpired || rango.isExhausted
@@ -128,8 +155,15 @@ async function accion(fn: () => Promise<unknown>, fallo: string) {
   }
 }
 
+function revisar() {
+  if (!pago.value.amount) return
+  revisando.value = true
+}
+
 function registrarPago() {
   if (!pago.value.amount) return
+
+  revisando.value = false
 
   return accion(
     () =>
@@ -143,6 +177,16 @@ function registrarPago() {
         fiscal: pago.value.emitir && pago.value.conCai,
       }),
     'No se pudo registrar el pago.',
+  )
+}
+
+function anularPago(paymentId: string) {
+  const motivo = prompt('¿Por qué se anula el pago? Queda escrito en el historial.')
+  if (!motivo?.trim()) return
+
+  return accion(
+    () => platformApi.voidPayment(id, paymentId, motivo.trim()),
+    'No se pudo anular el pago.',
   )
 }
 
@@ -256,7 +300,7 @@ onMounted(async () => {
     <p class="situacion" :class="tenant.state.toLowerCase()">{{ situacion }}</p>
 
     <div class="grid">
-      <form class="card" @submit.prevent="registrarPago">
+      <form class="card" @submit.prevent="revisar">
         <h2>Registrar pago</h2>
 
         <div class="row">
@@ -324,7 +368,7 @@ onMounted(async () => {
         </div>
 
         <div class="actions">
-          <button type="submit" :disabled="busy">Registrar</button>
+          <button type="submit" :disabled="busy">Revisar</button>
         </div>
 
         <p class="muted small">
@@ -463,6 +507,61 @@ onMounted(async () => {
       </form>
     </details>
 
+    <!-- Lo que va a pasar al confirmar, con todos sus efectos a la vista. Es el paso que
+         faltaba: el botón emitía el documento y corría el vencimiento de un solo clic. -->
+    <article v-if="revisando" class="card revision">
+      <h2>Revise antes de registrar</h2>
+
+      <dl>
+        <dt>Taller</dt>
+        <dd>{{ tenant.name }}<span v-if="tenant.taxId"> · RTN {{ tenant.taxId }}</span></dd>
+
+        <dt>Monto recibido</dt>
+        <dd class="num">{{ formatMoney(documento.total) }}</dd>
+
+        <template v-if="pago.emitir">
+          <dt>Documento</dt>
+          <dd>
+            {{ pago.conCai && !sinCai ? 'Factura con CAI' : 'Comprobante sin CAI' }}
+            <strong class="mono">{{ numeroQueSale }}</strong>
+          </dd>
+
+          <template v-if="documento.impuesto > 0">
+            <dt>Neto</dt>
+            <dd class="num">{{ formatMoney(documento.neto) }}</dd>
+            <dt>ISV {{ emisor?.defaultTaxRate }}%</dt>
+            <dd class="num">{{ formatMoney(documento.impuesto) }}</dd>
+          </template>
+        </template>
+        <template v-else>
+          <dt>Documento</dt>
+          <dd>No se emite ninguno.</dd>
+        </template>
+
+        <dt>Queda cubierto hasta</dt>
+        <dd>{{ formatDay(cubreHasta) }}</dd>
+      </dl>
+
+      <!-- Sin RTN la factura sale a consumidor final, y entonces al taller no le sirve para
+           deducirla. Mejor enterarse ahora que cuando la lleve a su contador. -->
+      <p v-if="pago.emitir && pago.conCai && !sinCai && !tenant.taxId" class="aviso">
+        Este taller no tiene RTN registrado: la factura va a salir a consumidor final.
+        Agrégueselo en el plan antes de emitir si lo va a deducir.
+      </p>
+
+      <p v-if="pago.conCai && !sinCai" class="aviso">
+        Consume el número {{ numeroQueSale }} del rango autorizado. Un número emitido no se
+        devuelve: si se registra por error, el documento se anula pero el número ya se usó.
+      </p>
+
+      <div class="actions">
+        <button type="button" :disabled="busy" @click="registrarPago">
+          Confirmar y registrar
+        </button>
+        <button type="button" class="link" @click="revisando = false">Corregir</button>
+      </div>
+    </article>
+
     <h2 class="historial">Pagos</h2>
 
     <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
@@ -476,11 +575,15 @@ onMounted(async () => {
           <th scope="col">Referencia</th>
           <th scope="col">Cubrió hasta</th>
           <th scope="col">Documento</th>
+          <th scope="col"></th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="p in data?.payments" :key="p.id">
-          <td>{{ formatDay(p.paidOn) }}</td>
+        <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
+          <td>
+            {{ formatDay(p.paidOn) }}
+            <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
+          </td>
           <td class="num">{{ formatMoney(p.amount) }}</td>
           <td>{{ p.method ?? '—' }}</td>
           <td class="mono">{{ p.reference ?? '—' }}</td>
@@ -503,10 +606,24 @@ onMounted(async () => {
                 :disabled="busy"
                 @click="anularDocumento(p.invoiceId)"
               >
-                Anular
+                Anular documento
               </button>
             </template>
             <span v-else class="muted">—</span>
+          </td>
+          <td>
+            <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
+                 y el documento se va con él. No se borra, para que el historial siga
+                 contestando «¿yo ya te pagué junio?». -->
+            <button
+              v-if="!p.isVoided"
+              type="button"
+              class="link danger"
+              :disabled="busy"
+              @click="anularPago(p.id)"
+            >
+              Anular pago
+            </button>
           </td>
         </tr>
       </tbody>
@@ -683,5 +800,48 @@ td {
 
 .anulado {
   color: var(--danger);
+}
+
+.revision {
+  margin-bottom: 1rem;
+  border-color: var(--accent);
+}
+
+.revision dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.revision dt {
+  color: var(--text-muted);
+}
+
+.revision dd {
+  margin: 0;
+}
+
+.revision .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.revision .aviso {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+}
+
+/* Lo anulado se lee, pero no se confunde con lo que cuenta. */
+tr.anulada td {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+tr.anulada td:first-child,
+tr.anulada td:last-child {
+  text-decoration: none;
 }
 </style>

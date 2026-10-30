@@ -1273,6 +1273,8 @@ export interface PlatformTenant {
   createdAt: string
   /** Con qué trabaja el taller. Lo decidimos nosotros al darlo de alta. */
   worksWith: WorkshopKind
+  /** Su RTN: es lo que lleva impreso la factura que le emitimos. */
+  taxId: string | null
 }
 
 export interface PlatformTenantDetail {
@@ -1296,6 +1298,9 @@ export interface SubscriptionPayment {
   invoiceNumber: string | null
   invoiceIsFiscal: boolean
   invoiceIsVoided: boolean
+  /** Registrado por error: no cuenta, pero queda escrito con su motivo. */
+  isVoided: boolean
+  voidReason: string | null
 }
 
 /** Nuestros datos de emisor: lo que sale en el documento que recibe el taller. */
