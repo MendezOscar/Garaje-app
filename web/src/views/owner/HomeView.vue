@@ -308,7 +308,7 @@ watch(() => auth.activeBranchId, load)
         </p>
       </div>
       <div class="cabecera-acciones">
-        <RouterLink class="boton fantasma" :to="{ name: 'cash-close' }">Cerrar la caja</RouterLink>
+        <RouterLink class="boton fantasma" :to="{ name: 'cash-close' }">Ver la caja del día</RouterLink>
         <!-- La acción más frecuente del mostrador, y hasta hoy estaba a dos pantallas. -->
       </div>
     </header>

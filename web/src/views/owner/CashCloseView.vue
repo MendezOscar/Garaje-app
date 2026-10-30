@@ -87,7 +87,7 @@ onMounted(async () => {
   <section>
     <header class="top">
       <div>
-        <h1>Cierre de caja</h1>
+        <h1>Caja del día</h1>
         <p class="muted small">
           <template v-if="auth.user && auth.user.branches.length > 1">
             <strong>{{ auth.activeBranchName }}</strong> ·
