@@ -53,6 +53,13 @@ class TenantRepository {
     return ((response.data ?? const {})['defaultTaxRate'] as num?)?.toDouble() ?? 0;
   }
 
+  /// Si los precios del taller ya llevan el ISV adentro. De esto depende si facturar cambia
+  /// el total o solo lo desglosa, así que lo necesitan la venta, la factura y la orden.
+  Future<bool> pricesIncludeTax() async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/tenant');
+    return (response.data ?? const {})['pricesIncludeTax'] as bool? ?? true;
+  }
+
   /// Los días de garantía que el taller da por defecto. Cero es sin garantía.
   Future<int> defaultWarrantyDays() async {
     final response = await _dio.get<Map<String, dynamic>>('/api/tenant');
@@ -98,6 +105,7 @@ class TenantSettings {
     required this.storageFreeDays,
     required this.storageDailyRate,
     required this.techniciansSeePrices,
+    this.pricesIncludeTax = true,
     required this.bookingEnabled,
     this.bookingUrl,
     this.worksWith = WorkshopKind.vehiculos,
@@ -117,6 +125,7 @@ class TenantSettings {
         storageFreeDays: (json['storageFreeDays'] as num?)?.toInt() ?? 3,
         storageDailyRate: (json['storageDailyRate'] as num?)?.toDouble() ?? 0,
         techniciansSeePrices: json['techniciansSeePrices'] as bool? ?? true,
+        pricesIncludeTax: json['pricesIncludeTax'] as bool? ?? true,
         bookingEnabled: json['bookingEnabled'] as bool? ?? true,
         bookingUrl: json['bookingUrl'] as String?,
         worksWith: WorkshopKind.fromValue(json['worksWith'] as int?),
@@ -135,6 +144,9 @@ class TenantSettings {
   final int storageFreeDays;
   final double storageDailyRate;
   final bool techniciansSeePrices;
+
+  /// Si los precios del catálogo ya llevan el ISV adentro.
+  final bool pricesIncludeTax;
 
   /// Si el enlace público de citas recibe solicitudes.
   final bool bookingEnabled;
@@ -161,7 +173,9 @@ class TenantSettings {
         'storageDailyRate': storageDailyRate,
         'techniciansSeePrices': techniciansSeePrices,
         // Va siempre, también cuando no se tocó: el servidor reemplaza el taller completo y
-        // omitirlo volvería a encender las citas de un taller que las había apagado.
+        // omitirlo volvería a encender las citas de un taller que las había apagado, o a
+        // meterle el ISV dentro del precio al taller que lo suma aparte.
+        'pricesIncludeTax': pricesIncludeTax,
         'bookingEnabled': bookingEnabled,
       };
 
@@ -179,6 +193,7 @@ class TenantSettings {
     int? storageFreeDays,
     double? storageDailyRate,
     bool? techniciansSeePrices,
+    bool? pricesIncludeTax,
     bool? bookingEnabled,
   }) =>
       TenantSettings(
@@ -195,6 +210,7 @@ class TenantSettings {
         storageFreeDays: storageFreeDays ?? this.storageFreeDays,
         storageDailyRate: storageDailyRate ?? this.storageDailyRate,
         techniciansSeePrices: techniciansSeePrices ?? this.techniciansSeePrices,
+        pricesIncludeTax: pricesIncludeTax ?? this.pricesIncludeTax,
         bookingEnabled: bookingEnabled ?? this.bookingEnabled,
         bookingUrl: bookingUrl,
         worksWith: worksWith,
@@ -216,6 +232,16 @@ final taxRateProvider = FutureProvider<double>((ref) async {
     return await ref.watch(tenantRepositoryProvider).defaultTaxRate();
   } catch (_) {
     return 0;
+  }
+});
+
+/// Si los precios del taller llevan el ISV adentro. Se traga el error como el ISV, y sin
+/// respuesta asume que sí: es como funcionó el sistema hasta que el ajuste existió.
+final precioConIsvProvider = FutureProvider<bool>((ref) async {
+  try {
+    return await ref.watch(tenantRepositoryProvider).pricesIncludeTax();
+  } catch (_) {
+    return true;
   }
 });
 

@@ -212,7 +212,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
               controller: _mileage,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Kilometraje de entrada',
+                labelText: 'Kilometraje o millaje de entrada',
                 border: OutlineInputBorder(),
               ),
             ),
