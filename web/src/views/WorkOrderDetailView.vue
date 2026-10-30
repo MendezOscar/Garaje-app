@@ -1725,7 +1725,8 @@ onMounted(async () => {
               {{ formatMoney(cobro.conFactura) }}: sus precios no llevan el ISV adentro.
             </template>
             <template v-else>
-              Con factura el total es el mismo: el ISV ya va dentro del precio.
+              Con factura el total es el mismo: el ISV ya va dentro del precio y la factura
+              solo lo desglosa.
             </template>
           </p>
           <!-- Lo comprado afuera se le cobra al cliente igual; lo que cambia es si el taller
@@ -1733,13 +1734,6 @@ onMounted(async () => {
           <p v-if="cobro.afuera > 0" class="muted small">
             De eso, {{ formatMoney(cobro.afuera) }} se compró en casa de repuestos. El taller
             factura {{ formatMoney(cobro.facturable) }}.
-          </p>
-          <!-- El ISV solo lo lleva la factura con CAI, así que el estimado va sin él. El otro
-               número queda a la vista para no tener que hacer la cuenta a mano cuando el
-               cliente pregunta cuánto le sale con factura. -->
-          <p v-if="tasaImpuesto && !conCai && !sales.length" class="muted small">
-            Con factura el total es el mismo: el ISV ya va dentro del precio y la factura solo
-            lo desglosa.
           </p>
           <!-- Lo que le queda al taller. Va aquí, pegado al cobro, porque es la pregunta que
                sigue a «cuánto le cobro»: si ese precio deja algo. Solo lo ve el Dueño. -->

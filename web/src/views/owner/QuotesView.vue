@@ -119,6 +119,10 @@ const newLine = ref({
 /** La del taller, para poder prender el ISV de una cotización sin escribir la tasa. */
 const tasaDelTaller = ref(0)
 
+/** Si los precios del taller ya llevan el ISV adentro: es lo que decide si prenderlo sube el
+ *  total o solo dice cuánto de ese total es impuesto. */
+const precioConIsv = ref(true)
+
 const catalog = computed(() =>
   newLine.value.lineType === LineType.Part
     ? parts.value.map((p) => ({ id: p.id, label: `${p.sku} · ${p.name}`, price: p.salePrice }))
@@ -307,7 +311,9 @@ function respond(approve: boolean) {
 }
 
 onMounted(async () => {
-  tasaDelTaller.value = (await tenantApi.get().catch(() => null))?.defaultTaxRate ?? 0
+  const taller = await tenantApi.get().catch(() => null)
+  tasaDelTaller.value = taller?.defaultTaxRate ?? 0
+  precioConIsv.value = taller?.pricesIncludeTax ?? true
   await load()
   abrirDondeHayTrabajo()
   // Se puede llegar desde el detalle de una orden con ?id=…
@@ -479,8 +485,9 @@ onMounted(async () => {
           No incluye ISV.
         </p>
 
-        <!-- El ISV va dentro del precio: prenderlo no sube el total, solo dice cuánto de ese
-             total es impuesto. Se decide por cotización porque no todo trabajo se factura. -->
+        <!-- Se decide por cotización porque no todo trabajo se factura. Lo que cambia al
+             prenderlo depende del taller: con el ISV dentro del precio el total es el mismo y
+             solo se dice cuánto de él es impuesto; con el ISV aparte, se le suma. -->
         <label v-if="selected.isEditable && tasaDelTaller > 0" class="check">
           <input
             type="checkbox"
@@ -488,7 +495,8 @@ onMounted(async () => {
             :disabled="busy"
             @change="toggleIsv(($event.target as HTMLInputElement).checked)"
           />
-          Cotizar con ISV {{ tasaDelTaller }}% incluido (el total no cambia)
+          Cotizar con ISV {{ tasaDelTaller }}%
+          {{ precioConIsv ? 'incluido (el total no cambia)' : 'agregado (sube el total)' }}
         </label>
 
         <form v-if="selected.isEditable" class="add" @submit.prevent="addLine">
