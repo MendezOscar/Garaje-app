@@ -142,7 +142,8 @@ puede reintentar el `PUT` sin repetir la petición completa.
 | DELETE | `/api/media/{id}` | quien la subió, o el Dueño | Borra la foto y sus objetos |
 
 `ownerType`: `1` requerimiento · `2` orden de trabajo · `3` paso de la reparación ·
-`4` cotización.
+`4` cotización · `5` comprobante de gasto · `6` recepción (cómo entró; el id es el de la
+orden, y son las que salen en la ficha).
 
 El **Cliente** solo adjunta a sus requerimientos: el proceso de reparación y el presupuesto los
 documenta el taller. El **Técnico** no ve cotizaciones, así que tampoco sus fotos.

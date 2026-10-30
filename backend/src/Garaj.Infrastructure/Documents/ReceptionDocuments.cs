@@ -18,7 +18,7 @@ public class ReceptionDocuments(
     IMediaService media,
     IStorageService storage)
 {
-    /// <summary>Cuántas fotos de la orden entran en la ficha.</summary>
+    /// <summary>Cuántas fotos entran en la ficha.</summary>
     private const int FotosEnLaFicha = 6;
 
     /// <summary>El documento de la ficha, o null si la orden no tiene recepción llenada.</summary>
@@ -71,8 +71,15 @@ public class ReceptionDocuments(
 
         var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
         var firma = await FirmaAsync(datos.SignatureStorageKey, ct);
+        // Primero las que se tomaron al recibirlo, que es lo que esta hoja prueba. Si no las
+        // hay —las fichas de antes de que se pudieran tomar aquí— caen las de la orden, para
+        // que una ficha vieja siga saliendo como salía.
         var fotos = await media.DownloadThumbnailsAsync(
-            MediaOwnerType.WorkOrder, workOrderId, tenant.Id, FotosEnLaFicha, ct);
+            MediaOwnerType.Reception, workOrderId, tenant.Id, FotosEnLaFicha, ct);
+
+        if (fotos.Count == 0)
+            fotos = await media.DownloadThumbnailsAsync(
+                MediaOwnerType.WorkOrder, workOrderId, tenant.Id, FotosEnLaFicha, ct);
 
         return ReceptionPdf.Build(
             datos.Ficha with { ReceivedByName = recibio },

@@ -11,7 +11,9 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/api/api_client.dart';
 import '../../core/taller/vocabulario.dart';
 import '../../core/api/work_order_repository.dart';
+import '../../core/models/media.dart';
 import '../../core/theme/garaj_brand.dart';
+import 'photo_gallery.dart';
 
 /// Cómo entró el vehículo: combustible, los golpes que ya traía, lo que el cliente deja
 /// adentro, y su firma.
@@ -230,10 +232,23 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Las fotos van en la orden, en «Fotos». Una del golpe vale más que describirlo.',
+            'Una foto del golpe vale más que describirlo.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+          const SizedBox(height: 12),
+
+          // Las fotos de cómo entró, aquí mismo: salir a la galería de la orden con el
+          // cliente esperando era el paso que no se daba, y son las que salen en la ficha.
+          PhotoGallery(
+            ownerId: widget.workOrderId,
+            ownerType: MediaOwnerType.reception,
+            canEdit: true,
+            titulo: 'FOTOS DE CÓMO ENTRÓ',
+            vacioPropio: 'Tome las fotos ahora, con el cliente delante: son las que salen en '
+                'la ficha y las que contestan después si el golpe ya venía.',
+            vacioAjeno: 'No hay fotos de cómo entró.',
           ),
           const SizedBox(height: 12),
 

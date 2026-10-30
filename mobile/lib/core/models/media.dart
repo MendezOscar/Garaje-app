@@ -9,7 +9,10 @@ enum MediaOwnerType {
   quote(4),
 
   /// El comprobante del gasto. Es lo que lo respalda cuando alguien lo discute.
-  expense(5);
+  expense(5),
+
+  /// Cómo entró el vehículo o el equipo. Son las que salen en la ficha de recepción.
+  reception(6);
 
   const MediaOwnerType(this.value);
 

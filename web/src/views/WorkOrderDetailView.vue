@@ -1992,6 +1992,10 @@ onMounted(async () => {
             </p>
             <button type="submit" :disabled="busy">Guardar la recepción</button>
           </form>
+
+          <!-- Las fotos de cómo entró, dentro de la ficha y no en la galería del proceso:
+               son las que contestan «ese golpe ya venía» y las que salen en el PDF. -->
+          <PhotoGallery :reception-id="id" :can-edit="canEdit" />
         </article>
 
         <!-- Plegado: un vehículo con años de taller trae veinte visitas y empujaba la línea de
