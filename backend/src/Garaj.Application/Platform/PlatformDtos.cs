@@ -34,7 +34,8 @@ public record PlatformTenantDto(
     /// <summary>Con qué trabaja el taller. Lo decidimos nosotros, no él.</summary>
     WorkshopKind WorksWith = WorkshopKind.Vehicles,
     /// <summary>Su RTN, que es lo que lleva impreso la factura que le emitimos.</summary>
-    string? TaxId = null);
+    string? TaxId = null,
+    string? Address = null);
 
 public record PlatformTenantDetailDto(
     PlatformTenantDto Tenant,
@@ -136,6 +137,20 @@ public record CreateOwnerRequest(string Email, string FullName, string? Password
 /// <summary>El acuerdo de pago: hasta cuándo se le suelta el freno y por qué.</summary>
 public record PaymentAgreementRequest(DateOnly UnblockedThrough, string? Note);
 
+/// <summary>
+/// La ficha del taller como cliente nuestro: lo que sale impreso en la factura que le
+/// emitimos. El Dueño edita la suya desde su panel; esto es para lo que nos toca a nosotros
+/// —el RTN que nos dicta por teléfono, el nombre mal escrito el día del alta— sin tener que
+/// pedirle que entre a arreglarlo.
+/// </summary>
+public record UpdateTenantRequest(
+    string Name,
+    string? LegalName,
+    string? TaxId,
+    string? Phone,
+    string? Email,
+    string? Address);
+
 public record UpdateSubscriptionRequest(
     string? PlanName,
     decimal MonthlyFee,
@@ -176,6 +191,10 @@ public interface IPlatformService
     /// </summary>
     Task<PlatformTenantDto> SetWorksWithAsync(
         Guid tenantId, WorkshopKind worksWith, CancellationToken ct = default);
+
+    /// <summary>Corrige los datos del taller: nombre, razón social, RTN y contactos.</summary>
+    Task<PlatformTenantDto> UpdateTenantAsync(
+        Guid tenantId, UpdateTenantRequest request, CancellationToken ct = default);
 
     Task<PlatformTenantDto> UpdateSubscriptionAsync(
         Guid tenantId, UpdateSubscriptionRequest request, CancellationToken ct = default);
