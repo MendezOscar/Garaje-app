@@ -555,9 +555,12 @@ export const partsApi = {
   async downloadImportTemplate() {
     await download('/api/parts/import/template', 'Plantilla de repuestos.xlsx')
   },
-  /** Con `apply` en falso es la vista previa: dice qué entraría, sin guardar nada. */
-  async importCatalog(file: File, apply: boolean) {
-    return subirCatalogo('/api/parts/import', file, apply)
+  /**
+   * Con `apply` en falso es la vista previa: dice qué entraría, sin guardar nada.
+   * `branchId` es la bodega a la que entran la existencia inicial, el mínimo y la ubicación.
+   */
+  async importCatalog(file: File, apply: boolean, branchId?: string) {
+    return subirCatalogo('/api/parts/import', file, apply, branchId)
   },
 }
 
@@ -707,12 +710,12 @@ export const laborServicesApi = {
  * Sube la plantilla llena. Multipart y no JSON: el que lee el Excel es el servidor, que es
  * donde viven las reglas de qué es un renglón válido.
  */
-async function subirCatalogo(url: string, file: File, apply: boolean) {
+async function subirCatalogo(url: string, file: File, apply: boolean, branchId?: string) {
   const form = new FormData()
   form.append('file', file)
 
   const { data } = await api.post<ImportResult>(url, form, {
-    params: { apply },
+    params: { apply, branchId },
     // Sin Content-Type explícito: axios le pone el boundary que necesita el multipart.
     headers: { 'Content-Type': undefined },
   })

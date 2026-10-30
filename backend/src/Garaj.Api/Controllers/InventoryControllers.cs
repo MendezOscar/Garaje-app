@@ -51,17 +51,20 @@ public class PartsController(IPartService service) : ControllerBase
     /// Carga la plantilla llena. Con `apply=false` —lo primero que hace el panel— devuelve
     /// qué entraría y qué fila está mal, sin guardar nada.
     /// </summary>
+    /// <param name="branchId">
+    /// A qué bodega entran la existencia inicial, el mínimo y la ubicación del archivo.
+    /// </param>
     [HttpPost("import")]
     [Authorize(Policy = AppPolicies.ManagementOnly)]
     [RequestSizeLimit(8 * 1024 * 1024)]
     public async Task<ActionResult<ImportResultDto>> Import(
-        IFormFile file, [FromQuery] bool apply, CancellationToken ct)
+        IFormFile file, [FromQuery] bool apply, [FromQuery] Guid? branchId, CancellationToken ct)
     {
         if (file is null || file.Length == 0)
             throw new AppException("Adjunte el archivo de la plantilla.");
 
         await using var stream = file.OpenReadStream();
-        return Ok(await service.ImportAsync(stream, apply, ct));
+        return Ok(await service.ImportAsync(stream, apply, branchId, ct));
     }
 }
 

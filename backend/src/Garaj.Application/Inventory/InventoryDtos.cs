@@ -197,7 +197,12 @@ public interface IPartService
     /// Lee la plantilla llena. Con <paramref name="apply"/> en falso es la vista previa: dice
     /// qué entraría y qué fila está mal, sin guardar nada.
     /// </summary>
-    Task<ImportResultDto> ImportAsync(Stream file, bool apply, CancellationToken ct = default);
+    /// <param name="branchId">
+    /// A qué bodega entran la existencia inicial, el mínimo y la ubicación. Sin ella solo se
+    /// carga el catálogo, que es del taller entero.
+    /// </param>
+    Task<ImportResultDto> ImportAsync(
+        Stream file, bool apply, Guid? branchId = null, CancellationToken ct = default);
 }
 
 public interface IStockService

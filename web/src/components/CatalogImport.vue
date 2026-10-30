@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { errorMessage } from '@/api/client'
-import { laborServicesApi, partsApi } from '@/api/garaj'
+import { branchesApi, laborServicesApi, partsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
-import type { ImportResult } from '@/types/domain'
+import type { Branch, ImportResult } from '@/types/domain'
 
 /**
  * Cargar el catálogo desde la plantilla de Excel.
@@ -22,6 +22,13 @@ const que = computed(() => (props.kind === 'parts' ? 'repuestos' : 'servicios'))
 
 const abierto = ref(false)
 const archivo = ref<File | null>(null)
+
+/**
+ * A qué bodega entran la existencia inicial, el mínimo y la ubicación. El catálogo es del
+ * taller entero, pero lo que hay en bodega es de una sucursal: con varias, hay que decir cuál.
+ */
+const sucursales = ref<Branch[]>([])
+const sucursal = ref('')
 const entrada = ref<HTMLInputElement | null>(null)
 const previa = ref<ImportResult | null>(null)
 const guardado = ref<ImportResult | null>(null)
@@ -31,9 +38,18 @@ const error = ref('')
 /** Lo que de verdad va a entrar: los renglones sin error. */
 const buenos = computed(() => (previa.value?.created ?? 0) + (previa.value?.updated ?? 0))
 
-function abrir() {
+async function abrir() {
   abierto.value = true
   limpiar()
+
+  if (props.kind !== 'parts' || sucursales.value.length) return
+
+  try {
+    sucursales.value = await branchesApi.list()
+    sucursal.value = sucursales.value[0]?.id ?? ''
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudieron cargar las sucursales.')
+  }
 }
 
 function limpiar() {
@@ -64,12 +80,19 @@ async function elegir(event: Event) {
   busy.value = true
 
   try {
-    previa.value = await api.value.importCatalog(file, false)
+    previa.value = await importar(file, false)
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo leer el archivo.')
   } finally {
     busy.value = false
   }
+}
+
+/** La sucursal solo viaja en la carga de repuestos: la mano de obra es del taller entero. */
+function importar(file: File, apply: boolean) {
+  return props.kind === 'parts'
+    ? partsApi.importCatalog(file, apply, sucursal.value || undefined)
+    : laborServicesApi.importCatalog(file, apply)
 }
 
 async function guardar() {
@@ -79,7 +102,7 @@ async function guardar() {
   error.value = ''
 
   try {
-    guardado.value = await api.value.importCatalog(archivo.value, true)
+    guardado.value = await importar(archivo.value, true)
     previa.value = null
     emit('imported')
   } catch (e) {
@@ -104,6 +127,12 @@ async function guardar() {
         <li>
           Baje la plantilla y llénela con su catálogo.
           <button type="button" class="link" @click="bajarPlantilla">Bajar la plantilla</button>
+        </li>
+        <li v-if="kind === 'parts' && sucursales.length > 1">
+          Diga a qué bodega entran la existencia inicial, el mínimo y la ubicación.
+          <select v-model="sucursal">
+            <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
         </li>
         <li>
           Súbala aquí. Antes de guardar le enseñamos qué va a entrar.

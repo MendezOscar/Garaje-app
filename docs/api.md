@@ -584,7 +584,7 @@ existe para que no haya que teclearlo renglón por renglón.
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
 | GET | `/api/parts/import/template` | Dueño o Encargado | La plantilla de repuestos en blanco (.xlsx) |
-| POST | `/api/parts/import?apply=` | Dueño o Encargado | Lee la plantilla llena; con `apply=false` es la vista previa |
+| POST | `/api/parts/import?apply=&branchId=` | Dueño o Encargado | Lee la plantilla llena; con `apply=false` es la vista previa |
 | GET | `/api/labor-services/import/template` | Dueño | La plantilla de mano de obra |
 | POST | `/api/labor-services/import?apply=` | Dueño | Igual, para mano de obra |
 
@@ -604,6 +604,13 @@ Decisiones que conviene conocer:
   renglones estén mal: se corrigen y se vuelve a subir.
 - **Mano de obra: «Cómo se cobra» decide**. Con `fijo` manda el precio fijo; con `hora`, la
   tarifa por hora y las horas que el sistema propone en cada trabajo.
+- **Repuestos: las tres últimas columnas son de una bodega.** El catálogo es del taller, pero
+  la existencia inicial, el mínimo y la ubicación son de una sucursal, y por eso la carga pide
+  `branchId`. Sin él, una fila que las traiga se marca con error en vez de perderlas.
+- **La existencia inicial entra como movimiento**, con su referencia «Carga inicial» y a
+  nombre de quien sube el archivo: el stock no se edita, se mueve. Volver a subir el mismo
+  archivo la suma otra vez —para corregir una cantidad mal contada está el ajuste por conteo—,
+  y la plantilla lo advierte en su hoja de instrucciones.
 
 ### Historial que se le manda al cliente
 

@@ -25,6 +25,16 @@ public static class CatalogSheets
     /// <summary>Lo que se leyó de una fila: el dato, o el error que impide guardarla.</summary>
     public record Fila<T>(int Numero, string Key, string Name, T? Dato, string? Error);
 
+    /// <summary>
+    /// Un renglón de la plantilla de repuestos: el repuesto, que es del taller, y lo que es
+    /// de la bodega de una sucursal —cuánto hay, dónde está y cuándo hay que reponer—.
+    /// </summary>
+    public record RepuestoDeExcel(
+        SavePartRequest Parte,
+        decimal? Minimo,
+        string? Ubicacion,
+        decimal? Existencia);
+
     // ------------------------------------------------------------------ repuestos
 
     public static byte[] PlantillaDeRepuestos()
@@ -34,13 +44,13 @@ public static class CatalogSheets
         var hoja = libro.Worksheets.Add("Repuestos");
         Encabezados(hoja, [
             "SKU", "Nombre", "Descripción", "Marca", "Categoría", "Unidad",
-            "Costo", "Precio de venta"
+            "Costo", "Precio de venta", "Existencia inicial", "Mínimo", "Ubicación"
         ]);
 
         Ejemplo(hoja, 2, ["AC-15W40", "Aceite 15W40 litro", "Aceite de motor mineral",
-            "Castrol", "Lubricantes", "lt", 95m, 140m]);
+            "Castrol", "Lubricantes", "lt", 95m, 140m, 24m, 6m, "Estante A1"]);
         Ejemplo(hoja, 3, ["FIL-A-203", "Filtro de aceite 203", null,
-            "Fram", "Filtros", "u", 85m, 160m]);
+            "Fram", "Filtros", "u", 85m, 160m, 10m, 3m, "Estante B3"]);
 
         hoja.Columns().AdjustToContents();
 
@@ -54,6 +64,18 @@ public static class CatalogSheets
             "Costo — lo que a usted le cuesta. Puede ir en cero y corregirse al darle entrada.",
             "Precio de venta — lo que le cobra al cliente.",
             "",
+            "LAS TRES ÚLTIMAS COLUMNAS SON DE LA BODEGA, y entran a la sucursal que usted elija",
+            "al subir el archivo. Si tiene varias sucursales, suba un archivo por cada una.",
+            "",
+            "Existencia inicial — cuánto hay hoy en esa bodega. Entra como una entrada en el",
+            "kardex, con fecha de hoy y a nombre de quien sube el archivo: el sistema nunca",
+            "edita existencias a mano. Déjela en blanco si todavía va a contar.",
+            "Mínimo — por debajo de esta cantidad el repuesto sale en las alertas de reposición.",
+            "Ubicación — dónde está en la bodega: «Estante A1», «Bodega 2», lo que usted use.",
+            "",
+            "Si vuelve a subir el mismo archivo, la existencia inicial entra OTRA VEZ: para",
+            "corregir una cantidad mal contada use el ajuste por conteo, no otra carga.",
+            "",
             "Las dos filas de ejemplo se pueden borrar o escribir encima.",
             "Los precios van en números, sin la L ni separador de miles."
         ]);
@@ -61,10 +83,10 @@ public static class CatalogSheets
         return Guardar(libro);
     }
 
-    public static IReadOnlyList<Fila<SavePartRequest>> LeerRepuestos(Stream archivo)
+    public static IReadOnlyList<Fila<RepuestoDeExcel>> LeerRepuestos(Stream archivo)
     {
         var (hoja, columnas) = Abrir(archivo, "Repuestos");
-        var filas = new List<Fila<SavePartRequest>>();
+        var filas = new List<Fila<RepuestoDeExcel>>();
 
         foreach (var fila in Usadas(hoja))
         {
@@ -88,20 +110,34 @@ public static class CatalogSheets
             if (error is null && (costo < 0 || venta < 0))
                 error = "Los precios no pueden ser negativos.";
 
-            filas.Add(new Fila<SavePartRequest>(
+            var existencia = Numero(fila, columnas, "existencia inicial");
+            var minimo = Numero(fila, columnas, "mínimo");
+
+            if (error is null && existencia is null && Tiene(fila, columnas, "existencia inicial"))
+                error = "La existencia inicial no es un número.";
+            if (error is null && minimo is null && Tiene(fila, columnas, "mínimo"))
+                error = "El mínimo no es un número.";
+            if (error is null && (existencia < 0 || minimo < 0))
+                error = "La existencia y el mínimo no pueden ser negativos.";
+
+            filas.Add(new Fila<RepuestoDeExcel>(
                 fila.RowNumber(),
                 sku ?? "",
                 nombre ?? "",
                 error is null
-                    ? new SavePartRequest(
-                        sku!,
-                        nombre!,
-                        Texto(fila, columnas, "descripción"),
-                        Texto(fila, columnas, "marca"),
-                        Texto(fila, columnas, "categoría"),
-                        Texto(fila, columnas, "unidad") ?? "u",
-                        costo ?? 0m,
-                        venta ?? 0m)
+                    ? new RepuestoDeExcel(
+                        new SavePartRequest(
+                            sku!,
+                            nombre!,
+                            Texto(fila, columnas, "descripción"),
+                            Texto(fila, columnas, "marca"),
+                            Texto(fila, columnas, "categoría"),
+                            Texto(fila, columnas, "unidad") ?? "u",
+                            costo ?? 0m,
+                            venta ?? 0m),
+                        minimo,
+                        Texto(fila, columnas, "ubicación"),
+                        existencia)
                     : null,
                 error));
         }
