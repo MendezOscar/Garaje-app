@@ -104,6 +104,14 @@ onMounted(load)
         </span>
       </header>
 
+      <!-- Lo primero, en grande: el cliente abre esto a ver cuánto cuesta. Estaba al final,
+           después de sus propios datos y de todas las líneas. -->
+      <section class="precio">
+        <span class="muted small">Lo que costaría</span>
+        <strong>{{ money(quote.total) }}</strong>
+        <span class="muted small">{{ textoDelIsv }}</span>
+      </section>
+
       <dl class="meta">
         <div>
           <dt>Cliente</dt>
@@ -133,13 +141,17 @@ onMounted(load)
         <tbody>
           <tr v-for="(line, i) in quote.lines" :key="i">
             <td>
-              {{ line.description }}
+              {{ sinCodigo(line.description) }}
               <!--
                 Dicho en la línea y no en una nota al pie: este repuesto el taller lo compra
                 afuera para el trabajo, no sale de su bodega, y no va en su factura.
               -->
               <div class="muted small">
-                {{ LINE_TYPE_LABEL[line.lineType] }}
+                <!-- Sin repetir: una línea que ya se llama «Mano de obra» no necesita que
+                     debajo diga «Mano de obra». -->
+                <template v-if="!sinCodigo(line.description).toLowerCase().startsWith(LINE_TYPE_LABEL[line.lineType].toLowerCase())">
+                  {{ LINE_TYPE_LABEL[line.lineType] }}
+                </template>
                 <template v-if="line.seCompraAfuera">
                   · se compra en {{ line.casaDeRepuestos || 'casa de repuestos' }}
                 </template>
@@ -155,7 +167,8 @@ onMounted(load)
       <!-- Con ISV el desglose reemplaza al subtotal: neto, impuesto y total, que es lo que
            el cliente puede comprobar sumando las líneas de arriba. -->
       <div class="totals">
-        <div v-if="quote.taxRate === 0">
+        <!-- El subtotal solo cuando dice algo: sin descuento ni impuesto es el total otra vez. -->
+        <div v-if="quote.taxRate === 0 && quote.discountTotal > 0">
           <span>Subtotal</span><span>{{ money(quote.subtotal) }}</span>
         </div>
         <div v-if="quote.discountTotal > 0">
@@ -172,9 +185,7 @@ onMounted(load)
         Pegado al total y no en letra chica al final: el cliente que después pide factura con
         CAI tiene que ver desde hoy que el impuesto se le suma, no enterarse al pagar.
       -->
-      <p v-if="quote.taxRate === 0" class="sin-isv">
-        No incluye ISV.
-      </p>
+
 
       <!--
         Las fotos van entre el precio y el botón de aprobar: es donde el cliente se pregunta
@@ -200,9 +211,9 @@ onMounted(load)
       <ErrorNote v-if="error" :message="error" />
 
       <!-- Respuesta del cliente -->
-      <section v-if="quote.canRespond" class="respond">
+      <section v-if="quote.canRespond" class="respond" :class="{ fija: !confirming }">
         <template v-if="!confirming">
-          <p>¿Autoriza que procedamos con este trabajo?</p>
+          <p class="pregunta">¿Autoriza que procedamos?</p>
           <div class="actions">
             <button type="button" class="primary" @click="confirming = 'approve'">
               Aprobar cotización
@@ -282,6 +293,41 @@ onMounted(load)
 </template>
 
 <style scoped>
+/* Pegada abajo mientras no se haya contestado: en el teléfono, aprobar quedaba al final de
+   una página larga y había que acordarse de bajar hasta allá. */
+.respond.fija {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1rem -1.5rem -1.5rem;
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.respond.fija .pregunta {
+  margin: 0;
+}
+
+.precio {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.precio strong {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
 .fotos-seccion h2 {
   margin: 0 0 0.5rem;
   font-size: 1rem;

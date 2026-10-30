@@ -38,6 +38,58 @@ const cerrada = computed(
 
 const pasosHechos = computed(() => order.value?.steps.filter((s) => s.isDone).length ?? 0)
 
+/**
+ * El estado dicho como se lo diría el del mostrador: «Lo están reparando», no «En proceso».
+ * Va primero y en grande, porque es lo único que el cliente abre a ver.
+ */
+const ETAPAS = [
+  { estados: [WorkOrderStatus.Received], texto: 'Lo recibimos' },
+  { estados: [WorkOrderStatus.Diagnosing], texto: 'Lo estamos revisando' },
+  {
+    estados: [WorkOrderStatus.WaitingApproval, WorkOrderStatus.WaitingParts],
+    texto: 'Esperando para seguir',
+  },
+  {
+    estados: [WorkOrderStatus.InProgress, WorkOrderStatus.Testing],
+    texto: 'Lo están reparando',
+  },
+  {
+    estados: [WorkOrderStatus.Ready, WorkOrderStatus.Delivered],
+    texto: 'Listo para entregar',
+  },
+]
+
+const etapa = computed(() => {
+  const estado = order.value?.status
+  if (estado === undefined) return { indice: 0, texto: '' }
+
+  if (estado === WorkOrderStatus.Cancelled) return { indice: -1, texto: 'Cancelada' }
+  if (estado === WorkOrderStatus.Delivered) return { indice: 4, texto: 'Entregado' }
+
+  const indice = ETAPAS.findIndex((e) => e.estados.includes(estado))
+  return { indice, texto: ETAPAS[indice]?.texto ?? '' }
+})
+
+/**
+ * La fecha prometida solo mientras siga valiendo. Decirle «prometido para el 28 de agosto»
+ * el 29 de octubre es recordarle que el taller no cumplió, en la primera línea.
+ */
+const prometidoSigueValiendo = computed(
+  () =>
+    !cerrada.value &&
+    order.value?.promisedAt != null &&
+    new Date(order.value.promisedAt) >= new Date(),
+)
+
+/** Lo más nuevo primero, y sin repetir el mismo estado dos veces seguidas. */
+const linea = computed(() => {
+  const entradas = [...(order.value?.timeline ?? [])].reverse()
+
+  return entradas.filter(
+    (entrada, i) => i === 0 || entrada.statusLabel !== entradas[i - 1].statusLabel,
+  )
+})
+
 onMounted(async () => {
   try {
     order.value = await publicOrdersApi.get(token.value)
@@ -71,16 +123,34 @@ onMounted(async () => {
           </p>
         </div>
 
-        <div class="estado">
-          <span class="chip">{{ order.statusLabel }}</span>
-          <span v-if="!cerrada && order.promisedAt" class="muted small">
-            Prometido para {{ formatDate(order.promisedAt) }}
-          </span>
-          <span v-else-if="order.closedAt" class="muted small">
-            Entregada el {{ formatDate(order.closedAt) }}
-          </span>
-        </div>
+        <!-- Escribir al taller, arriba: era lo último de la página y es lo primero que
+             quiere hacer quien no entiende algo. -->
+        <a
+          v-if="order.tenantPhone"
+          class="escribir"
+          :href="`https://wa.me/${order.tenantPhone}`"
+          target="_blank"
+          rel="noopener"
+        >
+          Escribir al taller
+        </a>
       </header>
+
+      <section class="ahora">
+        <strong class="etapa">{{ etapa.texto }}</strong>
+        <p v-if="prometidoSigueValiendo" class="muted small">
+          Prometido para {{ formatDate(order.promisedAt!) }}
+        </p>
+        <p v-else-if="order.closedAt" class="muted small">
+          Entregado el {{ formatDate(order.closedAt) }}
+        </p>
+        <p v-else-if="!cerrada" class="muted small">Le avisamos cuando esté listo.</p>
+
+        <!-- Las cinco etapas, para ubicar de un vistazo dónde va sin leer la línea de tiempo. -->
+        <ol v-if="etapa.indice >= 0" class="etapas" aria-hidden="true">
+          <li v-for="(e, i) in ETAPAS" :key="i" :class="{ pasada: i <= etapa.indice }" />
+        </ol>
+      </section>
 
       <dl class="meta">
         <div>
@@ -135,10 +205,10 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="order.timeline.length">
+      <section v-if="linea.length">
         <h2>Cómo ha avanzado</h2>
         <ol class="linea">
-          <li v-for="(entry, i) in order.timeline" :key="i">
+          <li v-for="(entry, i) in linea" :key="i">
             <strong>{{ entry.statusLabel }}</strong>
             <span class="muted small">{{ formatDateTime(entry.changedAt) }}</span>
             <p v-if="entry.note" class="nota">{{ entry.note }}</p>
@@ -172,14 +242,6 @@ onMounted(async () => {
         <a v-if="order.invoice" :href="facturaUrl" target="_blank" rel="noopener">
           Descargar la factura
         </a>
-        <a
-          v-if="order.tenantPhone"
-          :href="`https://wa.me/${order.tenantPhone}`"
-          target="_blank"
-          rel="noopener"
-        >
-          Escribir al taller
-        </a>
       </footer>
     </article>
 
@@ -192,6 +254,47 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.escribir {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+
+.ahora {
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.etapa {
+  font-size: 1.375rem;
+  line-height: 1.2;
+}
+
+.etapas {
+  display: flex;
+  gap: 4px;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.etapas li {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.etapas li.pasada {
+  background: var(--accent);
+}
+
 .page {
   min-height: 100dvh;
   padding: 1rem;
