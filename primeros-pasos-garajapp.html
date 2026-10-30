@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!--
+  Primeros pasos de GarajApp: lo que el taller hace el primer día, en orden. Hermano de
+  propuesta-garajapp.html —mismo estilo, mismo ancho, misma impresión— pero este se entrega
+  *después* de contratar: la propuesta dice qué es, este dice qué hacer.
+
+  Se manda por WhatsApp o correo, o se imprime a PDF (Cmd+P → Guardar como PDF). Para otro
+  taller se cambian el nombre y la fecha de arriba a la derecha; lo demás vale igual.
+
+  Los enlaces de las tiendas son los mismos que publica la página de venta
+  (web/src/views/LandingView.vue): si cambian allá, cambian aquí.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Primeros pasos — GarajApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  h1, h2, h3, .paso .n { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+  .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
+  h1 { font-size: 26px; letter-spacing:-0.02em; }
+  h2 { font-size: 17px; color:var(--brand-dark); margin: 26px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
+  h3 { font-size:15px; margin:18px 0 4px; color:var(--brand-dark); }
+  p, li, td, th { font-size: 14.5px; }
+  .muted { color: var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
+  .meta { text-align:right; font-size:13px; color:var(--muted); }
+  ul, ol { margin: 6px 0 6px 20px; }
+  ul li, ol li { margin: 3px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; font-size:14px; }
+  th, td { text-align:left; padding: 9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background: var(--brand-light); color:var(--brand-dark); }
+  /* El número del paso, grande a la izquierda: es un documento para seguir en orden, no para
+     leer de corrido. */
+  .paso { display:flex; gap:14px; align-items:flex-start; margin-top:14px; }
+  .paso .n { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .tiendas { display:flex; gap:14px; margin-top:12px; }
+  .tienda { flex:1; border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .tienda strong { font-size:15px; }
+  .tienda a { color:var(--brand-dark); word-break:break-all; font-size:12.5px; }
+  .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:12px; font-size:14px; }
+  .aviso { border-left:4px solid var(--brand); background:#fbfcfe; padding:10px 14px; margin-top:10px; font-size:14px; }
+  code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
+  .check { list-style:none; margin-left:0; }
+  .check li { padding-left:26px; position:relative; margin:5px 0; }
+  .check li::before { content:"☐"; position:absolute; left:4px; font-size:16px; color:var(--brand); }
+  .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+  @media print {
+    body { background:#fff; }
+    .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
+    @page { margin: 14mm; }
+    h2 { break-after: avoid; }
+    .paso, .tiendas, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="246" height="77" role="img" aria-label="GarajApp">
+      <title>GarajApp — logotipo horizontal</title>
+      <path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#1F6FEB"></path>
+      <text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#14171C">G</text>
+      <g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#14171C">GarajApp</text></g>
+      </svg>
+      <p class="muted" style="margin-top:2px">El taller ordenado, desde el teléfono</p>
+    </div>
+    <div class="meta">
+      <strong>Primeros pasos</strong><br />
+      Preparado para: <strong>su taller</strong><br />
+      Fecha: 30 de octubre de 2026<br />
+      Tiempo estimado: una hora
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px">Lo que hay que hacer el primer día</h1>
+  <p class="muted" style="margin-top:6px">Tres pasos, en este orden. Al terminarlos el taller puede recibir su primer vehículo con todo adentro: su catálogo, sus precios, su gente y sus ajustes. No hace falta saber de computadoras, y nosotros lo acompañamos por WhatsApp mientras lo hace.</p>
+
+  <div class="hl">
+    <strong>Antes de empezar</strong> ya le entregamos tres cosas: el <strong>correo y la contraseña</strong> del Dueño, el taller <strong>creado</strong> con sus sucursales, y este documento. Si le falta alguna, escríbanos antes de seguir.
+  </div>
+
+  <h2>Paso 1 · Entrar al panel y descargar la app</h2>
+
+  <div class="paso">
+    <div class="n">1</div>
+    <div>
+      <h3 style="margin-top:0">El panel, desde la computadora del mostrador</h3>
+      <p>Abra <strong>www.garajeapp.com</strong> en el navegador y entre con el correo y la contraseña que le dimos. El panel es donde se configura el taller, se carga el catálogo y se miran los reportes. No se instala nada.</p>
+      <p style="margin-top:6px"><strong>Lo primero adentro:</strong> cambie su contraseña. Está en su nombre, abajo a la izquierda. La que le dimos la conocemos nosotros.</p>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="n">2</div>
+    <div>
+      <h3 style="margin-top:0">La app, en los teléfonos</h3>
+      <p>Búsquela como <strong>«GarajApp»</strong> en la tienda, o abra el enlace de abajo. Es gratis y la actualización llega sola.</p>
+    </div>
+  </div>
+
+  <div class="tiendas">
+    <div class="tienda">
+      <strong>iPhone — App Store</strong><br />
+      <a href="https://apps.apple.com/app/id6805656010">apps.apple.com/app/id6805656010</a>
+    </div>
+    <div class="tienda">
+      <strong>Android — Google Play</strong><br />
+      <a href="https://play.google.com/store/apps/details?id=com.garaj.garaj_app">play.google.com/store/apps/details?id=com.garaj.garaj_app</a>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Quién</th><th>Qué usa</th><th>Para qué</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Dueño</strong></td><td>Panel y app</td><td>Todo el taller: ajustes, precios, reportes y las dos sucursales si las hay.</td></tr>
+      <tr><td><strong>Encargado</strong></td><td>Panel y app</td><td>Su sucursal: recibir, cotizar, facturar y cobrar.</td></tr>
+      <tr><td><strong>Técnico</strong></td><td>App</td><td>Solo su trabajo: sus órdenes, sus pasos y sus fotos.</td></tr>
+      <tr><td><strong>Cliente</strong></td><td>App o un enlace</td><td>Ver su vehículo, aprobar la cotización y pedir cita. El enlace no necesita instalar nada.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Paso 2 · Los ajustes del taller</h2>
+  <p>Todo esto vive en el panel, en <strong>Ajustes → Datos del taller</strong>. Se hace una sola vez y manda sobre todas las pantallas, así que conviene hacerlo antes de cargar nada.</p>
+
+  <h3>Identidad</h3>
+  <ul>
+    <li><strong>Nombre del taller</strong>, razón social y <strong>RTN</strong>: salen en la cotización y en la factura.</li>
+    <li><strong>Teléfono, correo y dirección</strong>: es lo que el cliente ve en los documentos y en la página que abre por WhatsApp.</li>
+    <li><strong>Logo</strong>: se sube ahí mismo y sale en la factura, en la cotización y en el cartel del código QR.</li>
+  </ul>
+
+  <h3>Cómo cobra el taller</h3>
+  <ul>
+    <li><strong>ISV (%)</strong>: el impuesto que el taller factura. En cero ni se cobra ni se desglosa.</li>
+    <li><strong>Sus precios del catálogo</strong> — la decisión importante, y se toma una vez:
+      <ul>
+        <li><em>Ya llevan el ISV adentro</em>: un repuesto de L 115 cuesta L 115 con factura y sin ella; la factura solo desglosa cuánto de eso es impuesto. <strong>Es lo que hace casi todo taller.</strong></li>
+        <li><em>No lo llevan</em>: ese repuesto son L 115 sin factura, y con factura se le suma el ISV. El cliente paga más por llevarse la factura.</li>
+      </ul>
+      Elija el que ya usa hoy en su cuaderno, y cargue los precios de la misma manera. Cambiarlo después cambia lo que cuesta todo.</li>
+    <li><strong>Garantía por defecto (días)</strong>: la que lleva un trabajo al facturarlo, impresa en la factura. Cero es sin garantía.</li>
+    <li><strong>Bodegaje</strong>: si cobra por el vehículo que nadie retira, cuántos días de gracia da y cuánto por día.</li>
+  </ul>
+
+  <h3>Qué ve el técnico</h3>
+  <p>Un interruptor: si el técnico ve precios y totales, o solo el trabajo. Apagado, el técnico trabaja igual pero no mira cuánto se cobra.</p>
+
+  <h3>Citas</h3>
+  <p>Si deja encendidas las citas, el taller tiene un <strong>enlace propio</strong> que puede mandar por WhatsApp o imprimir en un cartel con su código QR (se baja desde la misma pantalla). Quien lo abra pide su cita sin instalar nada, y a usted le llega a <strong>Citas</strong>.</p>
+
+  <h3>Facturación con CAI <span class="muted">— solo si lo tiene</span></h3>
+  <p>Si el SAR le autorizó un CAI, se registra por sucursal con su rango y su fecha límite, y la factura sale con número autorizado. Sin CAI el sistema trabaja igual: la factura en PDF sirve como comprobante de entrega.</p>
+
+  <h3>Su gente</h3>
+  <p>En <strong>Ajustes → Usuarios</strong> da de alta al encargado y a los técnicos, cada uno con la sucursal donde trabaja. A cada uno le llega su correo y su contraseña para entrar a la app.</p>
+
+  <div class="aviso">Las <strong>sucursales</strong> no se crean desde el panel: se dan de alta con nosotros en la puesta en marcha. Si abre una nueva, escríbanos y queda lista el mismo día.</div>
+
+  <h2>Paso 3 · Cargar su catálogo con las plantillas</h2>
+  <p>Lo que ya tiene en un cuaderno o en una hoja de cálculo no hay que teclearlo: se llena una plantilla de Excel y se sube. Son dos, y se hacen igual.</p>
+
+  <div class="paso">
+    <div class="n">1</div>
+    <div><strong>Baje la plantilla.</strong> En el panel, <strong>Inventario → Cargar desde Excel → Bajar la plantilla</strong>. El archivo trae dos hojas: la que se llena y una de <em>Instrucciones</em> con el detalle de cada columna.</div>
+  </div>
+  <div class="paso">
+    <div class="n">2</div>
+    <div><strong>Llénela.</strong> Una línea por repuesto. Las dos filas de ejemplo se borran o se escribe encima de ellas.</div>
+  </div>
+  <div class="paso">
+    <div class="n">3</div>
+    <div><strong>Súbala.</strong> El sistema le enseña primero cómo quedaría —fila por fila— y le marca en rojo lo que tenga algún problema, con el motivo. Nada se guarda hasta que usted da <strong>Guardar</strong>.</div>
+  </div>
+
+  <h3>Plantilla de repuestos <span class="muted">— Inventario</span></h3>
+  <table>
+    <thead><tr><th>Columna</th><th>Qué va ahí</th></tr></thead>
+    <tbody>
+      <tr><td><strong>SKU</strong> <span class="muted">obligatorio</span></td><td>El código con que usted lo busca y lo dicta. Si ya existe uno igual, la carga <strong>actualiza</strong> ese repuesto en vez de duplicarlo.</td></tr>
+      <tr><td><strong>Nombre</strong> <span class="muted">obligatorio</span></td><td>Como quiere verlo en la orden y en la factura.</td></tr>
+      <tr><td>Descripción, Marca, Categoría</td><td>Opcionales. La categoría sirve para agrupar y buscar.</td></tr>
+      <tr><td>Unidad</td><td><code>u</code>, <code>lt</code>, <code>jgo</code>, <code>par</code>… En blanco se guarda <code>u</code>.</td></tr>
+      <tr><td>Costo</td><td>Lo que a usted le cuesta. Puede ir en cero y corregirse al darle entrada.</td></tr>
+      <tr><td>Precio de venta</td><td>Lo que le cobra al cliente.</td></tr>
+      <tr><td><strong>Existencia inicial</strong></td><td>Cuánto hay hoy en la bodega. Entra como una entrada con su fecha, no como un número suelto.</td></tr>
+      <tr><td><strong>Mínimo</strong></td><td>Debajo de esto el sistema le avisa que hay que reponer.</td></tr>
+      <tr><td><strong>Ubicación</strong></td><td>Dónde está en la bodega: «Estante A1», «Bodega 2».</td></tr>
+    </tbody>
+  </table>
+  <div class="aviso">Las tres últimas columnas son <strong>de la bodega</strong>, y entran a la sucursal que usted elija al subir el archivo. Con varias sucursales, suba <strong>un archivo por cada una</strong>.</div>
+
+  <h3>Plantilla de mano de obra <span class="muted">— Servicios y paquetes → Servicios</span></h3>
+  <p>Mismo camino: <strong>Cargar desde Excel → Bajar la plantilla</strong>. Una línea por servicio.</p>
+  <table>
+    <thead><tr><th>Columna</th><th>Qué va ahí</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Código</strong> <span class="muted">obligatorio</span></td><td>Igual que el SKU: si ya existe, actualiza en vez de duplicar.</td></tr>
+      <tr><td><strong>Nombre</strong> <span class="muted">obligatorio</span></td><td>Como quiere verlo en la orden y en la cotización.</td></tr>
+      <tr><td>Descripción, Categoría</td><td>Opcionales.</td></tr>
+      <tr><td><strong>Cómo se cobra</strong></td><td>Escriba <code>fijo</code> u <code>hora</code>. Es lo único que decide qué columnas llenar.</td></tr>
+      <tr><td>Precio fijo</td><td>Solo para <code>fijo</code>: se cobra ese precio, trabaje lo que trabaje.</td></tr>
+      <tr><td>Tarifa por hora y Horas</td><td>Solo para <code>hora</code>: se cobra la tarifa por las horas. Las horas que ponga son las que el sistema propone, y se pueden cambiar en cada trabajo.</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:10px;font-size:13.5px">Los precios van en números, sin la L ni separador de miles. Cada archivo admite hasta 5,000 líneas; si tiene más, pártalo en dos. Y recuerde el Paso 2: si eligió que sus precios <em>no</em> llevan el ISV adentro, cárguelos sin impuesto — el sistema se lo suma al facturar.</p>
+
+  <h2>Ya está listo — revise esto antes del primer vehículo</h2>
+  <ul class="check">
+    <li>Cambió la contraseña del Dueño.</li>
+    <li>El nombre, el RTN y el logo salen bien en una cotización de prueba.</li>
+    <li>El ISV y «sus precios del catálogo» quedaron como el taller cobra hoy.</li>
+    <li>El encargado y los técnicos ya entran a la app con su propio usuario.</li>
+    <li>El catálogo de repuestos está cargado, con existencias y mínimos.</li>
+    <li>Los precios de mano de obra están cargados.</li>
+    <li>Si tiene CAI, el rango está registrado en su sucursal.</li>
+  </ul>
+
+  <h3>Y lo primero que conviene usar</h3>
+  <ul>
+    <li><strong>Trabajos frecuentes</strong>: guarde el cambio de aceite y lo que más repite, con sus repuestos y su precio. Después la orden se arma de un toque.</li>
+    <li><strong>Recibir vehículo con fotos</strong>: tómelas con el cliente delante. Son las que contestan después si el golpe ya venía.</li>
+    <li><strong>Recordatorio del próximo servicio</strong>: al entregar, anote cuándo le toca volver. Ese es el trabajo que hoy se pierde por no acordarse.</li>
+  </ul>
+
+  <div class="foot">
+    ¿Se trabó en algún paso? Escríbanos y lo hacemos juntos por WhatsApp.<br />
+    <strong>Óscar Méndez</strong> · GarajApp<br />
+    ✉️ soporte@garajeapp.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 www.garajeapp.com
+  </div>
+</div>
+</body>
+</html>
