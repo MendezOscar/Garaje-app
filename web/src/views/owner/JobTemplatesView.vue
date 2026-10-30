@@ -32,12 +32,16 @@ type TaskForm = {
   title: string
   laborServiceId: string
   estimatedHours: number | null
+  /** Lo que se cobra por el paso cuando no sale del catálogo. */
+  manualPrice: number | null
 }
 
 type PartForm = {
   partId: string
   description: string
   quantity: number
+  /** Lo que cuesta el repuesto que no está en el catálogo: de ahí no hay precio que sacar. */
+  unitPrice: number | null
 }
 
 const empty = () => ({
@@ -63,7 +67,7 @@ const visible = computed(() => {
 const preview = computed(() => {
   const labor = form.value.tasks.reduce((sum, t) => {
     const service = services.value.find((s) => s.id === t.laborServiceId)
-    if (!service) return sum
+    if (!service) return sum + (Number(t.manualPrice) || 0)
 
     return sum + (service.isFixedPrice
       ? service.fixedPrice
@@ -72,7 +76,8 @@ const preview = computed(() => {
 
   const pieces = form.value.parts.reduce((sum, p) => {
     const part = parts.value.find((c) => c.id === p.partId)
-    return part ? sum + part.salePrice * (Number(p.quantity) || 0) : sum
+    const precio = part ? part.salePrice : Number(p.unitPrice) || 0
+    return sum + precio * (Number(p.quantity) || 0)
   }, 0)
 
   return labor + pieces
@@ -112,11 +117,14 @@ function edit(template: JobTemplate) {
       title: t.title,
       laborServiceId: t.laborServiceId ?? '',
       estimatedHours: t.estimatedHours,
+      manualPrice: t.manualLaborPrice,
     })),
     parts: template.parts.map((p) => ({
       partId: p.partId ?? '',
       description: p.partId ? '' : p.partName,
       quantity: p.quantity,
+      // Del catálogo el precio no es del renglón, es del repuesto: se mira, no se guarda.
+      unitPrice: p.partId ? null : p.unitPrice,
     })),
   }
 }
@@ -127,11 +135,11 @@ function reset() {
 }
 
 function addTask() {
-  form.value.tasks.push({ title: '', laborServiceId: '', estimatedHours: null })
+  form.value.tasks.push({ title: '', laborServiceId: '', estimatedHours: null, manualPrice: null })
 }
 
 function addPart() {
-  form.value.parts.push({ partId: '', description: '', quantity: 1 })
+  form.value.parts.push({ partId: '', description: '', quantity: 1, unitPrice: null })
 }
 
 /** Al elegir el servicio se copia su nombre si el paso no tiene título: es el 90% de los casos. */
@@ -159,6 +167,9 @@ async function save() {
           title: t.title.trim(),
           laborServiceId: t.laborServiceId || null,
           estimatedHours: t.estimatedHours,
+          // Con servicio del catálogo el precio sale de él: dos precios para el mismo paso
+          // serían dos respuestas a la misma pregunta.
+          manualLaborPrice: t.laborServiceId ? null : Number(t.manualPrice) || null,
         })),
       parts: f.parts
         .filter((p) => p.partId || p.description.trim())
@@ -166,6 +177,7 @@ async function save() {
           partId: p.partId || null,
           description: p.partId ? null : p.description.trim(),
           quantity: Number(p.quantity) || 0,
+          unitPrice: p.partId ? null : Number(p.unitPrice) || null,
         })),
     }
 
@@ -309,6 +321,17 @@ onMounted(async () => {
               step="0.25"
               placeholder="Horas"
             />
+            <!-- Sin servicio del catálogo el paso se quedaba sin cobrar y no había dónde
+                 decir cuánto vale: el trabajo que no está en el catálogo lleva su precio
+                 aquí, como en la orden. -->
+            <input
+              v-if="!task.laborServiceId"
+              v-model.number="task.manualPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Precio"
+            />
             <button type="button" class="link" @click="form.tasks.splice(i, 1)">Quitar</button>
           </div>
         </div>
@@ -328,7 +351,17 @@ onMounted(async () => {
             placeholder="De qué se trata"
           />
           <div class="fila">
-            <input v-model.number="part.quantity" type="number" min="0" step="0.01" />
+            <input v-model.number="part.quantity" type="number" min="0" step="0.01" placeholder="Cant." />
+            <!-- Fuera del catálogo no hay precio que mirar: el del renglón es el único que
+                 hay, y sin él el trabajo decía costar menos de lo que cuesta. -->
+            <input
+              v-if="!part.partId"
+              v-model.number="part.unitPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Precio"
+            />
             <button type="button" class="link" @click="form.parts.splice(i, 1)">Quitar</button>
           </div>
         </div>
@@ -349,9 +382,10 @@ onMounted(async () => {
         </div>
 
         <p class="muted small">
-          El trabajo guarda a qué apunta, no cuánto cuesta: si mañana sube el precio de un
-          repuesto, sube aquí también. Y no se borra, se da de baja, porque hay órdenes que se
-          armaron con él.
+          Lo del catálogo guarda a qué apunta, no cuánto cuesta: si mañana sube el precio de
+          un repuesto, sube aquí también. Lo que no está en el catálogo —el paso o el repuesto
+          escritos a mano— sí guarda el precio que se le ponga. Y no se borra, se da de baja,
+          porque hay órdenes que se armaron con él.
         </p>
       </form>
     </div>

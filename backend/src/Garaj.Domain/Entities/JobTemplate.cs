@@ -11,9 +11,11 @@ namespace Garaj.Domain.Entities;
 /// <see cref="LaborService"/>: el trabajo se hace igual en las dos sucursales, y lo que cambia
 /// entre ellas —las existencias— no vive aquí.
 ///
-/// No guarda precios, sino referencias al catálogo. El precio lo resuelve
+/// Lo que está en el catálogo no guarda precio, sino la referencia: lo resuelven
 /// <see cref="LaborService.PriceFor"/> y <see cref="Part.SalePrice"/> al aplicarla, para que
-/// subir el precio de un repuesto mañana no deje veinte plantillas mintiendo.
+/// subir el precio de un repuesto mañana no deje veinte plantillas mintiendo. Lo que no está
+/// —el paso y el repuesto escritos a mano— sí guarda el suyo: no hay catálogo de dónde
+/// sacarlo.
 /// </remarks>
 public class JobTemplate : TenantEntity
 {

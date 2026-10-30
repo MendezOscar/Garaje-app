@@ -894,6 +894,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_price");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

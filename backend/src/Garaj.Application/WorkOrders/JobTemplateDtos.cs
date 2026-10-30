@@ -61,7 +61,9 @@ public record SaveJobTemplateTaskRequest(
 public record SaveJobTemplatePartRequest(
     Guid? PartId,
     string? Description,
-    decimal Quantity);
+    decimal Quantity,
+    /// <summary>Precio escrito a mano, para el repuesto que no está en el catálogo.</summary>
+    decimal? UnitPrice = null);
 
 /// <summary>
 /// Guardar una orden ya hecha como trabajo frecuente. Es el camino principal: los pasos, sus

@@ -869,12 +869,28 @@ function aplicarPlantilla() {
 
 /** Carga un repuesto propuesto del catálogo. Si no hay existencia, falla solo esa línea. */
 function cargarSugerido(part: SuggestedPart, i: number) {
-  if (!part.partId) return
+  if (!sePuedeCargar(part)) return
 
   return run(async () => {
-    await workOrdersApi.addPart(id.value, { partId: part.partId!, quantity: part.quantity })
+    // Del catálogo se carga por id, y eso descuenta la bodega. Lo escrito a mano va con su
+    // concepto y el precio que trae la plantilla, y no toca el inventario.
+    await workOrdersApi.addPart(
+      id.value,
+      part.partId
+        ? { partId: part.partId, quantity: part.quantity }
+        : {
+            description: part.description ?? part.partName,
+            quantity: part.quantity,
+            unitPrice: part.unitPrice,
+          },
+    )
     repuestosSugeridos.value.splice(i, 1)
   })
+}
+
+/** Lo de fuera del catálogo solo se puede cargar si la plantilla le guardó el precio. */
+function sePuedeCargar(part: SuggestedPart): boolean {
+  return !!part.partId || part.unitPrice > 0
 }
 
 /** Guarda esta orden como trabajo frecuente, con sus pasos y sus repuestos. */
@@ -1361,7 +1377,7 @@ onMounted(async () => {
                   </em>
                 </span>
                 <button
-                  v-if="p.partId"
+                  v-if="sePuedeCargar(p)"
                   type="button"
                   class="link"
                   :disabled="busy"
@@ -1369,8 +1385,9 @@ onMounted(async () => {
                 >
                   Cargar
                 </button>
-                <!-- Fuera del catálogo no hay precio que copiar —la plantilla guarda a qué
-                     apunta, no cuánto cuesta—, así que se carga a mano abajo, con su precio. -->
+                <!-- Sin precio no hay nada que copiar: ese se carga a mano abajo, con el
+                     suyo. Con precio escrito en la plantilla se carga igual que el del
+                     catálogo, solo que sin tocar la bodega. -->
                 <em v-else class="muted small">se compra aparte</em>
               </li>
             </ul>

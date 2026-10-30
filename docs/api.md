@@ -773,9 +773,13 @@ Decisiones que conviene conocer:
   una plantilla desde cero es el camino secundario, para corregir. Los repuestos repetidos se
   agrupan: si se pidió más a media reparación, la plantilla dice cuántos lleva el trabajo, no
   repite el renglón.
-- **La plantilla no guarda precios, guarda referencias.** El importe sale de `Part.SalePrice` y
-  `LaborService.PriceFor` en cada consulta, así que subir mañana el precio de un repuesto no deja
-  veinte plantillas mintiendo. Los totales del DTO son «a precios de hoy».
+- **Lo del catálogo no guarda precio, guarda la referencia.** El importe sale de
+  `Part.SalePrice` y `LaborService.PriceFor` en cada consulta, así que subir mañana el precio de
+  un repuesto no deja veinte plantillas mintiendo. Los totales del DTO son «a precios de hoy».
+  Lo que **no** está en el catálogo sí guarda el suyo —`ManualLaborPrice` en el paso y
+  `UnitPrice` en el repuesto—: no hay de dónde sacarlo después, y sin él el trabajo decía costar
+  menos de lo que cuesta. Del catálogo esos campos se guardan en null: dos precios para la misma
+  línea serían dos respuestas a la misma pregunta.
 - **Aplicarla no mueve el inventario.** Cargar un repuesto del catálogo descuenta la bodega en
   ese momento, y al aplicar la plantilla el trabajo todavía no se ha hecho: se consumirían piezas
   que siguen en el estante, y una sola sin existencia haría fallar la aplicación entera dejando
