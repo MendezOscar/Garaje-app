@@ -63,6 +63,7 @@ import type {
   SaveVehicleReception,
   WorkOrderStatus,
   WorkOrderTask,
+  CustomerHistory,
   CustomerStatement,
   WhatsAppLink,
   WorkshopKind,
@@ -830,6 +831,26 @@ export const statementsApi = {
   async whatsappLink(customerId: string) {
     const { data } = await api.get<WhatsAppLink>(
       `/api/customers/${customerId}/statement/whatsapp`,
+    )
+    return data
+  },
+}
+
+export const historyApi = {
+  /** El enlace de WhatsApp con el historial del cliente. 400 si todavía no tiene visitas. */
+  async whatsappLink(customerId: string) {
+    const { data } = await api.get<WhatsAppLink>(
+      `/api/customers/${customerId}/history/whatsapp`,
+    )
+    return data
+  },
+}
+
+/** El historial que abre el cliente desde WhatsApp. Mismo token que su estado de cuenta. */
+export const publicHistoryApi = {
+  async get(token: string) {
+    const { data } = await axios.get<CustomerHistory>(
+      `${api.defaults.baseURL}/public/history/${token}`,
     )
     return data
   },

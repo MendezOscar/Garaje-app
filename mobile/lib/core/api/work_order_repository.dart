@@ -214,6 +214,16 @@ class WorkOrderRepository {
     return response.data!['url'] as String;
   }
 
+  /// El enlace de WhatsApp con el historial del cliente: todo lo que el taller le ha hecho a
+  /// lo suyo, visita por visita. Responde 400 si todavía no tiene ninguna.
+  Future<String> historyLink(String customerId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/customers/$customerId/history/whatsapp',
+    );
+
+    return response.data!['url'] as String;
+  }
+
   /// Los vehículos a los que les toca servicio. Solo el Dueño: a los demás la API dice 403.
   Future<List<ServiceReminder>> serviceReminders({
     bool? overdue,

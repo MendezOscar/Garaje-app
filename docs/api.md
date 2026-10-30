@@ -576,6 +576,30 @@ Decisiones que conviene conocer:
 - **Es del Dueño.** El saldo de un cliente no es asunto del técnico, y el cliente lo ve por su
   enlace, no por la ruta del taller.
 
+### Historial que se le manda al cliente
+
+Lo que el taller le ha hecho a lo suyo, visita por visita. Es la otra mitad de la pregunta del
+mostrador: el taller ya podía mirarlo en pantalla, pero no mandárselo.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| GET | `/api/customers/{id}/history/whatsapp` | Dueño o Encargado | Enlace de WhatsApp con el mensaje escrito |
+| GET | `/public/history/{token}` | — | Lo que abre el cliente, sin sesión |
+
+Decisiones que conviene conocer:
+
+- **El token es el del estado de cuenta** (`Customer.PublicToken`): es el mismo cliente y el
+  mismo enlace de siempre, así que no hay un token más que cuidar. El logo lo sirve
+  `/public/statements/{token}/logo`, que usa ese mismo token.
+- **Es del cliente, no del vehículo.** La página enseña todo lo que trae —el carro, la moto de
+  la muchacha, el equipo—, agrupado, con el que vino hace menos primero. Un enlace por vehículo
+  habría obligado a darle token propio a `Vehicle` y a `Equipment`.
+- **Qué expone**: qué se le hizo, cuándo, el kilometraje de entrada y lo que se le facturó por
+  esa visita. Ni el costo del taller, ni quién lo atendió, ni notas internas, ni un id con el
+  que llegar a otra parte de la API. Las órdenes canceladas no salen: no se le hizo nada.
+- **Sin visitas no hay enlace**: `whatsapp` responde 400.
+- **La página pública es del web** (`/h/{token}`), como `/c/` y `/q/`. Sale de `PublicBaseUrl`.
+
 ### Libro de ventas
 
 Lo que el contador pide cada mes para la declaración: factura por factura, con su CAI, el RTN

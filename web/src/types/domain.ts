@@ -157,6 +157,34 @@ export const MediaOwnerType = {
 } as const
 export type MediaOwnerType = (typeof MediaOwnerType)[keyof typeof MediaOwnerType]
 
+/** El historial que el cliente abre desde el enlace que le manda el taller. */
+export interface CustomerHistory {
+  tenantName: string
+  logoUrl: string | null
+  tenantPhone: string | null
+  customerName: string
+  currency: string
+  assets: HistoryAsset[]
+}
+
+export interface HistoryAsset {
+  label: string
+  identifier: string | null
+  kind: AssetKind
+  visits: HistoryVisit[]
+}
+
+export interface HistoryVisit {
+  number: string
+  openedAt: string
+  closedAt: string | null
+  description: string
+  mileage: number | null
+  steps: string[]
+  /** Lo que se facturó por esa visita. Null mientras no se haya cobrado. */
+  total: number | null
+}
+
 /** Columnas del tablero, en el orden en que avanza el trabajo. */
 export const KANBAN_COLUMNS: WorkOrderStatus[] = [
   WorkOrderStatus.Received,
