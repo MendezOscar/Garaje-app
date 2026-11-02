@@ -11,6 +11,58 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.6.2 (18)
+
+### Google Play — «Novedades» (es-419)
+
+```
+La recepción se llena con el cliente enfrente.
+
+El técnico ya no espera a que le asignen la orden: al recibir el vehículo hace la recepción
+ahí mismo y la firma. Firmada, queda cerrada: se ve y se manda, pero no se cambia.
+
+Un cronómetro en la orden, y avisos que antes no llegaban: el servicio que le toca a un
+cliente, la orden que lleva días sin moverse, la cita de mañana y el saldo vencido.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+La recepción, cuando el cliente todavía está ahí.
+
+LA RECEPCIÓN
+· El técnico ya no tiene que esperar a que le asignen la orden: al recibir el vehículo puede
+  hacer la recepción en ese momento, con el cliente enfrente, que es cuando se ven los golpes
+  y se acuerda lo que lleva adentro.
+· Sigue siendo opcional, y se ve en la orden como siempre.
+· Una vez que el cliente firma, queda cerrada: se consulta y se le manda, pero ya no se
+  edita. La firma deja de valer si lo firmado puede cambiar después.
+· Quitamos las fotos de «Recibir vehículo», porque ya van en la recepción.
+
+EL TIEMPO
+· En la orden hay un cronómetro: «Empezar» al ponerse con el trabajo y «Parar» al dejarlo.
+· Cuando la mano de obra va por hora, al lado se ve cuánto se presupuestó y cómo va contra
+  eso. Solo informa: no bloquea nada ni avisa a nadie.
+· El trabajo que queda para otro día suma sus pedazos y la noche no cuenta.
+· El dueño tiene el resumen en el panel, en Reportes → Tiempo por técnico: cuánto trabajó
+  cada uno, en cuántas órdenes y contra lo presupuestado.
+· Si el trabajo se pasa de las horas presupuestadas, al dueño le llega un aviso. Al técnico
+  no: él ya lo ve, y sonarle el teléfono es apurarlo con el carro abierto.
+
+AVISOS QUE ANTES NO LLEGABAN
+Hasta ahora la campana solo sonaba cuando alguien hacía algo. Estos pasan porque el día
+cambió, y se miran cada mañana al abrir:
+· A un cliente le toca el servicio. Al dueño le llega la lista; al cliente que tiene la
+  app, el suyo.
+· Una orden lleva tres días sin que nadie la mueva, con el estado en que se quedó.
+· Las citas confirmadas para mañana: al taller cuántas son, y al cliente la suya.
+· Un saldo pasó de la fecha acordada, con cuánto y desde cuándo.
+
+Ninguno se repite: lo que ya avisó no vuelve a sonar hasta que el hecho cambia.
+```
+
+---
+
 ## 1.6.1 (17)
 
 ### Google Play — «Novedades» (es-419)

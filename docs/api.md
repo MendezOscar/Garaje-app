@@ -420,7 +420,9 @@ aviso perdido no se recupera nunca.
 | DELETE | `/api/notifications/devices/{token}` | cualquiera | Da de baja el aparato |
 
 `NotificationType`: `1` requerimiento nuevo · `2` orden asignada · `3` cambio de estado ·
-`4` cotización enviada · `5` cotización respondida.
+`4` cotización enviada · `5` cotización respondida · `6` cita pedida · `7` cita contestada ·
+`8` toca servicio · `9` orden parada · `10` cita mañana · `11` saldo vencido ·
+`12` se pasó del tiempo.
 `DevicePlatform`: `1` Android · `2` iOS · `3` web.
 
 Quién recibe qué:
@@ -432,6 +434,37 @@ Quién recibe qué:
 | Cambia el estado de una orden (visible al cliente) | El Cliente del vehículo |
 | Se envía una cotización | El Cliente |
 | El cliente aprueba o rechaza | Todos los Dueños activos |
+| Se pide una cita por el enlace público | El Dueño y el Encargado de esa sucursal |
+| El taller confirma o rechaza la cita | El Cliente, si la pidió desde la app |
+| El trabajo pasa de las horas presupuestadas | El Dueño y el Encargado de esa sucursal |
+| A un vehículo le toca servicio | El Dueño (resumen) y el Cliente con app |
+| Una orden lleva 3 días sin moverse | El Dueño y el Encargado de esa sucursal |
+| Hay citas confirmadas para mañana | El Dueño (resumen) y el Cliente con app |
+| Un saldo pasó de su fecha acordada | El Dueño, el Encargado y el Cliente con app |
+
+#### El repaso del calendario
+
+Los cinco últimos de esa tabla no los provoca nadie: pasan porque el día cambió. Un
+`BackgroundService` los mira **una vez al día a las 7 de la mañana de Honduras**, que es
+cuando el taller abre: a las 3 de la madrugada el aviso se lee entre veinte más.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| POST | `/api/platform/repaso-de-avisos` | Plataforma | Corre el repaso ahora, sin esperar a mañana |
+
+- Se apaga con `Notifications__DailyPass=false` y la hora se mueve con
+  `Notifications__DailyPassHour`.
+- Cada aviso del repaso lleva una **clave de deduplicación** (`dedupe_key`, única por
+  destinatario). Sin ella, la misma orden parada sonaría todas las mañanas hasta que alguien
+  la tocara, y a los tres días nadie miraría la campana. La clave lleva dentro lo que hace
+  distinto al hecho —la orden y el día en que se detuvo— así que un parón nuevo sí vuelve a
+  avisar.
+- El servicio que toca **no se desentierra hacia atrás sin límite**: solo los últimos 30
+  días. Si no, el primer repaso después de desplegar esto llamaría a todos los clientes que
+  el taller ha tenido.
+- El que ya recibió su WhatsApp de recordatorio (`NextServiceRemindedAt`) no entra.
+- **Un taller dado de baja no recibe nada**: sus órdenes viejas parecerían paradas para
+  siempre.
 
 Decisiones que conviene conocer antes de tocar esto:
 
@@ -825,6 +858,7 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | POST | `/api/platform/tenants/{id}/payments/{paymentId}/void` | Plataforma | Anula un pago registrado por error |
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
 | PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
+| POST | `/api/platform/repaso-de-avisos` | Plataforma | Corre el repaso de avisos del calendario |
 | POST | `/api/platform/tenants/{id}/suspend` \| `/reactivate` | Plataforma | El corte definitivo |
 | GET/PUT | `/api/platform/billing/settings` | Plataforma | Nuestros datos de emisor y el ISV con que facturamos |
 | POST | `/api/platform/billing/fiscal-range` | Plataforma | Registra nuestro CAI y da de baja el anterior |

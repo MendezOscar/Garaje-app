@@ -213,7 +213,14 @@ public enum NotificationType
     QuoteSent = 4,
     QuoteAnswered = 5,
     AppointmentRequested = 6,
-    AppointmentAnswered = 7
+    AppointmentAnswered = 7,
+
+    // Los que no nacen de un clic sino del calendario: los levanta el repaso diario.
+    ServiceReminderDue = 8,
+    WorkOrderStalled = 9,
+    AppointmentTomorrow = 10,
+    PaymentOverdue = 11,
+    TimeOverBudget = 12
 }
 
 /// <summary>

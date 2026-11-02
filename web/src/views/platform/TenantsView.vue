@@ -23,6 +23,27 @@ const error = ref('')
 const creando = ref(false)
 const creado = ref<CreatedTenant | null>(null)
 
+const repaso = ref('')
+
+/**
+ * Los avisos del calendario —servicio que toca, orden parada, cita de mañana, saldo
+ * vencido— corren solos a las siete de la mañana. Esto los corre ahora, para verlos sin
+ * esperar al día siguiente. Lo que ya se avisó no se repite, así que no molesta a nadie.
+ */
+async function correrElRepaso() {
+  busy.value = true
+  repaso.value = ''
+  error.value = ''
+  try {
+    await platformApi.repasoDeAvisos()
+    repaso.value = 'Repaso hecho. Los avisos nuevos ya están en la campana de cada taller.'
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudo correr el repaso de avisos.')
+  } finally {
+    busy.value = false
+  }
+}
+
 const vacio = {
   name: '',
   legalName: '',
@@ -139,12 +160,18 @@ onMounted(load)
           <template v-else>Todos al día.</template>
         </p>
       </div>
-      <button type="button" @click="creando = !creando">
-        {{ creando ? 'Cancelar' : 'Nuevo taller' }}
-      </button>
+      <div class="acciones">
+        <button type="button" class="btn-ghost" :disabled="busy" @click="correrElRepaso">
+          Correr avisos
+        </button>
+        <button type="button" @click="creando = !creando">
+          {{ creando ? 'Cancelar' : 'Nuevo taller' }}
+        </button>
+      </div>
     </header>
 
     <ErrorNote v-if="error" :message="error" />
+    <p v-if="repaso" class="muted small">{{ repaso }}</p>
 
     <!-- Se enseña una sola vez: la contraseña no se guarda en claro en ninguna parte. -->
     <article v-if="creado" class="card credenciales">
@@ -314,6 +341,11 @@ onMounted(load)
 </template>
 
 <style scoped>
+.acciones {
+  display: flex;
+  gap: var(--space-2);
+}
+
 h1 {
   margin: 0;
 }

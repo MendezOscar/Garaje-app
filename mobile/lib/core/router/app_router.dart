@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -45,6 +45,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     refreshListenable: notifier,
+    observers: [_CerrarElTeclado()],
     routes: garajRoutes(),
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
@@ -234,5 +235,37 @@ class _RouterNotifier extends ChangeNotifier {
       subscription.close();
     }
     super.dispose();
+  }
+}
+
+
+/// Cierra el teclado al salir de una pantalla.
+///
+/// Al cerrar una hoja o volver atrás con el cursor puesto en un campo, el teclado se quedaba
+/// arriba tapando media pantalla hasta que alguien tocaba en otro lado: el campo que lo abrió
+/// ya no existe, pero el foco todavía era suyo. Se suelta aquí, en un solo sitio, y no
+/// pantalla por pantalla, porque pasa en todas las que piden datos.
+class _CerrarElTeclado extends NavigatorObserver {
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    _soltar();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    _soltar();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _soltar();
+  }
+
+  void _soltar() {
+    final foco = FocusManager.instance.primaryFocus;
+    if (foco != null && foco.hasFocus) foco.unfocus();
   }
 }

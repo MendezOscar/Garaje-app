@@ -186,6 +186,21 @@ public class NotificationService(
     {
         if (userIds.Count == 0) return;
 
+        // Lo que ya se avisó no se vuelve a avisar: el repaso diario ve la misma orden parada
+        // todas las mañanas, y repetirlo sería enseñarle al dueño a no mirar la campana. Se
+        // descarta por destinatario y no por hecho, porque un dueño nuevo sí tiene que
+        // enterarse de lo que lleva días pasando.
+        if (draft.DedupeKey is { } clave)
+        {
+            var yaAvisados = await db.Notifications.IgnoreQueryFilters()
+                .Where(n => n.TenantId == tenantId && n.DedupeKey == clave)
+                .Select(n => n.RecipientUserId)
+                .ToListAsync(ct);
+
+            userIds = userIds.Where(id => !yaAvisados.Contains(id)).ToList();
+            if (userIds.Count == 0) return;
+        }
+
         var notifications = userIds.Select(userId => new Notification
         {
             TenantId = tenantId,
@@ -196,7 +211,8 @@ public class NotificationService(
             WorkOrderId = draft.WorkOrderId,
             QuoteId = draft.QuoteId,
             ServiceRequestId = draft.ServiceRequestId,
-            AppointmentId = draft.AppointmentId
+            AppointmentId = draft.AppointmentId,
+            DedupeKey = draft.DedupeKey
         }).ToList();
 
         try

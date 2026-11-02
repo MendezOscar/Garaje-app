@@ -15,6 +15,7 @@ using Garaj.Application.Users;
 using Garaj.Application.WorkOrders;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
+using Garaj.Infrastructure.Jobs;
 using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Garaj.Infrastructure.Persistence.Interceptors;
@@ -135,6 +136,10 @@ public static class DependencyInjection
         // Singleton: la credencial de Google cachea y renueva su access token, y rehacerla
         // en cada aviso significaría un viaje extra a los servidores de OAuth cada vez.
         services.AddSingleton<IPushSender, FcmPushSender>();
+
+        // Lo único que corre sin que nadie lo pida: los avisos que dependen del calendario.
+        services.AddScoped<IRepasoDeAvisos, RepasoDeAvisos>();
+        services.AddHostedService<RepasoDiario>();
 
         return services;
     }

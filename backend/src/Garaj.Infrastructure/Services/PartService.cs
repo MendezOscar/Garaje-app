@@ -47,6 +47,8 @@ public class PartService(
             .Take(query.PageSize)
             .ToListAsync(ct);
 
+        if (await TecnicoSinPreciosAsync(scope, ct)) items = items.Select(SinPrecios).ToList();
+
         return new PagedResult<PartDto>(items, total, query.Page, query.PageSize);
     }
 
@@ -55,9 +57,35 @@ public class PartService(
         var scope = AccessScope.From(tenantContext);
         EnsureStaff(scope);
 
-        return await Project(db.Parts.AsNoTracking().Where(p => p.Id == id), scope).FirstOrDefaultAsync(ct)
+        var parte = await Project(db.Parts.AsNoTracking().Where(p => p.Id == id), scope)
+            .FirstOrDefaultAsync(ct)
             ?? throw new NotFoundException("El repuesto no existe.");
+
+        return await TecnicoSinPreciosAsync(scope, ct) ? SinPrecios(parte) : parte;
     }
+
+    /// <summary>
+    /// Si a este usuario hay que ocultarle los precios del catálogo: es técnico y el taller
+    /// tiene apagado que los vea.
+    /// </summary>
+    /// <remarks>
+    /// Se quitan aquí y no en la pantalla, como en el catálogo de mano de obra: el técnico
+    /// elige el repuesto por nombre y SKU, y lo que vale no sale del servidor.
+    /// </remarks>
+    private async Task<bool> TecnicoSinPreciosAsync(AccessScope scope, CancellationToken ct)
+    {
+        if (!scope.IsTechnician) return false;
+
+        var ve = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => (bool?)t.TechniciansSeePrices)
+            .FirstOrDefaultAsync(ct);
+
+        return ve == false;
+    }
+
+    private static PartDto SinPrecios(PartDto parte) =>
+        parte with { CostPrice = 0m, SalePrice = 0m };
 
     public async Task<PartDto> CreateAsync(SavePartRequest request, CancellationToken ct = default)
     {

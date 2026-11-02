@@ -1190,6 +1190,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
 
+                    b.Property<string>("DedupeKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("dedupe_key");
+
                     b.Property<Guid?>("QuoteId")
                         .HasColumnType("uuid")
                         .HasColumnName("quote_id");
@@ -1234,6 +1239,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_notifications");
+
+                    b.HasIndex("RecipientUserId", "DedupeKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notifications_recipient_user_id_dedupe_key")
+                        .HasFilter("dedupe_key IS NOT NULL");
 
                     b.HasIndex("RecipientUserId", "ReadAt", "CreatedAt")
                         .HasDatabaseName("ix_notifications_recipient_user_id_read_at_created_at");
