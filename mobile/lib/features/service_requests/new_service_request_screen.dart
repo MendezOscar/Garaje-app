@@ -19,6 +19,7 @@ import '../../core/models/media.dart';
 import '../../core/models/work_order.dart';
 import '../../core/taller/vocabulario.dart';
 import '../../core/widgets/garaj_skeleton.dart';
+import '../work_orders/reception_screen.dart';
 
 /// Alta de un requerimiento. La misma pantalla para el cliente que pide cita desde su casa y
 /// para el taller que recibe la moto en el mostrador.
@@ -224,6 +225,10 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                     onTap: _pickDate,
                   ),
 
+                // Las fotos solo cuando las manda el cliente desde su casa: en el
+                // mostrador se toman en la hoja de recepción, con el carro delante, y
+                // tenerlas también aquí era pedir dos veces lo mismo.
+                if (!staff) ...[
                 const Divider(height: 24),
                 const Text('FOTOS', style: TextStyle(fontSize: 12, letterSpacing: 1)),
                 const SizedBox(height: 8),
@@ -262,6 +267,7 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
                     ),
                   ],
                 ),
+                ],
 
                 if (_error != null) ...[
                   const SizedBox(height: 16),
@@ -397,6 +403,35 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
     return result == null ? source : File(result.path);
   }
 
+  /// Si se llena la hoja ahora. Preguntado y no impuesto: hay trabajos que no la piden, y
+  /// obligarla haría que se llene con cualquier cosa.
+  Future<bool> _preguntarPorLaRecepcion() async {
+    final vocab = ref.read(vocabularioProvider);
+
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('¿Llenar la recepción?'),
+            content: Text(
+              'Con el cliente delante: cómo entró el ${vocab.activo}, los golpes que ya '
+              'traía, las fotos y su firma. Es lo que contesta después si el golpe venía o '
+              'no. Se puede dejar para luego.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Ahora no'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Llenarla'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_vehicleId == null || _branchId == null) {
@@ -445,6 +480,18 @@ class _NewServiceRequestScreenState extends ConsumerState<NewServiceRequestScree
             ? done
             : '$done $failed foto(s) no se pudieron subir.'),
       ));
+
+      // Con el cliente todavía delante: es el único momento en que puede firmar. La orden
+      // tarda en existir —la aprueba el mostrador— y para entonces el carro ya entró, así
+      // que la hoja se llena ahora y se le pega a la orden después. Sigue siendo opcional.
+      if (_isStaff && await _preguntarPorLaRecepcion()) {
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute<bool>(builder: (_) => ReceptionScreen(serviceRequestId: id)),
+        );
+      }
+
+      if (!mounted) return;
       context.pop();
     } catch (e) {
       setState(() => _error = apiErrorMessage(e, 'No se pudo enviar la solicitud.'));

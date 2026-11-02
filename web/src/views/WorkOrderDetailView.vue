@@ -2147,8 +2147,10 @@ onMounted(async () => {
               >
                 Bajar la ficha
               </button>
+              <!-- Firmada no se corrige: lo que el cliente firmó es lo que vale, y una
+                   hoja que se puede editar después no prueba nada. -->
               <button
-                v-if="canEdit"
+                v-if="canEdit && !recepcion?.isSigned"
                 type="button"
                 class="link"
                 @click="editandoRecepcion = !editandoRecepcion"
@@ -2197,12 +2199,14 @@ onMounted(async () => {
             <p v-if="recepcion && !recepcion.signatureUrl" class="muted small">
               Sin firma. Se firma desde la app, con el cliente delante.
             </p>
-            <img
-              v-else-if="recepcion"
-              :src="apiUrl(recepcion.signatureUrl) ?? undefined"
-              :alt="`Firma del cliente al entregar el ${vocabulario.activo}`"
-              class="firma"
-            />
+            <template v-else-if="recepcion">
+              <img
+                :src="apiUrl(recepcion.signatureUrl) ?? undefined"
+                :alt="`Firma del cliente al entregar el ${vocabulario.activo}`"
+                class="firma"
+              />
+              <p class="muted small">Firmada por el cliente: ya no se puede corregir.</p>
+            </template>
           </template>
 
           <form v-else class="recepcion" @submit.prevent="guardarRecepcion">

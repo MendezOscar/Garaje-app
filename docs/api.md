@@ -89,6 +89,8 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | GET | `/api/service-requests?status=&branchId=&from=&to=` | cualquiera | Bandeja; pendientes primero. El Técnico ve los de sus sucursales. `from`/`to` filtran por fecha de ingreso |
 | POST | `/api/service-requests` | cualquiera | El Técnico solo en sus sucursales |
 | POST | `/api/service-requests/{id}/approve` | Owner | Lo convierte en orden y devuelve `workOrderId` |
+| GET/PUT | `/api/service-requests/{id}/reception` | Técnico o Dueño | **La hoja llenada al recibir**, antes de que exista la orden |
+| GET | `/api/service-requests/{id}/reception/signature` | según perfil | La firma del cliente en esa hoja |
 | POST | `/api/service-requests/{id}/reject` | Owner | Lo rechaza con motivo |
 | | | | **Al pedir una cita le suena al Dueño y al Encargado de esa sucursal: campana y push.** |
 | GET | `/api/appointments?branchId=&status=&from=&to=&includeClosed=` | cualquiera | La agenda. Sin rango, de hoy en adelante y sin lo cerrado. El Cliente ve las suyas; el Técnico, ninguna |
@@ -110,6 +112,15 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST | `/api/work-orders/{id}/tasks/{taskId}/complete` | Owner o Técnico | Marca el paso |
 | DELETE | `/api/work-orders/{id}/tasks/{taskId}` | Owner | Elimina el paso |
 | DELETE | `/api/work-orders/{id}` | Owner | Borra la orden abierta por error; **409** si ya se facturó |
+
+**La hoja de recepción se llena al recibir, no al asignar.** Vive pegada al requerimiento
+mientras la orden no existe —que es cuando el cliente está delante y puede firmar— y al
+aprobarlo pasa a ser la hoja de la orden: misma fila, misma firma, mismas fotos. Esperar a la
+orden significaba llenarla de memoria al día siguiente, que es justo lo que no sirve para
+resolver la discusión del rayón.
+
+**Firmada queda cerrada**: `PUT` sobre una hoja con firma responde **409**. Lo que el cliente
+firmó no se corrige después; se sigue viendo en la orden y se le sigue pudiendo mandar el PDF.
 
 **Borrar una orden** es para la que se abrió por error —el vehículo equivocado, dos veces la
 misma—, no para la que salió mal: esa se cancela y queda. Se lleva sus pasos, sus fotos y su
@@ -142,8 +153,9 @@ puede reintentar el `PUT` sin repetir la petición completa.
 | DELETE | `/api/media/{id}` | quien la subió, o el Dueño | Borra la foto y sus objetos |
 
 `ownerType`: `1` requerimiento · `2` orden de trabajo · `3` paso de la reparación ·
-`4` cotización · `5` comprobante de gasto · `6` recepción (cómo entró; el id es el de la
-orden, y son las que salen en la ficha).
+`4` cotización · `5` comprobante de gasto · `6` recepción (cómo entró, y son las que salen en
+la ficha; el id es el de la orden, o el del **requerimiento** mientras la hoja viva ahí: al
+aprobarlo las fotos se pasan a la orden con la hoja).
 
 El **Cliente** solo adjunta a sus requerimientos: el proceso de reparación y el presupuesto los
 documenta el taller. El **Técnico** no ve cotizaciones, así que tampoco sus fotos.

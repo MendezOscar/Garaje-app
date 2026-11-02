@@ -357,6 +357,11 @@ public record ServiceReminderDto(
 /// Ruta relativa a la base de la API para ver la firma, o null si no firmó. Va por la API y
 /// no por el bucket: el objeto es privado, como las fotos.
 /// </param>
+/// <param name="WorkOrderId">Vacío mientras la hoja viva en el requerimiento.</param>
+/// <param name="IsSigned">
+/// Firmada por el cliente. Lo que firmó no se corrige después, así que la pantalla la enseña
+/// de solo lectura y el servidor rechaza el cambio.
+/// </param>
 public record VehicleReceptionDto(
     Guid WorkOrderId,
     FuelLevel FuelLevel,
@@ -367,7 +372,9 @@ public record VehicleReceptionDto(
     string? SignatureUrl,
     int? MileageIn,
     string? ReceivedByName,
-    DateTimeOffset ReceivedAt);
+    DateTimeOffset ReceivedAt,
+    bool IsSigned = false,
+    Guid? ServiceRequestId = null);
 
 /// <param name="MileageIn">
 /// El kilometraje con que entró. Se guarda en la orden, que es donde ya vivía: la recepción
@@ -461,6 +468,20 @@ public interface IWorkOrderService
     /// <summary>La firma, para enseñarla. Null si no firmó.</summary>
     Task<(byte[] Bytes, string ContentType)?> ReceptionSignatureAsync(
         Guid workOrderId, CancellationToken ct = default);
+
+    /// <summary>
+    /// La hoja del requerimiento: la que se llena al recibir, cuando la orden todavía no
+    /// existe y el cliente está delante para firmarla. Al aprobar el requerimiento, la hoja
+    /// pasa a ser la de la orden.
+    /// </summary>
+    Task<VehicleReceptionDto?> GetRequestReceptionAsync(
+        Guid serviceRequestId, CancellationToken ct = default);
+
+    Task<VehicleReceptionDto> SaveRequestReceptionAsync(
+        Guid serviceRequestId, SaveVehicleReceptionRequest request, CancellationToken ct = default);
+
+    Task<(byte[] Bytes, string ContentType)?> RequestReceptionSignatureAsync(
+        Guid serviceRequestId, CancellationToken ct = default);
 
     Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(Guid workOrderId, CancellationToken ct = default);
 

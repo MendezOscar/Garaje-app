@@ -254,14 +254,21 @@ class WorkOrderRepository {
     return response.data!['url'] as String;
   }
 
-  /// La hoja de recepción de la orden, o null si no se llenó: el backend responde 204.
-  Future<VehicleReception?> reception(String workOrderId) async {
+  /// La hoja de recepción, o null si no se llenó: el backend responde 204.
+  ///
+  /// Con `deRequerimiento` se pide la del requerimiento: la que se llena al recibir, cuando
+  /// la orden todavía no existe. Al aprobarlo, esa misma hoja pasa a ser la de la orden.
+  Future<VehicleReception?> reception(String id, {bool deRequerimiento = false}) async {
     final response = await _dio.get<Map<String, dynamic>>(
-      '/api/work-orders/$workOrderId/reception',
+      '${_baseDeRecepcion(id, deRequerimiento)}/reception',
     );
 
     return response.data == null ? null : VehicleReception.fromJson(response.data!);
   }
+
+  /// Dónde vive la hoja: en el requerimiento mientras no haya orden, y en la orden después.
+  static String _baseDeRecepcion(String id, bool deRequerimiento) =>
+      deRequerimiento ? '/api/service-requests/$id' : '/api/work-orders/$id';
 
   /// Dice si la orden de un reclamo la cubre la garantía. Cubierta la paga el taller y la
   /// orden no se factura; no cubierta se cobra como cualquier otra.
@@ -307,10 +314,10 @@ class WorkOrderRepository {
   /// Va por la API y no por el bucket —el objeto es privado—, así que necesita la cabecera de
   /// autorización y no se puede pintar con `Image.network`. Null cuando no firmó: el backend
   /// responde 404.
-  Future<Uint8List?> receptionSignature(String workOrderId) async {
+  Future<Uint8List?> receptionSignature(String id, {bool deRequerimiento = false}) async {
     try {
       final response = await _dio.get<List<int>>(
-        '/api/work-orders/$workOrderId/reception/signature',
+        '${_baseDeRecepcion(id, deRequerimiento)}/reception/signature',
         options: Options(responseType: ResponseType.bytes),
       );
 
@@ -324,8 +331,9 @@ class WorkOrderRepository {
   /// Guarda la hoja. La firma va en base64 y solo cuando se acaba de firmar: mandarla en cada
   /// corrección sería volver a subir la misma imagen sin motivo.
   Future<VehicleReception> saveReception(
-    String workOrderId, {
+    String id, {
     required FuelLevel fuelLevel,
+    bool deRequerimiento = false,
     String? damages,
     String? belongings,
     String? notes,
@@ -334,7 +342,7 @@ class WorkOrderRepository {
     String? signature,
   }) async {
     final response = await _dio.put<Map<String, dynamic>>(
-      '/api/work-orders/$workOrderId/reception',
+      '${_baseDeRecepcion(id, deRequerimiento)}/reception',
       data: {
         'fuelLevel': fuelLevel.value,
         'damages': damages,
@@ -388,6 +396,7 @@ class VehicleReception {
     this.mileageIn,
     this.receivedByName,
     required this.receivedAt,
+    this.isSigned = false,
   });
 
   factory VehicleReception.fromJson(Map<String, dynamic> json) => VehicleReception(
@@ -400,6 +409,7 @@ class VehicleReception {
         mileageIn: (json['mileageIn'] as num?)?.toInt(),
         receivedByName: json['receivedByName'] as String?,
         receivedAt: DateTime.parse(json['receivedAt'] as String),
+        isSigned: json['isSigned'] as bool? ?? false,
       );
 
   final FuelLevel fuelLevel;
@@ -413,6 +423,9 @@ class VehicleReception {
   final int? mileageIn;
   final String? receivedByName;
   final DateTime receivedAt;
+
+  /// Firmada por el cliente: lo que firmó no se corrige después, así que queda cerrada.
+  final bool isSigned;
 }
 
 /// Un servicio del catálogo, con el precio ya resuelto por el backend.
@@ -641,7 +654,23 @@ final receptionSignatureProvider =
       ref.watch(workOrderRepositoryProvider).receptionSignature(workOrderId),
 );
 
+/// La firma de la hoja que todavía vive en el requerimiento.
+final requestReceptionSignatureProvider =
+    FutureProvider.autoDispose.family<Uint8List?, String>(
+  (ref, serviceRequestId) => ref
+      .watch(workOrderRepositoryProvider)
+      .receptionSignature(serviceRequestId, deRequerimiento: true),
+);
+
 final receptionProvider =
     FutureProvider.autoDispose.family<VehicleReception?, String>(
   (ref, workOrderId) => ref.watch(workOrderRepositoryProvider).reception(workOrderId),
+);
+
+/// La hoja llenada al recibir, antes de que exista la orden.
+final requestReceptionProvider =
+    FutureProvider.autoDispose.family<VehicleReception?, String>(
+  (ref, serviceRequestId) => ref
+      .watch(workOrderRepositoryProvider)
+      .reception(serviceRequestId, deRequerimiento: true),
 );

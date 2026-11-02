@@ -10,6 +10,7 @@ import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/period.dart';
 import '../../core/widgets/garaj_skeleton.dart';
+import '../work_orders/reception_screen.dart';
 
 /// Bandeja de requerimientos del taller.
 ///
@@ -284,6 +285,26 @@ class _RequestCard extends StatelessWidget {
                 child: Text(
                   'Rechazado: ${request.rejectionReason}',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                ),
+              ),
+
+            // La hoja de recepción se llena mientras el requerimiento espera: el cliente
+            // está en el mostrador y la orden todavía no existe. Después la hoja se va con
+            // la orden, y ahí ya se mira desde ella.
+            if (request.isPending)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: busy
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute<bool>(
+                              builder: (_) =>
+                                  ReceptionScreen(serviceRequestId: request.id),
+                            ),
+                          ),
+                  icon: const Icon(Icons.fact_check_outlined, size: 18),
+                  label: const Text('Recepción'),
                 ),
               ),
 

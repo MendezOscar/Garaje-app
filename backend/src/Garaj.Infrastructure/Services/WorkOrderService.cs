@@ -624,6 +624,14 @@ public class WorkOrderService(
         var reception = await db.VehicleReceptions
             .FirstOrDefaultAsync(r => r.WorkOrderId == workOrderId, ct);
 
+        // Lo que el cliente firmó no se corrige después: la hoja vale porque dice lo que él
+        // leyó, y una que se puede editar más tarde no prueba nada.
+        if (reception?.EstaFirmada == true)
+        {
+            throw new ConflictException(
+                "La hoja ya está firmada por el cliente: no se puede cambiar.");
+        }
+
         if (reception is null)
         {
             reception = new VehicleReception
@@ -722,6 +730,119 @@ public class WorkOrderService(
         return key;
     }
 
+    /// <summary>
+    /// La hoja del requerimiento: la que se llena al recibir, con el cliente delante.
+    /// </summary>
+    /// <remarks>
+    /// Existe porque la orden todavía no: el requerimiento lo aprueba el mostrador, y para
+    /// entonces el cliente ya se fue. La hoja nace aquí y se pasa a la orden al aprobarlo.
+    /// </remarks>
+    public async Task<VehicleReceptionDto?> GetRequestReceptionAsync(
+        Guid serviceRequestId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        var pedido = await ScopedRequest(scope)
+            .Where(r => r.Id == serviceRequestId)
+            .Select(r => new { r.Id, r.Mileage })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("El requerimiento no existe.");
+
+        var reception = await db.VehicleReceptions.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.ServiceRequestId == serviceRequestId, ct);
+
+        return reception is null ? null : await MapReceptionAsync(reception, pedido.Mileage, ct);
+    }
+
+    public async Task<VehicleReceptionDto> SaveRequestReceptionAsync(
+        Guid serviceRequestId, SaveVehicleReceptionRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (scope.IsCustomer)
+            throw new ForbiddenException("Un cliente no recibe vehículos.");
+
+        var pedido = await ScopedRequest(scope).AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == serviceRequestId, ct)
+            ?? throw new NotFoundException("El requerimiento no existe.");
+
+        var reception = await db.VehicleReceptions
+            .FirstOrDefaultAsync(r => r.ServiceRequestId == serviceRequestId, ct);
+
+        if (reception?.EstaFirmada == true)
+        {
+            throw new ConflictException(
+                "La hoja ya está firmada por el cliente: no se puede cambiar.");
+        }
+
+        if (reception is null)
+        {
+            reception = new VehicleReception
+            {
+                ServiceRequestId = pedido.Id,
+                ReceivedByUserId = scope.UserId,
+                ReceivedAt = clock.UtcNow
+            };
+            db.VehicleReceptions.Add(reception);
+        }
+
+        reception.FuelLevel = request.FuelLevel;
+        reception.Damages = Recortar(request.Damages, 2000);
+        reception.Belongings = Recortar(request.Belongings, 2000);
+        reception.Notes = Recortar(request.Notes, 2000);
+        reception.DeliveredByName = Recortar(request.DeliveredByName, 200);
+
+        // El kilometraje va en el requerimiento, que es de donde lo copia la orden al
+        // aprobarlo: dos sitios para el mismo dato terminan diciendo cosas distintas.
+        if (request.MileageIn is { } mileage && mileage >= 0) pedido.Mileage = mileage;
+
+        if (request.Signature is { Length: > 0 } firma)
+            reception.SignatureStorageKey = await GuardarFirmaAsync(pedido.Id, firma, ct);
+
+        await db.SaveChangesAsync(ct);
+
+        return await MapReceptionAsync(reception, pedido.Mileage, ct);
+    }
+
+    public async Task<(byte[] Bytes, string ContentType)?> RequestReceptionSignatureAsync(
+        Guid serviceRequestId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (!await ScopedRequest(scope).AnyAsync(r => r.Id == serviceRequestId, ct))
+            throw new NotFoundException("El requerimiento no existe.");
+
+        var key = await db.VehicleReceptions.AsNoTracking()
+            .Where(r => r.ServiceRequestId == serviceRequestId)
+            .Select(r => r.SignatureStorageKey)
+            .FirstOrDefaultAsync(ct);
+
+        if (key is null) return null;
+
+        using var stream = await storage.DownloadAsync(key, ct);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, ct);
+
+        return (buffer.ToArray(), "image/png");
+    }
+
+    /// <summary>
+    /// Los requerimientos que este usuario puede tocar. Misma regla que su bandeja: el
+    /// Técnico y el Encargado, los de sus sucursales; el Cliente, los de sus vehículos.
+    /// </summary>
+    private IQueryable<ServiceRequest> ScopedRequest(AccessScope scope)
+    {
+        var q = db.ServiceRequests.AsNoTracking();
+
+        if (scope.IsCustomer)
+            return q.Where(r => r.Vehicle!.CustomerId == scope.CustomerId);
+
+        if (scope.BranchFilter() is { } suyas)
+            return q.Where(r => suyas.Contains(r.BranchId));
+
+        return q;
+    }
+
     private async Task<VehicleReceptionDto> MapReceptionAsync(
         VehicleReception reception, int? mileageIn, CancellationToken ct)
     {
@@ -730,20 +851,27 @@ public class WorkOrderService(
                 .Where(u => u.Id == userId).Select(u => u.FullName).FirstOrDefaultAsync(ct)
             : null;
 
+        // Por la API y no por el bucket: el objeto es privado, como las fotos. Y por la
+        // puerta donde la hoja vive hoy: en el requerimiento todavía no hay orden que pedir.
+        var firma = reception.SignatureStorageKey is null
+            ? null
+            : reception.WorkOrderId is { } ordenId
+                ? $"/api/work-orders/{ordenId}/reception/signature"
+                : $"/api/service-requests/{reception.ServiceRequestId}/reception/signature";
+
         return new VehicleReceptionDto(
-            reception.WorkOrderId,
+            reception.WorkOrderId ?? Guid.Empty,
             reception.FuelLevel,
             reception.Damages,
             reception.Belongings,
             reception.Notes,
             reception.DeliveredByName,
-            // Por la API y no por el bucket: el objeto es privado, como las fotos.
-            reception.SignatureStorageKey is null
-                ? null
-                : $"/api/work-orders/{reception.WorkOrderId}/reception/signature",
+            firma,
             mileageIn,
             receivedBy,
-            reception.ReceivedAt);
+            reception.ReceivedAt,
+            reception.EstaFirmada,
+            reception.ServiceRequestId);
     }
 
     public async Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(
