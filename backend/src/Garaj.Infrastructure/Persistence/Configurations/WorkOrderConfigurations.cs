@@ -134,6 +134,25 @@ public class MediaAttachmentConfiguration : IEntityTypeConfiguration<MediaAttach
     }
 }
 
+public class WorkOrderTimeEntryConfiguration : IEntityTypeConfiguration<WorkOrderTimeEntry>
+{
+    public void Configure(EntityTypeBuilder<WorkOrderTimeEntry> b)
+    {
+        b.HasOne(x => x.WorkOrder)
+            .WithMany()
+            .HasForeignKey(x => x.WorkOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Se lee de dos formas: los tramos de una orden, y los de una persona en un rango
+        // —que es el reporte del dueño—.
+        b.HasIndex(x => x.WorkOrderId);
+        b.HasIndex(x => new { x.UserId, x.StartedAt });
+
+        // El tramo abierto se busca en cada «Empezar» para cerrar el anterior.
+        b.HasIndex(x => new { x.TenantId, x.UserId, x.EndedAt });
+    }
+}
+
 public class VehicleReceptionConfiguration : IEntityTypeConfiguration<VehicleReception>
 {
     public void Configure(EntityTypeBuilder<VehicleReception> b)

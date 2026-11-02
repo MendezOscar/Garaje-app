@@ -29,6 +29,7 @@ import type {
   PlatformTenant,
   PlatformTenantDetail,
   SubscriptionInvoice,
+  TechnicianTimeReport,
   CreatedTenant,
   PresignedUpload,
   PublicQuote,
@@ -1166,6 +1167,18 @@ export const reportsApi = {
     technicianId?: string
   } = {}) {
     const { data } = await api.get<RevenueReport>('/api/reports/revenue', { params: params(query) })
+    return data
+  },
+  /** Cuánto tarda cada técnico. Sale de los tramos del cronómetro, no de la hora de reloj. */
+  async technicianTime(query: {
+    from?: string
+    to?: string
+    branchId?: string
+    technicianId?: string
+  }): Promise<TechnicianTimeReport> {
+    const { data } = await api.get<TechnicianTimeReport>('/api/reports/technician-time', {
+      params: query,
+    })
     return data
   },
   async dashboard(branchId?: string) {

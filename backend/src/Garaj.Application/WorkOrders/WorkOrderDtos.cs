@@ -92,7 +92,28 @@ public record WorkOrderDetailDto(
     /// </summary>
     bool? ClaimIsOpen = null,
     // Lo que entró al taller, sea vehículo o equipo.
-    AssetRefDto? Asset = null);
+    AssetRefDto? Asset = null,
+    /// <summary>El cronómetro: cuánto se lleva trabajado en esta orden y si está corriendo.</summary>
+    WorkOrderTimeDto? Time = null);
+
+/// <summary>
+/// El tiempo de la orden, en tramos ya sumados.
+/// </summary>
+/// <param name="Minutes">Lo trabajado, sin contar las noches ni las pausas.</param>
+/// <param name="BudgetedHours">
+/// Lo presupuestado: las horas de los pasos que se cobran por hora. Null cuando ningún paso
+/// las tiene, que es el trabajo de precio fijo.
+/// </param>
+/// <param name="RunningSince">Desde cuándo corre el cronómetro de quien pregunta, o null.</param>
+/// <param name="RunningByName">Quién lo tiene corriendo, aunque no sea quien pregunta.</param>
+public record WorkOrderTimeDto(
+    int Minutes,
+    decimal? BudgetedHours,
+    DateTimeOffset? RunningSince,
+    string? RunningByName,
+    IReadOnlyList<WorkOrderTimeByTechnicianDto> ByTechnician);
+
+public record WorkOrderTimeByTechnicianDto(Guid UserId, string Name, int Minutes);
 
 /// <param name="Covered">
 /// True la paga el taller —no se le factura al cliente—, false es un servicio nuevo y se
@@ -453,6 +474,16 @@ public interface IWorkOrderService
     Task DeleteTaskAsync(Guid workOrderId, Guid taskId, CancellationToken ct = default);
 
     /// <summary>La hoja de recepción de la orden, o null si no se llenó.</summary>
+    /// <summary>
+    /// Arranca el cronómetro de esta orden para quien lo pide. Si tenía otro corriendo en
+    /// otra orden, se cierra: nadie trabaja en dos carros a la vez, y el tramo que queda
+    /// abierto se lleva la tarde entera.
+    /// </summary>
+    Task<WorkOrderTimeDto> StartTimeAsync(Guid workOrderId, CancellationToken ct = default);
+
+    /// <summary>Para el cronómetro. Sin tramo abierto no hace nada y devuelve lo que hay.</summary>
+    Task<WorkOrderTimeDto> StopTimeAsync(Guid workOrderId, CancellationToken ct = default);
+
     Task<VehicleReceptionDto?> GetReceptionAsync(Guid workOrderId, CancellationToken ct = default);
 
     Task<VehicleReceptionDto> SaveReceptionAsync(

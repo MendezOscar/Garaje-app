@@ -565,6 +565,126 @@ public class ReportService(
     // ---------- Interno ----------
 
     /// <summary>Las ventas anuladas no cuentan: un reporte que las incluyera mentiría.</summary>
+    public async Task<TechnicianTimeReportDto> TechnicianTimeAsync(
+        RevenueQuery query, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
+
+        var (from, to) = ResolveRange(query);
+        var (utcFrom, utcTo) = (from.ToUniversalTime(), to.ToUniversalTime());
+        var ahora = clock.UtcNow;
+
+        // Un tramo entra al rango por donde empezó: el que arrancó ayer y terminó hoy es
+        // trabajo de ayer, que es como lo cuenta quien lo hizo.
+        var tramos = await (
+            from t in db.WorkOrderTimeEntries.AsNoTracking()
+            join o in db.WorkOrders.AsNoTracking() on t.WorkOrderId equals o.Id
+            where t.StartedAt >= utcFrom && t.StartedAt <= utcTo
+            select new
+            {
+                t.WorkOrderId,
+                t.UserId,
+                t.StartedAt,
+                t.EndedAt,
+                t.AutoClosed,
+                o.BranchId,
+                o.AssignedTechnicianId
+            }).ToListAsync(ct);
+
+        if (query.BranchId is { } sucursal)
+            tramos = tramos.Where(t => t.BranchId == sucursal).ToList();
+
+        if (scope.BranchFilter() is { } suyas)
+            tramos = tramos.Where(t => suyas.Contains(t.BranchId)).ToList();
+
+        if (query.TechnicianId is { } tecnico)
+            tramos = tramos.Where(t => t.UserId == tecnico).ToList();
+
+        var minutos = tramos.ToDictionary(
+            t => (t.WorkOrderId, t.UserId, t.StartedAt),
+            t => (int)Duracion(t.StartedAt, t.EndedAt, ahora).TotalMinutes);
+
+        var ordenIds = tramos.Select(t => t.WorkOrderId).Distinct().ToList();
+        var userIds = tramos.Select(t => t.UserId).Distinct().ToList();
+
+        var nombres = await db.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+
+        // Lo presupuestado de cada orden: las horas de sus pasos. El trabajo de precio fijo
+        // no las tiene y queda en cero, que es lo honesto: no hay con qué compararlo.
+        var horasPorOrden = await db.WorkOrderTasks.AsNoTracking()
+            .Where(t => ordenIds.Contains(t.WorkOrderId))
+            .GroupBy(t => t.WorkOrderId)
+            .Select(g => new
+            {
+                WorkOrderId = g.Key,
+                Horas = g.Sum(t => (t.ActualHours ?? t.EstimatedHours) ?? 0)
+            })
+            .ToDictionaryAsync(x => x.WorkOrderId, x => x.Horas, ct);
+
+        var ordenes = await db.WorkOrders.AsNoTracking()
+            .Where(o => ordenIds.Contains(o.Id))
+            .Select(o => new
+            {
+                o.Id,
+                o.Number,
+                o.OpenedAt,
+                Vehiculo = o.Vehicle == null ? null : o.Vehicle.Brand + " " + o.Vehicle.Model,
+                Equipo = o.Equipment == null ? null : o.Equipment.Brand + " " + o.Equipment.Model
+            })
+            .ToListAsync(ct);
+
+        var filas = tramos
+            .GroupBy(t => t.UserId)
+            .Select(g => new TechnicianTimeRowDto(
+                g.Key,
+                nombres.GetValueOrDefault(g.Key, "Sin nombre"),
+                g.Select(t => t.WorkOrderId).Distinct().Count(),
+                g.Sum(t => minutos[(t.WorkOrderId, t.UserId, t.StartedAt)]),
+                g.Select(t => t.WorkOrderId).Distinct()
+                    .Sum(id => horasPorOrden.GetValueOrDefault(id, 0)),
+                g.Count(t => t.AutoClosed)))
+            .OrderByDescending(f => f.Minutes)
+            .ToList();
+
+        var porOrden = ordenes
+            .Select(o =>
+            {
+                var suyos = tramos.Where(t => t.WorkOrderId == o.Id).ToList();
+
+                return new WorkOrderTimeRowDto(
+                    o.Id,
+                    o.Number,
+                    o.Vehiculo ?? o.Equipo ?? "",
+                    string.Join(", ", suyos.Select(t => nombres.GetValueOrDefault(t.UserId, "Sin nombre"))
+                        .Distinct()),
+                    o.OpenedAt,
+                    suyos.Sum(t => minutos[(t.WorkOrderId, t.UserId, t.StartedAt)]),
+                    horasPorOrden.GetValueOrDefault(o.Id, 0),
+                    suyos.Any(t => t.EndedAt is null));
+            })
+            .OrderByDescending(o => o.Minutes)
+            .ToList();
+
+        return new TechnicianTimeReportDto(
+            from, to, filas.Sum(f => f.Minutes), filas, porOrden);
+    }
+
+    /// <summary>
+    /// Lo que duró un tramo, recortado a una jornada: el cronómetro que nadie paró el viernes
+    /// no puede decir que se trabajaron sesenta horas.
+    /// </summary>
+    private static TimeSpan Duracion(DateTimeOffset desde, DateTimeOffset? hasta, DateTimeOffset ahora)
+    {
+        var duracion = (hasta ?? ahora) - desde;
+
+        if (duracion < TimeSpan.Zero) return TimeSpan.Zero;
+
+        return duracion > WorkOrderTimeEntry.Jornada ? WorkOrderTimeEntry.Jornada : duracion;
+    }
+
     private IQueryable<Sale> ScopedSales(
         AccessScope scope, Guid? branchId, DateTimeOffset from, DateTimeOffset to,
         Guid? technicianId = null)

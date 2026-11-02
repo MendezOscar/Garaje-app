@@ -135,6 +135,7 @@ onMounted(async () => {
       :pestanas="[
         { to: { name: 'reports' }, label: 'Ingresos' },
         { to: { name: 'income-statement' }, label: 'Gastos y utilidad' },
+        { to: { name: 'technician-time' }, label: 'Tiempo por técnico' },
       ]"
     />
 

@@ -125,6 +125,21 @@ public class WorkOrdersController(
         => Ok(await service.CompleteTaskAsync(id, taskId, request, ct));
 
     /// <summary>
+    /// Arranca el cronómetro de la orden para quien lo pide. Si tenía otro corriendo en otra
+    /// orden, aquel se cierra: nadie trabaja en dos carros a la vez.
+    /// </summary>
+    [HttpPost("{id:guid}/time/start")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<WorkOrderTimeDto>> StartTime(Guid id, CancellationToken ct)
+        => Ok(await service.StartTimeAsync(id, ct));
+
+    /// <summary>Para el cronómetro. Sin tramo abierto devuelve lo que ya hay.</summary>
+    [HttpPost("{id:guid}/time/stop")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<WorkOrderTimeDto>> StopTime(Guid id, CancellationToken ct)
+        => Ok(await service.StopTimeAsync(id, ct));
+
+    /// <summary>
     /// Cómo entró el vehículo: combustible, golpes que ya traía, lo que dejó adentro el
     /// cliente y su firma. Null si no se llenó la hoja, que es opcional.
     /// </summary>

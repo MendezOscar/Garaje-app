@@ -94,6 +94,12 @@ public class ReportsController(IReportService service) : ControllerBase
         [FromQuery] RevenueQuery query, CancellationToken ct)
         => Ok(await service.RevenueAsync(query, ct));
 
+    /// <summary>Cuánto tiempo lleva cada técnico, y en qué órdenes se fue.</summary>
+    [HttpGet("technician-time")]
+    public async Task<ActionResult<TechnicianTimeReportDto>> TechnicianTime(
+        [FromQuery] RevenueQuery query, CancellationToken ct)
+        => Ok(await service.TechnicianTimeAsync(query, ct));
+
     /// <summary>Lo que el Dueño mira al abrir el sistema por la mañana.</summary>
     [HttpGet("dashboard")]
     public async Task<ActionResult<DashboardDto>> Dashboard(

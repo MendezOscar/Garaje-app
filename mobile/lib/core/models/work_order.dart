@@ -246,6 +246,7 @@ class WorkOrderDetail {
     this.promisedAt,
     this.assignedTechnicianId,
     this.assignedTechnicianName,
+    this.time,
   });
 
   factory WorkOrderDetail.fromJson(Map<String, dynamic> json) => WorkOrderDetail(
@@ -291,6 +292,9 @@ class WorkOrderDetail {
         warrantyCovered: json['warrantyCovered'] as bool?,
         claimWasUnderWarranty: json['claimWasUnderWarranty'] as bool?,
         claimIsOpen: json['claimIsOpen'] as bool?,
+        time: json['time'] == null
+            ? null
+            : WorkOrderTime.fromJson(json['time'] as Map<String, dynamic>),
       );
 
   final String id;
@@ -337,6 +341,9 @@ class WorkOrderDetail {
   /// diagnóstico hecho. True la paga el taller y la orden no se factura.
   final bool? warrantyCovered;
 
+  /// El cronómetro de la orden. Null para el cliente, que no lo ve.
+  final WorkOrderTime? time;
+
   /// Si el trabajo original estaba en garantía el día del reclamo. Viene congelado de ese día.
   final bool? claimWasUnderWarranty;
 
@@ -345,4 +352,66 @@ class WorkOrderDetail {
   final bool? claimIsOpen;
 
   bool get isCatalogLabor => laborMode == LaborMode.catalog;
+}
+
+/// Cuánto se lleva trabajado en la orden, en tramos ya sumados.
+///
+/// Son tramos porque el trabajo se interrumpe —entra otro carro, se acaba el día— y lo que el
+/// dueño quiere saber es el tiempo de taller, no las horas de reloj entre que entró y salió.
+class WorkOrderTime {
+  const WorkOrderTime({
+    required this.minutes,
+    this.budgetedHours,
+    this.runningSince,
+    this.runningByName,
+    this.byTechnician = const [],
+  });
+
+  factory WorkOrderTime.fromJson(Map<String, dynamic> json) => WorkOrderTime(
+        minutes: (json['minutes'] as num?)?.toInt() ?? 0,
+        budgetedHours: (json['budgetedHours'] as num?)?.toDouble(),
+        runningSince: json['runningSince'] == null
+            ? null
+            : DateTime.parse(json['runningSince'] as String),
+        runningByName: json['runningByName'] as String?,
+        byTechnician: ((json['byTechnician'] as List<dynamic>?) ?? const [])
+            .map((e) => WorkOrderTimeByTechnician.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  final int minutes;
+
+  /// Lo presupuestado: las horas de los pasos. Null en el trabajo de precio fijo.
+  final double? budgetedHours;
+
+  /// Desde cuándo corre, o null si está parado.
+  final DateTime? runningSince;
+  final String? runningByName;
+  final List<WorkOrderTimeByTechnician> byTechnician;
+
+  bool get isRunning => runningSince != null;
+
+  /// Lo trabajado contando el tramo que corre ahora mismo, para que el número avance solo.
+  int get minutosAhora => runningSince == null
+      ? minutes
+      : minutes + DateTime.now().difference(runningSince!.toLocal()).inMinutes;
+}
+
+class WorkOrderTimeByTechnician {
+  const WorkOrderTimeByTechnician({
+    required this.userId,
+    required this.name,
+    required this.minutes,
+  });
+
+  factory WorkOrderTimeByTechnician.fromJson(Map<String, dynamic> json) =>
+      WorkOrderTimeByTechnician(
+        userId: json['userId'] as String,
+        name: json['name'] as String,
+        minutes: (json['minutes'] as num?)?.toInt() ?? 0,
+      );
+
+  final String userId;
+  final String name;
+  final int minutes;
 }

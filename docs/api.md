@@ -108,6 +108,7 @@ Todas las listas devuelven `PagedResult` (`items`, `total`, `page`, `pageSize`) 
 | POST | `/api/work-orders/{id}/status` | Owner o Técnico | Cambia estado; 409 si no es válida |
 | POST | `/api/work-orders/{id}/reopen` | Owner | Devuelve al taller una orden entregada. 409 con factura viva o fuera de plazo |
 | GET | `/api/work-orders/{id}/reception/pdf` | Owner o Técnico | La ficha de recepción en PDF; 404 si no se llenó |
+| POST | `/api/work-orders/{id}/time/start` \| `/stop` | Owner o Técnico | **El cronómetro de la orden**: empezar y parar |
 | POST/PUT | `/api/work-orders/{id}/tasks[/{taskId}]` | Owner o Técnico | Pasos de la reparación |
 | POST | `/api/work-orders/{id}/tasks/{taskId}/complete` | Owner o Técnico | Marca el paso |
 | DELETE | `/api/work-orders/{id}/tasks/{taskId}` | Owner | Elimina el paso |
@@ -855,6 +856,21 @@ anular, y no hay pago sin documento esperando a que alguien se acuerde.
   `PreviousPaidThrough`, porque restar meses no sirve: la fecha se corre desde donde estaba y
   no desde hoy—. Con pagos posteriores encima la fecha no se toca, para no quitarle al taller
   meses que sí pagó.
+
+### El cronómetro de la orden
+
+El tiempo de trabajo se mide en **tramos** (`work_order_time_entries`): el técnico toca
+«Empezar» y «Parar» en la app, y cada tramo guarda de cuándo a cuándo. Es por orden y no por
+paso, porque un cronómetro por cada paso se queda sin tocar.
+
+- **La noche no cuenta.** El trabajo que sigue al día siguiente son dos tramos, no uno largo.
+- **Empezar en otra orden cierra el anterior**: nadie trabaja en dos carros a la vez, y el
+  tramo olvidado se comería la tarde entera. Queda marcado `AutoClosed`.
+- **Ningún tramo pasa de 12 horas** al sumarse. El cronómetro que nadie paró el viernes no
+  puede decir que se trabajaron sesenta horas; el reporte avisa cuántos quedaron sin parar,
+  porque ese número es un techo y no el dato.
+- **Lo presupuestado** sale de las horas de los pasos. El trabajo de precio fijo no las tiene
+  y no se compara: no hay contra qué medirlo. Pasarse **no bloquea ni avisa**, solo se ve.
 
 ### El portón de versión
 

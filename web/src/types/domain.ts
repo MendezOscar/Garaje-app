@@ -1173,6 +1173,8 @@ export interface WorkOrderDetail {
   claimWasUnderWarranty: boolean | null
   /** Si el reclamo sigue abierto. Con la orden entregada, la pantalla ofrece cerrarlo. */
   claimIsOpen: boolean | null
+  /** El cronómetro de la orden. Null para el cliente, que no lo ve. */
+  time: WorkOrderTime | null
 }
 
 export const NotificationType = {
@@ -1421,6 +1423,42 @@ export interface VehicleReception {
   receivedAt: string
   /** Firmada por el cliente: lo que firmó no se corrige después. */
   isSigned: boolean
+}
+
+/** El cronómetro de la orden: lo trabajado en tramos, sin las noches ni las pausas. */
+export interface WorkOrderTime {
+  minutes: number
+  /** Las horas de los pasos. Null en el trabajo de precio fijo. */
+  budgetedHours: number | null
+  runningSince: string | null
+  runningByName: string | null
+  byTechnician: { userId: string; name: string; minutes: number }[]
+}
+
+/** Cuánto tarda cada técnico, y en qué órdenes se fue el tiempo. */
+export interface TechnicianTimeReport {
+  from: string
+  to: string
+  totalMinutes: number
+  rows: {
+    userId: string
+    name: string
+    orders: number
+    minutes: number
+    budgetedHours: number
+    /** Tramos que cerró el sistema porque nadie los paró: ese tiempo es un techo. */
+    autoClosed: number
+  }[]
+  orders: {
+    workOrderId: string
+    number: string
+    assetLabel: string
+    technicians: string
+    openedAt: string
+    minutes: number
+    budgetedHours: number
+    isRunning: boolean
+  }[]
 }
 
 export interface SaveVehicleReception {

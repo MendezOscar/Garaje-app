@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1292,6 +1293,22 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 ),
               ],
               const SizedBox(height: 14),
+
+              // El cronómetro, arriba de todo lo del trabajo: es lo primero que se toca al
+              // empezar y lo último al dejarlo. Se le enseña al taller entero —el técnico
+              // necesita ver lo que lleva, y el dueño también—, nunca al cliente.
+              if (_canEdit)
+                _TiempoCard(
+                  tiempo: order.time,
+                  busy: _busy,
+                  onEmpezar: () => _run(() async {
+                    await ref.read(workOrderRepositoryProvider).startTime(widget.id);
+                  }),
+                  onParar: () => _run(() async {
+                    await ref.read(workOrderRepositoryProvider).stopTime(widget.id);
+                  }),
+                ),
+
               // El orden es el del trabajo: se diagnostica, se ve por cuánto va, se arman
               // los pasos, se cargan los repuestos, se cotiza, se fotografía, se avisa y se
               // cobra. Lo que solo se consulta va al final.
@@ -2975,4 +2992,132 @@ class _Reclamo extends StatelessWidget {
       ),
     );
   }
+}
+
+/// El cronómetro de la orden: empezar, parar, y lo que se lleva.
+///
+/// Por orden y no por paso: el técnico tiene las manos sucias y el teléfono en el bolsillo, y
+/// un cronómetro por cada paso se queda sin tocar. Lo que el dueño quiere saber —cuánto tardó
+/// este trabajo y quién lo hizo— se contesta igual.
+///
+/// Lo presupuestado se enseña al lado cuando el trabajo lleva horas, y pasarse no bloquea ni
+/// avisa a nadie: se ve, y ya. El técnico que va tarde suele tener un motivo, y un aviso
+/// automático solo serviría para que deje de usar el botón.
+class _TiempoCard extends StatefulWidget {
+  const _TiempoCard({
+    required this.tiempo,
+    required this.busy,
+    required this.onEmpezar,
+    required this.onParar,
+  });
+
+  final WorkOrderTime? tiempo;
+  final bool busy;
+  final VoidCallback onEmpezar;
+  final VoidCallback onParar;
+
+  @override
+  State<_TiempoCard> createState() => _TiempoCardState();
+}
+
+class _TiempoCardState extends State<_TiempoCard> {
+  Timer? _latido;
+
+  @override
+  void initState() {
+    super.initState();
+    // Mientras corre, el número tiene que avanzar solo: un cronómetro congelado parece roto.
+    _latido = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && (widget.tiempo?.isRunning ?? false)) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _latido?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tiempo = widget.tiempo;
+    final corriendo = tiempo?.isRunning ?? false;
+    final minutos = tiempo?.minutosAhora ?? 0;
+    final presupuesto = tiempo?.budgetedHours;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border.all(
+          color: corriendo ? theme.colorScheme.primary : theme.dividerColor,
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  corriendo ? 'TRABAJANDO AHORA' : 'TIEMPO DE TRABAJO',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: corriendo
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(_enHoras(minutos), style: theme.textTheme.titleLarge),
+
+                if (presupuesto != null && presupuesto > 0)
+                  Text(
+                    'Presupuestado ${_horas(presupuesto)}'
+                    '${minutos > presupuesto * 60 ? ' · va por encima' : ''}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: minutos > presupuesto * 60
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+
+                // Quién lo tiene corriendo, cuando no es quien mira: dos técnicos en el
+                // mismo carro es normal, y el botón de parar es del que lo empezó.
+                if (corriendo && tiempo?.runningByName != null)
+                  Text(
+                    tiempo!.runningByName!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: widget.busy ? null : (corriendo ? widget.onParar : widget.onEmpezar),
+            icon: Icon(corriendo ? Icons.pause : Icons.play_arrow),
+            label: Text(corriendo ? 'Parar' : 'Empezar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// «2 h 35 min», que es como lo dice el taller. En minutos sueltos arriba de una hora no
+  /// se entiende de un vistazo.
+  static String _enHoras(int minutos) {
+    if (minutos < 60) return '$minutos min';
+
+    final horas = minutos ~/ 60;
+    final resto = minutos % 60;
+
+    return resto == 0 ? '$horas h' : '$horas h $resto min';
+  }
+
+  static String _horas(double horas) =>
+      horas == horas.roundToDouble() ? '${horas.toInt()} h' : '$horas h';
 }

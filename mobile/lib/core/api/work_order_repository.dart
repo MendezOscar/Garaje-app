@@ -254,6 +254,25 @@ class WorkOrderRepository {
     return response.data!['url'] as String;
   }
 
+  /// Arranca el cronómetro de esta orden. Si tenía otro corriendo en otra, aquel se cierra:
+  /// nadie trabaja en dos carros a la vez.
+  Future<WorkOrderTime> startTime(String workOrderId) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/time/start',
+    );
+
+    return WorkOrderTime.fromJson(response.data!);
+  }
+
+  /// Para el cronómetro. Sin tramo abierto devuelve lo que ya hay, sin quejarse.
+  Future<WorkOrderTime> stopTime(String workOrderId) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/time/stop',
+    );
+
+    return WorkOrderTime.fromJson(response.data!);
+  }
+
   /// La hoja de recepción, o null si no se llenó: el backend responde 204.
   ///
   /// Con `deRequerimiento` se pide la del requerimiento: la que se llena al recibir, cuando

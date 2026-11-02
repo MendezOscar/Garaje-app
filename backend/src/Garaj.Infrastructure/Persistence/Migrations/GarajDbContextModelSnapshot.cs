@@ -3375,6 +3375,68 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.ToTable("work_order_tasks", (string)null);
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.WorkOrderTimeEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AutoClosed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_closed");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_order_time_entries");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_work_order_time_entries_work_order_id");
+
+                    b.HasIndex("UserId", "StartedAt")
+                        .HasDatabaseName("ix_work_order_time_entries_user_id_started_at");
+
+                    b.HasIndex("TenantId", "UserId", "EndedAt")
+                        .HasDatabaseName("ix_work_order_time_entries_tenant_id_user_id_ended_at");
+
+                    b.ToTable("work_order_time_entries", (string)null);
+                });
+
             modelBuilder.Entity("Garaj.Infrastructure.Identity.AppRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4153,6 +4215,18 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_work_order_tasks_work_orders_work_order_id");
+
+                    b.Navigation("WorkOrder");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.WorkOrderTimeEntry", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.WorkOrder", "WorkOrder")
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_work_order_time_entries_work_orders_work_order_id");
 
                     b.Navigation("WorkOrder");
                 });
