@@ -2934,6 +2934,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("received_by_user_id");
 
+                    b.Property<Guid?>("ServiceRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_request_id");
+
                     b.Property<string>("SignatureStorageKey")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
@@ -2951,16 +2955,22 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
 
-                    b.Property<Guid>("WorkOrderId")
+                    b.Property<Guid?>("WorkOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("work_order_id");
 
                     b.HasKey("Id")
                         .HasName("pk_vehicle_receptions");
 
+                    b.HasIndex("ServiceRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_vehicle_receptions_service_request_id")
+                        .HasFilter("service_request_id IS NOT NULL");
+
                     b.HasIndex("WorkOrderId")
                         .IsUnique()
-                        .HasDatabaseName("ix_vehicle_receptions_work_order_id");
+                        .HasDatabaseName("ix_vehicle_receptions_work_order_id")
+                        .HasFilter("work_order_id IS NOT NULL");
 
                     b.ToTable("vehicle_receptions", (string)null);
                 });
@@ -4058,12 +4068,19 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Garaj.Domain.Entities.VehicleReception", b =>
                 {
+                    b.HasOne("Garaj.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_vehicle_receptions_service_requests_service_request_id");
+
                     b.HasOne("Garaj.Domain.Entities.WorkOrder", "WorkOrder")
                         .WithMany()
                         .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("fk_vehicle_receptions_work_orders_work_order_id");
+
+                    b.Navigation("ServiceRequest");
 
                     b.Navigation("WorkOrder");
                 });

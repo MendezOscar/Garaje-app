@@ -1419,6 +1419,8 @@ export interface VehicleReception {
   mileageIn: number | null
   receivedByName: string | null
   receivedAt: string
+  /** Firmada por el cliente: lo que firmó no se corrige después. */
+  isSigned: boolean
 }
 
 export interface SaveVehicleReception {

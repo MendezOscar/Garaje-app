@@ -14,10 +14,22 @@ namespace Garaj.Domain.Entities;
 ///
 /// Es opcional: hay trabajos que no la justifican, y obligarla haría que se llene con
 /// cualquier cosa, que es peor que no tenerla.
+///
+/// Nace pegada al <b>requerimiento</b> cuando la llena quien recibe —que es el momento en que
+/// el cliente está delante y puede firmar— y se pasa a la orden al aprobarlo. Esperar a que
+/// la orden exista y esté asignada significaba llenarla de memoria al día siguiente, que es
+/// justo lo que no sirve para resolver la discusión del rayón.
 /// </remarks>
 public class VehicleReception : TenantEntity
 {
-    public Guid WorkOrderId { get; set; }
+    /// <summary>
+    /// La orden a la que pertenece. Null mientras la hoja viva en el requerimiento: se llena
+    /// al aprobarlo, y desde ahí la hoja es de la orden como siempre.
+    /// </summary>
+    public Guid? WorkOrderId { get; set; }
+
+    /// <summary>El requerimiento donde nació, cuando se llenó al recibir.</summary>
+    public Guid? ServiceRequestId { get; set; }
 
     public FuelLevel FuelLevel { get; set; } = FuelLevel.Unknown;
 
@@ -39,8 +51,15 @@ public class VehicleReception : TenantEntity
     /// <summary>La firma, guardada como el logo del taller: la clave del objeto en el bucket.</summary>
     public string? SignatureStorageKey { get; set; }
 
+    /// <summary>
+    /// Firmada queda cerrada. Lo que el cliente firmó no se corrige después: la hoja vale
+    /// porque dice lo que él leyó, y una que se puede editar más tarde no prueba nada.
+    /// </summary>
+    public bool EstaFirmada => SignatureStorageKey is not null;
+
     public Guid? ReceivedByUserId { get; set; }
     public DateTimeOffset ReceivedAt { get; set; }
 
-    public WorkOrder WorkOrder { get; set; } = null!;
+    public WorkOrder? WorkOrder { get; set; }
+    public ServiceRequest? ServiceRequest { get; set; }
 }

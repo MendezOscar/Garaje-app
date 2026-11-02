@@ -337,6 +337,14 @@ public class MediaService(
             return;
         }
 
+        // La hoja de recepción se llena al recibir, cuando la orden todavía no existe: ahí
+        // las fotos cuelgan del requerimiento, y al aprobarlo se pasan a la orden con la hoja.
+        if (ownerType == MediaOwnerType.Reception
+            && await ScopedRequests(scope).AnyAsync(r => r.Id == ownerId, ct))
+        {
+            return;
+        }
+
         if (workOrderId is not { } id || !await ScopedOrders(scope).AnyAsync(w => w.Id == id, ct))
             throw new NotFoundException("La orden de trabajo no existe.");
     }

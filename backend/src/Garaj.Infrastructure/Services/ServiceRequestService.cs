@@ -162,6 +162,19 @@ public class ServiceRequestService(
         var created = await db.WorkOrders.FirstAsync(w => w.Id == order.Id, ct);
         created.ServiceRequestId = serviceRequest.Id;
 
+        // La hoja que se llenó al recibir pasa a ser la de la orden. Es la misma fila: el
+        // cliente firmó una vez, delante de quien recibió, y esa es la que vale.
+        var hoja = await db.VehicleReceptions
+            .FirstOrDefaultAsync(r => r.ServiceRequestId == serviceRequest.Id, ct);
+
+        if (hoja is not null) hoja.WorkOrderId = order.Id;
+
+        // Y con ella las fotos de cómo entró: se tomaron contra el requerimiento porque la
+        // orden no existía, y es en la orden donde se van a mirar de ahora en adelante.
+        await db.MediaAttachments
+            .Where(m => m.OwnerType == MediaOwnerType.Reception && m.OwnerId == serviceRequest.Id)
+            .ExecuteUpdateAsync(set => set.SetProperty(m => m.OwnerId, order.Id), ct);
+
         await db.SaveChangesAsync(ct);
 
         return order.Id;

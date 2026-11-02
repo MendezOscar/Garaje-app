@@ -21,10 +21,26 @@ import 'photo_gallery.dart';
 /// Se llena con el carro delante y el cliente al lado, así que todo está en una sola hoja que
 /// se desliza: mandarlo a cuatro pantallas sería garantizar que se llene a medias. La firma va
 /// al final porque es lo último que pasa: primero se anota, después se le enseña y firma.
+///
+/// Sirve para los dos momentos: el requerimiento recién recibido —cuando la orden todavía no
+/// existe y el cliente está delante— y la orden de después. Al aprobar el requerimiento, la
+/// hoja es la misma: se le pega la orden y ya.
+///
+/// Firmada queda cerrada. Lo que el cliente firmó no se corrige más tarde: una hoja que se
+/// puede editar después no prueba nada.
 class ReceptionScreen extends ConsumerStatefulWidget {
-  const ReceptionScreen({required this.workOrderId, super.key});
+  const ReceptionScreen({this.workOrderId, this.serviceRequestId, super.key})
+      : assert(
+          (workOrderId == null) != (serviceRequestId == null),
+          'La hoja es de una orden o de un requerimiento, no de los dos.',
+        );
 
-  final String workOrderId;
+  final String? workOrderId;
+  final String? serviceRequestId;
+
+  /// De dónde cuelga la hoja hoy.
+  String get id => workOrderId ?? serviceRequestId!;
+  bool get deRequerimiento => workOrderId == null;
 
   @override
   ConsumerState<ReceptionScreen> createState() => _ReceptionScreenState();
@@ -85,10 +101,16 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
   /// Baja la ficha en PDF y la pasa a la hoja de compartir: de ahí sale a WhatsApp o al
   /// correo del cliente. Lo que se anotó delante de él, en su teléfono el mismo día.
+  ///
+  /// La ficha es de la orden: mientras la hoja viva en el requerimiento todavía no hay número
+  /// que imprimir, así que el botón ni aparece.
   Future<void> _mandar() async {
+    final ordenId = widget.workOrderId;
+    if (ordenId == null) return;
+
     setState(() => _busy = true);
     try {
-      final bytes = await ref.read(workOrderRepositoryProvider).receptionPdf(widget.workOrderId);
+      final bytes = await ref.read(workOrderRepositoryProvider).receptionPdf(ordenId);
 
       if (bytes == null) {
         if (mounted) {
@@ -129,7 +151,8 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
     setState(() => _busy = true);
     try {
       await ref.read(workOrderRepositoryProvider).saveReception(
-            widget.workOrderId,
+            widget.id,
+            deRequerimiento: widget.deRequerimiento,
             fuelLevel: _combustible,
             damages: _vacioEsNulo(_damages.text),
             belongings: _vacioEsNulo(_belongings.text),
@@ -139,11 +162,16 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
             signature: await _firmaEnBase64(),
           );
 
-      ref.invalidate(receptionProvider(widget.workOrderId));
-      ref.invalidate(workOrderDetailProvider(widget.workOrderId));
-      // La imagen cacheada es la de antes: sin esto, al volver a abrir la hoja se enseñaría
-      // la firma vieja.
-      ref.invalidate(receptionSignatureProvider(widget.workOrderId));
+      if (widget.workOrderId case final ordenId?) {
+        ref.invalidate(receptionProvider(ordenId));
+        ref.invalidate(workOrderDetailProvider(ordenId));
+        // La imagen cacheada es la de antes: sin esto, al volver a abrir la hoja se
+        // enseñaría la firma vieja.
+        ref.invalidate(receptionSignatureProvider(ordenId));
+      } else {
+        ref.invalidate(requestReceptionProvider(widget.id));
+        ref.invalidate(requestReceptionSignatureProvider(widget.id));
+      }
 
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -160,7 +188,14 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hoja = ref.watch(receptionProvider(widget.workOrderId));
+    final hoja = ref.watch(
+      widget.deRequerimiento
+          ? requestReceptionProvider(widget.id)
+          : receptionProvider(widget.id),
+    );
+
+    // Firmada, la hoja se mira pero no se toca.
+    final firmada = hoja.value?.isSigned ?? false;
 
     // Lo que ya estaba escrito, una sola vez: después manda lo que se esté escribiendo.
     if (!_cargada && hoja.hasValue) {
@@ -172,20 +207,25 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
       appBar: AppBar(
         title: Text('Recepción del ${ref.watch(vocabularioProvider).activo}'),
         actions: [
-          TextButton(
-            onPressed: _busy ? null : _guardar,
-            child: const Text('Guardar'),
-          ),
+          if (!firmada)
+            TextButton(
+              onPressed: _busy ? null : _guardar,
+              child: const Text('Guardar'),
+            ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           Text(
-            'Lo que se anote aquí es lo que vale cuando después se discuta si un golpe venía '
-            'o no. Se llena delante del cliente.',
+            firmada
+                ? 'Firmada por el cliente: ya no se puede cambiar. Se puede mirar y mandársela.'
+                : 'Lo que se anote aquí es lo que vale cuando después se discuta si un golpe '
+                    'venía o no. Se llena delante del cliente.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: firmada
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 16),
@@ -202,7 +242,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
                 for (final nivel in FuelLevel.values)
                   DropdownMenuItem(value: nivel, child: Text(nivel.label)),
               ],
-              onChanged: _busy
+              onChanged: _busy || firmada
                   ? null
                   : (value) => setState(() => _combustible = value ?? _combustible),
             ),
@@ -210,6 +250,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
             TextField(
               controller: _mileage,
+              readOnly: firmada,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: 'Kilometraje o millaje de entrada',
@@ -221,6 +262,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
           TextField(
             controller: _damages,
+            readOnly: firmada,
             maxLines: 3,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
@@ -242,9 +284,9 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
           // Las fotos de cómo entró, aquí mismo: salir a la galería de la orden con el
           // cliente esperando era el paso que no se daba, y son las que salen en la ficha.
           PhotoGallery(
-            ownerId: widget.workOrderId,
+            ownerId: widget.id,
             ownerType: MediaOwnerType.reception,
-            canEdit: true,
+            canEdit: !firmada,
             titulo: 'FOTOS DE CÓMO ENTRÓ',
             vacioPropio: 'Tome las fotos ahora, con el cliente delante: son las que salen en '
                 'la ficha y las que contestan después si el golpe ya venía.',
@@ -254,6 +296,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
           TextField(
             controller: _belongings,
+            readOnly: firmada,
             maxLines: 2,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
@@ -267,6 +310,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
 
           TextField(
             controller: _notes,
+            readOnly: firmada,
             maxLines: 2,
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
@@ -281,6 +325,7 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
           const SizedBox(height: 6),
           TextField(
             controller: _deliveredBy,
+            readOnly: firmada,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               labelText: 'Nombre de quien entrega',
@@ -292,7 +337,8 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
           const SizedBox(height: 16),
 
           _Firmar(
-            workOrderId: widget.workOrderId,
+            id: widget.id,
+            deRequerimiento: widget.deRequerimiento,
             trazos: _trazos,
             lienzo: _firma,
             hayGuardada: hoja.value?.signatureUrl != null,
@@ -301,15 +347,17 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
             onCambio: () => setState(() {}),
           ),
 
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _busy ? null : _guardar,
-            child: Text(_busy ? 'Guardando…' : 'Guardar la recepción'),
-          ),
+          if (!firmada) ...[
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _busy ? null : _guardar,
+              child: Text(_busy ? 'Guardando…' : 'Guardar la recepción'),
+            ),
+          ],
 
           // Mandarla solo tiene sentido con la hoja ya guardada: lo que se comparte es lo que
           // está en el servidor, no lo que todavía se está escribiendo.
-          if (hoja.value != null) ...[
+          if (hoja.value != null && widget.workOrderId != null) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : _mandar,
@@ -332,7 +380,8 @@ String? _vacioEsNulo(String value) => value.trim().isEmpty ? null : value.trim()
 /// se había guardado.
 class _Firmar extends ConsumerWidget {
   const _Firmar({
-    required this.workOrderId,
+    required this.id,
+    required this.deRequerimiento,
     required this.trazos,
     required this.lienzo,
     required this.hayGuardada,
@@ -341,7 +390,8 @@ class _Firmar extends ConsumerWidget {
     required this.onCambio,
   });
 
-  final String workOrderId;
+  final String id;
+  final bool deRequerimiento;
   final List<List<Offset>> trazos;
   final GlobalKey lienzo;
   final bool hayGuardada;
@@ -389,7 +439,7 @@ class _Firmar extends ConsumerWidget {
         const SizedBox(height: 6),
 
         if (mostrarGuardada)
-          _FirmaGuardada(workOrderId: workOrderId)
+          _FirmaGuardada(id: id, deRequerimiento: deRequerimiento)
         else
           // El lienzo: se firma con el dedo, que es lo que hay en el patio del taller.
           RepaintBoundary(
@@ -443,13 +493,18 @@ class _Firmar extends ConsumerWidget {
 /// La firma que ya está guardada. Los bytes vienen por la API, que es la que tiene permiso
 /// para leer el objeto privado del bucket.
 class _FirmaGuardada extends ConsumerWidget {
-  const _FirmaGuardada({required this.workOrderId});
+  const _FirmaGuardada({required this.id, required this.deRequerimiento});
 
-  final String workOrderId;
+  final String id;
+  final bool deRequerimiento;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final firma = ref.watch(receptionSignatureProvider(workOrderId));
+    final firma = ref.watch(
+      deRequerimiento
+          ? requestReceptionSignatureProvider(id)
+          : receptionSignatureProvider(id),
+    );
     final theme = Theme.of(context);
 
     return Container(

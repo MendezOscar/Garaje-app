@@ -147,9 +147,18 @@ public class VehicleReceptionConfiguration : IEntityTypeConfiguration<VehicleRec
         b.HasOne(x => x.WorkOrder)
             .WithMany()
             .HasForeignKey(x => x.WorkOrderId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Una por orden: recibir el vehículo pasa una sola vez.
-        b.HasIndex(x => x.WorkOrderId).IsUnique();
+        b.HasOne(x => x.ServiceRequest)
+            .WithMany()
+            .HasForeignKey(x => x.ServiceRequestId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Una por orden y una por requerimiento: recibir el vehículo pasa una sola vez. Los
+        // índices son filtrados porque la otra llave va en null hasta que se aprueba.
+        b.HasIndex(x => x.WorkOrderId).IsUnique().HasFilter("work_order_id IS NOT NULL");
+        b.HasIndex(x => x.ServiceRequestId).IsUnique().HasFilter("service_request_id IS NOT NULL");
     }
 }
