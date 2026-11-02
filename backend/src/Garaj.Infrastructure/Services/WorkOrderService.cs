@@ -843,6 +843,123 @@ public class WorkOrderService(
         return q;
     }
 
+    public async Task<WorkOrderTimeDto> StartTimeAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (scope.IsCustomer)
+            throw new ForbiddenException("Un cliente no trabaja en la orden.");
+
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+        var ahora = clock.UtcNow;
+
+        var abiertos = await db.WorkOrderTimeEntries
+            .Where(t => t.UserId == scope.UserId && t.EndedAt == null)
+            .ToListAsync(ct);
+
+        // Nadie trabaja en dos carros a la vez: empezar aquí cierra lo que haya quedado
+        // corriendo en otra orden. Sin esto, el tramo olvidado se come la tarde entera.
+        foreach (var otro in abiertos)
+        {
+            if (otro.WorkOrderId == workOrderId) return await TiempoAsync(order, ct);
+
+            otro.EndedAt = ahora;
+            otro.AutoClosed = true;
+        }
+
+        db.WorkOrderTimeEntries.Add(new WorkOrderTimeEntry
+        {
+            WorkOrderId = order.Id,
+            UserId = scope.UserId,
+            StartedAt = ahora
+        });
+
+        await db.SaveChangesAsync(ct);
+
+        return await TiempoAsync(order, ct);
+    }
+
+    public async Task<WorkOrderTimeDto> StopTimeAsync(
+        Guid workOrderId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+
+        if (scope.IsCustomer)
+            throw new ForbiddenException("Un cliente no trabaja en la orden.");
+
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+
+        var abierto = await db.WorkOrderTimeEntries
+            .FirstOrDefaultAsync(
+                t => t.WorkOrderId == workOrderId && t.UserId == scope.UserId && t.EndedAt == null,
+                ct);
+
+        // Parar lo que ya está parado no es un error: es el segundo toque del que no vio que
+        // el primero ya había entrado.
+        if (abierto is not null)
+        {
+            abierto.EndedAt = clock.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }
+
+        return await TiempoAsync(order, ct);
+    }
+
+    /// <summary>
+    /// El tiempo de la orden: los tramos sumados, quién los hizo y cuánto se presupuestó.
+    /// </summary>
+    private async Task<WorkOrderTimeDto> TiempoAsync(
+        WorkOrder order, IReadOnlyDictionary<Guid, string>? nombres, CancellationToken ct)
+    {
+        var ahora = clock.UtcNow;
+
+        var tramos = await db.WorkOrderTimeEntries.AsNoTracking()
+            .Where(t => t.WorkOrderId == order.Id)
+            .ToListAsync(ct);
+
+        var faltan = tramos.Select(t => t.UserId).Distinct()
+            .Where(id => nombres is null || !nombres.ContainsKey(id))
+            .ToList();
+
+        var todos = new Dictionary<Guid, string>(nombres ?? new Dictionary<Guid, string>());
+
+        if (faltan.Count > 0)
+        {
+            foreach (var (id, nombre) in await db.Users
+                         .Where(u => faltan.Contains(u.Id))
+                         .ToDictionaryAsync(u => u.Id, u => u.FullName, ct))
+            {
+                todos[id] = nombre;
+            }
+        }
+
+        var porTecnico = tramos
+            .GroupBy(t => t.UserId)
+            .Select(g => new WorkOrderTimeByTechnicianDto(
+                g.Key,
+                todos.GetValueOrDefault(g.Key, "Sin nombre"),
+                (int)g.Sum(t => t.Duracion(ahora).TotalMinutes)))
+            .OrderByDescending(t => t.Minutes)
+            .ToList();
+
+        var corriendo = tramos.FirstOrDefault(t => t.EndedAt is null);
+
+        // Lo presupuestado sale de los pasos que llevan horas: es lo que el taller le dijo al
+        // cliente que iba a tardar. El trabajo de precio fijo no las tiene y no se compara.
+        var horas = order.Tasks.Sum(t => t.ActualHours ?? t.EstimatedHours ?? 0);
+
+        return new WorkOrderTimeDto(
+            porTecnico.Sum(t => t.Minutes),
+            horas > 0 ? horas : null,
+            corriendo?.StartedAt,
+            corriendo is null ? null : todos.GetValueOrDefault(corriendo.UserId, "Alguien"),
+            porTecnico);
+    }
+
+    private Task<WorkOrderTimeDto> TiempoAsync(WorkOrder order, CancellationToken ct) =>
+        TiempoAsync(order, null, ct);
+
     private async Task<VehicleReceptionDto> MapReceptionAsync(
         VehicleReception reception, int? mileageIn, CancellationToken ct)
     {
@@ -1790,7 +1907,10 @@ public class WorkOrderService(
             order.WarrantyCovered,
             reclamo?.WasUnderWarranty,
             reclamo is null ? null : reclamo.Status == ClaimStatus.Open,
-            AssetOf(order));
+            AssetOf(order),
+            // El cronómetro no se le esconde a nadie del taller: el técnico necesita ver lo
+            // que lleva, y el dueño lo mismo. Al cliente no le dice nada y no se le manda.
+            scope.IsCustomer ? null : await TiempoAsync(order, names, ct));
     }
 
     public async Task<WorkOrderDetailDto> SetWarrantyDecisionAsync(

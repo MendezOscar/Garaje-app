@@ -281,6 +281,29 @@ const atraso = computed(() => {
   return dias >= 1 ? dias : null
 })
 
+/**
+ * Lo que se lleva trabajado, dicho como lo dice el taller: «2 h 35 min».
+ *
+ * Cuenta el tramo que corre ahora mismo: el número que se mira mientras el técnico trabaja
+ * tiene que ser el de ahora, no el de la última vez que se recargó la pantalla.
+ */
+const tiempoTrabajado = computed(() => {
+  const t = order.value?.time
+  if (!t) return ''
+
+  const corriendo = t.runningSince
+    ? Math.floor((Date.now() - new Date(t.runningSince).getTime()) / 60000)
+    : 0
+
+  const minutos = t.minutes + corriendo
+  if (minutos < 60) return `${minutos} min`
+
+  const horas = Math.floor(minutos / 60)
+  const resto = minutos % 60
+
+  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`
+})
+
 /** El ISV del taller, que solo se cobra si la factura sale con CAI. Sale de la ficha. */
 const tasaImpuesto = ref(0)
 
@@ -2097,6 +2120,20 @@ onMounted(async () => {
             </template>
             <dt>Abierta</dt>
             <dd>{{ formatDateTime(order.openedAt) }}</dd>
+            <!-- El cronómetro se maneja desde la app, que es donde está el técnico; aquí se
+                 mira. Es tiempo de taller, no las horas de reloj entre que entró y salió. -->
+            <template v-if="order.time && (order.time.minutes > 0 || order.time.runningSince)">
+              <dt>Tiempo de trabajo</dt>
+              <dd>
+                {{ tiempoTrabajado }}
+                <span v-if="order.time.runningSince" class="corriendo">
+                  · trabajando ahora
+                </span>
+                <div v-if="order.time.budgetedHours" class="muted small">
+                  Presupuestado {{ order.time.budgetedHours }} h
+                </div>
+              </dd>
+            </template>
           </dl>
         </article>
 
@@ -3392,5 +3429,9 @@ textarea {
   margin-bottom: 0.5rem;
   font: inherit;
   resize: vertical;
+}
+
+.corriendo {
+  color: var(--accent);
 }
 </style>

@@ -112,6 +112,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // Cuánto tarda cada técnico. Sale del cronómetro de la orden, no de la hora de reloj.
+        path: 'reportes/tiempo',
+        name: 'technician-time',
+        component: () => import('@/views/owner/TechnicianTimeView.vue'),
+        meta: { roles: [Roles.Owner, Roles.Manager] },
+      },
+      {
         path: 'reclamos',
         name: 'claims',
         component: () => import('@/views/owner/ClaimsView.vue'),

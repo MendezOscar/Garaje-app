@@ -496,10 +496,52 @@ public interface ISaleService
     Task<TenantLogo?> StatementLogoPublicAsync(Guid token, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Cuánto se tarda cada técnico. Sale de los tramos del cronómetro de la orden, así que no
+/// cuenta las noches ni los días que el carro esperó un repuesto.
+/// </summary>
+/// <param name="Rows">Una fila por técnico, el que más trabajó arriba.</param>
+/// <param name="Orders">
+/// Las órdenes del rango con lo que llevan: es donde se ve el trabajo que se fue de tiempo.
+/// </param>
+public record TechnicianTimeReportDto(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int TotalMinutes,
+    IReadOnlyList<TechnicianTimeRowDto> Rows,
+    IReadOnlyList<WorkOrderTimeRowDto> Orders);
+
+/// <param name="AutoClosed">
+/// Cuántos tramos cerró el sistema porque nadie los paró. Se dice: ese tiempo es un techo,
+/// no el dato exacto.
+/// </param>
+public record TechnicianTimeRowDto(
+    Guid UserId,
+    string Name,
+    int Orders,
+    int Minutes,
+    decimal BudgetedHours,
+    int AutoClosed);
+
+/// <param name="BudgetedHours">Las horas de sus pasos. Cero en el trabajo de precio fijo.</param>
+public record WorkOrderTimeRowDto(
+    Guid WorkOrderId,
+    string Number,
+    string AssetLabel,
+    string Technicians,
+    DateTimeOffset OpenedAt,
+    int Minutes,
+    decimal BudgetedHours,
+    bool IsRunning);
+
 public interface IReportService
 {
     Task<RevenueReportDto> RevenueAsync(RevenueQuery query, CancellationToken ct = default);
     Task<DashboardDto> DashboardAsync(Guid? branchId, CancellationToken ct = default);
+
+    /// <summary>Cuánto tiempo lleva cada técnico, y en qué órdenes se fue.</summary>
+    Task<TechnicianTimeReportDto> TechnicianTimeAsync(
+        RevenueQuery query, CancellationToken ct = default);
 
     /// <summary>Las ventas del rango en CSV, para abrirlo en Excel.</summary>
     Task<byte[]> RevenueCsvAsync(RevenueQuery query, CancellationToken ct = default);
