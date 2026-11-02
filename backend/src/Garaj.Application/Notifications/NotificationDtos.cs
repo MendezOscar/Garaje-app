@@ -41,7 +41,8 @@ public record NotificationDraft(
     Guid? WorkOrderId = null,
     Guid? QuoteId = null,
     Guid? ServiceRequestId = null,
-    Guid? AppointmentId = null);
+    Guid? AppointmentId = null,
+    string? DedupeKey = null);
 
 /// <summary>
 /// Emite avisos desde los servicios de negocio.
@@ -86,4 +87,17 @@ public interface IPushSender
     /// </summary>
     Task<IReadOnlyCollection<string>> SendAsync(
         IReadOnlyCollection<string> deviceTokens, NotificationDraft draft, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Los avisos que no los provoca nadie: los levanta el calendario una vez al día.
+/// </summary>
+/// <remarks>
+/// Está aquí, y no escondido dentro del servicio que corre solo, porque el panel de
+/// plataforma puede dispararlo a mano. Sin eso, probar un cambio en estos avisos significa
+/// esperar a las siete de la mañana siguiente.
+/// </remarks>
+public interface IRepasoDeAvisos
+{
+    Task PasarAsync(CancellationToken ct = default);
 }

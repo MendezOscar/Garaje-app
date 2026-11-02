@@ -1398,6 +1398,13 @@ export const tenantApi = {
  * a cualquier otro le devuelve 403.
  */
 export const platformApi = {
+  /**
+   * Corre el repaso de avisos del calendario ahora, sin esperar a la mañana. Lo que ya se
+   * avisó no se repite, así que tocarlo de más no le suena el teléfono a nadie dos veces.
+   */
+  async repasoDeAvisos(): Promise<void> {
+    await api.post('/api/platform/repaso-de-avisos')
+  },
   async list(): Promise<PlatformTenant[]> {
     const { data } = await api.get<PlatformTenant[]>('/api/platform/tenants')
     return data

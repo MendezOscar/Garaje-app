@@ -44,6 +44,11 @@ Toda entidad nueva hereda de `TenantEntity`, y con eso el filtro por empresa se 
 solo. Nunca confiar en un identificador que viene del cliente sin que la consulta pase
 por ese filtro: es lo que hace que el GUID de una mesa no sirva en otro restaurante.
 
+`BypassTenantFilter` existe para lo que no tiene petición detrás —el alta de un taller, el
+repaso diario de avisos— y **nunca** se enciende en un camino al que llega un usuario. Donde
+se enciende, cada consulta lleva su `TenantId` a mano y cada escritura se emite con el taller
+del registro que la provocó: el filtro global deja de cuidar, así que cuida el código.
+
 ## 5. Idempotencia en lo que mueve plata o existencias
 
 Quien cobra toca el botón dos veces, o se le va el internet y reintenta. Todo lo que

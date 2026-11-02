@@ -31,6 +31,21 @@ public class Notification : TenantEntity
 
     /// <summary>Null mientras no se haya leído. Guarda el cuándo, no solo el sí/no.</summary>
     public DateTimeOffset? ReadAt { get; set; }
+
+    /// <summary>
+    /// Qué hecho concreto avisó esta fila, para no avisarlo dos veces. Null en los avisos
+    /// que nacen de un clic, que solo ocurren cuando alguien los provoca.
+    /// </summary>
+    /// <remarks>
+    /// El repaso diario vuelve a mirar lo mismo cada mañana: la orden sigue parada, el saldo
+    /// sigue vencido. Sin esta clave, al dueño le sonaría el mismo aviso todos los días hasta
+    /// que lo resolviera, y a los tres días dejaría de mirar la campana.
+    ///
+    /// La clave lleva dentro lo que hace distinto al hecho —la orden y el día en que se
+    /// detuvo, la venta y su vencimiento—, así que un hecho nuevo del mismo registro sí
+    /// vuelve a avisar.
+    /// </remarks>
+    public string? DedupeKey { get; set; }
 }
 
 /// <summary>

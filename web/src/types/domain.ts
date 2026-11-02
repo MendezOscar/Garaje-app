@@ -1185,6 +1185,11 @@ export const NotificationType = {
   QuoteAnswered: 5,
   AppointmentRequested: 6,
   AppointmentAnswered: 7,
+  ServiceReminderDue: 8,
+  WorkOrderStalled: 9,
+  AppointmentTomorrow: 10,
+  PaymentOverdue: 11,
+  TimeOverBudget: 12,
 } as const
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
 
@@ -1196,6 +1201,11 @@ export const NOTIFICATION_ICON: Record<NotificationType, string> = {
   [NotificationType.QuoteAnswered]: '✅',
   [NotificationType.AppointmentRequested]: '📅',
   [NotificationType.AppointmentAnswered]: '📅',
+  [NotificationType.ServiceReminderDue]: '🛢️',
+  [NotificationType.WorkOrderStalled]: '⏳',
+  [NotificationType.AppointmentTomorrow]: '📅',
+  [NotificationType.PaymentOverdue]: '💸',
+  [NotificationType.TimeOverBudget]: '⏱️',
 }
 
 export interface Notification {

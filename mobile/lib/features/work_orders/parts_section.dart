@@ -224,6 +224,11 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
   Widget build(BuildContext context) {
     final results = ref.watch(partSearchProvider(_search));
 
+    // El taller que apagó los precios para el técnico tampoco se los enseña aquí: elige el
+    // repuesto por nombre y SKU. El servidor ya no los manda; esto es para no escribir «L 0».
+    final sesion = ref.watch(authControllerProvider);
+    final vePrecios = sesion is! AuthSignedIn || sesion.user.seesPrices;
+
     return Padding(
       // Deja sitio al teclado: sin esto el buscador queda tapado al escribir.
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -271,7 +276,7 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                             subtitle: Text(
                               '${part.sku}'
                               '${part.brand != null ? ' · ${part.brand}' : ''}'
-                              ' · ${_money(part.salePrice)}',
+                              '${vePrecios ? ' · ${_money(part.salePrice)}' : ''}',
                             ),
                             trailing: Text(
                               '${_quantity(part.totalQuantity)} ${part.unit}',

@@ -3097,7 +3097,12 @@ class _TiempoCardState extends State<_TiempoCard> {
               ],
             ),
           ),
+          const SizedBox(width: GarajSpace.sm),
           FilledButton.icon(
+            // El tema le pone ancho infinito a los botones llenos, porque casi todos van
+            // solos al pie de una pantalla. Este va al lado del número, así que mide lo suyo:
+            // sin esto se come la fila entera y el texto queda en una letra por renglón.
+            style: FilledButton.styleFrom(minimumSize: const Size(0, GarajSpace.touch)),
             onPressed: widget.busy ? null : (corriendo ? widget.onParar : widget.onEmpezar),
             icon: Icon(corriendo ? Icons.pause : Icons.play_arrow),
             label: Text(corriendo ? 'Parar' : 'Empezar'),

@@ -14,6 +14,15 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         // La campana pide siempre lo mismo: lo del usuario, lo más nuevo primero. Y el
         // contador de no leídos filtra por ReadAt, así que entra en el mismo índice.
         b.HasIndex(x => new { x.RecipientUserId, x.ReadAt, x.CreatedAt });
+
+        b.Property(x => x.DedupeKey).HasMaxLength(120);
+
+        // Que la base impida el aviso repetido, y no solo la consulta que lo comprueba: el
+        // repaso diario puede solaparse consigo mismo —un reinicio del servidor a la hora
+        // justa— y entonces las dos pasadas ven «todavía no se avisó» a la vez.
+        b.HasIndex(x => new { x.RecipientUserId, x.DedupeKey })
+            .IsUnique()
+            .HasFilter("dedupe_key IS NOT NULL");
     }
 }
 

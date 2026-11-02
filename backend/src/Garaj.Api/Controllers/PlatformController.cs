@@ -1,4 +1,5 @@
 using Garaj.Application.Common;
+using Garaj.Application.Notifications;
 using Garaj.Application.Platform;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,8 +20,20 @@ namespace Garaj.Api.Controllers;
 [ApiController]
 [Authorize(Policy = AppPolicies.PlatformOnly)]
 [Route("api/platform/tenants")]
-public class PlatformController(IPlatformService service) : ControllerBase
+public class PlatformController(IPlatformService service, IRepasoDeAvisos repaso) : ControllerBase
 {
+    /// <summary>
+    /// Corre ahora mismo el repaso de avisos del calendario, sin esperar a la hora de la
+    /// mañana. Es para probarlo: lo que ya se avisó no se repite, así que correrlo de más
+    /// no molesta a nadie.
+    /// </summary>
+    [HttpPost("~/api/platform/repaso-de-avisos")]
+    public async Task<IActionResult> RepasoDeAvisos(CancellationToken ct)
+    {
+        await repaso.PasarAsync(ct);
+        return NoContent();
+    }
+
     /// <summary>Los talleres, con lo que vence primero arriba.</summary>
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<PlatformTenantDto>>> List(CancellationToken ct)

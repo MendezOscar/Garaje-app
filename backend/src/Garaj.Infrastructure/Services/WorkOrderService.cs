@@ -903,7 +903,53 @@ public class WorkOrderService(
             await db.SaveChangesAsync(ct);
         }
 
-        return await TiempoAsync(order, ct);
+        var tiempo = await TiempoAsync(order, ct);
+        await AvisarSiSePasoDelTiempoAsync(order, tiempo, ct);
+
+        return tiempo;
+    }
+
+    /// <summary>
+    /// Avisa al dueño cuando el trabajo pasó de las horas presupuestadas.
+    /// </summary>
+    /// <remarks>
+    /// Al técnico no se le avisa: él ya lo ve en la orden, y sonarle el teléfono por ir
+    /// tarde es apurarlo con el carro abierto. Se avisa una sola vez por orden —la clave de
+    /// deduplicación la fija— porque pasarse es un hecho, no una condición que repetir cada
+    /// vez que para el cronómetro.
+    /// </remarks>
+    private async Task AvisarSiSePasoDelTiempoAsync(
+        WorkOrder order, WorkOrderTimeDto tiempo, CancellationToken ct)
+    {
+        if (tiempo.BudgetedHours is not { } horas || horas <= 0) return;
+
+        var presupuesto = (int)(horas * 60);
+        if (tiempo.Minutes <= presupuesto) return;
+
+        var deMas = tiempo.Minutes - presupuesto;
+
+        await notifications.NotifyBranchManagementAsync(
+            order.TenantId,
+            order.BranchId,
+            new NotificationDraft(
+                NotificationType.TimeOverBudget,
+                $"Orden {order.Number} pasó del tiempo",
+                $"{await AssetLabelAsync(order, ct)}: {Horas(tiempo.Minutes)} trabajadas contra "
+                + $"{horas:0.##} h presupuestadas, {Horas(deMas)} de más.",
+                WorkOrderId: order.Id,
+                DedupeKey: $"tiempo:{order.Id}"),
+            ct);
+    }
+
+    /// <summary>«2 h 35 min», que es como se dice en el taller.</summary>
+    private static string Horas(int minutos)
+    {
+        if (minutos < 60) return $"{minutos} min";
+
+        var horas = minutos / 60;
+        var resto = minutos % 60;
+
+        return resto == 0 ? $"{horas} h" : $"{horas} h {resto} min";
     }
 
     /// <summary>
