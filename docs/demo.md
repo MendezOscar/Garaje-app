@@ -47,8 +47,9 @@ dotnet run --project src/Garaj.Api -- seed-demo \
 `--weeks` va de 1 a 26 y por omisión son 3. Para una capacitación, tres semanas bastan: se ve
 la forma del negocio sin que la lista de órdenes sea inmanejable.
 
-El taller nace **sin suscripción**: hay que ponerle plan y vencimiento desde el panel de
-plataforma, o al entrar dirá que está vencido.
+El taller nace **sin cobro configurado**, y así no se bloquea nunca: es lo que
+`SubscriptionRules` reserva para el de demostración. Si hace falta enseñar el aviso de
+vencimiento, se le pone plan y fecha desde el panel de plataforma.
 
 La contraseña de los usuarios sale de `Demo__Password`; sin esa variable es `Garaj123!`, que
 sirve en local pero no debe quedar en una base publicada —este repositorio es público—.

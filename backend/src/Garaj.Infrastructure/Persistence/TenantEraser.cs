@@ -166,13 +166,18 @@ public class TenantEraser(
         await db.ServiceRequests.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.Appointments.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
 
-        await db.StockMovements.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
-        await db.StockItems.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
-        await db.Parts.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
-
+        // Los trabajos frecuentes antes que los repuestos y la mano de obra: sus líneas
+        // apuntan a los dos catálogos con llaves Restrict. Al revés, borrar un taller que
+        // tuviera un solo trabajo frecuente reventaba contra
+        // `fk_job_template_parts_parts_part_id`, y como todo va en una transacción, el
+        // borrado entero se deshacía sin decir por qué.
         await db.JobTemplateTasks.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.JobTemplateParts.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.JobTemplates.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
+
+        await db.StockMovements.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
+        await db.StockItems.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
+        await db.Parts.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.LaborServices.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
 
         await db.Expenses.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
