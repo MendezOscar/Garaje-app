@@ -20,9 +20,11 @@ namespace Garaj.Infrastructure.Persistence;
 /// movimiento y repuestos que ya cayeron bajo mínimo. Sin eso, la gráfica de reportes es una
 /// sola barra y no se entiende para qué sirve.
 ///
-/// <b>Solo motocicletas.</b> El sistema maneja autos igual de bien, pero el taller de la
-/// demostración trabaja motos y un Corolla en medio se nota postizo. Para volver a incluir autos hay
-/// que añadir vehículos de tipo <see cref="VehicleType.Car"/> y entradas al catálogo de
+/// <b>Carros y pick-ups.</b> Lo que de verdad entra a un taller en Honduras: Corollas con
+/// doscientos mil kilómetros, Hilux de empresa, el Accent de la señora. El catálogo de mano de
+/// obra y el de repuestos son los de ese taller —aceite 15W40, pastillas, amortiguadores,
+/// rótulas— y no un inventario genérico: en una capacitación, el que mira reconoce su trabajo
+/// o no reconoce nada. Para volver a motos hay que cambiar los tres catálogos y
 /// <see cref="Jobs"/>; el resto del sembrador no distingue.
 ///
 /// <b>Borra todo antes de sembrar.</b> Está pensado para una base de demostración, no para una
@@ -59,7 +61,15 @@ public class DemoSeeder(
 
     private readonly List<Notification> _notifications = [];
 
-    public async Task<DemoSeedSummary> RunAsync(int weeks = 6, CancellationToken ct = default)
+    /// <param name="wipe">
+    /// Vaciar la base entera antes de sembrar. Es lo que hace idempotente a la siembra local,
+    /// y es exactamente lo que no se puede hacer donde hay talleres de verdad: borra todos,
+    /// no solo el de la demostración. Contra una base con clientes se siembra con
+    /// <c>wipe: false</c>, después de haber borrado el taller de la demostración con
+    /// <c>delete-tenant</c>, que sí sabe borrar uno solo.
+    /// </param>
+    public async Task<DemoSeedSummary> RunAsync(
+        int weeks = 6, bool wipe = true, CancellationToken ct = default)
     {
         if (weeks is < 1 or > 26)
             throw new AppException("Las semanas de historia deben estar entre 1 y 26.");
@@ -68,7 +78,7 @@ public class DemoSeeder(
         // acaba de insertar y el borrado no alcanzaría nada.
         tenantContext.BypassTenantFilter = true;
 
-        await WipeAsync(ct);
+        if (wipe) await WipeAsync(ct);
         await EnsureRolesAsync();
 
         var today = clock.UtcNow;
@@ -90,14 +100,16 @@ public class DemoSeeder(
         db.Notifications.AddRange(_notifications);
         await db.SaveChangesAsync(ct);
 
+        // Contado por taller y no sobre la base entera: sin vaciado hay otros talleres, y un
+        // resumen que sumara los suyos mentiría sobre lo que se acaba de sembrar.
         var summary = new DemoSeedSummary(
             tenant.Name,
             weeks,
-            await db.Customers.CountAsync(ct),
-            await db.WorkOrders.CountAsync(ct),
+            await db.Customers.CountAsync(c => c.TenantId == tenant.Id, ct),
+            await db.WorkOrders.CountAsync(w => w.TenantId == tenant.Id, ct),
             closed,
-            await db.Quotes.CountAsync(ct),
-            await db.Sales.SumAsync(s => s.Total, ct),
+            await db.Quotes.CountAsync(q => q.TenantId == tenant.Id, ct),
+            await db.Sales.Where(s => s.TenantId == tenant.Id).SumAsync(s => s.Total, ct),
             staff.Owner.Email!,
             Password);
 
@@ -327,35 +339,40 @@ public class DemoSeeder(
         await CreateUserAsync("cliente2@tallerdemo.hn", customers[1].FullName, AppRoles.Customer,
             tenantId, customerId: customers[1].Id);
 
-        // Marcas y cilindradas del mercado hondureño: lo que de verdad entra a un taller de
-        // motos en San Pedro. Las de las dos empresas son flotas de reparto, que es de donde
-        // sale el trabajo repetido.
+        // Marcas y modelos del parque hondureño: Toyota y Nissan mandan, la pick-up es de
+        // trabajo y los kilometrajes son altos porque aquí los carros no se jubilan. La placa
+        // delata al dato inventado, así que llevan la forma de verdad: P de particular,
+        // C de carga en las de empresa.
+        //
+        // Los años están repartidos a propósito —de 2013 a 2021— porque un taller no atiende
+        // una sola generación, y las dos flotas repiten modelo, que es de donde sale el
+        // trabajo repetido que hace ver para qué sirven los trabajos frecuentes.
         (int Owner, string Brand, string Model, int Year, string Plate, string Color, int Km)[] fleet =
         [
-            (0, "Honda", "CB125F", 2022, "MAB4521", "Rojo", 18400),
-            (0, "Yamaha", "Crypton FI", 2023, "MAB9087", "Azul", 9200),
-            (1, "Bajaj", "Pulsar NS160", 2021, "MCD7788", "Negro", 31700),
-            (1, "Suzuki", "GN125", 2018, "MCD1145", "Negro", 62300),
-            (2, "Italika", "FT150", 2022, "MEF1109", "Azul", 15600),
-            (3, "Honda", "XR150L", 2020, "MGH2231", "Rojo", 44800),
-            (4, "Bajaj", "Boxer CT100", 2023, "MJK5580", "Negro", 27500),
-            (4, "Bajaj", "Boxer CT100", 2023, "MJK5581", "Negro", 29100),
-            (4, "Honda", "CB125F", 2022, "MJK5582", "Rojo", 33800),
-            (5, "Yamaha", "YBR125", 2019, "MLM4407", "Azul", 51200),
-            (6, "Keeway", "RKV125", 2021, "MNP7715", "Negro", 24600),
-            (7, "Italika", "DT150", 2020, "MQR3348", "Blanco", 38900),
-            (8, "Freedom", "Rayo 150", 2023, "MST8812", "Rojo", 12400),
-            (8, "Freedom", "Rayo 150", 2023, "MST8813", "Rojo", 14100),
-            (9, "TVS", "Apache RTR 160", 2022, "MUV2290", "Negro", 21300),
-            (10, "Suzuki", "EN125", 2017, "MWX6634", "Plata", 74500),
-            (11, "Serpento", "Storm 150", 2021, "MYZ1178", "Verde", 29800),
+            (0, "Toyota", "Corolla", 2018, "PAB4521", "Plata", 128400),
+            (0, "Toyota", "Yaris", 2021, "PAB9087", "Blanco", 54200),
+            (1, "Nissan", "Frontier", 2016, "PCD7788", "Gris", 187300),
+            (1, "Honda", "Civic", 2014, "PCD1145", "Negro", 212600),
+            (2, "Hyundai", "Accent", 2019, "PEF1109", "Azul", 96500),
+            (3, "Mitsubishi", "L200", 2017, "PGH2231", "Blanco", 164800),
+            (4, "Toyota", "Hilux", 2020, "CJK5580", "Blanco", 88500),
+            (4, "Toyota", "Hilux", 2020, "CJK5581", "Blanco", 91200),
+            (4, "Isuzu", "D-Max", 2019, "CJK5582", "Blanco", 112300),
+            (5, "Kia", "Rio", 2018, "PLM4407", "Rojo", 102400),
+            (6, "Suzuki", "Swift", 2017, "PNP7715", "Gris", 134900),
+            (7, "Nissan", "Sentra", 2015, "PQR3348", "Plata", 198700),
+            (8, "Toyota", "Hiace", 2019, "CST8812", "Blanco", 143500),
+            (8, "Toyota", "Hiace", 2018, "CST8813", "Blanco", 151800),
+            (9, "Honda", "CR-V", 2016, "PUV2290", "Negro", 176200),
+            (10, "Mitsubishi", "Montero Sport", 2013, "PWX6634", "Verde", 243100),
+            (11, "Hyundai", "Tucson", 2020, "PYZ1178", "Blanco", 71600),
         ];
 
         var vehicles = fleet
             .Select(v => new Vehicle
             {
                 CustomerId = customers[v.Owner].Id,
-                Type = VehicleType.Motorcycle,
+                Type = VehicleType.Car,
                 Brand = v.Brand,
                 Model = v.Model,
                 Year = v.Year,
@@ -373,24 +390,29 @@ public class DemoSeeder(
 
     private async Task<List<LaborService>> SeedLaborServicesAsync(CancellationToken ct)
     {
-        // 250 L/hora en lo corriente y 300 en trabajo de motor: es el orden de magnitud de un
-        // taller de motos en San Pedro, y los totales tienen que sonar creíbles.
+        // 350 L/hora en lo corriente y 450 en motor y caja: es el orden de magnitud de un
+        // taller de carros en San Pedro, y los totales tienen que sonar creíbles. El código
+        // dice de qué es el trabajo —MAN, FRE, SUS— para que el catálogo se pueda leer
+        // ordenado, que es como lo va a recorrer quien aprende a usarlo.
         (string Code, string Name, decimal Hours, decimal Rate, string Category)[] catalog =
         [
-            ("MO-001", "Cambio de aceite y filtro", 0.4m, 250m, "Mantenimiento"),
-            ("MO-002", "Servicio de mantenimiento", 1.5m, 250m, "Mantenimiento"),
-            ("MO-003", "Ajuste de válvulas", 1.5m, 300m, "Motor"),
-            ("MO-004", "Cambio de kit de arrastre", 1m, 250m, "Transmisión"),
-            ("MO-005", "Frenos delanteros: pastillas y purga", 0.8m, 250m, "Frenos"),
-            ("MO-006", "Frenos traseros: zapatas y ajuste", 0.6m, 250m, "Frenos"),
-            ("MO-007", "Cambio de llanta y balanceo", 0.6m, 250m, "Llantas"),
-            ("MO-008", "Limpieza y sincronización de carburador", 1.5m, 250m, "Motor"),
-            ("MO-009", "Cambio de balineras de dirección", 1.5m, 250m, "Dirección"),
-            ("MO-010", "Revisión del sistema eléctrico", 1m, 250m, "Eléctrico"),
-            ("MO-011", "Cambio de embrague", 2m, 300m, "Transmisión"),
-            ("MO-012", "Reparación de suspensión delantera", 2m, 250m, "Suspensión"),
-            ("MO-013", "Diagnóstico general", 0.5m, 250m, "Diagnóstico"),
-            ("MO-014", "Cambio de cadena de distribución", 3m, 300m, "Motor"),
+            ("MAN-001", "Cambio de aceite y filtro", 0.5m, 350m, "Mantenimiento"),
+            ("MAN-002", "Servicio mayor de mantenimiento", 2m, 350m, "Mantenimiento"),
+            ("MAN-003", "Afinamiento: bujías y filtros", 1.5m, 350m, "Mantenimiento"),
+            ("MOT-001", "Cambio de banda de accesorios", 1m, 350m, "Motor"),
+            ("MOT-002", "Cambio de banda de tiempo", 6m, 450m, "Motor"),
+            ("MOT-003", "Cambio de bomba de agua y refrigerante", 3m, 450m, "Motor"),
+            ("MOT-004", "Cambio de radiador", 2.5m, 450m, "Motor"),
+            ("FRE-001", "Frenos delanteros: pastillas y rectificado", 1.5m, 350m, "Frenos"),
+            ("FRE-002", "Frenos traseros: zapatas y ajuste", 1.5m, 350m, "Frenos"),
+            ("SUS-001", "Cambio de amortiguadores (par)", 2m, 350m, "Suspensión"),
+            ("SUS-002", "Cambio de rótulas y terminales", 2.5m, 350m, "Dirección"),
+            ("SUS-003", "Alineado y balanceo", 1m, 350m, "Llantas"),
+            ("TRA-001", "Cambio de embrague", 5m, 450m, "Transmisión"),
+            ("ELE-001", "Cambio de batería y revisión de carga", 0.5m, 350m, "Eléctrico"),
+            ("ELE-002", "Revisión del sistema eléctrico", 1.5m, 350m, "Eléctrico"),
+            ("AIR-001", "Recarga y revisión de aire acondicionado", 1.5m, 350m, "Aire acondicionado"),
+            ("DIA-001", "Diagnóstico por escáner", 1m, 450m, "Diagnóstico"),
         ];
 
         var services = catalog
@@ -412,34 +434,44 @@ public class DemoSeeder(
 
     private async Task<List<Part>> SeedPartsAsync(CancellationToken ct)
     {
+        // Precios de casa de repuestos de San Pedro, en lempiras: el costo es lo que se paga y
+        // la venta lo que se cobra, con el margen que de verdad se usa —más grueso en lo
+        // barato que se mueve rápido, más fino en lo caro—. Las marcas son las que se piden
+        // por nombre en el mostrador.
         (string Sku, string Name, string Brand, string Category, string Unit, decimal Cost, decimal Sale)[] catalog =
         [
-            ("ACE-4T-20W50", "Aceite 4T 20W50", "Motul", "Lubricantes", "lt", 165m, 260m),
-            ("ACE-4T-10W40", "Aceite 4T sintético 10W40", "Motul", "Lubricantes", "lt", 240m, 380m),
-            ("ACE-BARRA", "Aceite de barra de suspensión", "Bel-Ray", "Lubricantes", "lt", 145m, 240m),
-            ("FIL-ACE", "Filtro de aceite", "Honda", "Filtros", "u", 85m, 150m),
-            ("FIL-AIR", "Filtro de aire", "Fram", "Filtros", "u", 130m, 230m),
-            ("BUJ-NGK", "Bujía NGK", "NGK", "Encendido", "u", 75m, 135m),
-            ("KIT-ARR-125", "Kit de arrastre 125cc", "DID", "Transmisión", "jgo", 780m, 1180m),
-            ("KIT-ARR-150", "Kit de arrastre 150cc", "DID", "Transmisión", "jgo", 890m, 1350m),
-            ("KIT-CLU", "Kit de discos de embrague", "Ferodo", "Transmisión", "jgo", 520m, 820m),
-            ("CAD-DIS", "Cadena de distribución", "DID", "Motor", "u", 320m, 520m),
-            ("EMP-CULATA", "Empaque de culata", "Athena", "Motor", "u", 140m, 250m),
-            ("CAR-REP", "Kit de reparación de carburador", "Keihin", "Motor", "jgo", 260m, 430m),
-            ("PAS-FRE", "Pastillas de freno delanteras", "Galfer", "Frenos", "jgo", 210m, 360m),
-            ("ZAP-FRE", "Zapatas de freno traseras", "Galfer", "Frenos", "jgo", 180m, 310m),
-            ("DIS-FRE", "Disco de freno delantero", "Galfer", "Frenos", "u", 620m, 950m),
-            ("LIQ-DOT4", "Líquido de frenos DOT4", "Bosch", "Frenos", "u", 85m, 150m),
-            ("BAT-12V7", "Batería 12V 7Ah", "Yuasa", "Eléctrico", "u", 620m, 950m),
-            ("BOM-LED", "Bombillo de faro LED", "Philips", "Eléctrico", "u", 180m, 320m),
-            ("FAR-INT", "Foco intermitente", "Philips", "Eléctrico", "u", 85m, 150m),
-            ("CAB-EMB", "Cable de embrague", "Venhill", "Controles", "u", 95m, 175m),
-            ("CAB-ACE", "Cable de acelerador", "Venhill", "Controles", "u", 90m, 165m),
-            ("LLA-DEL", "Llanta delantera 2.75-18", "Kenda", "Llantas", "u", 780m, 1180m),
-            ("LLA-TRA", "Llanta trasera 3.00-18", "Kenda", "Llantas", "u", 890m, 1320m),
-            ("TUB-LLA", "Tubo de llanta 18\"", "Kenda", "Llantas", "u", 160m, 280m),
-            ("RET-BARRA", "Retenedores de barra (par)", "Athena", "Suspensión", "jgo", 210m, 360m),
-            ("BAL-DIR", "Balineras de dirección", "SKF", "Dirección", "jgo", 240m, 420m),
+            ("ACE-15W40", "Aceite de motor 15W40", "Castrol", "Lubricantes", "lt", 125m, 195m),
+            ("ACE-5W30", "Aceite de motor sintético 5W30", "Mobil", "Lubricantes", "lt", 210m, 330m),
+            ("ACE-ATF", "Aceite de transmisión automática ATF", "Castrol", "Lubricantes", "lt", 150m, 245m),
+            ("REF-PRE", "Refrigerante prediluido", "Prestone", "Lubricantes", "lt", 95m, 165m),
+            ("FIL-ACE", "Filtro de aceite", "Fram", "Filtros", "u", 110m, 195m),
+            ("FIL-AIR", "Filtro de aire", "Fram", "Filtros", "u", 180m, 310m),
+            ("FIL-COM", "Filtro de combustible", "Fram", "Filtros", "u", 220m, 380m),
+            ("FIL-CAB", "Filtro de cabina", "Fram", "Filtros", "u", 190m, 330m),
+            ("BUJ-NGK", "Bujía NGK", "NGK", "Encendido", "u", 95m, 165m),
+            ("BUJ-IRI", "Bujía de iridio", "NGK", "Encendido", "u", 290m, 450m),
+            ("BAN-ACC", "Banda de accesorios", "Gates", "Motor", "u", 420m, 680m),
+            ("KIT-TIE", "Kit de banda de tiempo", "Gates", "Motor", "jgo", 2400m, 3650m),
+            ("BOM-AGU", "Bomba de agua", "Aisin", "Motor", "u", 1450m, 2200m),
+            ("RAD-ALU", "Radiador", "Koyo", "Motor", "u", 2800m, 4200m),
+            ("MAN-RAD", "Manguera superior de radiador", "Gates", "Motor", "u", 240m, 420m),
+            ("EMP-CUL", "Empaque de culata", "Victor Reinz", "Motor", "u", 850m, 1350m),
+            ("PAS-FRE-D", "Pastillas de freno delanteras", "Bosch", "Frenos", "jgo", 480m, 780m),
+            ("ZAP-FRE-T", "Zapatas de freno traseras", "Bosch", "Frenos", "jgo", 420m, 690m),
+            ("DIS-FRE", "Disco de freno delantero", "Brembo", "Frenos", "u", 980m, 1500m),
+            ("LIQ-DOT4", "Líquido de frenos DOT4", "Bosch", "Frenos", "u", 95m, 165m),
+            ("AMO-DEL", "Amortiguador delantero", "KYB", "Suspensión", "u", 1250m, 1900m),
+            ("AMO-TRA", "Amortiguador trasero", "KYB", "Suspensión", "u", 1100m, 1700m),
+            ("ROT-INF", "Rótula inferior", "555", "Dirección", "u", 650m, 1050m),
+            ("TER-DIR", "Terminal de dirección", "555", "Dirección", "u", 480m, 790m),
+            ("BAT-12V", "Batería 12V 65Ah", "Yuasa", "Eléctrico", "u", 2200m, 3200m),
+            ("ALT-REC", "Alternador reconstruido", "Bosch", "Eléctrico", "u", 2600m, 3900m),
+            ("BOM-FAR", "Bombillo de faro H4", "Philips", "Eléctrico", "u", 160m, 280m),
+            ("LLA-185", "Llanta 185/65 R15", "Kenda", "Llantas", "u", 1450m, 2100m),
+            ("LLA-265", "Llanta 265/65 R17", "Kenda", "Llantas", "u", 2900m, 4200m),
+            ("GAS-134", "Gas refrigerante R134a", "Chemours", "Aire acondicionado", "lb", 180m, 320m),
+            ("FIL-SEC", "Filtro secador de aire acondicionado", "Denso", "Aire acondicionado", "u", 620m, 980m),
+            ("KIT-EMB", "Kit de embrague", "Exedy", "Transmisión", "jgo", 3800m, 5600m),
         ];
 
         var parts = catalog
@@ -467,22 +499,27 @@ public class DemoSeeder(
     {
         foreach (var branch in world.Branches)
         {
-            // Cuyamel es un local pequeño: lleva alrededor de la mitad de existencia que las
-            // dos de San Pedro. Sembrar las tres iguales haría que el inventario por sucursal
-            // no dijera nada.
-            var scale = branch.Code == "CUY" ? 0.5 : 1.0;
+            // Puerto Cortés es un local pequeño: lleva alrededor de la mitad de existencia
+            // que las dos de San Pedro. Sembrar las tres iguales haría que el inventario por
+            // sucursal no dijera nada.
+            var scale = branch.Code == "PTO" ? 0.5 : 1.0;
 
             foreach (var part in world.Parts)
             {
-                // Lo barato se compra por docenas y lo caro de a pocos: un taller de motos no
-                // tiene diez baterías en la bodega.
-                var baseQuantity = part.CostPrice switch
-                {
-                    < 150m => _rnd.Next(18, 40),
-                    < 350m => _rnd.Next(10, 22),
-                    < 700m => _rnd.Next(5, 12),
-                    _ => _rnd.Next(2, 6)
-                };
+                // Lo barato se compra por docenas y lo caro de a pocos: ningún taller tiene
+                // diez radiadores en la bodega. Lo que se vende por litro va aparte, porque un
+                // carro se lleva cuatro de un golpe: con existencia de repuesto, el aceite se
+                // acababa a los tres días y las órdenes salían sin la línea que todo el mundo
+                // espera ver.
+                var baseQuantity = part.Unit == "lt"
+                    ? _rnd.Next(80, 160)
+                    : part.CostPrice switch
+                    {
+                        < 150m => _rnd.Next(18, 40),
+                        < 350m => _rnd.Next(10, 22),
+                        < 700m => _rnd.Next(5, 12),
+                        _ => _rnd.Next(2, 6)
+                    };
 
                 var quantity = Math.Max(1, (int)Math.Round(baseQuantity * scale));
                 var minimum = Math.Max(1, (int)Math.Round(quantity * 0.25));
@@ -566,9 +603,9 @@ public class DemoSeeder(
 
             if (local.DayOfWeek == DayOfWeek.Sunday && day.Date != today.Date) continue;
 
-            // Una moto entra y sale el mismo día casi siempre, así que el volumen diario es
-            // bastante mayor que el de un taller de autos.
-            var jobs = local.DayOfWeek == DayOfWeek.Saturday ? _rnd.Next(3, 7) : _rnd.Next(5, 11);
+            // Un carro ocupa la rampa más que una moto, así que salen menos trabajos al día:
+            // tres bahías y un trabajo de frenos se lleva la mañana entera.
+            var jobs = local.DayOfWeek == DayOfWeek.Saturday ? _rnd.Next(2, 5) : _rnd.Next(3, 7);
 
             // El día en curso va a medias: son las entregas de la mañana. Sin esto la tarjeta
             // de "hoy" del tablero abre en cero, que es justo lo que no se quiere enseñar.
@@ -580,7 +617,7 @@ public class DemoSeeder(
             }
 
             // Y las ventas de mostrador: gente que entra por un filtro o un litro de aceite y
-            // se va sin dejar la moto. En un taller de barrio son pan de cada día, y sin ellas
+            // se va sin dejar el carro. En un taller de barrio son pan de cada día, y sin ellas
             // la cifra de «solo venta» del reporte sale en cero y parece que la función no
             // sirve para nada.
             for (var i = 0; i < _rnd.Next(0, 4); i++) SellOverTheCounter(world, local, i);
@@ -688,8 +725,8 @@ public class DemoSeeder(
         db.WorkOrders.Add(order);
         request.WorkOrderId = order.Id;
 
-        // Una moto se entrega el mismo día salvo que haya que abrir el motor.
-        var hours = job.LaborCodes.Length * 1.5 + _rnd.Next(1, 4);
+        // Casi todo se entrega el mismo día; lo que toca motor o caja se va a la tarde.
+        var hours = job.LaborCodes.Length * 2.0 + _rnd.Next(1, 4);
         var closedAt = openedAt.AddHours(hours);
 
         Timeline(order, world.Staff.Owner.Id, technician.Id, openedAt, closedAt);
@@ -729,7 +766,21 @@ public class DemoSeeder(
         foreach (var sku in job.PartSkus)
         {
             var part = world.Parts.First(p => p.Sku == sku);
-            var quantity = sku.StartsWith("ACE-") ? _rnd.Next(1, 3) : 1;
+
+            // La cantidad es la del carro, no la de la línea: el aceite va por litros, las
+            // bujías de a cuatro y lo que existe por pares se cambia por pares. Una orden con
+            // «1 amortiguador» la descarta de un vistazo cualquiera que sepa del oficio.
+            var quantity = sku switch
+            {
+                "ACE-15W40" or "ACE-5W30" => _rnd.Next(4, 6),
+                "ACE-ATF" or "REF-PRE" => _rnd.Next(2, 5),
+                "BUJ-NGK" or "BUJ-IRI" => 4,
+                "LLA-185" or "LLA-265" => 2,
+                "AMO-DEL" or "AMO-TRA" => 2,
+                "ROT-INF" or "TER-DIR" => 2,
+                "GAS-134" => _rnd.Next(2, 4),
+                _ => 1
+            };
 
             if (!Consume(world, branch.Id, part, quantity, order.Id, closedAt, technician.Id))
                 continue;
@@ -748,9 +799,10 @@ public class DemoSeeder(
             partLines.Add((part, quantity));
         }
 
-        // Uno de cada cuatro pasó por cotización. En motos casi todo se autoriza de palabra
-        // en el mostrador; se cotiza cuando el trabajo es grande y el dueño quiere pensarlo.
-        if (_rnd.Next(4) == 0)
+        // Uno de cada tres pasó por cotización. En carros el trabajo grande —embrague, banda
+        // de tiempo— no se autoriza de palabra: el cliente quiere el número por escrito.
+        //
+        if (_rnd.Next(3) == 0)
             AddQuote(world, branch, vehicle, order, partLines, laborLines, openedAt, QuoteStatus.Approved);
 
         BillOut(world, branch, vehicle, order, partLines, laborLines, closedAt);
@@ -762,12 +814,12 @@ public class DemoSeeder(
     {
         (WorkOrderStatus? From, WorkOrderStatus To, double Fraction, string Note)[] steps =
         [
-            (null, WorkOrderStatus.Received, 0, "Motocicleta recibida en el taller."),
+            (null, WorkOrderStatus.Received, 0, "Vehículo recibido en el taller."),
             (WorkOrderStatus.Received, WorkOrderStatus.Diagnosing, 0.15, "En revisión."),
             (WorkOrderStatus.Diagnosing, WorkOrderStatus.InProgress, 0.35, "Trabajo autorizado, manos a la obra."),
             (WorkOrderStatus.InProgress, WorkOrderStatus.Testing, 0.75, "Prueba de ruta."),
-            (WorkOrderStatus.Testing, WorkOrderStatus.Ready, 0.9, "Lista para retirar."),
-            (WorkOrderStatus.Ready, WorkOrderStatus.Delivered, 1, "Entregada al cliente.")
+            (WorkOrderStatus.Testing, WorkOrderStatus.Ready, 0.9, "Listo para retirar."),
+            (WorkOrderStatus.Ready, WorkOrderStatus.Delivered, 1, "Entregado al cliente.")
         ];
 
         var span = closedAt - openedAt;
@@ -890,10 +942,11 @@ public class DemoSeeder(
             WorkOrderId = order.Id,
             Number = $"VTA-{branch.Code}-{branch.SaleSequence:D6}",
             SaleDate = when,
-            // En un taller de motos casi todo se paga en efectivo.
+            // Todavía manda el efectivo, pero en carros la tarjeta pesa más que en motos:
+            // los montos son otros y nadie anda cinco mil lempiras en la bolsa.
             PaymentMethod = _rnd.Next(10) switch
             {
-                < 8 => PaymentMethod.Cash,
+                < 6 => PaymentMethod.Cash,
                 < 9 => PaymentMethod.Card,
                 _ => PaymentMethod.Transfer
             },
@@ -1137,7 +1190,7 @@ public class DemoSeeder(
                 ToStatus = WorkOrderStatus.Received,
                 ChangedAt = openedAt,
                 ChangedByUserId = world.Staff.Owner.Id,
-                Note = $"Motocicleta recibida en {branch.Name}.",
+                Note = $"Vehículo recibido en {branch.Name}.",
                 CreatedAt = openedAt,
                 CreatedByUserId = world.Staff.Owner.Id
             });
@@ -1196,10 +1249,15 @@ public class DemoSeeder(
             if (open[i] == WorkOrderStatus.WaitingApproval)
             {
                 var service = world.Labor.First(l => l.Code == job.LaborCodes[0]);
-                var part = world.Parts.First(p => p.Sku == job.PartSkus[0]);
+
+                // Hay trabajo que no lleva repuesto —un alineado, un diagnóstico— y entonces
+                // la cotización va de pura mano de obra, que también hay que poder enseñar.
+                var partLines = job.PartSkus.Length > 0
+                    ? new List<(Part, decimal)> { (world.Parts.First(p => p.Sku == job.PartSkus[0]), 1) }
+                    : [];
 
                 AddQuote(world, branch, vehicle, order,
-                    [(part, 1)],
+                    partLines,
                     [(service, service.StandardHours, service.StandardHours * service.HourlyRate)],
                     openedAt.AddHours(3), QuoteStatus.Sent);
             }
@@ -1210,9 +1268,9 @@ public class DemoSeeder(
         // dónde salió el aviso.
         (int Vehicle, string Reason, string Symptom)[] pending =
         [
-            (0, "Servicio de los 20 mil", "Ya toca, y siento que le falta fuerza en subida"),
-            (2, "Revisión de frenos", "Chilla al frenar y hay que apretar mucho"),
-            (7, "Cambio de llanta trasera", "Está lisa y se me poncha seguido"),
+            (0, "Servicio de los 130 mil", "Ya toca, y siento que le falta fuerza en subida"),
+            (2, "Revisión de frenos", "Chilla al frenar y hay que pisar hasta el fondo"),
+            (7, "No enfría el aire", "Sopla, pero sale caliente desde la semana pasada"),
         ];
 
         for (var i = 0; i < pending.Length; i++)
@@ -1298,7 +1356,7 @@ public class DemoSeeder(
 
         // Dos repuestos por debajo del mínimo, para que la alerta del tablero tenga contenido
         // real y no haya que provocarla a mano durante la presentación.
-        foreach (var sku in new[] { "PAS-FRE", "BAT-12V7" })
+        foreach (var sku in new[] { "PAS-FRE-D", "BAT-12V" })
         {
             var part = world.Parts.First(p => p.Sku == sku);
             var item = world.Stock[(world.Branches[0].Id, part.Id)];
@@ -1355,94 +1413,140 @@ public class DemoSeeder(
         string Diagnosis,
         string TechnicianNote,
         string[] LaborCodes,
-        string[] PartSkus);
+        string[] PartSkus,
+        /// <summary>
+        /// Cuánto se repite este trabajo. Sin peso, el sembrador sacaba tantos cambios de
+        /// banda de tiempo como cambios de aceite, y un taller así no existe: el reporte
+        /// quedaba plano y el catálogo de trabajos frecuentes no se entendía para qué sirve.
+        /// </summary>
+        int Weight);
 
     private static class Jobs
     {
+        /// <summary>
+        /// El trabajo como llega: lo que dijo el cliente, lo que encontró el técnico y lo que
+        /// se hizo. Los tres textos importan —son los que se leen en la orden, en la
+        /// cotización y en el historial del vehículo— y por eso están escritos como los
+        /// escribe un taller y no como los escribiría un catálogo.
+        /// </summary>
         private static readonly Job[] All =
         [
-            new("Servicio de mantenimiento", "Ya van cinco mil kilómetros del último",
-                "Mantenimiento de rutina. Filtro de aire saturado por el polvo.",
-                "Aceite, filtros y bujía cambiados. Cadena tensada y lubricada.",
-                ["MO-001", "MO-002"], ["ACE-4T-20W50", "FIL-ACE", "FIL-AIR", "BUJ-NGK"]),
+            new("Servicio de mantenimiento", "Ya toca el servicio",
+                "Mantenimiento de rutina. Filtro de aire saturado por el polvo de la calle.",
+                "Aceite y filtros cambiados. Revisados niveles, frenos y presión de llantas.",
+                ["MAN-001", "MAN-002"], ["ACE-15W40", "FIL-ACE", "FIL-AIR", "FIL-CAB"], 10),
 
             new("Cambio de aceite", "Mantenimiento de rutina",
                 "Sin novedad. Aceite en su intervalo.",
-                "Aceite y filtro cambiados. Revisada la tensión de la cadena y la presión de llantas.",
-                ["MO-001"], ["ACE-4T-20W50", "FIL-ACE"]),
+                "Aceite y filtro cambiados. Revisados niveles y presión de llantas.",
+                ["MAN-001"], ["ACE-15W40", "FIL-ACE"], 12),
 
-            new("Cambio de kit de arrastre", "Salta la cadena al acelerar",
-                "Kit de arrastre desgastado, con los dientes en punta.",
-                "Kit completo cambiado. Tensión y alineación ajustadas.",
-                ["MO-004"], ["KIT-ARR-125"]),
+            new("Afinamiento", "Le falta fuerza en subida y gasta más",
+                "Bujías gastadas y filtro de combustible sucio.",
+                "Bujías y filtros cambiados. Probado en ruta, recuperó respuesta.",
+                ["MAN-003"], ["BUJ-NGK", "FIL-COM", "FIL-AIR"], 6),
 
-            new("Frenos delanteros", "No frena igual y chilla",
-                "Pastillas delanteras al límite y líquido contaminado.",
-                "Pastillas cambiadas y purga del freno delantero.",
-                ["MO-005"], ["PAS-FRE", "LIQ-DOT4"]),
+            new("Frenos delanteros", "Chilla al frenar y vibra el volante",
+                "Pastillas delanteras al límite y discos con labio.",
+                "Pastillas cambiadas y discos rectificados. Purga del sistema.",
+                ["FRE-001"], ["PAS-FRE-D", "LIQ-DOT4"], 8),
 
-            new("Frenos traseros", "El pedal se va hasta abajo",
-                "Zapatas gastadas y varilla desajustada.",
-                "Zapatas cambiadas y freno reajustado.",
-                ["MO-006"], ["ZAP-FRE"]),
+            new("Frenos traseros", "El pedal se va hasta el fondo",
+                "Zapatas gastadas y freno de mano desajustado.",
+                "Zapatas cambiadas, tambores limpiados y freno de mano reajustado.",
+                ["FRE-002"], ["ZAP-FRE-T"], 6),
 
-            new("Cambio de llanta trasera", "Está lisa y se poncha seguido",
-                "Llanta trasera sin dibujo y tubo parchado tres veces.",
-                "Llanta y tubo nuevos. Balanceada y probada.",
-                ["MO-007"], ["LLA-TRA", "TUB-LLA"]),
+            new("Cambio de discos y pastillas", "Se siente que no agarra al frenar fuerte",
+                "Discos delanteros por debajo del espesor mínimo.",
+                "Discos y pastillas nuevos. Probado en ruta, frena derecho.",
+                ["FRE-001"], ["DIS-FRE", "PAS-FRE-D"], 4),
 
-            new("Cambio de llanta delantera", "Se siente inestable en curva",
-                "Llanta delantera con el hombro comido.",
-                "Llanta y tubo cambiados. Presión ajustada.",
-                ["MO-007"], ["LLA-DEL", "TUB-LLA"]),
+            new("Suena la suspensión", "Golpetea en los topes y se siente flojo",
+                "Amortiguadores delanteros vencidos, con fuga de aceite.",
+                "Amortiguadores delanteros cambiados. Alineado después del trabajo.",
+                ["SUS-001", "SUS-003"], ["AMO-DEL"], 5),
 
-            new("Cuesta arrancar", "Se apaga en ralentí y en frío no pega",
-                "Carburador sucio y filtro de aire saturado.",
-                "Carburador desarmado y limpiado, kit nuevo, ralentí sincronizado.",
-                ["MO-008"], ["CAR-REP", "FIL-AIR"]),
+            new("Se come las llantas", "Las delanteras se gastan por dentro",
+                "Rótulas con juego y alineación fuera de especificación.",
+                "Rótulas y terminales cambiados, alineado y balanceado.",
+                ["SUS-002", "SUS-003"], ["ROT-INF", "TER-DIR"], 4),
 
-            new("Bota aceite la suspensión", "Se ve mojada la barra",
-                "Retenedores de barra vencidos.",
-                "Retenedores y aceite de barra cambiados. Sin fuga tras la prueba.",
-                ["MO-012"], ["RET-BARRA", "ACE-BARRA"]),
+            new("Alineado y balanceo", "Se va a la derecha y vibra en carretera",
+                "Alineación fuera de especificación y una llanta desbalanceada.",
+                "Alineado y balanceado. Probado en ruta, va derecho.",
+                ["SUS-003"], [], 6),
+
+            new("Cambio de llantas", "Están lisas y se me ponchan",
+                "Dos llantas delanteras sin dibujo.",
+                "Llantas nuevas, balanceadas, y alineado.",
+                ["SUS-003"], ["LLA-185"], 5),
+
+            new("Se calienta", "Sube la aguja en el tráfico",
+                "Bomba de agua con fuga por el sello y manguera superior reventada.",
+                "Bomba de agua y manguera cambiadas, sistema purgado. Sin fuga tras la prueba.",
+                ["MOT-003"], ["BOM-AGU", "REF-PRE", "MAN-RAD"], 4),
+
+            new("Bota agua", "Amanece un charco verde debajo",
+                "Radiador picado por los panales.",
+                "Radiador cambiado y sistema purgado. Presión probada, sin fuga.",
+                ["MOT-004"], ["RAD-ALU", "REF-PRE"], 2),
+
+            new("Chilla la banda", "Un chillido al arrancar en frío",
+                "Banda de accesorios cuarteada y floja.",
+                "Banda cambiada y tensor revisado. Chillido eliminado.",
+                ["MOT-001"], ["BAN-ACC"], 4),
+
+            new("Cambio de banda de tiempo", "Me dijeron que ya toca por kilometraje",
+                "Banda de tiempo en el límite de su intervalo.",
+                "Kit de banda de tiempo cambiado con bomba de agua. Puesto a tiempo y probado.",
+                ["MOT-002", "MOT-003"], ["KIT-TIE", "BOM-AGU", "REF-PRE"], 2),
 
             new("No le da marcha", "Amaneció sin nada, ni las luces",
                 "Batería sin carga, con dos celdas muertas.",
-                "Batería reemplazada. Regulador cargando bien, 14.1 V.",
-                ["MO-010"], ["BAT-12V7"]),
+                "Batería reemplazada. Alternador cargando bien, 14.2 V.",
+                ["ELE-001"], ["BAT-12V"], 5),
 
-            new("Patina el embrague", "En tercera sube revoluciones y no avanza",
-                "Discos de embrague quemados.",
-                "Discos cambiados y juego del cable ajustado.",
-                ["MO-011"], ["KIT-CLU", "CAB-EMB"]),
+            new("Se descarga la batería", "Cada dos días hay que darle corriente",
+                "Alternador no carga: 12.1 V con el motor andando.",
+                "Alternador reconstruido instalado. Carga estable a 14.1 V.",
+                ["ELE-002"], ["ALT-REC"], 3),
 
-            new("Cabecea al frenar", "Se siente juego en el manubrio",
-                "Balineras de dirección picadas.",
-                "Balineras cambiadas y dirección reapretada a torque.",
-                ["MO-009"], ["BAL-DIR"]),
+            new("No enfría el aire", "Sopla, pero sale caliente",
+                "Sistema de aire sin gas y filtro secador saturado.",
+                "Filtro secador cambiado, sistema al vacío y cargado. Enfría a 7 °C en salida.",
+                ["AIR-001"], ["GAS-134", "FIL-SEC"], 5),
 
-            new("Suena el motor arriba", "Un tableteo cuando acelera",
-                "Válvulas fuera de luz.",
-                "Válvulas ajustadas y empaque de culata cambiado. Ruido eliminado.",
-                ["MO-003"], ["EMP-CULATA"]),
+            new("Patina el embrague", "En cuarta sube revoluciones y no avanza",
+                "Disco de embrague quemado.",
+                "Kit de embrague cambiado y volante rectificado. Probado en ruta.",
+                ["TRA-001"], ["KIT-EMB"], 2),
 
-            new("Ruido metálico del motor", "Como una cadena suelta adentro",
-                "Cadena de distribución estirada.",
-                "Cadena de distribución y tensor cambiados.",
-                ["MO-014"], ["CAD-DIS"]),
+            new("Luz del motor encendida", "Se prendió el chequeo y no se apaga",
+                "Falla por encendido en el cilindro 3: bujía en mal estado.",
+                "Bujías cambiadas, código borrado. Probado en ruta, no volvió a encender.",
+                ["DIA-001", "MAN-003"], ["BUJ-IRI"], 5),
 
-            new("No enciende la luz", "El faro no prende y un direccional tampoco",
-                "Bombillo del faro quemado y foco intermitente fundido.",
-                "Bombillo LED y foco cambiados. Revisado el arnés, sin falsos contactos.",
-                ["MO-010"], ["BOM-LED", "FAR-INT"]),
-
-            new("Se reventó el cable", "El acelerador quedó suelto",
-                "Cable de acelerador cortado en la funda.",
-                "Cable cambiado y juego ajustado.",
-                ["MO-013"], ["CAB-ACE"]),
+            new("No enciende el faro", "Un faro no prende de noche",
+                "Bombillo del faro derecho quemado.",
+                "Bombillo cambiado y revisado el arnés, sin falsos contactos.",
+                ["ELE-002"], ["BOM-FAR"], 3),
         ];
 
-        public static Job Pick(Random rnd) => All[rnd.Next(All.Length)];
+        private static readonly int Total = All.Sum(j => j.Weight);
+
+        /// <summary>Sorteo con peso: sale más lo que más entra al taller.</summary>
+        public static Job Pick(Random rnd)
+        {
+            var punto = rnd.Next(Total);
+
+            foreach (var job in All)
+            {
+                punto -= job.Weight;
+                if (punto < 0) return job;
+            }
+
+            return All[^1];
+        }
     }
 }
 
