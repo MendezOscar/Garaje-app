@@ -488,8 +488,9 @@ static async Task<int> SeedDemoAsync(WebApplication app, string[] args)
         Console.WriteLine($"  Dueño       : {resumen.OwnerEmail}");
         Console.WriteLine($"  Contraseña  : {resumen.Password}");
         Console.WriteLine();
-        Console.WriteLine("El taller nace sin suscripción: póngale plan y vencimiento desde el");
-        Console.WriteLine("panel de plataforma antes de la capacitación.");
+        Console.WriteLine("Nace sin cobro configurado, y así no se bloquea nunca: es lo que");
+        Console.WriteLine("corresponde a un taller de demostración. Si quiere enseñar el aviso");
+        Console.WriteLine("de vencimiento, póngale plan y fecha desde el panel de plataforma.");
 
         return 0;
     }
