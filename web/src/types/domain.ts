@@ -1117,6 +1117,13 @@ export interface MediaAttachment {
   taskTitle: string | null
 }
 
+/** Una foto de la orden, ofrecida para traerla a la cotización. */
+export interface QuotePhotoCandidate {
+  photo: MediaAttachment
+  /** Ya está en la cotización. Se dice y no se esconde, para que la galería se vea completa. */
+  alreadyCopied: boolean
+}
+
 export interface PresignedUpload {
   attachmentId: string
   uploadUrl: string
