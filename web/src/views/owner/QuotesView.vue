@@ -32,12 +32,21 @@ const services = ref<LaborService[]>([])
  * Las pestañas. «Pendientes» es lo que de verdad se trabaja: enviadas que el cliente no ha
  * contestado y que todavía no se vencieron.
  */
-const pestana = ref<'pendientes' | 'aprobadas' | 'rechazadas' | 'vencidas' | 'todas'>(
-  'pendientes',
-)
+const pestana = ref<
+  'pendientes' | 'borradores' | 'aprobadas' | 'rechazadas' | 'vencidas' | 'todas'
+>('pendientes')
 
 function esPendiente(q: QuoteListItem) {
   return q.status === QuoteStatus.Sent && !q.isExpired
+}
+
+/**
+ * La que todavía no salió del taller. Tiene pestaña propia porque no es lo mismo esperar al
+ * cliente que no habérsela mandado: sin ella, un borrador solo aparecía en «Todas» y la
+ * pantalla entera enseñaba ceros teniendo trabajo encima.
+ */
+function esBorrador(q: QuoteListItem) {
+  return q.status === QuoteStatus.Draft
 }
 
 function esVencida(q: QuoteListItem) {
@@ -48,6 +57,8 @@ const visibles = computed(() => {
   switch (pestana.value) {
     case 'pendientes':
       return quotes.value.filter(esPendiente)
+    case 'borradores':
+      return quotes.value.filter(esBorrador)
     case 'aprobadas':
       return quotes.value.filter((q) => q.status === QuoteStatus.Approved)
     case 'rechazadas':
@@ -64,6 +75,11 @@ const pestanas = computed(() => [
     clave: 'pendientes' as const,
     titulo: 'Pendientes',
     cuantas: quotes.value.filter(esPendiente).length,
+  },
+  {
+    clave: 'borradores' as const,
+    titulo: 'Sin enviar',
+    cuantas: quotes.value.filter(esBorrador).length,
   },
   {
     clave: 'aprobadas' as const,
