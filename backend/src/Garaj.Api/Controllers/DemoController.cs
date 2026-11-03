@@ -37,6 +37,6 @@ public class DemoController(DemoSeeder seeder, IConfiguration configuration) : C
                 "Para sembrar la demostración hay que confirmar con la frase «BORRAR Y SEMBRAR». " +
                 "La operación borra todos los datos del sistema.");
 
-        return Ok(await seeder.RunAsync(request.Weeks, ct));
+        return Ok(await seeder.RunAsync(request.Weeks, wipe: true, ct));
     }
 }

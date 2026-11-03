@@ -1,27 +1,63 @@
 # Datos de demostración
 
 Para enseñar la aplicación hace falta un taller que se vea vivido. Con cuatro órdenes de
-prueba la gráfica de ingresos es una sola barra y no se entiende para qué sirve; con seis
+prueba la gráfica de ingresos es una sola barra y no se entiende para qué sirve; con unas
 semanas de historia se ve la forma del negocio —los lunes cargados, los sábados a medias, los
 domingos cerrado— y ahí sí se explica solo.
 
 El `DemoSeeder` genera eso para el **Taller Demo**: tres sucursales, tres técnicos, doce
-clientes, unos 240 trabajos repartidos en el calendario, cotizaciones aprobadas y rechazadas,
-kardex con compras de reposición y dos repuestos bajo mínimo.
+clientes, trabajos repartidos en el calendario, cotizaciones aprobadas y rechazadas, kardex
+con compras de reposición y dos repuestos bajo mínimo.
 
-**Solo motocicletas.** El sistema maneja autos igual de bien, pero el taller de la
-demostración trabaja motos y un Corolla en medio se nota postizo. Para volver a incluir autos hay que
-añadir vehículos de tipo `Car` y entradas al catálogo de `Jobs` del sembrador; el resto no
-distingue.
+**Carros y pick-ups.** Lo que de verdad entra a un taller en Honduras: Corollas con doscientos
+mil kilómetros, Hilux de empresa, el Accent de la señora. Los tres catálogos —mano de obra,
+repuestos y trabajos— son los de ese taller, con precios de casa de repuestos de San Pedro en
+lempiras. En una capacitación eso no es decoración: el que mira reconoce su trabajo, o no
+reconoce nada. Para volver a motos hay que cambiar los tres catálogos y `Jobs`; el resto del
+sembrador no distingue.
 
-> **Borra todo antes de sembrar.** Es para una base de demostración, no para una con datos
-> reales. Por eso lleva tres cerrojos.
+**El trabajo sale con peso.** El cambio de aceite y el mantenimiento salen seis veces más que
+una banda de tiempo, porque así es un taller. Sin peso, el reporte quedaba plano y el catálogo
+de trabajos frecuentes no se entendía para qué sirve.
 
-## Cómo dispararlo
+## Las dos formas de sembrar
+
+| | Qué borra | Para qué |
+| --- | --- | --- |
+| `seed-demo` (comando) | **Nada.** Exige que el taller no exista | Una base con clientes de verdad |
+| `POST /api/demo/seed` | **La base entera**, todos los talleres | Una base de demostración, o local |
+
+### El comando, cuando hay clientes en esa base
+
+Es el camino normal desde que existe el primer cliente. Rehacer la demostración son dos
+pasos, y el primero —el borrado— es el que sabe llevarse un taller solo:
+
+```bash
+cd backend
+
+# 1. Borrar el Taller Demo, y únicamente ese. Sin --confirm solo cuenta lo que se llevaría.
+dotnet run --project src/Garaj.Api -- delete-tenant \
+  --name "Taller Demo" --confirm "Taller Demo"
+
+# 2. Sembrarlo de nuevo. No borra nada: si el taller existe, se niega.
+dotnet run --project src/Garaj.Api -- seed-demo \
+  --weeks 3 --confirm "Taller Demo"
+```
+
+`--weeks` va de 1 a 26 y por omisión son 3. Para una capacitación, tres semanas bastan: se ve
+la forma del negocio sin que la lista de órdenes sea inmanejable.
+
+El taller nace **sin suscripción**: hay que ponerle plan y vencimiento desde el panel de
+plataforma, o al entrar dirá que está vencido.
+
+La contraseña de los usuarios sale de `Demo__Password`; sin esa variable es `Garaj123!`, que
+sirve en local pero no debe quedar en una base publicada —este repositorio es público—.
+
+### El endpoint, que borra la base entera
 
 > **Antes de dispararlo en producción, lea esto.** La siembra **borra la base entera**, así que
 > solo se puede correr mientras ahí no haya ningún taller real. Una vez dado de alta el primer
-> cliente, este endpoint deja de ser una opción: ver el orden en
+> cliente, este endpoint deja de ser una opción: use el comando de arriba. Ver el orden en
 > [deployment.md](deployment.md#puesta-en-marcha-del-primer-cliente).
 
 1. En Render, agregar la variable `Demo__AllowSeeding` con valor `true` y esperar el redespliegue.
@@ -57,9 +93,9 @@ En local es lo mismo, arrancando la API con `Demo__AllowSeeding=true` y apuntand
 | Taller | Taller Demo · ISV 15% · lempiras |
 | Sucursales | Sucursal Centro (CEN) y Sucursal Sur (SUR), San Pedro Sula · Sucursal Puerto (PTO), Puerto Cortés |
 | Usuarios | 1 Dueño, 3 Técnicos, 2 Clientes — todos con la misma contraseña |
-| Clientes | 12, con 17 motocicletas |
-| Catálogos | 26 repuestos y 14 servicios de mano de obra, todo de moto |
-| Historia | ~240 órdenes entregadas y facturadas en 6 semanas |
+| Clientes | 12, con 17 vehículos: carros, pick-ups y dos flotas de empresa |
+| Catálogos | 32 repuestos y 17 servicios de mano de obra, de carro |
+| Historia | ~80 órdenes entregadas y facturadas en 3 semanas (`--weeks` lo cambia) |
 | Hoy | 9 órdenes abiertas (una en cada estado), 3 requerimientos sin atender, 1 cotización esperando respuesta, 2 repuestos bajo mínimo |
 
 Accesos:
@@ -98,12 +134,17 @@ se crea con `provision-tenant` (ver [deployment.md](deployment.md)).
 - **Hay compras de reposición cada diez días.** Sin ellas, seis semanas de consumo dejan media
   bodega bajo mínimo y la alerta deja de significar algo. Al final quedan dos repuestos bajo
   el umbral, que es lo que hace creíble la advertencia.
-- **Solo uno de cada cuatro trabajos pasó por cotización.** En motos casi todo se autoriza
-  de palabra en el mostrador; se cotiza cuando el trabajo es grande y el dueño quiere pensarlo.
+- **Uno de cada tres trabajos pasó por cotización.** En carros el trabajo grande —embrague,
+  banda de tiempo— no se autoriza de palabra: el cliente quiere el número por escrito.
+- **Las cantidades son las del carro:** el aceite va de cuatro a cinco litros, las bujías de a
+  cuatro, los amortiguadores y las rótulas por pares. Una orden con «1 amortiguador» la
+  descarta de un vistazo cualquiera que sepa del oficio.
 - **La sucursal del puerto factura menos y carga menos inventario** que las dos de San Pedro. Repartir por
   igual haría que el desglose por sucursal fueran tres barras idénticas.
-- **Los motivos, diagnósticos y repuestos concuerdan entre sí**: quien entra porque le salta
-  la cadena sale con un kit de arrastre, no con una batería. Es lo que hace que se lea como
-  un taller y no como relleno.
+- **Los motivos, diagnósticos y repuestos concuerdan entre sí**: quien entra porque se le
+  calienta el carro sale con bomba de agua y refrigerante, no con una batería. Es lo que hace
+  que se lea como un taller y no como relleno.
+- **Las placas llevan la forma hondureña**, P de particular y C de carga: la placa es el
+  detalle que delata un dato inventado.
 - **Las fotos que hubiera en el bucket quedan huérfanas.** Borrarlas exigiría recorrer el
   almacenamiento y no vale la pena en una base que se va a pisar de todos modos.

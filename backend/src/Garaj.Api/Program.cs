@@ -6,6 +6,7 @@ using Garaj.Api.Filters;
 using Garaj.Api.Middleware;
 using Microsoft.AspNetCore.RateLimiting;
 using Garaj.Api.Services;
+using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Domain.Enums;
 using Garaj.Application.Validation;
@@ -219,6 +220,15 @@ if (args.FirstOrDefault() == "delete-tenant")
     return await DeleteTenantAsync(app, args);
 }
 
+// `dotnet run -- seed-demo …` siembra el Taller Demo sin tocar a nadie más. El endpoint
+// `POST /api/demo/seed` hace lo mismo pero vaciando la base entera, así que no sirve donde
+// hay talleres de verdad; este comando se niega a correr si el taller ya existe, y entonces
+// lo que toca es borrarlo primero con `delete-tenant`.
+if (args.FirstOrDefault() == "seed-demo")
+{
+    return await SeedDemoAsync(app, args);
+}
+
 // El usuario de plataforma —el nuestro, el que da de alta talleres y les cobra— tampoco tiene
 // endpoint que lo cree, y aquí la razón es más fuerte: si el panel pudiera crear otro, una
 // sesión robada bastaría para fabricarse llaves maestras nuevas.
@@ -401,6 +411,91 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
     catch (AppException e)
     {
         Console.Error.WriteLine($"No se dio de alta el taller: {e.Message}");
+        return 1;
+    }
+}
+
+/// <summary>
+/// Siembra el taller de demostración sin vaciar la base.
+/// </summary>
+/// <remarks>
+/// El vaciado del sembrador existe para que la siembra local se pueda repetir; contra una
+/// base con clientes se lleva por delante a todos. Por eso este comando no vacía nada: exige
+/// que el taller no exista, y si existe manda a borrarlo con <c>delete-tenant</c>, que borra
+/// uno solo y pide confirmación.
+/// </remarks>
+static async Task<int> SeedDemoAsync(WebApplication app, string[] args)
+{
+    var values = ParseArguments(args);
+
+    if (values.ContainsKey("help"))
+    {
+        Console.WriteLine(
+            """
+            Uso: dotnet run --project src/Garaj.Api -- seed-demo [argumentos]
+
+              --weeks     Semanas de historia, de 1 a 26. Por omisión 3.
+              --confirm   Escriba: Taller Demo
+
+            Crea el Taller Demo con su catálogo de carros, sus repuestos y su historia. No
+            vacía nada: si el taller ya existe, bórrelo antes con delete-tenant.
+            """);
+
+        return 0;
+    }
+
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GarajDbContext>();
+    var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+    tenantContext.BypassTenantFilter = true;
+
+    var weeks = int.TryParse(values.GetValueOrDefault("weeks"), out var w) ? w : 3;
+
+    if (await db.Tenants.AnyAsync(t => t.Name == "Taller Demo"))
+    {
+        Console.WriteLine();
+        Console.WriteLine("Ya hay un taller llamado «Taller Demo». Este comando no borra nada.");
+        Console.WriteLine("Para rehacerlo:");
+        Console.WriteLine(
+            "  dotnet run --project src/Garaj.Api -- delete-tenant "
+            + "--name \"Taller Demo\" --confirm \"Taller Demo\"");
+
+        return 1;
+    }
+
+    if (values.GetValueOrDefault("confirm") != "Taller Demo")
+    {
+        Console.WriteLine();
+        Console.WriteLine($"Se va a crear el Taller Demo con {weeks} semanas de historia.");
+        Console.WriteLine("No se sembró nada.");
+        Console.WriteLine("Para sembrarlo: --confirm \"Taller Demo\"");
+        return 1;
+    }
+
+    try
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<DemoSeeder>();
+        var resumen = await seeder.RunAsync(weeks, wipe: false);
+
+        Console.WriteLine();
+        Console.WriteLine($"Taller        : {resumen.Tenant}");
+        Console.WriteLine($"  Historia    : {resumen.Weeks} semanas");
+        Console.WriteLine($"  Clientes    : {resumen.Customers}");
+        Console.WriteLine($"  Órdenes     : {resumen.WorkOrders} ({resumen.ClosedWorkOrders} cerradas)");
+        Console.WriteLine($"  Cotizaciones: {resumen.Quotes}");
+        Console.WriteLine($"  Facturado   : L {resumen.Revenue:N2}");
+        Console.WriteLine();
+        Console.WriteLine($"  Dueño       : {resumen.OwnerEmail}");
+        Console.WriteLine($"  Contraseña  : {resumen.Password}");
+        Console.WriteLine();
+        Console.WriteLine("El taller nace sin suscripción: póngale plan y vencimiento desde el");
+        Console.WriteLine("panel de plataforma antes de la capacitación.");
+
+        return 0;
+    }
+    catch (AppException ex)
+    {
+        Console.Error.WriteLine(ex.Message);
         return 1;
     }
 }
