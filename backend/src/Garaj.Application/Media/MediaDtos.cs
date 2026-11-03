@@ -21,6 +21,18 @@ public record MediaAttachmentDto(
     // Título del paso al que pertenece, cuando la foto documenta un paso concreto.
     string? TaskTitle);
 
+/// <summary>
+/// Una foto de la orden, ofrecida para traerla a la cotización.
+/// </summary>
+/// <param name="AlreadyCopied">
+/// Si esta foto ya está en la cotización. Se dice y no se esconde: quien mira quiere ver la
+/// galería completa de la orden y saber qué falta, no una lista que encoge sin explicación.
+/// </param>
+public record QuotePhotoCandidateDto(MediaAttachmentDto Photo, bool AlreadyCopied);
+
+/// <param name="MediaIds">Las fotos de la orden que se traen. El PDF enseña hasta seis.</param>
+public record CopyQuotePhotosRequest(IReadOnlyList<Guid> MediaIds);
+
 /// <param name="TakenAt">
 /// Fecha real de la toma en el teléfono. Se pide explícita porque el móvil puede subir desde
 /// la cola offline días después: usar la hora del servidor descuadraría la línea de tiempo.
@@ -60,6 +72,18 @@ public interface IMediaService
 
     /// <summary>Galería completa de la orden: sus fotos y las de todos sus pasos, en una llamada.</summary>
     Task<IReadOnlyList<MediaAttachmentDto>> ListForWorkOrderAsync(Guid workOrderId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Las fotos de la orden de la que salió la cotización, para elegir cuáles mandarle al
+    /// cliente. El técnico fotografía en la orden —a Cotizaciones no entra— así que sin esto
+    /// la evidencia que él levantó habría que volver a subirla a mano.
+    /// </summary>
+    Task<IReadOnlyList<QuotePhotoCandidateDto>> QuotePhotoCandidatesAsync(
+        Guid quoteId, CancellationToken ct = default);
+
+    /// <summary>Copia a la cotización las fotos elegidas de su orden. Devuelve las que quedaron.</summary>
+    Task<IReadOnlyList<MediaAttachmentDto>> CopyToQuoteAsync(
+        Guid quoteId, CopyQuotePhotosRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Las fotos de la orden que puede ver su dueño desde el enlace de seguimiento, sin sesión.

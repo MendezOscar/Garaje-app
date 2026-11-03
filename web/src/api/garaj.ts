@@ -18,6 +18,7 @@ import type {
   MediaAttachment,
   MediaOwnerType,
   Notification,
+  QuotePhotoCandidate,
   Dashboard,
   LaborMode,
   OrderMessageKind,
@@ -639,6 +640,26 @@ export const stockApi = {
 }
 
 export const mediaApi = {
+  /**
+   * Las fotos de la orden de la que salió la cotización, para elegir cuáles mandarle al
+   * cliente. El técnico fotografía en la orden —a Cotizaciones no entra— así que sin esto
+   * la evidencia que él levantó habría que volver a subirla a mano.
+   */
+  async quotePhotoCandidates(quoteId: string): Promise<QuotePhotoCandidate[]> {
+    const { data } = await api.get<QuotePhotoCandidate[]>(
+      `/api/quotes/${quoteId}/work-order-photos`,
+    )
+    return data
+  },
+
+  async copyToQuote(quoteId: string, mediaIds: string[]): Promise<MediaAttachment[]> {
+    const { data } = await api.post<MediaAttachment[]>(
+      `/api/quotes/${quoteId}/work-order-photos`,
+      { mediaIds },
+    )
+    return data
+  },
+
   /** Galería completa de una orden: sus fotos y las de todos sus pasos. */
   async listForWorkOrder(workOrderId: string): Promise<MediaAttachment[]> {
     const { data } = await api.get<MediaAttachment[]>(`/api/media/work-order/${workOrderId}`)

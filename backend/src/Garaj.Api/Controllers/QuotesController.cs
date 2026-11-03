@@ -1,5 +1,6 @@
 using Garaj.Api.Services;
 using Garaj.Application.Common;
+using Garaj.Application.Media;
 using Garaj.Application.Quotes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -67,7 +68,7 @@ public class LaborServicesController(ILaborServiceCatalog service) : ControllerB
 [ApiController]
 [Authorize]
 [Route("api/quotes")]
-public class QuotesController(IQuoteService service) : ControllerBase
+public class QuotesController(IQuoteService service, IMediaService media) : ControllerBase
 {
     /// <summary>El Dueño ve todas; el Cliente, solo las suyas; el Técnico, ninguna.</summary>
     [HttpGet]
@@ -127,6 +128,28 @@ public class QuotesController(IQuoteService service) : ControllerBase
     [Authorize(Policy = AppPolicies.ManagementOnly)]
     public async Task<ActionResult<WhatsAppLinkDto>> Send(Guid id, CancellationToken ct)
         => Ok(await service.SendAsync(id, ct));
+
+    /// <summary>
+    /// Las fotos de la orden de la que salió esta cotización, para elegir cuáles mandarle al
+    /// cliente. Las que ya se trajeron vienen marcadas.
+    /// </summary>
+    /// <remarks>
+    /// El técnico fotografía en la orden —a Cotizaciones no entra, y no tiene por qué: ahí
+    /// están los precios—. Sin esto, la evidencia que él levantó había que volver a subirla
+    /// a mano desde el panel.
+    /// </remarks>
+    [HttpGet("{id:guid}/work-order-photos")]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
+    public async Task<ActionResult<IReadOnlyList<QuotePhotoCandidateDto>>> WorkOrderPhotos(
+        Guid id, CancellationToken ct)
+        => Ok(await media.QuotePhotoCandidatesAsync(id, ct));
+
+    /// <summary>Trae a la cotización las fotos elegidas de su orden.</summary>
+    [HttpPost("{id:guid}/work-order-photos")]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
+    public async Task<ActionResult<IReadOnlyList<MediaAttachmentDto>>> CopyWorkOrderPhotos(
+        Guid id, CopyQuotePhotosRequest request, CancellationToken ct)
+        => Ok(await media.CopyToQuoteAsync(id, request, ct));
 
     /// <summary>El mismo link sin cambiar el estado, para volver a mandarlo.</summary>
     [HttpGet("{id:guid}/whatsapp-link")]

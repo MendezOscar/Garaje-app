@@ -254,6 +254,8 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | PUT | `/api/quotes/{id}` | Owner | Vigencia, notas e impuesto |
 | POST/PUT/DELETE | `/api/quotes/{id}/lines[/{lineId}]` | Owner | Líneas; recalcula totales |
 | POST | `/api/quotes/{id}/send` | Owner | La marca enviada y devuelve el link de WhatsApp |
+| GET | `/api/quotes/{id}/work-order-photos` | Owner | Fotos de su orden, para elegir cuáles mandar |
+| POST | `/api/quotes/{id}/work-order-photos` | Owner | Trae a la cotización las elegidas |
 | GET | `/api/quotes/{id}/whatsapp-link` | Owner | El mismo link sin cambiar el estado |
 | GET | `/api/quotes/{id}/pdf?includeReception=` | Owner o Cliente | PDF. Con `includeReception` lleva la ficha de recepción delante |
 | POST | `/api/quotes/{id}/respond` | Owner o Cliente | Respuesta desde dentro de la app |
@@ -265,6 +267,17 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | GET | `/public/quotes/{token}` | **anónimo** | La cotización que abre el cliente |
 | POST | `/public/quotes/{token}/respond` | **anónimo** | Aprobar o rechazar |
 | GET | `/public/quotes/{token}/pdf` | **anónimo** | PDF sin login |
+
+**Las fotos del técnico llegan a la cotización copiándolas.** El Técnico fotografía en la
+orden y en sus pasos; a Cotizaciones no entra —ahí están los precios— y así debe seguir. Pero
+esa evidencia es la que convence al cliente de autorizar, así que el panel la trae con
+`GET`/`POST /api/quotes/{id}/work-order-photos`: el primero lista las fotos de la orden
+marcando las que ya se trajeron, el segundo copia las elegidas.
+
+Es una **copia de verdad** —su propio objeto en el bucket, y `copied_from_id` guarda de cuál
+salió— y no un enlace: lo que el cliente ya miró no puede cambiar porque alguien borró después
+una foto de la orden. Traer dos veces la misma no duplica nada, y una cotización ya respondida
+las rechaza con 400, igual que rechaza que le toquen las líneas.
 
 **Fotos del presupuesto.** Se adjuntan con los mismos endpoints de la fase 2, con
 `ownerType=4` y el id de la cotización. El cliente las ve en su página (`photos`, con la URL

@@ -1088,6 +1088,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("content_type");
 
+                    b.Property<Guid?>("CopiedFromId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("copied_from_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");

@@ -146,6 +146,154 @@ public class MediaService(
         return await MapAsync(items, ct);
     }
 
+    // ---------- Traer a la cotización lo que el técnico fotografió en la orden ----------
+
+    public async Task<IReadOnlyList<QuotePhotoCandidateDto>> QuotePhotoCandidatesAsync(
+        Guid quoteId, CancellationToken ct = default)
+    {
+        var (_, workOrderId) = await CotizacionConOrdenAsync(quoteId, ct);
+
+        var deLaOrden = await ListForWorkOrderAsync(workOrderId, ct);
+
+        var yaTraidas = await db.MediaAttachments.AsNoTracking()
+            .Where(m => m.OwnerType == MediaOwnerType.Quote
+                        && m.OwnerId == quoteId
+                        && m.CopiedFromId != null)
+            .Select(m => m.CopiedFromId!.Value)
+            .ToListAsync(ct);
+
+        return deLaOrden
+            .Select(foto => new QuotePhotoCandidateDto(foto, yaTraidas.Contains(foto.Id)))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<MediaAttachmentDto>> CopyToQuoteAsync(
+        Guid quoteId, CopyQuotePhotosRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        var (quote, workOrderId) = await CotizacionConOrdenAsync(quoteId, ct);
+
+        // Una cotización ya respondida es un documento cerrado: cambiarle las fotos sería
+        // cambiar lo que el cliente miró cuando dijo que sí. Es el mismo criterio que decide
+        // si se le pueden tocar las líneas.
+        if (quote.Status is not (QuoteStatus.Draft or QuoteStatus.Sent or QuoteStatus.Expired))
+            throw new AppException(
+                $"La cotización {quote.Number} ya fue respondida: sus fotos no se cambian.");
+
+        if (request.MediaIds.Count == 0) return [];
+
+        var taskIds = await db.WorkOrderTasks
+            .Where(t => t.WorkOrderId == workOrderId)
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+        // Acotado a las fotos de esta orden: un id de otra orden —o de otro taller— no trae
+        // nada. El filtro global del tenant ya cierra lo segundo; esto cierra lo primero.
+        var origenes = await db.MediaAttachments.AsNoTracking()
+            .Where(m => request.MediaIds.Contains(m.Id)
+                        && m.IsConfirmed
+                        && ((m.OwnerType == MediaOwnerType.WorkOrder && m.OwnerId == workOrderId)
+                            || (m.OwnerType == MediaOwnerType.WorkOrderTask && taskIds.Contains(m.OwnerId))))
+            .ToListAsync(ct);
+
+        var yaTraidas = await db.MediaAttachments.AsNoTracking()
+            .Where(m => m.OwnerType == MediaOwnerType.Quote
+                        && m.OwnerId == quoteId
+                        && m.CopiedFromId != null)
+            .Select(m => m.CopiedFromId!.Value)
+            .ToListAsync(ct);
+
+        var copiadas = new List<MediaAttachment>();
+
+        foreach (var origen in origenes)
+        {
+            // Traer dos veces la misma no es un error, es el segundo clic de quien no vio que
+            // el primero entró. Se ignora y ya.
+            if (yaTraidas.Contains(origen.Id)) continue;
+
+            var copia = new MediaAttachment
+            {
+                OwnerType = MediaOwnerType.Quote,
+                OwnerId = quoteId,
+                StorageKey = BuildKey(MediaOwnerType.Quote, quoteId, origen.ContentType),
+                ContentType = origen.ContentType,
+                SizeBytes = origen.SizeBytes,
+                OriginalFileName = origen.OriginalFileName,
+                Caption = origen.Caption,
+                UploadedByUserId = scope.UserId,
+                // La fecha de la toma es la de la foto, no la de hoy: la cotización se lee
+                // como una línea de tiempo del trabajo y una copia no es una foto nueva.
+                TakenAt = origen.TakenAt,
+                IsConfirmed = true,
+                // Lo que se trae a la cotización es justamente lo que va a ver el cliente.
+                IsVisibleToCustomer = true,
+                CopiedFromId = origen.Id
+            };
+
+            if (!await CopiarObjetoAsync(origen.StorageKey, copia.StorageKey, copia.ContentType, ct))
+                continue;
+
+            if (origen.ThumbnailKey is { } miniatura)
+            {
+                var destino = copia.StorageKey + ".thumb.jpg";
+                if (await CopiarObjetoAsync(miniatura, destino, "image/jpeg", ct))
+                    copia.ThumbnailKey = destino;
+            }
+
+            db.MediaAttachments.Add(copia);
+            copiadas.Add(copia);
+        }
+
+        if (copiadas.Count == 0) return [];
+
+        await db.SaveChangesAsync(ct);
+
+        return await MapAsync(copiadas, ct);
+    }
+
+    /// <summary>
+    /// Duplica el objeto en el bucket. Pasa por el servidor en vez de pedirle al almacenamiento
+    /// que copie: son fotos de teléfono, el viaje es corto, y así no hace falta una operación
+    /// propia de S3 en una interfaz que el resto del sistema usa sin saber qué hay detrás.
+    /// </summary>
+    private async Task<bool> CopiarObjetoAsync(
+        string origen, string destino, string contentType, CancellationToken ct)
+    {
+        try
+        {
+            await using var contenido = await storage.DownloadAsync(origen, ct);
+            await storage.UploadAsync(destino, contenido, contentType, ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // Una foto que no se pudo copiar no puede tumbar las otras cinco: se deja fuera y
+            // queda en el registro. El bucket puede haber perdido el objeto de una foto vieja.
+            logger.LogWarning(ex, "No se pudo copiar la foto {Origen} a la cotización.", origen);
+            return false;
+        }
+    }
+
+    /// <summary>La cotización y la orden de la que salió, con los dos permisos comprobados.</summary>
+    private async Task<(Quote Quote, Guid WorkOrderId)> CotizacionConOrdenAsync(
+        Guid quoteId, CancellationToken ct)
+    {
+        var scope = AccessScope.From(tenantContext);
+        await EnsureCanViewAsync(scope, MediaOwnerType.Quote, quoteId, ct);
+
+        var quote = await db.Quotes.AsNoTracking().FirstOrDefaultAsync(q => q.Id == quoteId, ct)
+            ?? throw new NotFoundException("La cotización no existe.");
+
+        if (quote.WorkOrderId is not { } workOrderId)
+            throw new AppException(
+                $"La cotización {quote.Number} no salió de una orden de trabajo, así que no hay "
+                + "fotos que traer.");
+
+        await EnsureCanViewAsync(scope, MediaOwnerType.WorkOrder, workOrderId, ct);
+
+        return (quote, workOrderId);
+    }
+
     public async Task<IReadOnlyList<MediaAttachmentDto>> ListForOrderPublicAsync(
         Guid tenantId, Guid workOrderId, CancellationToken ct = default)
     {

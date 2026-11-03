@@ -35,4 +35,18 @@ public class MediaAttachment : TenantEntity
 
     /// <summary>Si es false, la foto solo la ve el personal del taller.</summary>
     public bool IsVisibleToCustomer { get; set; } = true;
+
+    /// <summary>
+    /// La foto de la que se copió esta, cuando se trajo de la orden a una cotización. Null en
+    /// la inmensa mayoría: las que alguien subió.
+    /// </summary>
+    /// <remarks>
+    /// Es una copia de verdad —su propio objeto en el bucket— y no un enlace, porque lo que
+    /// se le enseñó al cliente no puede cambiar después: si alguien borra la foto de la orden,
+    /// la cotización que él ya abrió tiene que seguir enseñando lo mismo.
+    ///
+    /// Esto solo guarda de dónde vino, para no traer dos veces la misma y para poder decirlo
+    /// en la pantalla. Que la original desaparezca no le hace nada a la copia.
+    /// </remarks>
+    public Guid? CopiedFromId { get; set; }
 }

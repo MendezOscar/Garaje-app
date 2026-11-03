@@ -65,6 +65,20 @@ public class RespondToQuoteValidator : AbstractValidator<RespondToQuoteRequest>
     public RespondToQuoteValidator() => RuleFor(x => x.Note).MaximumLength(1000);
 }
 
+/// <summary>
+/// El PDF de la cotización enseña seis fotos. El tope de aquí es más alto porque la galería
+/// de la pantalla las enseña todas; lo que evita es que una llamada traiga media bodega.
+/// </summary>
+public class CopyQuotePhotosValidator : AbstractValidator<CopyQuotePhotosRequest>
+{
+    public CopyQuotePhotosValidator()
+    {
+        RuleFor(x => x.MediaIds).NotEmpty().WithMessage("Elija al menos una foto.");
+        RuleFor(x => x.MediaIds.Count).LessThanOrEqualTo(30)
+            .WithMessage("No se pueden traer más de 30 fotos de una vez.");
+    }
+}
+
 public class CreateUploadValidator : AbstractValidator<CreateUploadRequest>
 {
     public CreateUploadValidator()
