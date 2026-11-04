@@ -23,6 +23,22 @@ enum MediaOwnerType {
           orElse: () => MediaOwnerType.workOrder);
 }
 
+/// Una foto de la orden que se puede traer a la cotización, y si ya se trajo.
+///
+/// El técnico fotografía en la orden —a Cotizaciones no entra, y no tiene por qué: ahí están
+/// los precios—. Esto es lo que deja que su evidencia llegue al cliente sin volver a subirla.
+class QuotePhotoCandidate {
+  const QuotePhotoCandidate({required this.photo, required this.alreadyCopied});
+
+  factory QuotePhotoCandidate.fromJson(Map<String, dynamic> json) => QuotePhotoCandidate(
+        photo: MediaAttachment.fromJson(json['photo'] as Map<String, dynamic>),
+        alreadyCopied: json['alreadyCopied'] as bool,
+      );
+
+  final MediaAttachment photo;
+  final bool alreadyCopied;
+}
+
 class MediaAttachment {
   const MediaAttachment({
     required this.id,

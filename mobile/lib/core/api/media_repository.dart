@@ -35,6 +35,23 @@ class MediaRepository {
         .toList();
   }
 
+  /// Las fotos de la orden de la que salió esta cotización, con las ya traídas marcadas.
+  Future<List<QuotePhotoCandidate>> quotePhotoCandidates(String quoteId) async {
+    final response = await _dio.get<List<dynamic>>('/api/quotes/$quoteId/work-order-photos');
+
+    return response.data!
+        .map((e) => QuotePhotoCandidate.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Copia a la cotización las fotos elegidas de su orden. Copia, no enlaza: la cotización
+  /// es un documento que el cliente guarda, y borrar la orden no debe vaciárselo.
+  Future<void> copyToQuote(String quoteId, List<String> mediaIds) =>
+      _dio.post<List<dynamic>>(
+        '/api/quotes/$quoteId/work-order-photos',
+        data: {'mediaIds': mediaIds},
+      );
+
   /// Sube el archivo en tres pasos: pedir URL, PUT directo al bucket y confirmar.
   ///
   /// El binario no pasa por la API. Importa aquí más que en el web: en el taller la subida
