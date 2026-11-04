@@ -31,6 +31,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     return auth is AuthSignedIn && auth.user.manda;
   }
 
+  bool get _vePrecios {
+    final auth = ref.watch(authControllerProvider);
+    return auth is! AuthSignedIn || auth.user.seesPrices;
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
     try {
@@ -584,6 +589,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) => _StockCard(
                           item: items[i],
+                          vePrecios: _vePrecios,
                           onTap: _busy ? null : () => _openItem(items[i]),
                         ),
                       ),
@@ -597,9 +603,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 }
 
 class _StockCard extends StatelessWidget {
-  const _StockCard({required this.item, required this.onTap});
+  const _StockCard({required this.item, required this.vePrecios, required this.onTap});
 
   final StockItem item;
+
+  /// El taller que apagó los precios para sus técnicos tampoco se los enseña en la bodega.
+  /// El servidor ya no los manda; esto es para no pintar «L 0.00» donde iba el precio.
+  final bool vePrecios;
+
   final VoidCallback? onTap;
 
   @override
@@ -648,8 +659,9 @@ class _StockCard extends StatelessWidget {
                         color: theme.colorScheme.error,
                       ),
                     ),
-                  Text('L ${item.salePrice.toStringAsFixed(2)}',
-                      style: theme.textTheme.bodySmall),
+                  if (vePrecios)
+                    Text('L ${item.salePrice.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodySmall),
                 ],
               ),
             ],

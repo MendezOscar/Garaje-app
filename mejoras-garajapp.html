@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<!--
+  Las mejoras que salieron de la capacitación del 2 de noviembre de 2026. Tercer hermano de
+  propuesta-garajapp.html y primeros-pasos-garajapp.html: mismo estilo, mismo ancho, misma
+  impresión. La propuesta dice qué es, los primeros pasos dicen qué hacer, y este dice qué
+  viene — se entrega al taller que ya está trabajando, después de una capacitación o una visita.
+
+  Se manda por WhatsApp o correo, o se imprime a PDF (Cmd+P → Guardar como PDF). Para otro
+  taller se cambian el nombre y la fecha de arriba a la derecha, y se quitan las mejoras que
+  no le aplican.
+
+  Ojo: aquí se habla en lenguaje del taller, no de programación. Los límites que sí hay
+  —el tipo de escáner, los códigos de fabricante, la celda vacía que no borra— están escritos
+  a propósito, porque descubrirlos después es peor.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mejoras en camino — GarajApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  h1, h2, h3, .mejora .n { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+  .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
+  h1 { font-size: 26px; letter-spacing:-0.02em; }
+  h2 { font-size: 17px; color:var(--brand-dark); margin: 28px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
+  h3 { font-size:15px; margin:18px 0 4px; color:var(--brand-dark); }
+  p, li, td, th { font-size: 14.5px; }
+  .muted { color: var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
+  .meta { text-align:right; font-size:13px; color:var(--muted); }
+  ul, ol { margin: 6px 0 6px 20px; }
+  ul li, ol li { margin: 3px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; font-size:14px; }
+  th, td { text-align:left; padding: 9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background: var(--brand-light); color:var(--brand-dark); }
+  /* Cada mejora va numerada y grande a la izquierda, como los primeros pasos: el taller la
+     busca por su número cuando pregunta «¿y la 3?». */
+  .mejora { display:flex; gap:14px; align-items:flex-start; margin-top:16px; }
+  .mejora .n { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:12px; font-size:14px; }
+  .aviso { border-left:4px solid var(--brand); background:#fbfcfe; padding:10px 14px; margin-top:10px; font-size:14px; }
+  .ejemplo { border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-top:10px; font-size:14px; background:#fbfcfe; }
+  .ejemplo .t { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px; }
+  code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
+  .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+  @media print {
+    body { background:#fff; }
+    .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
+    @page { margin: 14mm; }
+    h2 { break-after: avoid; }
+    .mejora, .ejemplo, .hl, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="246" height="77" role="img" aria-label="GarajApp">
+      <title>GarajApp — logotipo horizontal</title>
+      <path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#1F6FEB"></path>
+      <text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#14171C">G</text>
+      <g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#14171C">GarajApp</text></g>
+      </svg>
+      <p class="muted" style="margin-top:2px">El taller ordenado, desde el teléfono</p>
+    </div>
+    <div class="meta">
+      <strong>Mejoras en camino</strong><br />
+      Preparado para: <strong>su taller</strong><br />
+      Fecha: 3 de noviembre de 2026<br />
+      Origen: capacitación del equipo
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px">Lo que pidieron en la capacitación, y cómo va a quedar</h1>
+  <p class="muted" style="margin-top:6px">De la capacitación salieron cuatro mejoras. Aquí está cada una explicada como se va a usar en el mostrador y en el taller —no cómo se programa— y al final el orden en que van llegando. Las dos primeras no necesitan que nadie actualice la app: aparecen solas.</p>
+
+  <div class="hl">
+    <strong>Cómo llegan las mejoras.</strong> El panel web se actualiza solo: usted entra y ya está. La app del teléfono se actualiza desde App Store o Google Play como cualquier otra, y la app le avisa cuando hay una versión nueva. Nada de esto tiene costo adicional ni cambia la mensualidad.
+  </div>
+
+  <h2>1 · Los avisos siguen la orden paso a paso</h2>
+
+  <div class="mejora">
+    <div class="n">1</div>
+    <div>
+      <h3 style="margin-top:0">El problema que vimos</h3>
+      <p>El técnico termina el diagnóstico y la orden se queda ahí, esperando a que alguien se dé cuenta. El dueño carga los repuestos y la mano de obra, y el técnico no se entera de que ya puede trabajar. Alguien agrega un repuesto a una orden y el que la está atendiendo nunca lo supo. Entre un paso y el siguiente se pierden horas, y a veces el día entero.</p>
+
+      <h3>Cómo va a quedar</h3>
+      <p>La orden va avisando sola, a quien le toca mover la siguiente pieza:</p>
+      <ul>
+        <li><strong>El técnico guarda el diagnóstico</strong> → le cae el aviso al dueño y al encargado de la sucursal: <em>«El técnico ya diagnosticó la orden CEN-000030 — toca cargar repuestos y mano de obra»</em>.</li>
+        <li><strong>El dueño termina de cargar repuestos y mano de obra</strong> → le cae el aviso al técnico asignado: <em>«La orden CEN-000030 ya tiene repuestos y precio — puede seguir»</em>.</li>
+        <li><strong>Se le agrega un paso o un repuesto a una orden en curso</strong> → le cae el aviso al técnico que la está trabajando, para que no siga con la información vieja.</li>
+      </ul>
+      <p style="margin-top:8px">El aviso llega al teléfono y queda en la campana de la app, igual que los que ya conoce (cotización aprobada, orden lista, stock bajo). Se toca el aviso y abre directo la orden.</p>
+
+      <div class="ejemplo">
+        <span class="t">Dos cosas que hicimos a propósito</span>
+        <strong>A quien hizo el cambio no se le avisa.</strong> Si el dueño carga los repuestos, el aviso le llega al técnico, no a él mismo. Nadie recibe noticias de su propio trabajo.<br />
+        <strong>Cargar ocho repuestos no son ocho avisos.</strong> Cuando se agregan varias cosas seguidas a la misma orden, llega <em>un</em> aviso que las resume: <em>«La orden CEN-000030 cambió: 3 repuestos y 1 paso»</em>. Un aviso que suena diez veces se apaga a la semana, y entonces no sirve para nada.
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · Actualizar precios y existencias desde la misma plantilla</h2>
+
+  <div class="mejora">
+    <div class="n">2</div>
+    <div>
+      <h3 style="margin-top:0">El problema que vimos</h3>
+      <p>Cuando sube el precio del aceite o de las pastillas, hoy hay que entrar repuesto por repuesto. Con treinta está bien; con cuatrocientos, nadie lo hace, y el catálogo se queda con precios del año pasado.</p>
+
+      <h3>Cómo va a quedar</h3>
+      <p>La misma plantilla de Excel que ya usa para cargar el catálogo va a servir también para <strong>actualizar</strong>. Se descarga la plantilla, se llena la columna <strong>SKU</strong> con los códigos que quiere cambiar, se llena <strong>solo la columna que va a cambiar</strong> —el precio de venta, por ejemplo— y se sube.</p>
+
+      <div class="ejemplo">
+        <span class="t">Subir el precio de tres repuestos</span>
+        <table style="margin-top:4px">
+          <thead><tr><th>SKU</th><th>Nombre</th><th>Costo</th><th>Precio de venta</th></tr></thead>
+          <tbody>
+            <tr><td><code>ACE-15W40</code></td><td class="muted">— vacío —</td><td class="muted">— vacío —</td><td>L 145</td></tr>
+            <tr><td><code>PAS-FRE-D</code></td><td class="muted">— vacío —</td><td class="muted">— vacío —</td><td>L 980</td></tr>
+            <tr><td><code>BAT-12V</code></td><td class="muted">— vacío —</td><td class="muted">— vacío —</td><td>L 2,450</td></tr>
+          </tbody>
+        </table>
+        <p class="muted" style="margin-top:8px;font-size:13px">Eso es todo lo que hay que llenar. El nombre, la marca, la categoría y la existencia se quedan como están.</p>
+      </div>
+
+      <p style="margin-top:10px">Antes de guardar nada, la pantalla le enseña <strong>fila por fila qué va a pasar</strong>: cuáles son repuestos nuevos que se van a crear, cuáles existen y qué columna se les va a cambiar. Usted revisa y recién ahí confirma. Si algo está mal, se corrige el archivo y se vuelve a subir, sin haber tocado el catálogo.</p>
+
+      <div class="aviso">
+        <strong>Una regla que conviene saber:</strong> una celda vacía <strong>nunca borra</strong> un dato. Si deja el nombre en blanco, el repuesto conserva su nombre. Es a propósito —así se puede subir un archivo con solo SKU y precio— y significa que <strong>para dejar un campo vacío hay que hacerlo desde la pantalla del repuesto</strong>, no desde la plantilla.
+      </div>
+    </div>
+  </div>
+
+  <h2>3 · Para qué vehículos sirve cada repuesto</h2>
+
+  <div class="mejora">
+    <div class="n">3</div>
+    <div>
+      <h3 style="margin-top:0">El problema que vimos</h3>
+      <p>El que atiende el mostrador tiene que saberse de memoria qué filtro le va al Corolla 2016 y cuál al Yaris. Cuando no está el que sabe, se vende el repuesto equivocado, el cliente vuelve, y el cambio cuesta más que la venta.</p>
+
+      <h3>Cómo va a quedar</h3>
+      <p>Cada repuesto va a tener una lista de <strong>a qué vehículos aplica</strong>: marca, modelo, desde qué año hasta qué año y, si hace falta, el motor. Pueden ser varios por repuesto —un filtro sirve para media docena de modelos.</p>
+
+      <div class="ejemplo">
+        <span class="t">Filtro de aceite FIL-ACE-01</span>
+        Toyota Corolla 2014–2019 · Toyota Yaris 2018–2022 · Honda Civic 2016–2021
+      </div>
+
+      <p style="margin-top:10px">Se llena de dos maneras: desde la pantalla del repuesto, agregando una línea por modelo, o <strong>desde la misma plantilla de Excel</strong>, en una columna nueva donde se escriben separados por punto y coma: <code>Toyota Corolla 2014-2019; Toyota Yaris 2018-2022</code>.</p>
+
+      <p style="margin-top:8px"><strong>Y aquí está lo que de verdad paga el trabajo:</strong> estando dentro de una orden, con el vehículo ya en pantalla, el buscador de repuestos trae un interruptor que dice <em>«solo lo que le sirve a este carro»</em>. Se enciende y la lista se reduce a lo que aplica a esa placa. El que atiende deja de adivinar.</p>
+
+      <div class="aviso">
+        <strong>Dos cosas, con franqueza:</strong> esto es <strong>trabajo de digitación</strong>, y conviene no intentarlo con todo el catálogo de una vez — empiece por lo que más se mueve (filtros, pastillas, bandas, bujías) y deje el resto en blanco. Y por eso el filtro es <strong>un interruptor, no algo automático</strong>: mientras el dato esté incompleto, apagado le enseña todo el catálogo como hoy. Nunca le va a esconder un repuesto por no tener la información llena.
+      </div>
+    </div>
+  </div>
+
+  <h2>4 · Lectura del escáner del motor</h2>
+
+  <div class="mejora">
+    <div class="n">4</div>
+    <div>
+      <h3 style="margin-top:0">El problema que vimos</h3>
+      <p>Entra un vehículo con la luz del motor encendida. Se le pone el escáner, el técnico lee los códigos en la pantallita, los anota en un papel —o no los anota— y el cliente se queda con la palabra del taller. No hay nada que enseñarle, y nada que buscar después cuando el carro vuelve con lo mismo.</p>
+
+      <h3>Cómo va a quedar</h3>
+      <p>El escáner se conecta <strong>por Bluetooth al teléfono</strong>. Desde la orden de trabajo, el técnico toca <em>«Leer escáner»</em>, la app lee los códigos del vehículo y arma un <strong>informe que queda guardado en la orden</strong>: la fecha, quién lo hizo, el kilometraje, el número de chasis si el vehículo lo entrega, y cada código con su descripción.</p>
+      <p style="margin-top:8px">Ese informe se imprime en PDF y <strong>se le manda al cliente</strong> junto con la cotización, por WhatsApp. Deja de ser la palabra del taller y pasa a ser un documento: <em>el carro reporta esto, por eso le estamos cotizando esto otro</em>. Y adentro del taller sirve para decidir con el dato en la mano, no con el recuerdo de lo que decía la pantallita.</p>
+
+      <h3>Cómo van a salir los códigos</h3>
+      <p>Esto conviene tenerlo claro desde ahora, porque es lo único que la app no puede resolver sola:</p>
+      <ul>
+        <li><strong>Los códigos estándar</strong> —los que comparten todas las marcas, los que empiezan con <code>P0</code>— salen con su descripción en español, lista para enseñarle al cliente: <em>«P0301 — Falla de encendido en el cilindro 1»</em>. Son la mayoría de lo que se ve a diario.</li>
+        <li><strong>Los códigos propios de cada fabricante</strong> —los que empiezan con <code>P1</code>— salen con su número y una nota que dice <em>«código específico del fabricante»</em>, sin descripción. Esa información las marcas la venden aparte y no se puede incluir.</li>
+      </ul>
+      <p style="margin-top:8px">O sea: el informe nunca le va a mentir ni le va a inventar una falla. Lo que sabe, lo explica; lo que no, lo anota con su número para que el técnico lo busque. Y en los dos casos el código <strong>queda guardado en la orden</strong>, que es lo que hoy se pierde en el papel.</p>
+      <p style="margin-top:8px">El técnico siempre puede <strong>escribir su propia nota</strong> debajo de cada código —lo que él interpretó, lo que revisó— y esa nota también sale en el informe que se le manda al cliente. Ahí es donde entra el oficio del taller, que es lo que el cliente está pagando.</p>
+
+      <div class="aviso">
+        <strong>Lo primero: una prueba con el escáner que ya tienen.</strong> No hace falta comprar nada todavía. Necesitamos saber si el escáner del taller es de los que se conectan al teléfono por Bluetooth y, sobre todo, <strong>si se conecta al iPhone</strong>: los modelos más antiguos usan un tipo de Bluetooth que Android acepta y el iPhone no, y eso no se arregla por software.
+        <ul style="margin-top:6px">
+          <li>Mándenos <strong>la marca y el modelo exactos</strong> del escáner (la etiqueta del aparato o la caja).</li>
+          <li>Intenten <strong>emparejarlo con un teléfono</strong> del taller, Android y iPhone, y cuéntenos si aparece en cada uno.</li>
+        </ul>
+        <p style="margin-top:6px">Con eso sabemos en diez minutos si les sirve el que ya tienen. Si resulta que solo funciona con Android, la función igual se hace y les funciona en los teléfonos Android desde el primer día; para los iPhone haría falta un adaptador compatible, y eso lo conversamos recién cuando esté confirmado.</p>
+      </div>
+
+      <h3>Los datos en vivo, en la misma función</h3>
+      <p>Los códigos son una foto del pasado: dicen por qué se prendió la luz. Pero hay vehículos que <strong>no tienen ningún código y aun así andan mal</strong> —jalonean, consumen de más, calientan— y ahí el código no ayuda. Por eso la función incluye también la <strong>lectura en vivo</strong>: los sensores mientras el motor está andando, en la pantalla del teléfono.</p>
+      <ul>
+        <li><strong>Revoluciones, temperatura del refrigerante, carga del motor, sensor de oxígeno, ajuste de combustible</strong> y lo demás que el vehículo entregue, actualizándose en el momento.</li>
+        <li><strong>El cuadro congelado:</strong> lo que el vehículo estaba haciendo en el instante exacto en que falló —a qué revoluciones, a qué temperatura—. Es la pista más útil cuando la falla es intermitente y no se repite en el taller.</li>
+        <li>Los valores que el técnico escoja <strong>se adjuntan al informe</strong>, al lado de los códigos, para sustentar lo que se va a cotizar.</li>
+      </ul>
+      <p style="margin-top:8px">Así el técnico hace las dos cosas con el mismo cable y sin cambiar de aparato: lee lo que el carro guardó y mira lo que está pasando ahora mismo. Es la mejora más grande de las cuatro y por eso es la que más tiempo lleva, pero sale completa, no por pedazos.</p>
+
+      <div class="ejemplo">
+        <span class="t">Una decisión de criterio</span>
+        <strong>Borrar los códigos no va a estar en la app.</strong> Borrar apaga la luz, pero también borra la evidencia de la falla y reinicia las comprobaciones internas del vehículo. Hecho desde un teléfono, por descuido, destruye justo lo que se estaba buscando. Eso se sigue haciendo con el escáner en la mano, por quien sabe lo que está apagando.
+      </div>
+    </div>
+  </div>
+
+  <h2>5 · En qué orden llegan</h2>
+
+  <table>
+    <thead><tr><th>Mejora</th><th>Cuándo</th><th>¿Hay que actualizar la app?</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>2 · Actualizar desde la plantilla</strong></td>
+        <td>Esta semana</td>
+        <td>No — es del panel web, aparece sola</td>
+      </tr>
+      <tr>
+        <td><strong>1 · Avisos del avance de la orden</strong></td>
+        <td>Esta semana</td>
+        <td>No — los avisos empiezan a llegar a la app que ya tienen instalada</td>
+      </tr>
+      <tr>
+        <td><strong>3 · Para qué vehículos sirve cada repuesto</strong></td>
+        <td>Próxima actualización de la app</td>
+        <td>Sí</td>
+      </tr>
+      <tr>
+        <td><strong>4 · Lectura del escáner</strong></td>
+        <td>Después — es la más grande</td>
+        <td>Sí</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:12px">Las dos primeras salen primero justamente porque <strong>no dependen de las tiendas</strong>: no hay que esperar que Apple y Google revisen y aprueben nada. La mejora 3 sí necesita una versión nueva de la app, y por eso la juntamos con otras en una sola actualización en vez de hacerles instalar dos.</p>
+
+  <div class="hl">
+    <strong>Lo único que necesitamos de su parte, para la mejora 4:</strong> la marca y el modelo del <strong>escáner que ya tienen</strong>, y que prueben emparejarlo con un teléfono del taller —Android y iPhone— para decirnos en cuál aparece. Nada que comprar por ahora. Con ese dato arrancamos.
+  </div>
+
+  <h2>6 · Lo que quedó fuera, y por qué</h2>
+  <p><strong>Video corto en las órdenes.</strong> Se evaluó y se dejó fuera por ahora. La razón de fondo: un video <strong>no puede ir dentro del PDF</strong> de la cotización ni de la ficha de recepción —ningún PDF reproduce video—, así que el cliente solo lo vería abriendo el enlace, no en el documento que se le manda. Sumado a lo que pesa en almacenamiento, no compensa frente a las otras cuatro. Si más adelante el enlace al cliente se vuelve la forma normal de mandar las cotizaciones, lo retomamos.</p>
+  <p class="muted" style="margin-top:8px">Mientras tanto, la evidencia fotográfica sigue igual: las fotos se toman aunque no haya señal, se suben solas, y ahora se pueden traer de la orden a la cotización sin volver a subirlas.</p>
+
+  <div class="foot">
+    <strong>Óscar Méndez</strong> · GarajApp<br />
+    ✉️ soporte@garajeapp.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 www.garajeapp.com
+  </div>
+</div>
+</body>
+</html>

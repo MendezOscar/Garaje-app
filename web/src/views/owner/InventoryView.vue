@@ -411,7 +411,7 @@ onMounted(async () => {
           <th scope="col" class="num">Existencia</th>
           <th scope="col" class="num">Mínimo</th>
           <th scope="col" v-if="canManage" class="num">Costo</th>
-          <th scope="col" class="num">Venta</th>
+          <th scope="col" v-if="auth.seesPrices" class="num">Venta</th>
           <th scope="col">Ubicación</th>
           <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
@@ -432,7 +432,9 @@ onMounted(async () => {
           <!-- El costo es del negocio: se le enseña al Dueño, no al técnico que consulta
                existencias antes de prometer una reparación. -->
           <td v-if="canManage" class="num muted">{{ formatMoney(item.costPrice) }}</td>
-          <td class="num">{{ formatMoney(item.salePrice) }}</td>
+          <!-- El precio de venta se le quita al técnico del taller que lo apagó: el servidor
+               ya no lo manda, y la columna con «L 0.00» era peor que no tenerla. -->
+          <td v-if="auth.seesPrices" class="num">{{ formatMoney(item.salePrice) }}</td>
           <td class="muted small">{{ item.location ?? '—' }}</td>
           <!-- A la vista, lo que se hace todos los días: darle entrada a lo que llegó. El
                resto —ajuste, traslado, kardex, editar— en el menú, que cuatro botones por

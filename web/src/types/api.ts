@@ -39,6 +39,12 @@ export interface CurrentUser {
    * las palabras de todas las pantallas, y la ficha del taller solo la lee el Dueño.
    */
   worksWith: WorkshopKind
+  /**
+   * Si este usuario ve precios. Falso solo para el técnico de un taller que los apagó: el
+   * servidor ya se los quita de la respuesta, y la pantalla lo mira para no pintar «L 0.00»
+   * donde iba un precio.
+   */
+  seesPrices: boolean
 }
 
 export type SubscriptionState = 'Active' | 'DueSoon' | 'Grace' | 'ReadOnly' | 'Suspended'

@@ -45,6 +45,13 @@ export const useAuthStore = defineStore('auth', () => {
   const isTechnician = computed(() => role.value === Roles.Technician)
   const isCustomer = computed(() => role.value === Roles.Customer)
 
+  /**
+   * Si a este usuario se le enseñan precios. Solo es falso para el técnico de un taller que
+   * los apagó. El servidor ya se los quita de la respuesta; esto es para no dejar la columna
+   * con «L 0.00» en lugar del precio.
+   */
+  const seesPrices = computed(() => user.value?.seesPrices !== false)
+
   async function login(email: string, password: string): Promise<void> {
     const { data } = await api.post<AuthResponse>('/api/auth/login', { email, password })
     saveSession(data)
@@ -108,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
     isManagement,
     isTechnician,
     isCustomer,
+    seesPrices,
     login,
     logout,
     loadCurrentUser,
