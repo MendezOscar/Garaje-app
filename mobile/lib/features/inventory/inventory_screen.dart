@@ -672,6 +672,90 @@ class _StockCard extends StatelessWidget {
   }
 }
 
+/// Un vehículo de la lista: marca y modelo arriba, los años y el motor abajo.
+///
+/// En dos renglones y no en una fila de cinco campos: en un teléfono, cinco cajas en línea
+/// dejan cada una de un centímetro.
+class _AplicacionFila extends StatelessWidget {
+  const _AplicacionFila({required this.aplica, required this.onQuitar, super.key});
+
+  final _AplicacionEditable aplica;
+  final VoidCallback onQuitar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: aplica.brand,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Marca', hintText: 'Toyota'),
+                    onChanged: (v) => aplica.brand = v,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: aplica.model,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Modelo', hintText: 'Corolla'),
+                    onChanged: (v) => aplica.model = v,
+                  ),
+                ),
+                IconButton(
+                  onPressed: onQuitar,
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Quitar',
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: aplica.yearFrom,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Desde', hintText: '2014'),
+                    onChanged: (v) => aplica.yearFrom = v,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: aplica.yearTo,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Hasta', hintText: '2019'),
+                    onChanged: (v) => aplica.yearTo = v,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: aplica.engine,
+                    decoration: const InputDecoration(labelText: 'Motor', hintText: '1.8'),
+                    onChanged: (v) => aplica.engine = v,
+                  ),
+                ),
+                // Deja el renglón de abajo alineado con el de arriba, que lleva el botón de
+                // quitar: sin esto los años quedan corridos respecto a marca y modelo.
+                const SizedBox(width: 48),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Alta y edición del catálogo. El SKU es único por taller: es con lo que se busca el
 /// repuesto en el mostrador.
 class _PartForm extends ConsumerStatefulWidget {
@@ -681,6 +765,38 @@ class _PartForm extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<_PartForm> createState() => _PartFormState();
+}
+
+/// Una fila del editor de «a qué vehículos les sirve», mientras se escribe.
+///
+/// Lleva su propia llave porque la lista se edita en el sitio: sin ella, borrar el renglón de
+/// en medio dejaba el texto del siguiente pegado en el que ocupó su lugar.
+class _AplicacionEditable {
+  _AplicacionEditable({this.brand = '', this.model = '', this.yearFrom = '', this.yearTo = '', this.engine = ''});
+
+  factory _AplicacionEditable.de(PartApplication a) => _AplicacionEditable(
+        brand: a.brand,
+        model: a.model ?? '',
+        yearFrom: a.yearFrom?.toString() ?? '',
+        yearTo: a.yearTo?.toString() ?? '',
+        engine: a.engine ?? '',
+      );
+
+  final llave = UniqueKey();
+
+  String brand;
+  String model;
+  String yearFrom;
+  String yearTo;
+  String engine;
+
+  PartApplication aGuardar() => PartApplication(
+        brand: brand.trim(),
+        model: model.trim().isEmpty ? null : model.trim(),
+        yearFrom: int.tryParse(yearFrom.trim()),
+        yearTo: int.tryParse(yearTo.trim()),
+        engine: engine.trim().isEmpty ? null : engine.trim(),
+      );
 }
 
 class _PartFormState extends ConsumerState<_PartForm> {
@@ -696,6 +812,46 @@ class _PartFormState extends ConsumerState<_PartForm> {
 
   bool _busy = false;
   String? _error;
+
+  /// A qué vehículos les sirve, como se está editando.
+  final _aplicaciones = <_AplicacionEditable>[];
+
+  /// Si ya sabemos cuáles tiene hoy. Mientras sea falso no se mandan: en un repuesto que se
+  /// está editando, mandar la lista vacía sin haberla leído le borraría las que tenía.
+  bool _aplicacionesListas = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // El repuesto nuevo no tiene nada que leer; el que se edita sí, y la fila de existencias
+    // de la que viene esta pantalla no las trae.
+    if (widget.item == null) {
+      _aplicacionesListas = true;
+    } else {
+      _cargarAplicaciones();
+    }
+  }
+
+  Future<void> _cargarAplicaciones() async {
+    try {
+      final encontrados =
+          await ref.read(inventoryRepositoryProvider).searchParts(widget.item!.sku);
+
+      final parte = encontrados.where((p) => p.id == widget.item!.partId).firstOrNull;
+      if (parte == null || !mounted) return;
+
+      setState(() {
+        _aplicaciones
+          ..clear()
+          ..addAll(parte.applications.map(_AplicacionEditable.de));
+        _aplicacionesListas = true;
+      });
+    } catch (_) {
+      // Sin ruido: la ficha se sigue pudiendo editar, y al guardar no se tocan las
+      // aplicaciones porque `_aplicacionesListas` quedó en falso.
+    }
+  }
 
   @override
   void dispose() {
@@ -726,6 +882,13 @@ class _PartFormState extends ConsumerState<_PartForm> {
             unit: _unit.text.trim().isEmpty ? 'unidad' : _unit.text.trim(),
             costPrice: _parse(_cost.text) ?? 0,
             salePrice: _parse(_price.text) ?? 0,
+            // Las filas a medio escribir no se mandan: una marca vacía no filtra nada.
+            applications: _aplicacionesListas
+                ? _aplicaciones
+                    .where((a) => a.brand.trim().isNotEmpty)
+                    .map((a) => a.aGuardar())
+                    .toList()
+                : null,
           );
 
       if (mounted) Navigator.pop(context, part);
@@ -812,6 +975,42 @@ class _PartFormState extends ConsumerState<_PartForm> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
+
+            // A qué vehículos les sirve. Es lo que después deja que, dentro de la orden y con
+            // el carro en pantalla, el buscador ofrezca solo lo que aplica.
+            Text(
+              'A QUÉ VEHÍCULOS LES SIRVE',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.6,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Opcional. Sin modelo aplica a toda la marca; sin años, a todos.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+
+            for (final aplica in _aplicaciones)
+              _AplicacionFila(
+                key: aplica.llave,
+                aplica: aplica,
+                onQuitar: () => setState(() => _aplicaciones.remove(aplica)),
+              ),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _aplicacionesListas
+                    ? () => setState(() => _aplicaciones.add(_AplicacionEditable()))
+                    : null,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Agregar vehículo'),
+              ),
+            ),
+
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

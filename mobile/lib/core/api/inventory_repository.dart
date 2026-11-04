@@ -195,6 +195,7 @@ class InventoryRepository {
     required double costPrice,
     required double salePrice,
     bool isActive = true,
+    List<PartApplication>? applications,
   }) async {
     final data = {
       'sku': sku,
@@ -205,6 +206,10 @@ class InventoryRepository {
       'costPrice': costPrice,
       'salePrice': salePrice,
       'isActive': isActive,
+      // Null es «no me las toques»: solo se mandan cuando la pantalla sabe cuáles son hoy.
+      // Mandar una lista vacía sin saberlo le borraría al repuesto lo que ya tenía.
+      if (applications != null)
+        'applications': applications.map((a) => a.toJson()).toList(),
     };
 
     final response = id == null

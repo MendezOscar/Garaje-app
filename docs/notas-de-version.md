@@ -42,7 +42,7 @@ LA ORDEN AVISA
 
 PARA QUÉ VEHÍCULOS SIRVE CADA REPUESTO
 · En Inventario, cada repuesto puede llevar la lista de a qué vehículos les sirve: marca,
-  modelo y años. Se llena también desde la plantilla de Excel.
+  modelo y años. Se llena desde la app, desde el panel o desde la plantilla de Excel.
 · Dentro de la orden, con el carro en pantalla, el buscador trae «Solo lo que le sirve».
   Se enciende y la lista se reduce a lo que aplica a esa placa.
 · Arranca apagado y nunca se enciende solo: mientras la información esté incompleta, apagado
