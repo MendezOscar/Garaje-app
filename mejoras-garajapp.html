@@ -10,8 +10,13 @@
   no le aplican.
 
   Ojo: aquí se habla en lenguaje del taller, no de programación. Los límites que sí hay
-  —el tipo de escáner, los códigos de fabricante, la celda vacía que no borra— están escritos
-  a propósito, porque descubrirlos después es peor.
+  —que el informe del escáner queda como documento y no como dato, la celda vacía que no
+  borra— están escritos a propósito, porque descubrirlos después es peor.
+
+  La sección 4 cambió el 4 de noviembre, después de ver el equipo: el taller tiene un LAUNCH
+  X-431 PRO V5, cuyo conector solo habla con el software de LAUNCH. Lo que se prometía antes
+  —que la app leyera los códigos por Bluetooth— no se puede hacer con ese aparato, y la
+  función pasó a ser adjuntar el informe que el propio escáner genera.
 -->
 <html lang="es">
 <head>
@@ -73,13 +78,13 @@
     <div class="meta">
       <strong>Mejoras en camino</strong><br />
       Preparado para: <strong>su taller</strong><br />
-      Fecha: 3 de noviembre de 2026<br />
+      Fecha: 4 de noviembre de 2026<br />
       Origen: capacitación del equipo
     </div>
   </div>
 
-  <h1 style="margin-top:22px">Lo que pidieron en la capacitación, y cómo va a quedar</h1>
-  <p class="muted" style="margin-top:6px">De la capacitación salieron cuatro mejoras. Aquí está cada una explicada como se va a usar en el mostrador y en el taller —no cómo se programa— y al final el orden en que van llegando. Las dos primeras no necesitan que nadie actualice la app: aparecen solas.</p>
+  <h1 style="margin-top:22px">Lo que pidieron en la capacitación, y cómo quedó</h1>
+  <p class="muted" style="margin-top:6px">De la capacitación salieron cuatro mejoras. Aquí está cada una explicada como se va a usar en el mostrador y en el taller —no cómo se programa— y al final cómo va cada una. <strong>Las dos primeras ya están funcionando</strong>; la tercera va en la versión que está esperando aprobación de las tiendas.</p>
 
   <div class="hl">
     <strong>Cómo llegan las mejoras.</strong> El panel web se actualiza solo: usted entra y ya está. La app del teléfono se actualiza desde App Store o Google Play como cualquier otra, y la app le avisa cuando hay una versión nueva. Nada de esto tiene costo adicional ni cambia la mensualidad.
@@ -168,48 +173,43 @@
     </div>
   </div>
 
-  <h2>4 · Lectura del escáner del motor</h2>
+  <h2>4 · El informe del escáner, en la orden y en la cotización</h2>
 
   <div class="mejora">
     <div class="n">4</div>
     <div>
       <h3 style="margin-top:0">El problema que vimos</h3>
-      <p>Entra un vehículo con la luz del motor encendida. Se le pone el escáner, el técnico lee los códigos en la pantallita, los anota en un papel —o no los anota— y el cliente se queda con la palabra del taller. No hay nada que enseñarle, y nada que buscar después cuando el carro vuelve con lo mismo.</p>
+      <p>Entra un vehículo con la luz del motor encendida. Se le pone el escáner, el técnico lee los códigos en la pantalla, los anota en un papel —o no los anota— y el cliente se queda con la palabra del taller. No hay nada que enseñarle, y nada que buscar después cuando el carro vuelve con lo mismo.</p>
 
       <h3>Cómo va a quedar</h3>
-      <p>El escáner se conecta <strong>por Bluetooth al teléfono</strong>. Desde la orden de trabajo, el técnico toca <em>«Leer escáner»</em>, la app lee los códigos del vehículo y arma un <strong>informe que queda guardado en la orden</strong>: la fecha, quién lo hizo, el kilometraje, el número de chasis si el vehículo lo entrega, y cada código con su descripción.</p>
-      <p style="margin-top:8px">Ese informe se imprime en PDF y <strong>se le manda al cliente</strong> junto con la cotización, por WhatsApp. Deja de ser la palabra del taller y pasa a ser un documento: <em>el carro reporta esto, por eso le estamos cotizando esto otro</em>. Y adentro del taller sirve para decidir con el dato en la mano, no con el recuerdo de lo que decía la pantallita.</p>
+      <p>El técnico escanea con el <strong>LAUNCH X-431</strong>, como ya lo hace hoy. Al terminar, la tableta arma su informe; el técnico toca <strong>Compartir</strong> y elige <strong>GarajApp</strong>. El informe <strong>queda adjunto a la orden</strong>, y de ahí sale en la cotización que se le manda al cliente por WhatsApp.</p>
+      <p style="margin-top:8px">Deja de ser la palabra del taller y pasa a ser un documento: <em>el carro reporta esto, por eso le estamos cotizando esto otro</em>. Y queda guardado con la orden, que es lo que hoy se pierde en el papel: cuando el mismo carro vuelve en tres meses, ahí está lo que decía la primera vez.</p>
 
-      <h3>Cómo van a salir los códigos</h3>
-      <p>Esto conviene tenerlo claro desde ahora, porque es lo único que la app no puede resolver sola:</p>
+      <h3>Por qué así, y no leyendo el escáner desde la app</h3>
+      <p>Es la parte que cambió después de ver el equipo, y conviene decirla clara: <strong>el X-431 habla solo con el software de LAUNCH</strong>. Su conector va amarrado a la licencia del aparato y no permite que otra aplicación lo maneje. No es una limitación de GarajApp ni algo que se arregle programando: es así por diseño del fabricante.</p>
+      <p style="margin-top:8px">Lo cual, mirándolo bien, les conviene:</p>
       <ul>
-        <li><strong>Los códigos estándar</strong> —los que comparten todas las marcas, los que empiezan con <code>P0</code>— salen con su descripción en español, lista para enseñarle al cliente: <em>«P0301 — Falla de encendido en el cilindro 1»</em>. Son la mayoría de lo que se ve a diario.</li>
-        <li><strong>Los códigos propios de cada fabricante</strong> —los que empiezan con <code>P1</code>— salen con su número y una nota que dice <em>«código específico del fabricante»</em>, sin descripción. Esa información las marcas la venden aparte y no se puede incluir.</li>
+        <li><strong>No hay que comprar nada.</strong> El escáner que ya tienen sirve tal como está.</li>
+        <li><strong>Sigue sirviendo si cambian de escáner.</strong> Cualquier equipo que genere un informe —LAUNCH, Autel, el que sea— entra por el mismo camino.</li>
+        <li><strong>Llega en días, no en semanas.</strong> Era, con mucho, la mejora más cara de las cuatro; por este lado deja de serlo.</li>
+        <li><strong>El informe sale completo.</strong> Los códigos con su descripción, los datos del vehículo y la fecha los pone la tableta, que es la que tiene la información de cada marca comprada. Nosotros no tenemos que adivinar nada.</li>
       </ul>
-      <p style="margin-top:8px">O sea: el informe nunca le va a mentir ni le va a inventar una falla. Lo que sabe, lo explica; lo que no, lo anota con su número para que el técnico lo busque. Y en los dos casos el código <strong>queda guardado en la orden</strong>, que es lo que hoy se pierde en el papel.</p>
-      <p style="margin-top:8px">El técnico siempre puede <strong>escribir su propia nota</strong> debajo de cada código —lo que él interpretó, lo que revisó— y esa nota también sale en el informe que se le manda al cliente. Ahí es donde entra el oficio del taller, que es lo que el cliente está pagando.</p>
 
-      <div class="aviso">
-        <strong>Lo primero: una prueba con el escáner que ya tienen.</strong> No hace falta comprar nada todavía. Necesitamos saber si el escáner del taller es de los que se conectan al teléfono por Bluetooth y, sobre todo, <strong>si se conecta al iPhone</strong>: los modelos más antiguos usan un tipo de Bluetooth que Android acepta y el iPhone no, y eso no se arregla por software.
-        <ul style="margin-top:6px">
-          <li>Mándenos <strong>la marca y el modelo exactos</strong> del escáner (la etiqueta del aparato o la caja).</li>
-          <li>Intenten <strong>emparejarlo con un teléfono</strong> del taller, Android y iPhone, y cuéntenos si aparece en cada uno.</li>
-        </ul>
-        <p style="margin-top:6px">Con eso sabemos en diez minutos si les sirve el que ya tienen. Si resulta que solo funciona con Android, la función igual se hace y les funciona en los teléfonos Android desde el primer día; para los iPhone haría falta un adaptador compatible, y eso lo conversamos recién cuando esté confirmado.</p>
+      <div class="hl">
+        💡 <strong>Un detalle que ahorra pasos:</strong> el X-431 es una tableta Android, así que <strong>GarajApp se puede instalar en el mismo escáner</strong>. El técnico escanea y comparte el informe sin pasar el archivo de un aparato a otro, y además lleva la orden abierta en la misma pantalla.
       </div>
 
-      <h3>Los datos en vivo, en la misma función</h3>
-      <p>Los códigos son una foto del pasado: dicen por qué se prendió la luz. Pero hay vehículos que <strong>no tienen ningún código y aun así andan mal</strong> —jalonean, consumen de más, calientan— y ahí el código no ayuda. Por eso la función incluye también la <strong>lectura en vivo</strong>: los sensores mientras el motor está andando, en la pantalla del teléfono.</p>
-      <ul>
-        <li><strong>Revoluciones, temperatura del refrigerante, carga del motor, sensor de oxígeno, ajuste de combustible</strong> y lo demás que el vehículo entregue, actualizándose en el momento.</li>
-        <li><strong>El cuadro congelado:</strong> lo que el vehículo estaba haciendo en el instante exacto en que falló —a qué revoluciones, a qué temperatura—. Es la pista más útil cuando la falla es intermitente y no se repite en el taller.</li>
-        <li>Los valores que el técnico escoja <strong>se adjuntan al informe</strong>, al lado de los códigos, para sustentar lo que se va a cotizar.</li>
-      </ul>
-      <p style="margin-top:8px">Así el técnico hace las dos cosas con el mismo cable y sin cambiar de aparato: lee lo que el carro guardó y mira lo que está pasando ahora mismo. Es la mejora más grande de las cuatro y por eso es la que más tiempo lleva, pero sale completa, no por pedazos.</p>
+      <div class="aviso">
+        <strong>Lo que sí hay que hacer de nuestro lado.</strong> Hoy GarajApp solo acepta <em>fotos</em> como adjunto. Hay que abrirle la puerta a los <strong>documentos PDF</strong> y hacer que la app aparezca en la lista de «Compartir con…» del escáner. Es lo que cuesta esta mejora, y es poco.
+      </div>
+
+      <h3>Lo que esto no le va a dar</h3>
+      <p>Para que nadie se lleve una sorpresa: el informe queda como <strong>documento</strong>, no como dato suelto. Eso significa que <strong>no se va a poder buscar «todos los carros que reportaron P0301»</strong>, ni armar estadísticas por código, ni que el sistema le sugiera nada a partir de ellos. Para eso el código tendría que entrar campo por campo, y eso solo se logra leyendo el carro directamente —con un adaptador aparte del LAUNCH—.</p>
+      <p style="margin-top:8px">Lo dejamos planteado y lo conversamos más adelante, cuando se vea si esa búsqueda hace falta de verdad. Para lo que se pidió en la capacitación —que el cliente reciba evidencia y que el taller decida con el dato en la mano— el informe adjunto alcanza.</p>
 
       <div class="ejemplo">
-        <span class="t">Una decisión de criterio</span>
-        <strong>Borrar los códigos no va a estar en la app.</strong> Borrar apaga la luz, pero también borra la evidencia de la falla y reinicia las comprobaciones internas del vehículo. Hecho desde un teléfono, por descuido, destruye justo lo que se estaba buscando. Eso se sigue haciendo con el escáner en la mano, por quien sabe lo que está apagando.
+        <span class="t">Y lo que se sigue haciendo en el escáner</span>
+        Los <strong>datos en vivo</strong> del motor —revoluciones, temperatura, sensores— y el <strong>borrado de códigos</strong> se quedan donde están: en el LAUNCH, que para eso está y lo hace bien. GarajApp no va a tocar el vehículo; guarda y manda lo que el escáner dictaminó. Borrar un código apaga la luz pero también borra la evidencia de la falla, y eso lo hace quien sabe lo que está apagando, con el equipo en la mano.
       </div>
     </div>
   </div>
@@ -221,31 +221,31 @@
     <tbody>
       <tr>
         <td><strong>2 · Actualizar desde la plantilla</strong></td>
-        <td>Esta semana</td>
-        <td>No — es del panel web, aparece sola</td>
+        <td><strong>Ya está</strong>, en el panel</td>
+        <td>No — es del panel web, apareció sola</td>
       </tr>
       <tr>
         <td><strong>1 · Avisos del avance de la orden</strong></td>
-        <td>Esta semana</td>
-        <td>No — los avisos empiezan a llegar a la app que ya tienen instalada</td>
+        <td><strong>Ya está</strong></td>
+        <td>No — los avisos llegan a la app que ya tienen instalada</td>
       </tr>
       <tr>
         <td><strong>3 · Para qué vehículos sirve cada repuesto</strong></td>
-        <td>Próxima actualización de la app</td>
-        <td>Sí</td>
+        <td>En la versión <strong>1.7.0</strong>, esperando que las tiendas la aprueben</td>
+        <td>Sí — se actualiza sola desde App Store o Google Play</td>
       </tr>
       <tr>
-        <td><strong>4 · Lectura del escáner</strong></td>
-        <td>Después — es la más grande</td>
+        <td><strong>4 · El informe del escáner</strong></td>
+        <td>Apenas salga la 1.7.0</td>
         <td>Sí</td>
       </tr>
     </tbody>
   </table>
 
-  <p style="margin-top:12px">Las dos primeras salen primero justamente porque <strong>no dependen de las tiendas</strong>: no hay que esperar que Apple y Google revisen y aprueben nada. La mejora 3 sí necesita una versión nueva de la app, y por eso la juntamos con otras en una sola actualización en vez de hacerles instalar dos.</p>
+  <p style="margin-top:12px">Las dos primeras salieron antes justamente porque <strong>no dependían de las tiendas</strong>: no había que esperar a que Apple y Google revisaran nada. La 3 sí necesita la versión nueva de la app, y la 4 la dejamos para apenas esa versión esté publicada, para no tener dos revisiones encima a la vez.</p>
 
   <div class="hl">
-    <strong>Lo único que necesitamos de su parte, para la mejora 4:</strong> la marca y el modelo del <strong>escáner que ya tienen</strong>, y que prueben emparejarlo con un teléfono del taller —Android y iPhone— para decirnos en cuál aparece. Nada que comprar por ahora. Con ese dato arrancamos.
+    <strong>Lo único que necesitamos de su parte, para la mejora 4:</strong> decirnos si quieren <strong>GarajApp instalada en la misma tableta LAUNCH</strong> —que es lo que menos pasos deja— o si prefieren compartir el informe al teléfono del técnico. Nada que comprar: el escáner que tienen sirve tal como está.
   </div>
 
   <h2>6 · Lo que quedó fuera, y por qué</h2>
