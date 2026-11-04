@@ -56,6 +56,8 @@ public class StockService(
             .Take(query.PageSize)
             .ToListAsync(ct);
 
+        if (await TecnicoSinPreciosAsync(scope, ct)) items = items.Select(SinPrecios).ToList();
+
         return new PagedResult<StockItemDto>(items, total, query.Page, query.PageSize);
     }
 
@@ -71,9 +73,11 @@ public class StockService(
         }
 
         // Lo más urgente primero: lo agotado antes que lo que solo está rozando el mínimo.
-        return await Project(q.OrderBy(s => s.Quantity).ThenBy(s => s.Part.Name))
+        var items = await Project(q.OrderBy(s => s.Quantity).ThenBy(s => s.Part.Name))
             .Take(100)
             .ToListAsync(ct);
+
+        return await TecnicoSinPreciosAsync(scope, ct) ? items.Select(SinPrecios).ToList() : items;
     }
 
     public async Task<PagedResult<StockMovementDto>> MovementsAsync(
@@ -105,6 +109,8 @@ public class StockService(
             .Skip(query.Skip)
             .Take(query.PageSize)
             .ToListAsync(ct);
+
+        if (await TecnicoSinPreciosAsync(scope, ct)) items = items.Select(SinCosto).ToList();
 
         return new PagedResult<StockMovementDto>(items, total, query.Page, query.PageSize);
     }
@@ -423,6 +429,29 @@ public class StockService(
     {
         if (quantity <= 0) throw new AppException("La cantidad debe ser mayor que cero.");
     }
+
+    /// <summary>
+    /// El taller puede tener apagado que sus técnicos vean precios. Se quitan aquí, en el
+    /// servidor, y no en la pantalla: esconderlos solo al pintarlos deja el dato viajando en
+    /// la respuesta, y el inventario es justo donde más se nota (precio de venta y costo).
+    /// </summary>
+    private async Task<bool> TecnicoSinPreciosAsync(AccessScope scope, CancellationToken ct)
+    {
+        if (!scope.IsTechnician) return false;
+
+        var ve = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => (bool?)t.TechniciansSeePrices)
+            .FirstOrDefaultAsync(ct);
+
+        return ve == false;
+    }
+
+    private static StockItemDto SinPrecios(StockItemDto item) =>
+        item with { CostPrice = 0m, SalePrice = 0m };
+
+    private static StockMovementDto SinCosto(StockMovementDto movimiento) =>
+        movimiento with { UnitCost = null };
 
     private static void EnsureStaff(AccessScope scope)
     {
