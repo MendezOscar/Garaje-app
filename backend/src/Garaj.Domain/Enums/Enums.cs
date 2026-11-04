@@ -220,7 +220,12 @@ public enum NotificationType
     WorkOrderStalled = 9,
     AppointmentTomorrow = 10,
     PaymentOverdue = 11,
-    TimeOverBudget = 12
+    TimeOverBudget = 12,
+
+    // Los que mueven la orden de una mano a la otra: el técnico termina el diagnóstico y le
+    // toca al dueño valorar; el dueño carga repuestos o pasos y le vuelve a tocar al técnico.
+    DiagnosisReady = 13,
+    WorkOrderChanged = 14
 }
 
 /// <summary>

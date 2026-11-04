@@ -194,10 +194,32 @@ public class NotificationService(
         {
             var yaAvisados = await db.Notifications.IgnoreQueryFilters()
                 .Where(n => n.TenantId == tenantId && n.DedupeKey == clave)
-                .Select(n => n.RecipientUserId)
                 .ToListAsync(ct);
 
-            userIds = userIds.Where(id => !yaAvisados.Contains(id)).ToList();
+            // El aviso que se reescribe: el hecho es el mismo —la orden que cambió— pero ya
+            // no dice lo mismo. Se le cambia el texto y vuelve a quedar sin leer, y a
+            // propósito no se manda otro push: el teléfono ya timbró por esto.
+            if (draft.Replaces && yaAvisados.Count > 0)
+            {
+                foreach (var vieja in yaAvisados.Where(n => userIds.Contains(n.RecipientUserId)))
+                {
+                    vieja.Title = draft.Title;
+                    vieja.Body = draft.Body;
+                    vieja.ReadAt = null;
+                }
+
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "No se pudo reescribir el aviso «{Title}».", draft.Title);
+                }
+            }
+
+            var destinatarios = yaAvisados.Select(n => n.RecipientUserId).ToList();
+            userIds = userIds.Where(id => !destinatarios.Contains(id)).ToList();
             if (userIds.Count == 0) return;
         }
 
