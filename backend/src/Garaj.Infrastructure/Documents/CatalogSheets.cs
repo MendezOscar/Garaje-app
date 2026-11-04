@@ -29,11 +29,17 @@ public static class CatalogSheets
     /// Un renglón de la plantilla de repuestos: el repuesto, que es del taller, y lo que es
     /// de la bodega de una sucursal —cuánto hay, dónde está y cuándo hay que reponer—.
     /// </summary>
+    /// <param name="Llenas">
+    /// Qué columnas del catálogo venían con algo escrito en esta fila. Es lo que separa «no me
+    /// toques la marca» de «déjame la marca en blanco»: sin esto, subir una hoja con SKU y
+    /// precio para cambiarle el precio a cuarenta repuestos les borraba todo lo demás.
+    /// </param>
     public record RepuestoDeExcel(
         SavePartRequest Parte,
         decimal? Minimo,
         string? Ubicacion,
-        decimal? Existencia);
+        decimal? Existencia,
+        IReadOnlySet<string> Llenas);
 
     // ------------------------------------------------------------------ repuestos
 
@@ -58,8 +64,16 @@ public static class CatalogSheets
             "Llene la hoja «Repuestos», una línea por repuesto, y súbala desde Inventario.",
             "",
             "SKU — obligatorio. Es el código con que usted lo busca y lo dicta. Si ya existe uno",
-            "con ese SKU, la carga le actualiza los datos en vez de duplicarlo.",
-            "Nombre — obligatorio. Como quiere verlo en la orden y en la factura.",
+            "con ese SKU, la carga le CORRIGE lo que usted llene y le deja igual todo lo demás.",
+            "Nombre — obligatorio solo cuando el repuesto es nuevo.",
+            "",
+            "PARA CAMBIAR PRECIOS EN MONTÓN: llene el SKU y nada más que la columna que quiere",
+            "cambiar. Una celda vacía NO BORRA el dato: deja el que ya estaba. Así se le sube el",
+            "precio a cuarenta repuestos sin volver a escribirles el nombre y la marca.",
+            "Para dejar un campo en blanco, entre a la ficha del repuesto en Inventario.",
+            "",
+            "Antes de guardar, la pantalla le enseña fila por fila qué va a cambiar.",
+            "",
             "Unidad — u, lt, jgo, par… Si la deja en blanco se guarda «u».",
             "Costo — lo que a usted le cuesta. Puede ir en cero y corregirse al darle entrada.",
             "Precio de venta — lo que le cobra al cliente.",
@@ -97,8 +111,10 @@ public static class CatalogSheets
 
             string? error = null;
 
+            // El nombre no se exige aquí: una fila con SKU y precio es una actualización
+            // perfectamente válida. Quien sabe si el SKU ya existe es el servicio, y es él
+            // quien pide el nombre cuando el repuesto nace.
             if (sku is null) error = "Falta el SKU.";
-            else if (nombre is null) error = "Falta el nombre.";
 
             var costo = Numero(fila, columnas, "costo");
             var venta = Numero(fila, columnas, "precio de venta");
@@ -128,7 +144,7 @@ public static class CatalogSheets
                     ? new RepuestoDeExcel(
                         new SavePartRequest(
                             sku!,
-                            nombre!,
+                            nombre ?? "",
                             Texto(fila, columnas, "descripción"),
                             Texto(fila, columnas, "marca"),
                             Texto(fila, columnas, "categoría"),
@@ -137,7 +153,17 @@ public static class CatalogSheets
                             venta ?? 0m),
                         minimo,
                         Texto(fila, columnas, "ubicación"),
-                        existencia)
+                        existencia,
+                        Llenas(
+                            fila,
+                            columnas,
+                            "nombre",
+                            "descripción",
+                            "marca",
+                            "categoría",
+                            "unidad",
+                            "costo",
+                            "precio de venta"))
                     : null,
                 error));
         }
@@ -284,6 +310,11 @@ public static class CatalogSheets
 
         foreach (var fila in rango.RowsUsed().Skip(1)) yield return fila;
     }
+
+    /// <summary>Cuáles de esas columnas traen algo escrito en esta fila.</summary>
+    private static IReadOnlySet<string> Llenas(
+        IXLRangeRow fila, Dictionary<string, int> columnas, params string[] titulos) =>
+        titulos.Where(t => Tiene(fila, columnas, t)).ToHashSet();
 
     private static bool Tiene(IXLRangeRow fila, Dictionary<string, int> columnas, string titulo) =>
         Celda(fila, columnas, titulo) is { } celda && !celda.IsEmpty();

@@ -196,11 +196,33 @@ public class PartService(
                 var error = fila.Error;
                 var sku = fila.Dato is null ? fila.Key : NormalizeSku(fila.Dato.Parte.Sku);
 
+                // Si el SKU ya está en el catálogo, la fila no crea: corrige. Y entonces solo
+                // cambia las columnas que vinieron llenas —una celda vacía no borra nada—,
+                // que es lo que permite subir una hoja con SKU y precio y nada más.
+                Part? parte = null;
+                var existe = error is null && existentes.TryGetValue(sku, out parte);
+
+                SavePartRequest? deseado = null;
+                var cambios = new List<string>();
+
+                if (error is null)
+                {
+                    if (existe) deseado = Fusionar(parte!, fila.Dato!, out cambios);
+                    else deseado = fila.Dato!.Parte;
+
+                    // El nombre solo hace falta cuando el repuesto nace: para corregirle el
+                    // precio a uno que ya está, escribirlo otra vez era escribir de más.
+                    if (!existe && string.IsNullOrWhiteSpace(deseado.Name))
+                        error = "Falta el nombre. Este SKU no está en el catálogo, así que la fila lo crea.";
+                }
+
                 // Las mismas reglas que la pantalla de Inventario: largos de columna, precios
                 // que no sean negativos. Sin esto, una celda de mil caracteres revienta en
                 // Npgsql a mitad del archivo y el taller recibe un 500 sin saber qué fila fue.
+                // Se valida lo que va a quedar guardado, no lo que trae el Excel: con una fila
+                // parcial, la mitad de los campos salen de lo que el repuesto ya tenía.
                 if (error is null
-                    && validador.Validate(fila.Dato!.Parte) is { IsValid: false } malo)
+                    && validador.Validate(deseado!) is { IsValid: false } malo)
                     error = malo.Errors[0].ErrorMessage;
 
                 // Lo de la bodega sin bodega a la que entrar: pasaría inadvertido y el taller
@@ -222,24 +244,26 @@ public class PartService(
                     continue;
                 }
 
-                if (existentes.TryGetValue(sku, out var parte))
+                if (existe)
                 {
                     actualizados++;
-                    if (apply) Apply(parte, fila.Dato!.Parte);
-                    buenas.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Parte.Name, "actualiza", null));
+                    if (apply) Apply(parte!, deseado!);
+                    buenas.Add(new ImportRowDto(
+                        fila.Numero, sku, deseado!.Name, "actualiza", null, QueCambia(cambios, fila.Dato!)));
                 }
                 else
                 {
                     creados++;
+                    parte = new Part { Sku = sku };
+
                     if (apply)
                     {
-                        parte = new Part { Sku = sku };
-                        Apply(parte, fila.Dato!.Parte);
+                        Apply(parte, deseado!);
                         db.Parts.Add(parte);
                         existentes[sku] = parte;
                     }
 
-                    buenas.Add(new ImportRowDto(fila.Numero, sku, fila.Dato!.Parte.Name, "nuevo", null));
+                    buenas.Add(new ImportRowDto(fila.Numero, sku, deseado!.Name, "nuevo", null));
                 }
 
                 if (apply && branchId is { } destino) Bodega(destino, parte!, fila.Dato!, bodega, scope);
@@ -337,6 +361,73 @@ public class PartService(
             p.StockItems
                 .Where(s => scope.IsOwner || scope.BranchIds.Contains(s.BranchId))
                 .Sum(s => (decimal?)s.Quantity) ?? 0m));
+
+    /// <summary>
+    /// Lo que va a quedar guardado cuando el SKU ya existe: lo que el repuesto tiene hoy, con
+    /// encima solo las columnas que vinieron llenas en el archivo.
+    /// </summary>
+    /// <remarks>
+    /// Una celda vacía no borra. Es lo que convierte la plantilla en una herramienta para
+    /// corregir y no solo para cargar: se sube una hoja con el SKU y el precio nuevo de
+    /// cuarenta repuestos sin volver a escribirles el nombre, la marca y la unidad. Para
+    /// dejar un campo en blanco se entra a la ficha del repuesto, que es donde se ve qué se
+    /// está quitando.
+    /// </remarks>
+    private static SavePartRequest Fusionar(
+        Part parte, CatalogSheets.RepuestoDeExcel fila, out List<string> cambios)
+    {
+        var excel = fila.Parte;
+        var llenas = fila.Llenas;
+        var lista = new List<string>();
+
+        var fusion = new SavePartRequest(
+            parte.Sku,
+            Texto("nombre", excel.Name, parte.Name) ?? parte.Name,
+            Texto("descripción", excel.Description, parte.Description),
+            Texto("marca", excel.Brand, parte.Brand),
+            Texto("categoría", excel.Category, parte.Category),
+            Texto("unidad", excel.Unit, parte.Unit) ?? parte.Unit,
+            Numero("costo", excel.CostPrice, parte.CostPrice),
+            Numero("precio de venta", excel.SalePrice, parte.SalePrice),
+            parte.IsActive);
+
+        cambios = lista;
+        return fusion;
+
+        string? Texto(string columna, string? delExcel, string? loDeAhora)
+        {
+            if (!llenas.Contains(columna)) return loDeAhora;
+
+            var nuevo = delExcel?.Trim();
+            if (!string.Equals(nuevo, loDeAhora?.Trim(), StringComparison.Ordinal)) lista.Add(columna);
+
+            return nuevo;
+        }
+
+        decimal Numero(string columna, decimal delExcel, decimal loDeAhora)
+        {
+            if (!llenas.Contains(columna)) return loDeAhora;
+            if (delExcel != loDeAhora) lista.Add(columna);
+
+            return delExcel;
+        }
+    }
+
+    /// <summary>
+    /// Qué va a cambiar esta fila, dicho en la vista previa. Es la diferencia entre «se
+    /// actualiza» —que no dice nada— y saber, antes de guardar, que lo único que se mueve es
+    /// el precio de venta.
+    /// </summary>
+    private static string QueCambia(List<string> cambios, CatalogSheets.RepuestoDeExcel fila)
+    {
+        var todo = new List<string>(cambios);
+
+        if (fila.Existencia is > 0) todo.Add("existencia");
+        if (fila.Minimo is not null) todo.Add("mínimo");
+        if (fila.Ubicacion is not null) todo.Add("ubicación");
+
+        return todo.Count == 0 ? "No cambia nada" : $"Cambia {string.Join(", ", todo)}";
+    }
 
     private static void Apply(Part part, SavePartRequest request)
     {
