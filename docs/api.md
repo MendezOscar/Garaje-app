@@ -435,7 +435,7 @@ aviso perdido no se recupera nunca.
 `NotificationType`: `1` requerimiento nuevo · `2` orden asignada · `3` cambio de estado ·
 `4` cotización enviada · `5` cotización respondida · `6` cita pedida · `7` cita contestada ·
 `8` toca servicio · `9` orden parada · `10` cita mañana · `11` saldo vencido ·
-`12` se pasó del tiempo.
+`12` se pasó del tiempo · `13` diagnóstico listo · `14` cambió la orden.
 `DevicePlatform`: `1` Android · `2` iOS · `3` web.
 
 Quién recibe qué:
@@ -454,6 +454,25 @@ Quién recibe qué:
 | Una orden lleva 3 días sin moverse | El Dueño y el Encargado de esa sucursal |
 | Hay citas confirmadas para mañana | El Dueño (resumen) y el Cliente con app |
 | Un saldo pasó de su fecha acordada | El Dueño, el Encargado y el Cliente con app |
+| El Técnico escribe el diagnóstico de una orden | El Dueño y el Encargado de esa sucursal |
+| Le agregan un paso o un repuesto a una orden | El Técnico asignado, si no fue él |
+
+#### La orden que pasa de una mano a la otra
+
+Los dos últimos son el relevo dentro del taller: el técnico diagnostica y la orden se queda
+esperando a que alguien la valore; el dueño carga repuestos y el técnico no se entera de que
+ya puede seguir. Entre un paso y el siguiente se perdían horas.
+
+- **El diagnóstico avisa una sola vez por orden** (`diagnostico:{orderId}`) y solo cuando
+  pasa de vacío a escrito: corregirle una palabra después no es noticia para nadie. Si lo
+  escribe quien manda, no se avisa —sería avisarse a sí mismo—.
+- **Cargar ocho repuestos no son ocho avisos.** La clave lleva la ventana de quince minutos
+  (`cambio:{orderId}:{yyyyMMddHHmm}`), así que dentro de ella es siempre el mismo aviso. Y
+  como el draft va con `Replaces`, al aviso que ya está se le **reescribe el texto** con lo
+  que lleva acumulado —«le agregaron 3 repuestos y 1 paso»— y vuelve a quedar sin leer, sin
+  mandar otro push: el teléfono ya timbró por esto.
+- **A quien hizo el cambio no se le avisa**, y a una orden entregada o anulada tampoco: ya no
+  hay nada que seguir.
 
 #### El repaso del calendario
 

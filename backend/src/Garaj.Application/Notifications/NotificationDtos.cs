@@ -42,7 +42,13 @@ public record NotificationDraft(
     Guid? QuoteId = null,
     Guid? ServiceRequestId = null,
     Guid? AppointmentId = null,
-    string? DedupeKey = null);
+    string? DedupeKey = null,
+    // Qué hacer cuando ya hay un aviso con esa misma clave: por defecto no se repite y
+    // listo. Con esto, en cambio, se reescribe el que ya está —y vuelve a quedar sin leer—
+    // sin mandar otro push. Es lo que hace que cargar ocho repuestos sea un solo aviso que
+    // va diciendo cuántos van, en vez de ocho timbrazos o un aviso que se queda en el
+    // primero.
+    bool Replaces = false);
 
 /// <summary>
 /// Emite avisos desde los servicios de negocio.

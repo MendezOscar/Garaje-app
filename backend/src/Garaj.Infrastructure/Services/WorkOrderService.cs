@@ -215,6 +215,8 @@ public class WorkOrderService(
         if (scope.IsCustomer)
             throw new ForbiddenException("Un cliente no puede editar la orden de trabajo.");
 
+        var diagnosticoDeAntes = order.Diagnosis;
+
         order.Description = request.Description.Trim();
         order.Diagnosis = request.Diagnosis?.Trim();
 
@@ -222,6 +224,8 @@ public class WorkOrderService(
         if (scope.IsOwner) order.PromisedAt = request.PromisedAt;
 
         await db.SaveChangesAsync(ct);
+        await AvisarDelDiagnosticoAsync(order, diagnosticoDeAntes, scope, ct);
+
         return await GetAsync(id, ct);
     }
 
@@ -528,6 +532,8 @@ public class WorkOrderService(
         await ApplyAsync(task, request, ct);
         db.WorkOrderTasks.Add(task);
         await db.SaveChangesAsync(ct);
+
+        await AvisarDeLoQueCambioAsync(order, scope, ct);
 
         return await MapTaskAsync(task, ct);
     }
@@ -918,6 +924,87 @@ public class WorkOrderService(
     /// deduplicación la fija— porque pasarse es un hecho, no una condición que repetir cada
     /// vez que para el cronómetro.
     /// </remarks>
+    /// <summary>Cada cuántos minutos la orden puede volver a timbrar el teléfono del técnico.</summary>
+    private const int MinutosEntreAvisosDeCambio = 15;
+
+    /// <summary>
+    /// El técnico terminó de diagnosticar: le toca al dueño cargar repuestos y mano de obra.
+    /// </summary>
+    /// <remarks>
+    /// Avisa una sola vez por orden —la clave no lleva fecha— y solo cuando el diagnóstico
+    /// pasa de vacío a escrito: corregirle una palabra después no es noticia para nadie. No
+    /// avisa cuando lo escribe quien manda, que es el que iba a recibir el aviso.
+    /// </remarks>
+    private async Task AvisarDelDiagnosticoAsync(
+        WorkOrder order, string? diagnosticoDeAntes, AccessScope scope, CancellationToken ct)
+    {
+        if (!scope.IsTechnician) return;
+        if (!string.IsNullOrWhiteSpace(diagnosticoDeAntes)) return;
+        if (string.IsNullOrWhiteSpace(order.Diagnosis)) return;
+
+        await notifications.NotifyBranchManagementAsync(
+            order.TenantId,
+            order.BranchId,
+            new NotificationDraft(
+                NotificationType.DiagnosisReady,
+                $"Diagnóstico listo — {order.Number}",
+                $"{await AssetLabelAsync(order, ct)}: el técnico ya diagnosticó. "
+                + "Toca cargarle los repuestos y la mano de obra.",
+                WorkOrderId: order.Id,
+                DedupeKey: $"diagnostico:{order.Id}"),
+            ct);
+    }
+
+    /// <summary>
+    /// Le avisa al técnico de la orden que le movieron algo: un paso nuevo, un repuesto más.
+    /// </summary>
+    /// <remarks>
+    /// Dos reglas, que son las que hacen que el aviso sirva. A quien hizo el cambio no se le
+    /// avisa: nadie necesita noticias de lo que acaba de hacer. Y cargar ocho repuestos no
+    /// son ocho avisos: dentro de la misma ventana de quince minutos es siempre el mismo
+    /// aviso, al que se le reescribe el texto con lo que lleva acumulado. El teléfono timbra
+    /// una vez; la campana va contando.
+    /// </remarks>
+    private async Task AvisarDeLoQueCambioAsync(WorkOrder order, AccessScope scope, CancellationToken ct)
+    {
+        if (order.AssignedTechnicianId is not { } tecnico) return;
+        if (tecnico == scope.UserId) return;
+        if (order.Status is WorkOrderStatus.Delivered or WorkOrderStatus.Cancelled) return;
+
+        var ahora = clock.UtcNow;
+        var ventana = TimeSpan.FromMinutes(MinutosEntreAvisosDeCambio);
+
+        // El inicio de la ventana en curso, redondeado hacia abajo: es lo que hace que la
+        // clave de los ocho repuestos sea la misma clave.
+        var desde = new DateTimeOffset(
+            ahora.Ticks - ahora.Ticks % ventana.Ticks, TimeSpan.Zero);
+
+        var repuestos = await db.WorkOrderParts
+            .CountAsync(p => p.WorkOrderId == order.Id && p.CreatedAt >= desde, ct);
+
+        var pasos = await db.WorkOrderTasks
+            .CountAsync(t => t.WorkOrderId == order.Id && t.CreatedAt >= desde, ct);
+
+        var partes = new List<string>();
+        if (repuestos > 0) partes.Add($"{repuestos} {(repuestos == 1 ? "repuesto" : "repuestos")}");
+        if (pasos > 0) partes.Add($"{pasos} {(pasos == 1 ? "paso" : "pasos")}");
+
+        if (partes.Count == 0) return;
+
+        await notifications.NotifyUserAsync(
+            order.TenantId,
+            tecnico,
+            new NotificationDraft(
+                NotificationType.WorkOrderChanged,
+                $"Cambió la orden {order.Number}",
+                $"{await AssetLabelAsync(order, ct)}: le agregaron {string.Join(" y ", partes)}. "
+                + "Ábrala antes de seguir.",
+                WorkOrderId: order.Id,
+                DedupeKey: $"cambio:{order.Id}:{desde:yyyyMMddHHmm}",
+                Replaces: true),
+            ct);
+    }
+
     private async Task AvisarSiSePasoDelTiempoAsync(
         WorkOrder order, WorkOrderTimeDto tiempo, CancellationToken ct)
     {
@@ -1081,6 +1168,8 @@ public class WorkOrderService(
 
         db.WorkOrderParts.Add(line);
         await db.SaveChangesAsync(ct);
+
+        await AvisarDeLoQueCambioAsync(order, scope, ct);
 
         return (await PartsOfAsync(order.Id, ct)).First(p => p.Id == line.Id);
     }

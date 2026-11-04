@@ -14,6 +14,8 @@ enum AppNotificationType {
   appointmentTomorrow(10, '📅'),
   paymentOverdue(11, '💸'),
   timeOverBudget(12, '⏱️'),
+  diagnosisReady(13, '🔎'),
+  workOrderChanged(14, '✏️'),
   unknown(0, '🔔');
 
   const AppNotificationType(this.value, this.icon);
