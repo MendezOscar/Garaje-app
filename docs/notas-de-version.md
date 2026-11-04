@@ -11,6 +11,57 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.7.0 (19)
+
+### Google Play — «Novedades» (es-419)
+
+```
+La orden avisa cuando le toca a alguien más.
+
+El técnico guarda el diagnóstico y al dueño le llega el aviso de que toca cargar repuestos y
+precio. El dueño carga algo y le llega al técnico, resumido: un aviso, no diez.
+
+Cada repuesto puede decir a qué vehículos les sirve, y dentro de la orden el buscador ofrece
+solo lo que le sirve a ese carro.
+
+Y las fotos que tomó el técnico ya se traen a la cotización desde el teléfono.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+La orden deja de quedarse esperando a que alguien se dé cuenta.
+
+LA ORDEN AVISA
+· El técnico guarda el diagnóstico y al dueño y al encargado les llega el aviso: toca cargar
+  los repuestos y la mano de obra. Una sola vez por orden.
+· Cuando le agregan un paso o un repuesto a la orden, le llega al técnico que la está
+  trabajando, para que no siga con la información vieja.
+· Cargar ocho repuestos no son ocho avisos: llega uno solo que va diciendo cuántos van.
+· A quien hizo el cambio nunca se le avisa. Nadie necesita noticias de lo que acaba de hacer.
+
+PARA QUÉ VEHÍCULOS SIRVE CADA REPUESTO
+· En Inventario, cada repuesto puede llevar la lista de a qué vehículos les sirve: marca,
+  modelo y años. Se llena también desde la plantilla de Excel.
+· Dentro de la orden, con el carro en pantalla, el buscador trae «Solo lo que le sirve».
+  Se enciende y la lista se reduce a lo que aplica a esa placa.
+· Arranca apagado y nunca se enciende solo: mientras la información esté incompleta, apagado
+  se sigue viendo el catálogo entero. Empiece por lo que más se mueve.
+
+LAS FOTOS DEL TÉCNICO EN LA COTIZACIÓN
+· El presupuesto se arma donde está el vehículo. Ahora, desde el teléfono, las fotos que tomó
+  el técnico en la orden se traen a la cotización sin volver a subirlas.
+· Las que ya se trajeron salen marcadas, para no mandarle al cliente la misma foto dos veces.
+
+ADEMÁS
+· Al técnico de un taller que tiene los precios apagados ya no se le enseñan en Inventario.
+· Desde el panel se pueden corregir los pasos de una orden: el nombre, el precio, o quitarlo.
+· La plantilla de Excel ya sirve para corregir y no solo para cargar: llene el SKU y la
+  columna que quiere cambiar, y lo demás se queda como está.
+```
+
+---
+
 ## 1.6.2 (18)
 
 ### Google Play — «Novedades» (es-419)
