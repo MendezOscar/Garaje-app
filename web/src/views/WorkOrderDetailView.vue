@@ -494,6 +494,66 @@ function alternarCobroDelPaso(taskId: string) {
     : [...cobroDelPaso.value, taskId]
 }
 
+/**
+ * El paso que se está corrigiendo, con lo que se escribió.
+ *
+ * Es lo mismo que la app ya hacía en el teléfono: el nombre de un paso se escribe con prisa
+ * en el mostrador y después hay que arreglarlo. Hasta ahora, en el panel, el único arreglo
+ * posible era borrar la orden y volverla a hacer.
+ */
+const pasoEnEdicion = ref<string | null>(null)
+const edicionDelPaso = ref({ title: '', manualPrice: '' })
+
+/** El precio a mano solo se pregunta cuando el paso no lo saca del catálogo. */
+function pasoCobraAMano(task: WorkOrderDetail['tasks'][number]): boolean {
+  return isCatalog.value && !task.laborServiceId
+}
+
+function abrirEdicionDelPaso(task: WorkOrderDetail['tasks'][number]) {
+  pasoEnEdicion.value = task.id
+  edicionDelPaso.value = {
+    title: task.title,
+    manualPrice: task.manualLaborPrice == null ? '' : String(task.manualLaborPrice),
+  }
+}
+
+function cerrarEdicionDelPaso() {
+  pasoEnEdicion.value = null
+}
+
+function guardarEdicionDelPaso(task: WorkOrderDetail['tasks'][number]) {
+  const title = edicionDelPaso.value.title.trim()
+  if (!title) return
+
+  const escrito = edicionDelPaso.value.manualPrice.trim()
+
+  return run(async () => {
+    await workOrdersApi.updateTask(id.value, task.id, {
+      // El PUT reemplaza el paso completo: lo que no se reenvía se borra. Por eso van aquí
+      // la descripción, el servicio y las horas aunque esta pantalla no los toque.
+      title,
+      description: task.description,
+      laborServiceId: task.laborServiceId,
+      estimatedHours: task.estimatedHours,
+      // Con servicio del catálogo el servidor lo ignora; se reenvía el que ya tenía para no
+      // perderlo si después se le quita el servicio.
+      manualLaborPrice: pasoCobraAMano(task) ? (escrito === '' ? null : Number(escrito)) : task.manualLaborPrice,
+    })
+    pasoEnEdicion.value = null
+  })
+}
+
+/** Quita el paso de la orden. Solo quien manda: la API se lo niega al técnico. */
+function quitarPaso(task: WorkOrderDetail['tasks'][number]) {
+  const aviso = `¿Quitar «${task.title}»? El paso sale de la orden y con él lo que se iba a cobrar por ese trabajo.`
+  if (!confirm(aviso)) return
+
+  return run(async () => {
+    await workOrdersApi.deleteTask(id.value, task.id)
+    pasoEnEdicion.value = null
+  })
+}
+
 const pasosHechos = computed(() => order.value?.tasks.filter((t) => t.isDone).length ?? 0)
 
 async function load() {
@@ -1455,6 +1515,65 @@ onMounted(async () => {
                 <span v-else class="num precio" :class="{ muted: !task.laborPrice }">
                   {{ task.laborPrice ? formatMoney(task.laborPrice) : '—' }}
                 </span>
+
+                <!-- Corregir el paso: el nombre se escribe con prisa en el mostrador y
+                     después hay que arreglarlo. En el teléfono ya se podía. -->
+                <button
+                  v-if="canEdit"
+                  type="button"
+                  class="corregir-paso"
+                  :title="`Corregir «${task.title}»`"
+                  :aria-label="`Corregir «${task.title}»`"
+                  @click="pasoEnEdicion === task.id ? cerrarEdicionDelPaso() : abrirEdicionDelPaso(task)"
+                >
+                  ✎
+                </button>
+              </div>
+
+              <div v-if="canEdit && pasoEnEdicion === task.id" class="paso-edicion">
+                <label>
+                  ¿Qué hay que hacer?
+                  <input
+                    v-model="edicionDelPaso.title"
+                    maxlength="200"
+                    @keyup.enter="guardarEdicionDelPaso(task)"
+                  />
+                </label>
+
+                <label v-if="pasoCobraAMano(task)">
+                  Precio del paso
+                  <input
+                    v-model="edicionDelPaso.manualPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </label>
+                <p v-if="pasoCobraAMano(task)" class="muted small">
+                  Vacío o cero: el paso se hace pero no se cobra.
+                </p>
+
+                <div class="actions">
+                  <button
+                    type="button"
+                    :disabled="busy || !edicionDelPaso.title.trim()"
+                    @click="guardarEdicionDelPaso(task)"
+                  >
+                    Guardar
+                  </button>
+                  <button type="button" class="link" @click="cerrarEdicionDelPaso">Cancelar</button>
+                  <!-- Quitar es de quien manda: la API se lo niega al técnico. -->
+                  <button
+                    v-if="auth.isManagement"
+                    type="button"
+                    class="link peligro"
+                    :disabled="busy"
+                    @click="quitarPaso(task)"
+                  >
+                    Quitar el paso
+                  </button>
+                </div>
               </div>
 
               <div
@@ -2895,6 +3014,52 @@ dd {
   flex: 1;
   min-width: 0;
   font-size: 0.8125rem;
+}
+
+/* El lápiz de corregir: discreto al lado del precio, no un botón más compitiendo con el
+   checkbox de «hecho», que es lo que se toca todo el día. */
+.corregir-paso {
+  flex: none;
+  padding: 0.125rem 0.375rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.corregir-paso:hover {
+  color: var(--text);
+}
+
+.paso-edicion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-left: 1.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.paso-edicion > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.paso-edicion .actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.paso-edicion .peligro {
+  margin-left: auto;
+  color: var(--danger);
 }
 
 /* El botón que abre el paso nuevo: a lo ancho de la tarjeta, que es donde la vista cae
