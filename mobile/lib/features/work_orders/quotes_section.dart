@@ -608,6 +608,9 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                 // Mientras se pueda editar: una cotización respondida es un documento
                 // cerrado, y cambiarle las fotos es cambiarle lo que el cliente aprobó.
                 canEdit: editable,
+                // El técnico ya fotografió el daño en la orden; a Cotizaciones no entra. Sin
+                // esto había que volver a subirlas a mano desde el panel.
+                puedeTraerDeLaOrden: true,
                 titulo: 'FOTOS DEL DAÑO',
                 vacioPropio: 'Sin fotos. Una del daño explica el presupuesto mejor que el texto.',
                 vacioAjeno: 'El taller no adjuntó fotos a este presupuesto.',

@@ -21,6 +21,7 @@ class PhotoGallery extends ConsumerStatefulWidget {
     this.titulo = 'FOTOS DEL PROCESO',
     this.vacioPropio = 'Todavía no hay fotos. Tome una para documentar el proceso.',
     this.vacioAjeno = 'El taller todavía no ha subido fotos.',
+    this.puedeTraerDeLaOrden = false,
     super.key,
   });
 
@@ -32,6 +33,10 @@ class PhotoGallery extends ConsumerStatefulWidget {
   final String vacioPropio;
   final String vacioAjeno;
   final bool canEdit;
+
+  /// Solo en la cotización: traer las fotos que el técnico ya tomó en la orden, en vez de
+  /// volver a subirlas desde el teléfono del dueño.
+  final bool puedeTraerDeLaOrden;
 
   @override
   ConsumerState<PhotoGallery> createState() => _PhotoGalleryState();
@@ -95,6 +100,42 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
     }
   }
 
+  /// Abre la galería de la orden para elegir qué fotos van a la cotización.
+  Future<void> _traerDeLaOrden() async {
+    setState(() => _busy = true);
+
+    List<QuotePhotoCandidate> candidatas;
+    try {
+      candidatas = await ref.read(mediaRepositoryProvider).quotePhotoCandidates(widget.ownerId);
+    } catch (e) {
+      _snack(apiErrorMessage(e, 'No se pudieron cargar las fotos de la orden.'));
+      return;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+
+    if (!mounted) return;
+
+    final elegidas = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => _SelectorDeLaOrden(candidatas: candidatas),
+    );
+
+    if (elegidas == null || elegidas.isEmpty) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(mediaRepositoryProvider).copyToQuote(widget.ownerId, elegidas);
+      ref.invalidate(_fotos);
+    } catch (e) {
+      _snack(apiErrorMessage(e, 'No se pudieron traer las fotos.'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -134,6 +175,12 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
                 ),
               ),
               if (widget.canEdit) ...[
+                if (widget.puedeTraerDeLaOrden)
+                  IconButton(
+                    onPressed: _busy ? null : _traerDeLaOrden,
+                    icon: const Icon(Icons.move_to_inbox_outlined),
+                    tooltip: 'Traer de la orden',
+                  ),
                 IconButton(
                   onPressed: _busy ? null : () => _takePhoto(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
@@ -181,6 +228,155 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// La galería de la orden, para elegir qué le llega al cliente en la cotización.
+///
+/// Las que ya se trajeron salen marcadas y no se vuelven a tocar: la cotización se queda con
+/// una copia, así que traerla dos veces sería mandarle al cliente la misma foto repetida.
+class _SelectorDeLaOrden extends StatefulWidget {
+  const _SelectorDeLaOrden({required this.candidatas});
+
+  final List<QuotePhotoCandidate> candidatas;
+
+  @override
+  State<_SelectorDeLaOrden> createState() => _SelectorDeLaOrdenState();
+}
+
+class _SelectorDeLaOrdenState extends State<_SelectorDeLaOrden> {
+  /// Cuántas salen en el PDF. Pasada esa cuenta, el resto solo se ve en el enlace.
+  static const _cabenEnElPdf = 6;
+
+  final _elegidas = <String>[];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final traibles = widget.candidatas.where((c) => !c.alreadyCopied).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Fotos de la orden', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Las que tomó el técnico. El presupuesto enseña $_cabenEnElPdf; '
+              'el resto las ve el cliente en el enlace.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+
+            if (widget.candidatas.isEmpty)
+              Text(
+                'La orden todavía no tiene fotos. Las toma el técnico desde la app, en la '
+                'orden o en el paso que está haciendo.',
+                style: theme.textTheme.bodySmall,
+              )
+            else if (traibles.isEmpty)
+              Text(
+                'Ya están todas aquí: las ${widget.candidatas.length} fotos de la orden se '
+                'trajeron a este presupuesto.',
+                style: theme.textTheme.bodySmall,
+              )
+            else
+              Flexible(
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
+                  shrinkWrap: true,
+                  children: [
+                    for (final candidata in widget.candidatas)
+                      _Candidata(
+                        candidata: candidata,
+                        elegida: _elegidas.contains(candidata.photo.id),
+                        onTap: candidata.alreadyCopied
+                            ? null
+                            : () => setState(() {
+                                  if (!_elegidas.remove(candidata.photo.id)) {
+                                    _elegidas.add(candidata.photo.id);
+                                  }
+                                }),
+                      ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _elegidas.isEmpty ? null : () => Navigator.pop(context, _elegidas),
+                  child: Text(
+                    _elegidas.isEmpty
+                        ? 'Traer'
+                        : 'Traer ${_elegidas.length}',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Candidata extends StatelessWidget {
+  const _Candidata({required this.candidata, required this.elegida, required this.onTap});
+
+  final QuotePhotoCandidate candidata;
+  final bool elegida;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(
+              opacity: candidata.alreadyCopied ? 0.4 : 1,
+              child: Image.network(
+                candidata.photo.thumbnailUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  child: Icon(Icons.broken_image_outlined, color: theme.colorScheme.outline),
+                ),
+              ),
+            ),
+            if (candidata.alreadyCopied)
+              const Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(Icons.check_circle, size: 18, color: Colors.white),
+              )
+            else if (elegida)
+              Container(
+                color: theme.colorScheme.primary.withValues(alpha: 0.45),
+                child: const Icon(Icons.check, color: Colors.white),
+              ),
+          ],
+        ),
       ),
     );
   }
