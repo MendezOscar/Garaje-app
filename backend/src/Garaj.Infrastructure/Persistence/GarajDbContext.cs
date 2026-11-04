@@ -49,6 +49,7 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<JobTemplatePart> JobTemplateParts => Set<JobTemplatePart>();
 
     public DbSet<Part> Parts => Set<Part>();
+    public DbSet<PartApplication> PartApplications => Set<PartApplication>();
     public DbSet<StockItem> StockItems => Set<StockItem>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
 

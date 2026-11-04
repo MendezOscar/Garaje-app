@@ -177,6 +177,7 @@ public class TenantEraser(
 
         await db.StockMovements.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.StockItems.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
+        await db.PartApplications.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.Parts.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
         await db.LaborServices.Where(x => x.TenantId == tenantId).ExecuteDeleteAsync(ct);
 

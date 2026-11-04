@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
@@ -18,7 +19,7 @@ namespace Garaj.Infrastructure.Documents;
 /// Las columnas se buscan **por el nombre del encabezado**, no por su posición: alguien va a
 /// mover una columna o a agregar la suya, y eso no tiene por qué romper la carga.
 /// </remarks>
-public static class CatalogSheets
+public static partial class CatalogSheets
 {
     private static readonly CultureInfo Cultura = new("es-HN");
 
@@ -39,6 +40,7 @@ public static class CatalogSheets
         decimal? Minimo,
         string? Ubicacion,
         decimal? Existencia,
+        IReadOnlyList<PartApplicationDto>? Aplicaciones,
         IReadOnlySet<string> Llenas);
 
     // ------------------------------------------------------------------ repuestos
@@ -50,13 +52,15 @@ public static class CatalogSheets
         var hoja = libro.Worksheets.Add("Repuestos");
         Encabezados(hoja, [
             "SKU", "Nombre", "Descripción", "Marca", "Categoría", "Unidad",
-            "Costo", "Precio de venta", "Existencia inicial", "Mínimo", "Ubicación"
+            "Costo", "Precio de venta", "Existencia inicial", "Mínimo", "Ubicación",
+            "Aplica a"
         ]);
 
         Ejemplo(hoja, 2, ["AC-15W40", "Aceite 15W40 litro", "Aceite de motor mineral",
-            "Castrol", "Lubricantes", "lt", 95m, 140m, 24m, 6m, "Estante A1"]);
+            "Castrol", "Lubricantes", "lt", 95m, 140m, 24m, 6m, "Estante A1", null]);
         Ejemplo(hoja, 3, ["FIL-A-203", "Filtro de aceite 203", null,
-            "Fram", "Filtros", "u", 85m, 160m, 10m, 3m, "Estante B3"]);
+            "Fram", "Filtros", "u", 85m, 160m, 10m, 3m, "Estante B3",
+            "Toyota Corolla 2014-2019; Toyota Yaris 2018-2022"]);
 
         hoja.Columns().AdjustToContents();
 
@@ -86,6 +90,15 @@ public static class CatalogSheets
             "edita existencias a mano. Déjela en blanco si todavía va a contar.",
             "Mínimo — por debajo de esta cantidad el repuesto sale en las alertas de reposición.",
             "Ubicación — dónde está en la bodega: «Estante A1», «Bodega 2», lo que usted use.",
+            "",
+            "APLICA A — a qué vehículos les sirve el repuesto, separados por punto y coma:",
+            "    Toyota Corolla 2014-2019; Toyota Yaris 2018-2022; Honda Civic 2016",
+            "Primero la marca, luego el modelo y al final los años. Se puede dejar incompleto:",
+            "«Toyota Corolla» sirve para todos los años, y «Toyota» para toda la marca.",
+            "Con esto, estando en la orden, el buscador le ofrece SOLO lo que le sirve a ese",
+            "carro. Llene primero lo que más se mueve —filtros, pastillas, bandas— y deje el",
+            "resto en blanco: la columna vacía no esconde nada, el filtro se apaga y se ve todo.",
+            "Al llenarla se reemplaza la lista entera del repuesto, no se le suma.",
             "",
             "Si vuelve a subir el mismo archivo, la existencia inicial entra OTRA VEZ: para",
             "corregir una cantidad mal contada use el ajuste por conteo, no otra carga.",
@@ -154,6 +167,7 @@ public static class CatalogSheets
                         minimo,
                         Texto(fila, columnas, "ubicación"),
                         existencia,
+                        Aplicaciones(Texto(fila, columnas, "aplica a")),
                         Llenas(
                             fila,
                             columnas,
@@ -163,7 +177,8 @@ public static class CatalogSheets
                             "categoría",
                             "unidad",
                             "costo",
-                            "precio de venta"))
+                            "precio de venta",
+                            "aplica a"))
                     : null,
                 error));
         }
@@ -310,6 +325,62 @@ public static class CatalogSheets
 
         foreach (var fila in rango.RowsUsed().Skip(1)) yield return fila;
     }
+
+    /// <summary>
+    /// Lee la columna «Aplica a»: «Toyota Corolla 2014-2019; Honda Civic 2016».
+    /// </summary>
+    /// <remarks>
+    /// Una sola celda y no cinco columnas porque un repuesto le sirve a varios modelos y en
+    /// una hoja de cálculo eso no cabe de otra forma. La gramática es la que el taller ya usa
+    /// al hablar: marca, modelo y años, en ese orden, separados por punto y coma.
+    /// <para>
+    /// Lo incompleto se acepta a propósito —«Toyota Corolla» sin años, «Toyota» a secas— y
+    /// nada se descarta por no entenderse del todo: si no hay años al final, todo lo que
+    /// queda después de la marca es el modelo. Una celda vacía devuelve null, que arriba
+    /// significa «no me toques las que ya tiene».
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<PartApplicationDto>? Aplicaciones(string? celda)
+    {
+        if (string.IsNullOrWhiteSpace(celda)) return null;
+
+        var lista = new List<PartApplicationDto>();
+
+        foreach (var trozo in celda.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            // El guion largo lo mete Word y Excel solos al escribir «2014 - 2019».
+            var texto = trozo.Replace('–', '-').Replace('—', '-').Trim();
+            if (texto.Length == 0) continue;
+
+            int? desde = null;
+            int? hasta = null;
+
+            var anios = AniosAlFinal().Match(texto);
+
+            if (anios.Success)
+            {
+                desde = int.Parse(anios.Groups[1].Value);
+                hasta = anios.Groups[2].Success ? int.Parse(anios.Groups[2].Value) : desde;
+                texto = texto[..anios.Index].Trim();
+            }
+
+            var palabras = texto.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (palabras.Length == 0) continue;
+
+            lista.Add(new PartApplicationDto(
+                palabras[0],
+                palabras.Length > 1 ? string.Join(' ', palabras[1..]) : null,
+                desde,
+                hasta,
+                null));
+        }
+
+        return lista;
+    }
+
+    /// <summary>Los años al final del trozo: «2014-2019» o «2016» a secas.</summary>
+    [GeneratedRegex(@"\s*(\d{4})\s*(?:-\s*(\d{4}))?\s*$")]
+    private static partial Regex AniosAlFinal();
 
     /// <summary>Cuáles de esas columnas traen algo escrito en esta fila.</summary>
     private static IReadOnlySet<string> Llenas(

@@ -539,6 +539,8 @@ export const partsApi = {
     search?: string
     category?: string
     includeInactive?: boolean
+    /** Deja solo lo que le sirve a ese vehículo. Nunca va solo: lo enciende quien busca. */
+    vehicleId?: string
     page?: number
     pageSize?: number
   } = {}) {

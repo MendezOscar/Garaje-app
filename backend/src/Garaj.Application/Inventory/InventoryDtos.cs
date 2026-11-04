@@ -17,7 +17,19 @@ public record PartDto(
     decimal SalePrice,
     bool IsActive,
     // Suma de existencias en las sucursales que el usuario puede ver.
-    decimal TotalQuantity);
+    decimal TotalQuantity,
+    // A qué vehículos les sirve. Vacío mientras nadie lo llene.
+    IReadOnlyList<PartApplicationDto> Applications);
+
+/// <param name="Model">Sin modelo, aplica a toda la marca.</param>
+/// <param name="YearFrom">Sin años, aplica a todos los años de ese modelo.</param>
+/// <param name="Engine">«1.8», «diésel»: solo cuando el motor cambia el repuesto.</param>
+public record PartApplicationDto(
+    string Brand,
+    string? Model,
+    int? YearFrom,
+    int? YearTo,
+    string? Engine);
 
 public record SavePartRequest(
     string Sku,
@@ -28,7 +40,10 @@ public record SavePartRequest(
     string Unit,
     decimal CostPrice,
     decimal SalePrice,
-    bool IsActive = true);
+    bool IsActive = true,
+    // Null es «no me las toques» —así la carga de Excel puede corregir un precio sin saber
+    // nada de esto—; la lista vacía sí las borra todas.
+    IReadOnlyList<PartApplicationDto>? Applications = null);
 
 public record PartQuery : PageQuery
 {
@@ -37,6 +52,13 @@ public record PartQuery : PageQuery
 
     public string? Category { get; init; }
     public bool IncludeInactive { get; init; }
+
+    /// <summary>
+    /// Deja solo lo que le sirve a este vehículo. Es el «solo lo que le sirve a este carro»
+    /// del buscador dentro de la orden: con la placa en pantalla, el que atiende deja de
+    /// adivinar. Nunca se enciende solo, porque el dato va a estar incompleto mucho tiempo.
+    /// </summary>
+    public Guid? VehicleId { get; init; }
 }
 
 // ---------- Existencias ----------

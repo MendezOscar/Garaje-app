@@ -14,6 +14,11 @@ const props = defineProps<{
   canEdit: boolean
   /** El taller ve el costo; el cliente, solo el precio. */
   showCost: boolean
+  /**
+   * El vehículo de la orden, para poder ofrecer solo lo que le sirve. Null en la orden sin
+   * vehículo —la venta de mostrador— y entonces el interruptor ni aparece.
+   */
+  vehicleId?: string | null
 }>()
 
 const emit = defineEmits<{ changed: [] }>()
@@ -32,6 +37,15 @@ const adding = ref(false)
  * precio se escribe.
  */
 const origen = ref<'catalogo' | 'manual'>('catalogo')
+
+/**
+ * «Solo lo que le sirve a este carro».
+ *
+ * Empieza apagado y nunca se enciende solo: la columna de a qué vehículos aplica se llena a
+ * mano y va a estar incompleta mucho tiempo. Encendido por defecto escondería repuestos que
+ * sí sirven y nadie entendería por qué.
+ */
+const soloLoQueAplica = ref(false)
 const concepto = ref('')
 const precio = ref<number | ''>('')
 const costo = ref<number | ''>('')
@@ -61,7 +75,11 @@ const listo = computed(() =>
 
 async function loadCatalog() {
   try {
-    const page = await partsApi.list({ search: search.value || undefined, pageSize: 50 })
+    const page = await partsApi.list({
+      search: search.value || undefined,
+      vehicleId: soloLoQueAplica.value ? (props.vehicleId ?? undefined) : undefined,
+      pageSize: 50,
+    })
     catalog.value = page.items
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar el catálogo.')
@@ -154,6 +172,9 @@ watch(search, () => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(loadCatalog, 250)
 })
+
+// El interruptor no espera: es un clic, no un tecleo.
+watch(soloLoQueAplica, () => loadCatalog())
 </script>
 
 <template>
@@ -239,12 +260,24 @@ watch(search, () => {
       <template v-if="origen === 'catalogo'">
         <input v-model="search" placeholder="Buscar por SKU, nombre o marca…" />
 
+        <!-- Con el carro en pantalla, dejar de adivinar qué filtro le va. Es un interruptor
+             y no algo automático porque el dato está incompleto: apagado se ve todo. -->
+        <label v-if="vehicleId" class="checkbox solo-aplica">
+          <input v-model="soloLoQueAplica" type="checkbox" />
+          Solo lo que le sirve a este vehículo
+        </label>
+
         <select v-model="selectedPartId" size="6">
           <option v-for="p in catalog" :key="p.id" :value="p.id">
             {{ p.sku }} · {{ p.name }} — {{ formatQuantity(p.totalQuantity) }} {{ p.unit }} ·
             {{ formatMoney(p.salePrice) }}
           </option>
         </select>
+
+        <p v-if="soloLoQueAplica && !catalog.length" class="muted small">
+          Ningún repuesto del catálogo dice servirle a este vehículo. Apague el filtro para
+          ver todo, o complete «A qué vehículos les sirve» en Inventario.
+        </p>
       </template>
 
       <template v-else>

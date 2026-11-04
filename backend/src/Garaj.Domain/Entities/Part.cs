@@ -24,4 +24,7 @@ public class Part : TenantEntity
     public bool IsActive { get; set; } = true;
 
     public ICollection<StockItem> StockItems { get; set; } = new List<StockItem>();
+
+    /// <summary>A qué vehículos les sirve. Vacío mientras nadie lo llene, que es lo normal.</summary>
+    public ICollection<PartApplication> Applications { get; set; } = new List<PartApplication>();
 }

@@ -1342,6 +1342,73 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.ToTable("parts", (string)null);
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.PartApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("brand");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Engine")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("engine");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("model");
+
+                    b.Property<Guid>("PartId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("part_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<int?>("YearFrom")
+                        .HasColumnType("integer")
+                        .HasColumnName("year_from");
+
+                    b.Property<int?>("YearTo")
+                        .HasColumnType("integer")
+                        .HasColumnName("year_to");
+
+                    b.HasKey("Id")
+                        .HasName("pk_part_applications");
+
+                    b.HasIndex("PartId")
+                        .HasDatabaseName("ix_part_applications_part_id");
+
+                    b.HasIndex("TenantId", "Brand", "Model")
+                        .HasDatabaseName("ix_part_applications_tenant_id_brand_model");
+
+                    b.ToTable("part_applications", (string)null);
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.PlatformFiscalRange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3952,6 +4019,18 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Navigation("JobTemplate");
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.PartApplication", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.Part", "Part")
+                        .WithMany("Applications")
+                        .HasForeignKey("PartId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_part_applications_parts_part_id");
+
+                    b.Navigation("Part");
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.Quote", b =>
                 {
                     b.HasOne("Garaj.Domain.Entities.Branch", "Branch")
@@ -4361,6 +4440,8 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Garaj.Domain.Entities.Part", b =>
                 {
+                    b.Navigation("Applications");
+
                     b.Navigation("StockItems");
                 });
 
