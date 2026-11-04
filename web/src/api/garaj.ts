@@ -393,6 +393,8 @@ export const workOrdersApi = {
       description?: string | null
       laborServiceId?: string | null
       estimatedHours?: number | null
+      /** El precio escrito a mano. Con servicio del catálogo el servidor lo ignora. */
+      manualLaborPrice?: number | null
     },
   ) {
     const { data } = await api.put<WorkOrderTask>(`/api/work-orders/${id}/tasks/${taskId}`, body)
