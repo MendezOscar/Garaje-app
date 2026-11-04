@@ -1,5 +1,62 @@
 // Espejo de los DTOs de la Fase 3.
 
+/// A qué vehículo le sirve un repuesto. Todo es opcional menos la marca: el dato se llena a
+/// mano y va a estar incompleto mucho tiempo.
+class PartApplication {
+  const PartApplication({
+    required this.brand,
+    this.model,
+    this.yearFrom,
+    this.yearTo,
+    this.engine,
+  });
+
+  factory PartApplication.fromJson(Map<String, dynamic> json) => PartApplication(
+        brand: json['brand'] as String,
+        model: json['model'] as String?,
+        yearFrom: json['yearFrom'] as int?,
+        yearTo: json['yearTo'] as int?,
+        engine: json['engine'] as String?,
+      );
+
+  final String brand;
+
+  /// Sin modelo, aplica a toda la marca.
+  final String? model;
+
+  /// Sin años, aplica a todos los años de ese modelo.
+  final int? yearFrom;
+  final int? yearTo;
+
+  /// «1.8», «diésel»: solo cuando el motor cambia el repuesto.
+  final String? engine;
+
+  Map<String, dynamic> toJson() => {
+        'brand': brand,
+        'model': model,
+        'yearFrom': yearFrom,
+        'yearTo': yearTo,
+        'engine': engine,
+      };
+
+  /// Como se lee en una línea: «Toyota Corolla 2014-2019 · 1.8».
+  String get resumen {
+    final partes = <String>[brand];
+    if (model != null && model!.isNotEmpty) partes.add(model!);
+
+    if (yearFrom != null && yearTo != null) {
+      partes.add(yearFrom == yearTo ? '$yearFrom' : '$yearFrom-$yearTo');
+    } else if (yearFrom != null) {
+      partes.add('desde $yearFrom');
+    } else if (yearTo != null) {
+      partes.add('hasta $yearTo');
+    }
+
+    final texto = partes.join(' ');
+    return engine == null || engine!.isEmpty ? texto : '$texto · $engine';
+  }
+}
+
 class Part {
   const Part({
     required this.id,
@@ -12,6 +69,7 @@ class Part {
     required this.isActive,
     this.brand,
     this.category,
+    this.applications = const [],
   });
 
   factory Part.fromJson(Map<String, dynamic> json) => Part(
@@ -25,6 +83,9 @@ class Part {
         salePrice: (json['salePrice'] as num).toDouble(),
         totalQuantity: (json['totalQuantity'] as num).toDouble(),
         isActive: json['isActive'] as bool? ?? true,
+        applications: ((json['applications'] as List<dynamic>?) ?? [])
+            .map((e) => PartApplication.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   final String id;
@@ -42,6 +103,9 @@ class Part {
   /// Existencia sumada de las sucursales que el usuario ve. Para el técnico, la suya.
   final double totalQuantity;
   final bool isActive;
+
+  /// A qué vehículos les sirve. Vacío mientras nadie lo llene, que es lo normal.
+  final List<PartApplication> applications;
 
   bool get isOutOfStock => totalQuantity <= 0;
 }
