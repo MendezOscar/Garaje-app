@@ -187,7 +187,11 @@ async function guardar() {
               <td class="num">{{ fila.row }}</td>
               <td>{{ fila.key || '—' }}</td>
               <td>{{ fila.name || '—' }}</td>
-              <td>{{ fila.error ?? (fila.action === 'nuevo' ? 'Se agrega' : 'Se actualiza') }}</td>
+              <!-- Con «se actualiza» a secas nadie revisa nada: lo que hay que poder leer
+                   antes de guardar es qué columna se mueve en cada fila. -->
+              <td>
+                {{ fila.error ?? (fila.action === 'nuevo' ? 'Se agrega' : (fila.detail ?? 'Se actualiza')) }}
+              </td>
             </tr>
           </tbody>
         </table>

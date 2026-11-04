@@ -25,7 +25,10 @@ public record ImportRowDto(
     string Key,
     string Name,
     string Action,
-    string? Error);
+    string? Error,
+    // Qué va a cambiar esta fila, cuando corrige algo que ya existe. «Se actualiza» no dice
+    // nada; «Cambia precio de venta» deja revisar antes de guardar.
+    string? Detail = null);
 
 /// <summary>Lo que las dos cargas —repuestos y mano de obra— hacen igual.</summary>
 public static class Importaciones

@@ -176,6 +176,8 @@ export interface ImportRow {
   /** `nuevo`, `actualiza` o `error`. */
   action: string
   error: string | null
+  /** Qué columnas mueve la fila, cuando corrige algo que ya existe. */
+  detail: string | null
 }
 
 /** El historial que el cliente abre desde el enlace que le manda el taller. */
