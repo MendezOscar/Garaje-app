@@ -1013,7 +1013,7 @@ class _SinResultados extends ConsumerWidget {
       return Text('Escriba el nombre o el código del repuesto.', style: estilo);
     }
 
-    final enCatalogo = ref.watch(partSearchProvider(texto.trim()));
+    final enCatalogo = ref.watch(partSearchProvider(BusquedaDeRepuesto(texto.trim())));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),

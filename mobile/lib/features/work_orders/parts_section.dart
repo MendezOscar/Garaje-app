@@ -28,7 +28,7 @@ class PartsSection extends ConsumerWidget {
     final choice = await showModalBottomSheet<_Choice>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _PartPicker(),
+      builder: (_) => _PartPicker(vehicleId: order.vehicleId),
     );
 
     if (choice == null) return;
@@ -211,7 +211,10 @@ class _Manual extends _Choice {
 }
 
 class _PartPicker extends ConsumerStatefulWidget {
-  const _PartPicker();
+  const _PartPicker({required this.vehicleId});
+
+  /// El vehículo de la orden, para poder ofrecer solo lo que le sirve.
+  final String vehicleId;
 
   @override
   ConsumerState<_PartPicker> createState() => _PartPickerState();
@@ -220,9 +223,21 @@ class _PartPicker extends ConsumerStatefulWidget {
 class _PartPickerState extends ConsumerState<_PartPicker> {
   String _search = '';
 
+  /// «Solo lo que le sirve a este vehículo».
+  ///
+  /// Arranca apagado y nunca se enciende solo: a qué vehículos aplica cada repuesto se llena
+  /// a mano y va a estar incompleto mucho tiempo. Encendido por defecto escondería repuestos
+  /// que sí sirven, y el que atiende no tendría cómo saber por qué.
+  bool _soloLoQueAplica = false;
+
+  BusquedaDeRepuesto get _busqueda => BusquedaDeRepuesto(
+        _search,
+        vehicleId: _soloLoQueAplica ? widget.vehicleId : null,
+      );
+
   @override
   Widget build(BuildContext context) {
-    final results = ref.watch(partSearchProvider(_search));
+    final results = ref.watch(partSearchProvider(_busqueda));
 
     // El taller que apagó los precios para el técnico tampoco se los enseña aquí: elige el
     // repuesto por nombre y SKU. El servidor ya no los manda; esto es para no escribir «L 0».
@@ -248,6 +263,21 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                 onChanged: (v) => setState(() => _search = v),
               ),
             ),
+
+            // Con el carro delante, dejar de adivinar qué filtro le va. Interruptor y no
+            // automático: apagado se sigue viendo el catálogo entero.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FilterChip(
+                  selected: _soloLoQueAplica,
+                  onSelected: (v) => setState(() => _soloLoQueAplica = v),
+                  avatar: _soloLoQueAplica ? null : const Icon(Icons.directions_car, size: 18),
+                  label: const Text('Solo lo que le sirve'),
+                ),
+              ),
+            ),
             // A mano, arriba del listado: cuando el repuesto no está en el catálogo, buscarlo
             // primero es perder el tiempo.
             ListTile(
@@ -262,10 +292,21 @@ class _PartPickerState extends ConsumerState<_PartPicker> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => GarajError(
           message: apiErrorMessage(e, 'No se pudo cargar el catálogo.'),
-          onRetry: () => ref.invalidate(partSearchProvider(_search)),
+          onRetry: () => ref.invalidate(partSearchProvider(_busqueda)),
         ),
                 data: (parts) => parts.isEmpty
-                    ? const Center(child: Text('Sin resultados.'))
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _soloLoQueAplica
+                                ? 'Ningún repuesto dice servirle a este vehículo. Apague el '
+                                    'filtro para ver todo el catálogo.'
+                                : 'Sin resultados.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: parts.length,
                         itemBuilder: (context, i) {

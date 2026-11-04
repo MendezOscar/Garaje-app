@@ -1851,6 +1851,7 @@ onMounted(async () => {
           :total="order.partsTotal"
           :can-edit="canEdit"
           :show-cost="auth.isOwner"
+          :vehicle-id="order.vehicleId"
           @changed="load"
         />
 

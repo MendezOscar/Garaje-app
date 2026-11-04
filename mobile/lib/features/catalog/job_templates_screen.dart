@@ -751,7 +751,7 @@ class _ElegirRepuestoState extends ConsumerState<_ElegirRepuesto> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final catalogo = ref.watch(partSearchProvider(_texto));
+    final catalogo = ref.watch(partSearchProvider(BusquedaDeRepuesto(_texto)));
 
     return Padding(
       padding: EdgeInsets.only(

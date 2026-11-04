@@ -39,6 +39,8 @@ public class PartService(
                 || (p.Brand != null && EF.Functions.ILike(p.Brand, $"%{term}%")));
         }
 
+        if (query.VehicleId is { } vehiculoId) q = await SoloLoQueLeSirveAsync(q, vehiculoId, ct);
+
         var total = await q.CountAsync(ct);
 
         // Ordenar sobre la entidad y proyectar después: EF no traduce el OrderBy sobre el DTO.
@@ -62,6 +64,42 @@ public class PartService(
             ?? throw new NotFoundException("El repuesto no existe.");
 
         return await TecnicoSinPreciosAsync(scope, ct) ? SinPrecios(parte) : parte;
+    }
+
+    /// <summary>
+    /// Deja en la consulta solo los repuestos que aplican a ese vehículo.
+    /// </summary>
+    /// <remarks>
+    /// Cómo se decide que «aplica», que es donde está todo el criterio:
+    /// <list type="bullet">
+    /// <item>La marca tiene que coincidir, sin importar mayúsculas.</item>
+    /// <item>La aplicación sin modelo vale para toda la marca. Con modelo, basta con que el
+    /// del vehículo <b>empiece</b> por él: en la ficha del carro el modelo viene como lo
+    /// dictó el cliente —«Corolla XEI», «Corolla 1.8»— y exigir que sea idéntico dejaría el
+    /// filtro vacío casi siempre.</item>
+    /// <item>Los años acotan solo si están puestos de los dos lados: la aplicación sin años
+    /// vale para todos, y el vehículo sin año entra en cualquier rango. El dato incompleto
+    /// no puede esconder un repuesto que sí sirve.</item>
+    /// </list>
+    /// </remarks>
+    private async Task<IQueryable<Part>> SoloLoQueLeSirveAsync(
+        IQueryable<Part> q, Guid vehicleId, CancellationToken ct)
+    {
+        var vehiculo = await db.Vehicles.AsNoTracking()
+            .Where(v => v.Id == vehicleId)
+            .Select(v => new { v.Brand, v.Model, v.Year })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("El vehículo no existe.");
+
+        var marca = vehiculo.Brand.Trim();
+        var modelo = vehiculo.Model.Trim();
+        var anio = vehiculo.Year;
+
+        return q.Where(p => p.Applications.Any(a =>
+            EF.Functions.ILike(a.Brand, marca)
+            && (a.Model == null || EF.Functions.ILike(modelo, a.Model + "%"))
+            && (a.YearFrom == null || anio == null || a.YearFrom <= anio)
+            && (a.YearTo == null || anio == null || a.YearTo >= anio)));
     }
 
     /// <summary>
@@ -97,6 +135,7 @@ public class PartService(
 
         var part = new Part { Sku = sku };
         Apply(part, request);
+        AplicarAplicaciones(part, request.Applications);
 
         db.Parts.Add(part);
         await db.SaveChangesAsync(ct);
@@ -109,7 +148,8 @@ public class PartService(
         var scope = AccessScope.From(tenantContext);
         scope.EnsureManagement();
 
-        var part = await db.Parts.FirstOrDefaultAsync(p => p.Id == id, ct)
+        var part = await db.Parts.Include(p => p.Applications)
+            .FirstOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("El repuesto no existe.");
 
         var sku = NormalizeSku(request.Sku);
@@ -117,6 +157,7 @@ public class PartService(
 
         part.Sku = sku;
         Apply(part, request);
+        AplicarAplicaciones(part, request.Applications);
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
@@ -164,7 +205,10 @@ public class PartService(
             .Select(f => NormalizeSku(f.Dato!.Parte.Sku))
             .ToHashSet();
 
+        // Con sus aplicaciones: la columna «Aplica a» las reemplaza, y para reemplazarlas hay
+        // que tenerlas cargadas o se duplicarían.
         var existentes = await db.Parts
+            .Include(p => p.Applications)
             .Where(p => skus.Contains(p.Sku))
             .ToDictionaryAsync(p => p.Sku, ct);
 
@@ -208,7 +252,7 @@ public class PartService(
                 if (error is null)
                 {
                     if (existe) deseado = Fusionar(parte!, fila.Dato!, out cambios);
-                    else deseado = fila.Dato!.Parte;
+                    else deseado = fila.Dato!.Parte with { Applications = fila.Dato!.Aplicaciones };
 
                     // El nombre solo hace falta cuando el repuesto nace: para corregirle el
                     // precio a uno que ya está, escribirlo otra vez era escribir de más.
@@ -360,7 +404,11 @@ public class PartService(
             p.IsActive,
             p.StockItems
                 .Where(s => scope.IsOwner || scope.BranchIds.Contains(s.BranchId))
-                .Sum(s => (decimal?)s.Quantity) ?? 0m));
+                .Sum(s => (decimal?)s.Quantity) ?? 0m,
+            p.Applications
+                .OrderBy(a => a.Brand).ThenBy(a => a.Model).ThenBy(a => a.YearFrom)
+                .Select(a => new PartApplicationDto(a.Brand, a.Model, a.YearFrom, a.YearTo, a.Engine))
+                .ToList()));
 
     /// <summary>
     /// Lo que va a quedar guardado cuando el SKU ya existe: lo que el repuesto tiene hoy, con
@@ -389,7 +437,9 @@ public class PartService(
             Texto("unidad", excel.Unit, parte.Unit) ?? parte.Unit,
             Numero("costo", excel.CostPrice, parte.CostPrice),
             Numero("precio de venta", excel.SalePrice, parte.SalePrice),
-            parte.IsActive);
+            parte.IsActive,
+            // Null cuando la celda viene vacía: deja las que el repuesto ya tenía.
+            fila.Aplicaciones);
 
         cambios = lista;
         return fusion;
@@ -422,12 +472,53 @@ public class PartService(
     {
         var todo = new List<string>(cambios);
 
+        if (fila.Aplicaciones is not null) todo.Add("a qué vehículos aplica");
         if (fila.Existencia is > 0) todo.Add("existencia");
         if (fila.Minimo is not null) todo.Add("mínimo");
         if (fila.Ubicacion is not null) todo.Add("ubicación");
 
         return todo.Count == 0 ? "No cambia nada" : $"Cambia {string.Join(", ", todo)}";
     }
+
+    /// <summary>
+    /// Reemplaza la lista de a qué vehículos aplica. Null la deja como está.
+    /// </summary>
+    /// <remarks>
+    /// Se reemplaza entera en vez de ir casando fila por fila: son cuatro datos sin identidad
+    /// propia —marca, modelo, años, motor— y casarlos por contenido para ahorrarse un par de
+    /// borrados sería más código del que vale.
+    /// </remarks>
+    private void AplicarAplicaciones(Part part, IReadOnlyList<PartApplicationDto>? aplicaciones)
+    {
+        if (aplicaciones is null) return;
+
+        db.PartApplications.RemoveRange(part.Applications);
+        part.Applications.Clear();
+
+        foreach (var aplica in aplicaciones)
+        {
+            var marca = aplica.Brand.Trim();
+            if (marca.Length == 0) continue;
+
+            // Al revés filtra mal y en silencio: «2019-2014» no deja pasar nada. Se voltea
+            // solo cuando vienen los dos; «hasta 2019» a secas es un rango abierto válido.
+            var desde = aplica.YearFrom;
+            var hasta = aplica.YearTo;
+            if (desde is { } d && hasta is { } h && d > h) (desde, hasta) = (h, d);
+
+            part.Applications.Add(new PartApplication
+            {
+                Brand = marca,
+                Model = Limpio(aplica.Model),
+                YearFrom = desde,
+                YearTo = hasta,
+                Engine = Limpio(aplica.Engine)
+            });
+        }
+    }
+
+    private static string? Limpio(string? valor) =>
+        string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 
     private static void Apply(Part part, SavePartRequest request)
     {

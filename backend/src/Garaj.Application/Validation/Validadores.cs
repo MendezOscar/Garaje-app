@@ -218,6 +218,28 @@ public class SavePartValidator : AbstractValidator<SavePartRequest>
             .WithMessage("El costo no puede ser negativo.");
         RuleFor(x => x.SalePrice).GreaterThanOrEqualTo(0)
             .WithMessage("El precio de venta no puede ser negativo.");
+
+        // A qué vehículos les sirve. Se valida renglón por renglón porque el taller las
+        // escribe en una sola celda del Excel y hay que poder decirle cuál salió mal.
+        RuleForEach(x => x.Applications).ChildRules(a =>
+        {
+            a.RuleFor(x => x.Brand).NotEmpty()
+                .WithMessage("Falta la marca del vehículo al que aplica el repuesto.")
+                .MaximumLength(80).WithMessage("La marca no puede pasar de 80 letras.");
+            a.RuleFor(x => x.Model)
+                .MaximumLength(80).WithMessage("El modelo no puede pasar de 80 letras.");
+            a.RuleFor(x => x.Engine)
+                .MaximumLength(60).WithMessage("El motor no puede pasar de 60 letras.");
+
+            // Un año de cuatro cifras y nada más: «14» o «20144» es un dedazo, y guardado
+            // deja el repuesto fuera de todos los filtros sin que nadie entienda por qué.
+            a.RuleFor(x => x.YearFrom).InclusiveBetween(1900, 2100)
+                .When(x => x.YearFrom is not null)
+                .WithMessage("El año desde tiene que ir entre 1900 y 2100.");
+            a.RuleFor(x => x.YearTo).InclusiveBetween(1900, 2100)
+                .When(x => x.YearTo is not null)
+                .WithMessage("El año hasta tiene que ir entre 1900 y 2100.");
+        });
     }
 }
 

@@ -802,7 +802,7 @@ class _QuotePartPickerState extends ConsumerState<_QuotePartPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final results = ref.watch(partSearchProvider(_search));
+    final results = ref.watch(partSearchProvider(BusquedaDeRepuesto(_search)));
 
     return Padding(
       // Deja sitio al teclado: sin esto el buscador queda tapado al escribir.
@@ -828,7 +828,7 @@ class _QuotePartPickerState extends ConsumerState<_QuotePartPicker> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => GarajError(
           message: apiErrorMessage(e, 'No se pudo cargar el catálogo.'),
-          onRetry: () => ref.invalidate(partSearchProvider(_search)),
+          onRetry: () => ref.invalidate(partSearchProvider(BusquedaDeRepuesto(_search))),
         ),
                 data: (parts) => parts.isEmpty
                     ? const Center(child: Text('Sin resultados.'))

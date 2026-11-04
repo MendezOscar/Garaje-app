@@ -547,6 +547,20 @@ export interface Part {
   isActive: boolean
   /** Suma de existencias en las sucursales que el usuario puede ver. */
   totalQuantity: number
+  /** A qué vehículos les sirve. Vacío mientras nadie lo llene. */
+  applications: PartApplication[]
+}
+
+/** A qué vehículo le sirve un repuesto. Todo es opcional menos la marca. */
+export interface PartApplication {
+  brand: string
+  /** Sin modelo, aplica a toda la marca. */
+  model: string | null
+  /** Sin años, aplica a todos los años de ese modelo. */
+  yearFrom: number | null
+  yearTo: number | null
+  /** «1.8», «diésel»: solo cuando el motor cambia el repuesto. */
+  engine: string | null
 }
 
 export interface StockItem {

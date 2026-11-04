@@ -20,6 +20,23 @@ public class PartConfiguration : IEntityTypeConfiguration<Part>
     }
 }
 
+public class PartApplicationConfiguration : IEntityTypeConfiguration<PartApplication>
+{
+    public void Configure(EntityTypeBuilder<PartApplication> b)
+    {
+        b.Property(x => x.Brand).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Model).HasMaxLength(80);
+        b.Property(x => x.Engine).HasMaxLength(60);
+
+        b.HasOne(x => x.Part).WithMany(p => p.Applications)
+            .HasForeignKey(x => x.PartId).OnDelete(DeleteBehavior.Cascade);
+
+        // El filtro del mostrador entra por marca y modelo con el carro en pantalla.
+        b.HasIndex(x => new { x.TenantId, x.Brand, x.Model });
+        b.HasIndex(x => x.PartId);
+    }
+}
+
 public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
 {
     public void Configure(EntityTypeBuilder<StockItem> b)

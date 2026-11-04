@@ -15,11 +15,13 @@ class InventoryRepository {
 
   /// Catálogo con la existencia de las sucursales del usuario. El técnico necesita ver
   /// cuánto queda antes de comprometer una reparación.
-  Future<List<Part>> searchParts(String? search) async {
+  Future<List<Part>> searchParts(String? search, {String? vehicleId}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/parts',
       queryParameters: {
         if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        // Solo lo que le sirve a ese vehículo. Lo enciende quien busca: nunca va solo.
+        if (vehicleId != null) 'vehicleId': vehicleId,
         'pageSize': 50,
       },
     );
@@ -262,7 +264,26 @@ final movementsProvider =
       ),
 );
 
+/// Qué se está buscando en el catálogo: el texto y, si se encendió el filtro, el vehículo.
+class BusquedaDeRepuesto {
+  const BusquedaDeRepuesto(this.texto, {this.vehicleId});
+
+  final String texto;
+
+  /// Con vehículo, el servidor deja solo los repuestos que dicen servirle.
+  final String? vehicleId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BusquedaDeRepuesto && other.texto == texto && other.vehicleId == vehicleId;
+
+  @override
+  int get hashCode => Object.hash(texto, vehicleId);
+}
+
 /// Búsqueda del catálogo. `autoDispose` porque solo vive mientras el selector está abierto.
-final partSearchProvider = FutureProvider.autoDispose.family<List<Part>, String>(
-  (ref, search) => ref.watch(inventoryRepositoryProvider).searchParts(search),
+final partSearchProvider = FutureProvider.autoDispose.family<List<Part>, BusquedaDeRepuesto>(
+  (ref, busqueda) => ref
+      .watch(inventoryRepositoryProvider)
+      .searchParts(busqueda.texto, vehicleId: busqueda.vehicleId),
 );

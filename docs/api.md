@@ -192,7 +192,7 @@ diferencia de inventario siempre tiene autor y hora, en vez de aparecer de la na
 
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
-| GET | `/api/parts?search=&category=` | taller | Catálogo con existencia sumada de sus sucursales |
+| GET | `/api/parts?search=&category=&vehicleId=` | taller | Catálogo con existencia sumada de sus sucursales |
 | GET | `/api/parts/categories` | taller | Categorías en uso, para los filtros |
 | POST/PUT | `/api/parts[/{id}]` | Owner | Alta y edición; el SKU es único por taller |
 | GET | `/api/stock?branchId=&onlyBelowMinimum=` | taller | Existencias por sucursal |
@@ -211,6 +211,16 @@ diferencia de inventario siempre tiene autor y hora, en vez de aparecer de la na
 
 Decisiones que conviene conocer antes de tocar esto:
 
+- **Cada repuesto puede decir a qué vehículos les sirve** (`applications`: marca, modelo,
+  años, motor; varias por repuesto). `PUT /api/parts/{id}` con `applications` **reemplaza la
+  lista entera**; con `applications: null` —o sin el campo— no la toca, que es lo que permite
+  que la carga de Excel corrija un precio sin saber nada de esto.
+- **`?vehicleId=` deja solo lo que le sirve a ese vehículo.** La marca tiene que coincidir; la
+  aplicación sin modelo vale para toda la marca, y con modelo basta con que el del vehículo
+  **empiece** por él —en la ficha el modelo viene como lo dictó el cliente, «Corolla XEI»—;
+  los años acotan solo si están puestos de los dos lados. El dato incompleto nunca esconde un
+  repuesto que sí sirve, y por eso **en las pantallas el filtro es un interruptor que arranca
+  apagado**: se llena a mano y va a estar incompleto mucho tiempo.
 - **No se permite saldo negativo.** Consumir o transferir más de lo que hay devuelve **409**
   diciendo cuánto queda. Un stock negativo no se nota hasta que los reportes de costo salen
   mal, y para entonces nadie recuerda qué pasó.
@@ -663,6 +673,7 @@ existe para que no haya que teclearlo renglón por renglón.
 | --- | --- | --- | --- |
 | GET | `/api/parts/import/template` | Dueño o Encargado | La plantilla de repuestos en blanco (.xlsx) |
 | POST | `/api/parts/import?apply=&branchId=` | Dueño o Encargado | Lee la plantilla llena; con `apply=false` es la vista previa |
+| | | | La fila con un SKU que ya existe **corrige solo las columnas llenas**: la celda vacía no borra |
 | GET | `/api/labor-services/import/template` | Dueño | La plantilla de mano de obra |
 | POST | `/api/labor-services/import?apply=` | Dueño | Igual, para mano de obra |
 

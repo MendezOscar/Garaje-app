@@ -15,6 +15,7 @@ import {
   STOCK_MOVEMENT_LABEL,
   type Branch,
   type Part,
+  type PartApplication,
   type StockItem,
   type StockMovement,
 } from '@/types/domain'
@@ -60,7 +61,17 @@ const partForm = ref({
   costPrice: 0,
   salePrice: 0,
   isActive: true,
+  /** A qué vehículos les sirve. Se edita como lista: un repuesto le sirve a varios modelos. */
+  applications: [] as PartApplication[],
 })
+
+function agregarAplicacion() {
+  partForm.value.applications.push({ brand: '', model: '', yearFrom: null, yearTo: null, engine: null })
+}
+
+function quitarAplicacion(i: number) {
+  partForm.value.applications.splice(i, 1)
+}
 
 const moveForm = ref({
   partId: '',
@@ -128,7 +139,7 @@ async function run(action: () => Promise<unknown>) {
 function openNewPart() {
   partForm.value = {
     id: '', sku: '', name: '', description: '', brand: '', category: '',
-    unit: 'u', costPrice: 0, salePrice: 0, isActive: true,
+    unit: 'u', costPrice: 0, salePrice: 0, isActive: true, applications: [],
     // La bodega que se está mirando, que es a la que va a entrar lo que se dé de alta.
     branchId: branchId.value || branches.value[0]?.id || '',
     quantity: 0, minQuantity: 0, location: '',
@@ -153,6 +164,7 @@ async function openEditPart(item: StockItem) {
     costPrice: part.costPrice,
     salePrice: part.salePrice,
     isActive: part.isActive,
+    applications: part.applications.map((a) => ({ ...a })),
   }
   panel.value = 'part'
 }
@@ -169,6 +181,17 @@ function savePart() {
     costPrice: Number(form.costPrice),
     salePrice: Number(form.salePrice),
     isActive: form.isActive,
+    // Las filas a medio escribir no se mandan: una marca vacía no filtra nada y solo
+    // ensucia la ficha.
+    applications: form.applications
+      .filter((a) => a.brand.trim())
+      .map((a) => ({
+        brand: a.brand.trim(),
+        model: a.model?.trim() || null,
+        yearFrom: a.yearFrom || null,
+        yearTo: a.yearTo || null,
+        engine: a.engine?.trim() || null,
+      })),
   }
 
   return run(async () => {
@@ -499,6 +522,45 @@ onMounted(async () => {
             <input v-model="partForm.isActive" type="checkbox" /> Activo
           </label>
 
+          <!-- A qué vehículos les sirve. Es lo que después deja que, dentro de la orden y con
+               el carro en pantalla, el buscador ofrezca solo lo que aplica. Se llena a mano y
+               va a estar incompleto mucho tiempo: por eso todo es opcional menos la marca, y
+               por eso el filtro nunca se enciende solo. -->
+          <fieldset class="aplicaciones">
+            <legend>A qué vehículos les sirve</legend>
+            <p class="muted small">
+              Opcional. Con esto, dentro de la orden, el buscador puede ofrecer solo lo que le
+              sirve a ese carro. Sin modelo aplica a toda la marca; sin años, a todos.
+            </p>
+
+            <div v-for="(aplica, i) in partForm.applications" :key="i" class="aplicacion">
+              <input v-model="aplica.brand" placeholder="Toyota" aria-label="Marca" />
+              <input v-model="aplica.model" placeholder="Corolla" aria-label="Modelo" />
+              <input
+                v-model.number="aplica.yearFrom"
+                type="number"
+                min="1900"
+                max="2100"
+                placeholder="2014"
+                aria-label="Año desde"
+              />
+              <input
+                v-model.number="aplica.yearTo"
+                type="number"
+                min="1900"
+                max="2100"
+                placeholder="2019"
+                aria-label="Año hasta"
+              />
+              <input v-model="aplica.engine" placeholder="1.8" aria-label="Motor" />
+              <button type="button" class="link peligro" @click="quitarAplicacion(i)">Quitar</button>
+            </div>
+
+            <button type="button" class="btn-ghost" @click="agregarAplicacion">
+              Agregar vehículo
+            </button>
+          </fieldset>
+
           <!-- Un repuesto nuevo sin existencia, sin mínimo y sin ubicación es media ficha:
                hay que volver a entrar a darle entrada y a decir dónde está. Al editar no
                aparece, que eso se cambia desde su fila. -->
@@ -631,6 +693,40 @@ onMounted(async () => {
   padding: 0 0.3rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+/* Igual que la bodega, y cada vehículo en una fila: marca, modelo, los dos años, el motor
+   y el botón de quitar. En pantalla angosta se apilan solos. */
+.aplicaciones {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.aplicaciones legend {
+  padding: 0 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.aplicacion {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 4.5rem 4.5rem 4.5rem auto;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.aplicacion .peligro {
+  color: var(--danger);
+}
+
+@media (max-width: 40rem) {
+  .aplicacion {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .top {
