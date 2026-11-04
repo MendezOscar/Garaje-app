@@ -164,7 +164,9 @@ async function openEditPart(item: StockItem) {
     costPrice: part.costPrice,
     salePrice: part.salePrice,
     isActive: part.isActive,
-    applications: part.applications.map((a) => ({ ...a })),
+    // Con `?? []` a propósito: el panel se despliega antes que la API más de una vez, y sin
+    // esto la ficha de un repuesto reventaba al abrirse contra una versión vieja del servidor.
+    applications: (part.applications ?? []).map((a) => ({ ...a })),
   }
   panel.value = 'part'
 }
