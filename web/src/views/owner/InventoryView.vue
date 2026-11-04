@@ -535,27 +535,27 @@ onMounted(async () => {
               sirve a ese carro. Sin modelo aplica a toda la marca; sin años, a todos.
             </p>
 
+            <!-- En dos renglones y no en una fila de seis: esto vive en un cajón de 34rem,
+                 y seis campos en línea se salían de la pantalla. -->
             <div v-for="(aplica, i) in partForm.applications" :key="i" class="aplicacion">
-              <input v-model="aplica.brand" placeholder="Toyota" aria-label="Marca" />
-              <input v-model="aplica.model" placeholder="Corolla" aria-label="Modelo" />
-              <input
-                v-model.number="aplica.yearFrom"
-                type="number"
-                min="1900"
-                max="2100"
-                placeholder="2014"
-                aria-label="Año desde"
-              />
-              <input
-                v-model.number="aplica.yearTo"
-                type="number"
-                min="1900"
-                max="2100"
-                placeholder="2019"
-                aria-label="Año hasta"
-              />
-              <input v-model="aplica.engine" placeholder="1.8" aria-label="Motor" />
-              <button type="button" class="link peligro" @click="quitarAplicacion(i)">Quitar</button>
+              <label>Marca<input v-model="aplica.brand" placeholder="Toyota" /></label>
+              <label>Modelo<input v-model="aplica.model" placeholder="Corolla" /></label>
+
+              <div class="anios">
+                <label>
+                  Desde
+                  <input v-model.number="aplica.yearFrom" type="number" min="1900" max="2100" placeholder="2014" />
+                </label>
+                <label>
+                  Hasta
+                  <input v-model.number="aplica.yearTo" type="number" min="1900" max="2100" placeholder="2019" />
+                </label>
+                <label>Motor<input v-model="aplica.engine" placeholder="1.8" /></label>
+              </div>
+
+              <button type="button" class="link peligro" @click="quitarAplicacion(i)">
+                Quitar
+              </button>
             </div>
 
             <button type="button" class="btn-ghost" @click="agregarAplicacion">
@@ -716,19 +716,38 @@ onMounted(async () => {
 
 .aplicacion {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 4.5rem 4.5rem 4.5rem auto;
+  grid-template-columns: 1fr 1fr;
   gap: 0.375rem;
-  align-items: center;
+  padding: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.aplicacion .anios {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.375rem;
+}
+
+.aplicacion label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.aplicacion input {
+  width: 100%;
+  min-width: 0;
 }
 
 .aplicacion .peligro {
+  grid-column: 1 / -1;
+  justify-self: end;
   color: var(--danger);
-}
-
-@media (max-width: 40rem) {
-  .aplicacion {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 .top {
