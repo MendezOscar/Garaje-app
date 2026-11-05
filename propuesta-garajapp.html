@@ -9,9 +9,13 @@
   el nombre y la fecha de arriba a la derecha, y los precios si no son los mismos.
 
   Los precios viven en tres sitios y hay que moverlos en los tres: las tarjetas de planes, la
-  tabla «Qué trae cada plan» no lleva números, y la tabla de conceptos de más abajo, más la
-  línea del pago anual. Hoy: Taller L 850, Taller Pro L 1,250, sucursal adicional L 300
-  (L 400 en Pro).
+  tabla «Qué trae cada plan» y la tabla de conceptos de más abajo, más la línea del pago anual.
+  Hoy: Taller L 850, Taller Pro L 1,250, sucursal adicional L 300 (L 400 en Pro), técnico
+  adicional L 150.
+
+  El tope de 3 técnicos del plan Taller está escrito en cuatro lugares —el alcance, la tarjeta,
+  la tabla comparativa y la tabla de conceptos—; si cambia el número, cámbiese en los cuatro.
+  Ojo: hoy es un límite de contrato, no del sistema: la app no lo bloquea todavía.
 -->
 <html lang="es">
 <head>
@@ -99,7 +103,7 @@
     <li><strong>Cierre de caja del día</strong>: lo que de verdad entró, que no es lo mismo que lo facturado, y los gastos del taller con su comprobante.</li>
     <li><strong>Garantía y reclamos</strong>: el trabajo sale con sus días de garantía impresos, y si el cliente vuelve el reclamo queda amarrado a la orden original.</li>
     <li><strong>Reportes</strong> de lo facturado hoy, esta semana y este mes, separado en repuestos y mano de obra, con el reparto por sucursal y por técnico, y el estado de resultados. Exportables a Excel.</li>
-    <li><strong>Usuarios y sucursales</strong> sin límite, con acceso a la app para los clientes que lo pidan.</li>
+    <li><strong>Sucursales sin límite</strong>, y sus clientes con acceso a la app, también sin límite. El plan Taller incluye <strong>hasta 3 técnicos</strong>; el Taller Pro, los que haga falta. El Dueño y los Encargados no cuentan como técnicos.</li>
     <li><strong>Avisos</strong> al teléfono de cada perfil: cotización aprobada, orden lista, cita nueva, stock bajo, y el relevo dentro del taller —diagnóstico listo, repuestos cargados—.</li>
   </ul>
   <p style="margin-top:10px">Todo lo anterior es el plan <strong>Taller</strong>. Aparte está el <strong>módulo de diagnóstico</strong> —el escáner del motor dentro de la orden—, que va en el plan <strong>Taller Pro</strong> y se detalla en el punto 3.</p>
@@ -113,12 +117,12 @@
     <div class="card">
       <div class="n">Taller <span class="tag">Una sucursal</span></div>
       <div class="pr">L 850 <span>/ mes</span></div>
-      <small>La operación completa: órdenes, inventario, cotizaciones, facturación, caja y reportes. Usuarios, órdenes, fotos y cotizaciones sin límite.</small>
+      <small>La operación completa: órdenes, inventario, cotizaciones, facturación, caja y reportes. Órdenes, fotos y cotizaciones sin límite. <strong>Hasta 3 técnicos.</strong></small>
     </div>
     <div class="card pop">
       <div class="n">Taller Pro <span class="tag">Con diagnóstico</span></div>
       <div class="pr">L 1,250 <span>/ mes</span></div>
-      <small>Todo lo del plan Taller <strong>más el módulo de diagnóstico</strong>: el informe del escáner en la orden, la lectura directa de los códigos y el historial por vehículo.</small>
+      <small>Todo lo del plan Taller, <strong>técnicos sin límite</strong> y <strong>el módulo de diagnóstico</strong>: el informe del escáner en la orden, la lectura directa de los códigos y el historial por vehículo.</small>
     </div>
     <div class="card">
       <div class="n">Sucursal adicional</div>
@@ -140,8 +144,12 @@
         <td class="num">Sí</td><td class="num">Sí</td>
       </tr>
       <tr>
-        <td>Usuarios, sucursales, órdenes y fotos sin límite</td>
+        <td>Sucursales, órdenes, fotos y clientes con app, sin límite</td>
         <td class="num">Sí</td><td class="num">Sí</td>
+      </tr>
+      <tr>
+        <td><strong>Técnicos con acceso a la app</strong><br /><span class="muted">el Dueño y los Encargados no cuentan; el técnico adicional se puede agregar por L 150 al mes</span></td>
+        <td class="num">Hasta 3</td><td class="num"><strong>Sin límite</strong></td>
       </tr>
       <tr>
         <td>App en App Store y Google Play, actualizaciones y soporte</td>
@@ -199,6 +207,11 @@
         <td>Cada sucursal después de la primera. En el plan Taller Pro, L 400.</td>
         <td class="num">L 300 / mes</td>
       </tr>
+      <tr>
+        <td><strong>Técnico adicional</strong><br /><span class="muted">solo en el plan Taller</span></td>
+        <td>Del cuarto técnico en adelante. En el plan Taller Pro no hace falta: van sin límite.</td>
+        <td class="num">L 150 / mes</td>
+      </tr>
     </tbody>
   </table>
 
@@ -217,6 +230,7 @@
     <li>La mensualidad se factura por adelantado (mensual o anual).</li>
     <li>Los costos de infraestructura en la nube y los respaldos están incluidos en la mensualidad.</li>
     <li>Los datos son del taller: si decide dejar el servicio, se le entrega una exportación completa.</li>
+    <li>El plan Taller incluye <strong>hasta 3 técnicos</strong> con acceso a la app. Del cuarto en adelante se agrega por L 150 al mes cada uno, o se pasa al plan Taller Pro, que no tiene tope. <strong>El Dueño y los Encargados no cuentan</strong>, y los clientes con app tampoco.</li>
     <li><strong>Se puede empezar en Taller y pasar a Taller Pro cuando quiera</strong>, y volver atrás también: se cobra el plan desde el mes siguiente y los datos no se tocan. Lo que ya quedó guardado en las órdenes se queda ahí.</li>
     <li>El <strong>adaptador del escáner</strong>, cuando hace falta, lo compra el taller. Le indicamos el modelo antes de que lo compre.</li>
     <li>Desarrollos a la medida fuera de este alcance se cotizan por separado.</li>
