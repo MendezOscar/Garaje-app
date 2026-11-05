@@ -55,6 +55,12 @@
   .mejora table td { font-size:14px; }
   .mejora ol { margin: 6px 0 6px 20px; }
   .mejora ol li { margin: 4px 0; }
+  /* Cómo probarlo: verde apagado, para que se distinga de un aviso y se encuentre rápido
+     cuando alguien va buscando qué validar. */
+  .probar { border:1px solid #cfe3d4; background:#f3f9f5; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:14px; }
+  .probar .t { display:block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#2f6b45; margin-bottom:6px; }
+  .probar ol { margin:6px 0 0 20px; }
+  .probar ol li { margin:4px 0; }
   .ejemplo .t { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px; }
   code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
   .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
@@ -63,7 +69,7 @@
     .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
     @page { margin: 14mm; }
     h2 { break-after: avoid; }
-    .mejora, .ejemplo, .hl, table { break-inside: avoid; }
+    .mejora, .ejemplo, .probar, .hl, table { break-inside: avoid; }
   }
 </style>
 </head>
@@ -82,16 +88,19 @@
     <div class="meta">
       <strong>Mejoras en camino</strong><br />
       Preparado para: <strong>su taller</strong><br />
-      Fecha: 4 de noviembre de 2026<br />
-      Origen: capacitación del equipo
+      Fecha: 5 de noviembre de 2026<br />
+      Para revisar: tres ya están en uso
     </div>
   </div>
 
   <h1 style="margin-top:22px">Lo que pidieron en la capacitación, y cómo quedó</h1>
-  <p class="muted" style="margin-top:6px">De la capacitación salieron cuatro mejoras. Aquí está cada una explicada como se va a usar en el mostrador y en el taller —no cómo se programa— y al final cómo va cada una. <strong>Tres de las cuatro ya están funcionando</strong>; falta la del escáner.</p>
+  <p class="muted" style="margin-top:6px">De la capacitación salieron cuatro mejoras. <strong>Tres ya están funcionando</strong> y la cuarta —la del escáner— es la que sigue. Cada una está explicada como se usa en el mostrador y en el taller, no cómo está hecha por dentro, y las tres que ya están traen un recuadro verde de <strong>«Cómo probarlo»</strong>: siga esos pasos y díganos si algo no responde como dice aquí.</p>
 
   <div class="hl">
-    <strong>Cómo llegan las mejoras.</strong> El panel web se actualiza solo: usted entra y ya está. La app del teléfono se actualiza desde App Store o Google Play como cualquier otra, y la app le avisa cuando hay una versión nueva. Nada de esto tiene costo adicional ni cambia la mensualidad.
+    <strong>Antes de probar nada:</strong> el panel web ya está al día solo —usted entra y ya
+    está—, pero <strong>la app de cada teléfono hay que actualizarla</strong> desde App Store o
+    Google Play, como cualquier otra. La versión es la <strong>1.7.0</strong> y se lee al pie de
+    la pantalla «Más». Nada de esto tiene costo adicional ni cambia la mensualidad.
   </div>
 
   <h2>1 · Los avisos siguen la orden paso a paso</h2>
@@ -115,6 +124,28 @@
         <span class="t">Dos cosas que hicimos a propósito</span>
         <strong>A quien hizo el cambio no se le avisa.</strong> Si el dueño carga los repuestos, el aviso le llega al técnico, no a él mismo. Nadie recibe noticias de su propio trabajo.<br />
         <strong>Cargar ocho repuestos no son ocho avisos.</strong> Cuando se agregan varias cosas seguidas a la misma orden, llega <em>un</em> aviso que las resume: <em>«La orden CEN-000030 cambió: 3 repuestos y 1 paso»</em>. Un aviso que suena diez veces se apaga a la semana, y entonces no sirve para nada.
+      </div>
+
+      <div class="probar">
+        <span class="t">Cómo probarlo</span>
+        Hacen falta <strong>dos personas</strong>: un técnico con su teléfono y el dueño o el
+        encargado con el suyo —o con el panel abierto—. Y una orden que ya tenga
+        <strong>técnico asignado</strong>.
+        <ol>
+          <li>El <strong>técnico</strong> abre la orden, escribe el diagnóstico y guarda.</li>
+          <li>Al <strong>dueño</strong> le tiene que caer «Diagnóstico listo — ORD-0000xx», en la
+          campana y en el teléfono. Al tocarlo se abre esa orden.</li>
+          <li>El <strong>dueño</strong> le agrega a esa misma orden <strong>tres repuestos
+          seguidos</strong>.</li>
+          <li>Al <strong>técnico</strong> le tiene que llegar <strong>un solo aviso</strong>, que
+          dice cuántos: «le agregaron 3 repuestos». No tres avisos.</li>
+          <li>Revise que <strong>a quien hizo el cambio no le llegó nada</strong>: el dueño no
+          recibe aviso de lo que él mismo cargó.</li>
+        </ol>
+        <p class="muted small" style="margin-top:6px">Si entre un repuesto y otro pasan más de
+        quince minutos, llega un aviso nuevo. Es a propósito: ya es otro momento del trabajo.
+        Y si vuelve a guardar el diagnóstico de esa orden, no suena otra vez: el diagnóstico
+        avisa una sola vez por orden.</p>
       </div>
     </div>
   </div>
@@ -147,6 +178,28 @@
 
       <div class="aviso">
         <strong>Una regla que conviene saber:</strong> una celda vacía <strong>nunca borra</strong> un dato. Si deja el nombre en blanco, el repuesto conserva su nombre. Es a propósito —así se puede subir un archivo con solo SKU y precio— y significa que <strong>para dejar un campo vacío hay que hacerlo desde la pantalla del repuesto</strong>, no desde la plantilla.
+      </div>
+
+      <div class="probar">
+        <span class="t">Cómo probarlo</span>
+        Desde el <strong>panel</strong>, en <strong>Inventario</strong>. Elija dos o tres
+        repuestos que ya tenga cargados y <strong>anote cómo se llaman y de qué marca son</strong>,
+        para comprobar después que no se tocaron.
+        <ol>
+          <li><strong>Cargar desde Excel</strong> → <em>Bajar la plantilla</em>.</li>
+          <li>En la hoja llene <strong>únicamente</strong> la columna <strong>SKU</strong> y la
+          columna <strong>Precio de venta</strong>, con los SKU de esos repuestos y un precio
+          distinto al que tienen. Todo lo demás, en blanco.</li>
+          <li>Súbala. <strong>Antes de guardar</strong>, en la lista que aparece, cada fila tiene
+          que decir <strong>«Cambia precio de venta»</strong> —no «Se actualiza» a secas, y no
+          «Se agrega»—.</li>
+          <li>Guarde y busque esos repuestos en la lista: el <strong>precio cambió</strong> y el
+          <strong>nombre, la marca y la categoría siguen igual</strong>.</li>
+        </ol>
+        <p class="muted small" style="margin-top:6px">Una prueba más, para ver que avisa bien:
+        agregue una fila con un SKU que <em>no</em> exista y déjele el nombre en blanco. Esa fila
+        tiene que salir marcada con error, diciendo que el nombre hace falta porque ese repuesto
+        es nuevo. Las demás filas entran igual; las que tienen error no.</p>
       </div>
     </div>
   </div>
@@ -210,6 +263,30 @@
 
       <p style="margin-top:8px"><strong>Y aquí está lo que de verdad paga el trabajo:</strong> estando dentro de una orden, con el vehículo ya en pantalla, el buscador de repuestos trae un interruptor que dice <em>«solo lo que le sirve a este carro»</em>. Se enciende y la lista se reduce a lo que aplica a esa placa. El que atiende deja de adivinar.</p>
 
+      <div class="probar">
+        <span class="t">Cómo probarlo</span>
+        Busque en su taller un <strong>repuesto que usted sepa a qué carro le va</strong> —un
+        filtro de aceite, unas pastillas— y un <strong>vehículo de ese modelo</strong> ya
+        registrado como cliente.
+        <ol>
+          <li>Entre al repuesto —en el panel o en la app, como se explica arriba— y agréguele ese
+          vehículo: marca, modelo y los años. Guarde.</li>
+          <li>Abra una <strong>orden de trabajo de ese carro</strong> y vaya a agregar un
+          repuesto.</li>
+          <li>Encienda <strong>«Solo lo que le sirve»</strong>. Tiene que quedar el repuesto que
+          acaba de marcar, y desaparecer el resto del catálogo.</li>
+          <li>Apague el interruptor: vuelve a verse <strong>todo el catálogo</strong>, como
+          siempre.</li>
+          <li>Repita en la orden de <strong>otro carro distinto</strong>, al que ese repuesto no le
+          aplica: con el filtro encendido la lista sale vacía, diciendo que ninguno dice servirle a
+          ese vehículo.</li>
+        </ol>
+        <p class="muted small" style="margin-top:6px">Si marcó «Corolla» y el carro está
+        registrado como «Corolla XEI», lo encuentra igual. Al revés no: si en el repuesto escribió
+        «Corolla XEI» y el carro dice solo «Corolla», no lo va a encontrar. Conviene escribir el
+        modelo <strong>corto</strong>.</p>
+      </div>
+
       <div class="aviso">
         <strong>Dos cosas, con franqueza:</strong> esto es <strong>trabajo de digitación</strong>, y conviene no intentarlo con todo el catálogo de una vez — empiece por lo que más se mueve (filtros, pastillas, bandas, bujías) y deje el resto en blanco. Y por eso el filtro es <strong>un interruptor, no algo automático</strong>: mientras el dato esté incompleto, apagado le enseña todo el catálogo como hoy. Nunca le va a esconder un repuesto por no tener la información llena.
       </div>
@@ -217,6 +294,10 @@
   </div>
 
   <h2>4 · El informe del escáner, en la orden y en la cotización</h2>
+
+  <p class="muted" style="margin-top:-4px"><strong>Esta es la que sigue</strong>, y es la única
+  de las cuatro que todavía no está. Aquí va cómo va a funcionar y qué va a hacer falta de su
+  parte, para que no haya sorpresas cuando la activemos.</p>
 
   <div class="mejora">
     <div class="n">4</div>
@@ -278,7 +359,7 @@
     </div>
   </div>
 
-  <h2>5 · En qué orden llegan</h2>
+  <h2>5 · Cómo va cada una</h2>
 
   <table>
     <thead><tr><th>Mejora</th><th>Cuándo</th><th>¿Hay que actualizar la app?</th></tr></thead>
@@ -312,7 +393,43 @@
     <strong>Lo único que necesitamos de su parte, para la mejora 4:</strong> decirnos si quieren <strong>GarajApp instalada en la misma tableta LAUNCH</strong> —que es lo que menos pasos deja— o si prefieren compartir el informe al teléfono del técnico. Nada que comprar: el escáner que tienen sirve tal como está.
   </div>
 
-  <h2>6 · Lo que quedó fuera, y por qué</h2>
+  <h2>6 · Lo demás que entró con esta versión</h2>
+  <p>No salió de la capacitación, pero se arregló de paso y conviene que lo prueben, porque son
+  cosas que se usan a diario.</p>
+
+  <table>
+    <thead><tr><th>Qué cambió</th><th>Cómo probarlo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Al técnico ya no se le enseñan los precios en Inventario</strong><br />
+        <span class="muted">si su taller tiene esa opción apagada</span></td>
+        <td>Entre con un usuario <strong>técnico</strong> y abra <strong>Repuestos</strong>: a la
+        derecha de cada repuesto queda la existencia, y ya no el precio.</td>
+      </tr>
+      <tr>
+        <td><strong>Los pasos de la orden se corrigen desde el panel</strong></td>
+        <td>En el panel, abra una orden y toque el <strong>lápiz</strong> que está al lado del
+        precio de un paso: se le puede cambiar el nombre, el precio, o quitarlo. Quitarlo es solo
+        para el Dueño y el Encargado.</td>
+      </tr>
+      <tr>
+        <td><strong>Las fotos de la orden se traen a la cotización desde el teléfono</strong><br />
+        <span class="muted">en el panel ya se podía</span></td>
+        <td>En la app, abra una cotización que haya salido de una orden y busque el icono de
+        <strong>traer</strong> en «FOTOS DEL DAÑO». Enseña las fotos que tomó el técnico; las que
+        ya se trajeron salen marcadas.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="aviso" style="margin-top:12px">
+    <strong>Antes de empezar a probar:</strong> que cada quien <strong>actualice la app</strong>
+    desde App Store o Google Play. La versión es la <strong>1.7.0</strong>; se lee
+    <strong>al pie de la pantalla «Más»</strong>, donde dice «GarajApp 1.7.0 (19)». Con la versión vieja, varias de estas pruebas no van a dar lo que
+    dice aquí.
+  </div>
+
+  <h2>7 · Lo que quedó fuera, y por qué</h2>
   <p><strong>Video corto en las órdenes.</strong> Se evaluó y se dejó fuera por ahora. La razón de fondo: un video <strong>no puede ir dentro del PDF</strong> de la cotización ni de la ficha de recepción —ningún PDF reproduce video—, así que el cliente solo lo vería abriendo el enlace, no en el documento que se le manda. Sumado a lo que pesa en almacenamiento, no compensa frente a las otras cuatro. Si más adelante el enlace al cliente se vuelve la forma normal de mandar las cotizaciones, lo retomamos.</p>
   <p class="muted" style="margin-top:8px">Mientras tanto, la evidencia fotográfica sigue igual: las fotos se toman aunque no haya señal, se suben solas, y ahora se pueden traer de la orden a la cotización sin volver a subirlas.</p>
 
