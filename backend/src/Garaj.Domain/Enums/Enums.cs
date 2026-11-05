@@ -205,6 +205,28 @@ public enum PaymentMethod
 /// Motivo del aviso. Determina el ícono y a qué pantalla lleva al tocarlo, así que los
 /// valores no se reordenan: los clientes ya publicados los guardan como enteros.
 /// </summary>
+/// <summary>
+/// El plan contratado. Decide con qué topes <b>nace</b> el taller; no los impone después: lo
+/// que manda en el día a día son <c>TechnicianLimit</c> y <c>DiagnosticsEnabled</c>, que se
+/// ajustan taller por taller —el cliente que paga por un técnico de más no tiene que cambiar
+/// de plan—.
+/// </summary>
+public enum SubscriptionPlan
+{
+    /// <summary>
+    /// Los talleres de antes de que existieran los planes. Todo incluido y sin topes, porque
+    /// es lo que se les ofreció: cambiarles el trato después sería cobrarles por algo que ya
+    /// tenían. Es el valor cero para que la migración los deje como están.
+    /// </summary>
+    Legacy = 0,
+
+    /// <summary>La operación completa del día a día, con tope de técnicos y sin diagnóstico.</summary>
+    Basic = 1,
+
+    /// <summary>Todo lo del Básico, sin tope de técnicos y con el módulo de diagnóstico.</summary>
+    Pro = 2
+}
+
 public enum NotificationType
 {
     ServiceRequestCreated = 1,

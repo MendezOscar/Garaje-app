@@ -107,7 +107,7 @@ public class PlatformService(
                     request.Email,
                     // Si viene vacía, el provisioner genera una y la devuelve, como siempre.
                     Password: request.Password,
-                    PlanName: request.PlanName,
+                    Plan: request.Plan,
                     MonthlyFee: request.MonthlyFee,
                     PaidThrough: request.PaidThrough,
                     GraceDays: request.GraceDays,
@@ -289,7 +289,17 @@ public class PlatformService(
         AccessScope.From(tenantContext).EnsurePlatform();
 
         var tenant = await FindAsync(tenantId, ct);
-        tenant.PlanName = Trim(request.PlanName);
+
+        // Cambiar de plan reescribe los topes con los de ese plan: es lo que se espera al
+        // subir a alguien a Pro. Si el plan no se mueve, manda lo que venga en la petición,
+        // que es como se le sube el tope al taller que paga por un técnico de más sin dejar
+        // de ser Básico.
+        var cambioDePlan = tenant.Plan != request.Plan;
+
+        tenant.Plan = request.Plan;
+        tenant.PlanName = Planes.NombreDe(request.Plan);
+        tenant.TechnicianLimit = cambioDePlan ? Planes.TecnicosDe(request.Plan) : NormalizeLimit(request.TechnicianLimit);
+        tenant.DiagnosticsEnabled = cambioDePlan ? Planes.DiagnosticoDe(request.Plan) : request.DiagnosticsEnabled;
         tenant.MonthlyFee = request.MonthlyFee;
         tenant.PaidThrough = request.PaidThrough;
         tenant.GraceDays = NormalizeGraceDays(request.GraceDays);
@@ -634,6 +644,9 @@ public class PlatformService(
             branchCount,
             technicianCount,
             tenant.CreatedAt,
+            tenant.Plan,
+            tenant.TechnicianLimit,
+            tenant.DiagnosticsEnabled,
             tenant.WorksWith,
             tenant.TaxId,
             tenant.Address);
@@ -641,6 +654,12 @@ public class PlatformService(
 
     /// <summary>Sin tope los días de gracia se vuelven «gratis para siempre» por un cero de más.</summary>
     private static int NormalizeGraceDays(int days) => Math.Clamp(days, 0, 60);
+
+    /// <summary>
+    /// Un tope de cero o negativo dejaría al taller sin poder dar de alta un solo técnico, que
+    /// no es lo que nadie quiere decir al escribirlo: eso se expresa con «sin tope» o con uno.
+    /// </summary>
+    private static int? NormalizeLimit(int? limit) => limit is null ? null : Math.Clamp(limit.Value, 1, 500);
 
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

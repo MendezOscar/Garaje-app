@@ -133,6 +133,8 @@ public class UserService(
                 throw new ConflictException("Ese cliente ya tiene acceso a la app.");
         }
 
+        if (request.Role == AppRoles.Technician) await EnsureCabeOtroTecnicoAsync(ct);
+
         var user = new AppUser
         {
             UserName = email,
@@ -189,6 +191,13 @@ public class UserService(
         if (user.Id == scope.UserId && !request.IsActive)
             throw new AppException("No puede desactivar su propio usuario.");
 
+        // Reactivar a un técnico ocupa un lugar igual que crearlo. Sin esto, el tope se
+        // esquivaba dando de baja a uno, creando otro y volviendo a activar al primero.
+        if (request.IsActive
+            && !user.IsActive
+            && string.Equals(role, AppRoles.Technician, StringComparison.OrdinalIgnoreCase))
+            await EnsureCabeOtroTecnicoAsync(ct);
+
         user.FullName = request.FullName.Trim();
         user.IsActive = request.IsActive;
 
@@ -213,6 +222,45 @@ public class UserService(
         await db.SaveChangesAsync(ct);
 
         return await MapAsync(user, role, ct);
+    }
+
+    /// <summary>
+    /// Que el plan del taller admita un técnico más.
+    /// </summary>
+    /// <remarks>
+    /// El tope vive en el taller y no en el plan: el que paga por un técnico de más queda en
+    /// cuatro sin dejar de ser Básico. <c>null</c> es sin tope, y así están el plan Pro y los
+    /// talleres de antes de que existieran los planes.
+    /// <para>
+    /// Cuenta solo técnicos activos: el Dueño y los Encargados no ocupan lugar —no son
+    /// técnicos— y el cliente con app tampoco. Y el mensaje no manda al Dueño a ninguna
+    /// pantalla, porque el tope no lo puede mover él: lo movemos nosotros.
+    /// </para>
+    /// </remarks>
+    private async Task EnsureCabeOtroTecnicoAsync(CancellationToken ct)
+    {
+        var tope = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => t.TechnicianLimit)
+            .FirstOrDefaultAsync(ct);
+
+        if (tope is not { } maximo) return;
+
+        var activos = await db.Users
+            .Where(u => u.IsActive)
+            .Join(db.UserRoles, u => u.Id, ur => ur.UserId, (u, ur) => ur.RoleId)
+            .Join(
+                db.Roles.Where(r => r.Name == AppRoles.Technician),
+                roleId => roleId,
+                r => r.Id,
+                (roleId, r) => roleId)
+            .CountAsync(ct);
+
+        if (activos < maximo) return;
+
+        throw new ConflictException(
+            $"Su plan incluye {maximo} {(maximo == 1 ? "técnico" : "técnicos")} y ya los tiene. "
+            + "Escríbanos para agregar otro, o dé de baja a uno que ya no trabaja con usted.");
     }
 
     public async Task ResetPasswordAsync(Guid id, ResetPasswordRequest request, CancellationToken ct = default)

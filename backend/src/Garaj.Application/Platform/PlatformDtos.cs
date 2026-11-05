@@ -30,10 +30,15 @@ public record PlatformTenantDto(
     DateOnly? ReadOnlyOn,
     DateOnly? LastPaymentOn,
     int BranchCount,
-    // Cuántos técnicos activos tiene. Es lo que el plan Taller limita, y sin el número a la
-    // vista el tope no se puede ni revisar ni cobrar.
+    // Cuántos técnicos activos tiene. Es lo que el plan limita, y sin el número a la vista el
+    // tope no se puede ni revisar ni cobrar.
     int TechnicianCount,
     DateTimeOffset CreatedAt,
+    // El plan y los topes que de verdad rigen para este taller. El plan dice con cuáles nació;
+    // estos dos son los que mandan, y se ajustan sin moverlo de plan.
+    SubscriptionPlan Plan = SubscriptionPlan.Legacy,
+    int? TechnicianLimit = null,
+    bool DiagnosticsEnabled = false,
     /// <summary>Con qué trabaja el taller. Lo decidimos nosotros, no él.</summary>
     WorkshopKind WorksWith = WorkshopKind.Vehicles,
     /// <summary>Su RTN, que es lo que lleva impreso la factura que le emitimos.</summary>
@@ -90,7 +95,11 @@ public record CreateTenantRequest(
     string? TaxId = null,
     string? Phone = null,
     string? Email = null,
-    string? PlanName = null,
+    /// <summary>
+    /// Qué plan contrata. De él salen la cuota sugerida, el tope de técnicos y si lleva
+    /// diagnóstico; todo eso se puede ajustar después desde su ficha.
+    /// </summary>
+    SubscriptionPlan Plan = SubscriptionPlan.Basic,
     decimal MonthlyFee = 0,
     DateOnly? PaidThrough = null,
     int? GraceDays = null,
@@ -154,11 +163,22 @@ public record UpdateTenantRequest(
     string? Email,
     string? Address);
 
+/// <param name="Plan">
+/// El plan. <b>Cambiarlo reescribe los topes</b> con los de ese plan: es lo que se espera al
+/// subir a alguien de Básico a Pro. Si solo se quiere mover un tope —el técnico de más que el
+/// taller paga—, se deja el plan como está y se manda el número nuevo.
+/// </param>
+/// <param name="TechnicianLimit">
+/// Tope de técnicos activos. Null es sin tope. Se ignora cuando el plan cambia en esta misma
+/// llamada: ahí manda el plan.
+/// </param>
 public record UpdateSubscriptionRequest(
-    string? PlanName,
+    SubscriptionPlan Plan,
     decimal MonthlyFee,
     DateOnly? PaidThrough,
-    int GraceDays);
+    int GraceDays,
+    int? TechnicianLimit = null,
+    bool DiagnosticsEnabled = false);
 
 /// <summary>
 /// Lo que hacemos nosotros con nuestros clientes: darlos de alta, cobrarles y, si hace falta,

@@ -72,6 +72,7 @@ import type {
   CustomerStatement,
   WhatsAppLink,
   WorkshopKind,
+  SubscriptionPlan,
 } from '@/types/domain'
 
 /** Quita claves vacías para no mandar `?status=` y que el backend lo lea como filtro. */
@@ -1452,7 +1453,8 @@ export const platformApi = {
     city?: string | null
     address?: string | null
     phone?: string | null
-    planName?: string | null
+    /** Qué plan contrata. De él salen la cuota sugerida, el tope de técnicos y el diagnóstico. */
+    plan: SubscriptionPlan
     monthlyFee: number
     paidThrough?: string | null
     /** Vacía: el servidor genera una y la devuelve una sola vez. */
@@ -1581,10 +1583,14 @@ export const platformApi = {
   async updateSubscription(
     id: string,
     body: {
-      planName?: string | null
+      /** Cambiarlo reescribe el tope de técnicos y el diagnóstico con los del plan nuevo. */
+      plan: SubscriptionPlan
       monthlyFee: number
       paidThrough?: string | null
       graceDays: number
+      /** Null es sin tope. Se ignora si el plan cambia en esta misma llamada. */
+      technicianLimit?: number | null
+      diagnosticsEnabled?: boolean
     },
   ) {
     const { data } = await api.put<PlatformTenant>(

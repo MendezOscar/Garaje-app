@@ -45,7 +45,10 @@ public class TenantProvisioner(
         string? LogoPath = null,
         // Lo que el taller nos paga a nosotros. Se fija al dar de alta porque el día de la
         // instalación es cuando se acuerda, y porque un taller sin fecha no se bloquea nunca.
-        string? PlanName = null,
+        // El plan decide con qué topes nace: la cuota sugerida, cuántos técnicos y si lleva
+        // diagnóstico. Lo que se guarda son los topes, no el plan: después se ajustan sin
+        // moverlo de plan.
+        SubscriptionPlan Plan = SubscriptionPlan.Basic,
         decimal MonthlyFee = 0,
         DateOnly? PaidThrough = null,
         int? GraceDays = null,
@@ -91,8 +94,13 @@ public class TenantProvisioner(
             Currency = "HNL",
             DefaultTaxRate = 15m,
             DefaultPhoneCountryCode = "504",
-            PlanName = Trim(request.PlanName),
-            MonthlyFee = request.MonthlyFee,
+            Plan = request.Plan,
+            PlanName = Planes.NombreDe(request.Plan),
+            TechnicianLimit = Planes.TecnicosDe(request.Plan),
+            DiagnosticsEnabled = Planes.DiagnosticoDe(request.Plan),
+            // Cero quiere decir «la del plan»: al instalar casi nunca se negocia la cuota, y
+            // escribirla a mano en cada alta era la forma segura de dejarla en cero.
+            MonthlyFee = request.MonthlyFee > 0 ? request.MonthlyFee : Planes.CuotaDe(request.Plan),
             GraceDays = Math.Clamp(request.GraceDays ?? 5, 0, 60),
             // Lo normal es que pague la instalación el día que se instala, así que sale pagado
             // hasta dentro de un mes salvo que se diga otra cosa.
