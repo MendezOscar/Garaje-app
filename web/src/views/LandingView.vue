@@ -26,16 +26,10 @@ const correo = `mailto:${CORREO}?subject=${encodeURIComponent('GarajApp para mi 
  * Talleres que ya trabajan con GarajApp. Es la parte de la página que no se puede escribir:
  * un dueño de taller no le cree a la lista de funciones, le cree al taller de al lado.
  *
- * `fondo` va por logo y no por diseño: el de RVM es negro sobre blanco y el de El Ártico
- * viene con su fondo oscuro incrustado, así que cada uno se pinta sobre el suyo o uno de los
- * dos desaparece.
+ * `fondo` va por logo y no por diseño: los de ahora traen su fondo oscuro incrustado, pero
+ * un logo negro sobre blanco necesita placa clara o desaparece. Por eso se dice por taller.
  */
 const talleres = [
-  {
-    nombre: 'Motorepuestos y Taller RVM',
-    logo: '/talleres/rvm.jpg',
-    fondo: 'claro',
-  },
   {
     nombre: 'Frío Automotriz El Ártico',
     logo: '/talleres/artico.jpg',
