@@ -51,6 +51,10 @@
   .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:12px; font-size:14px; }
   .aviso { border-left:4px solid var(--brand); background:#fbfcfe; padding:10px 14px; margin-top:10px; font-size:14px; }
   .ejemplo { border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-top:10px; font-size:14px; background:#fbfcfe; }
+  .mejora table { margin-top:8px; }
+  .mejora table td { font-size:14px; }
+  .mejora ol { margin: 6px 0 6px 20px; }
+  .mejora ol li { margin: 4px 0; }
   .ejemplo .t { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px; }
   code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
   .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
@@ -163,7 +167,46 @@
         Toyota Corolla 2014–2019 · Toyota Yaris 2018–2022 · Honda Civic 2016–2021
       </div>
 
-      <p style="margin-top:10px">Se llena de dos maneras: desde la pantalla del repuesto, agregando una línea por modelo, o <strong>desde la misma plantilla de Excel</strong>, en una columna nueva donde se escriben separados por punto y coma: <code>Toyota Corolla 2014-2019; Toyota Yaris 2018-2022</code>.</p>
+      <h3>Dónde se hace</h3>
+      <p>En los tres lados, y es la misma lista: lo que se agregue en uno se ve en los otros.</p>
+
+      <table>
+        <thead><tr><th>Dónde</th><th>Cómo se llega</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>En el panel</strong><br /><span class="muted">para llenar varios de corrido</span></td>
+            <td>
+              <strong>Inventario</strong> → en la fila del repuesto, el botón de los tres puntos
+              → <strong>Editar el repuesto</strong>. Al final de la ficha está
+              <strong>«A qué vehículos les sirve»</strong>: se toca <em>Agregar vehículo</em> y se
+              llena marca, modelo y los años. Una línea por modelo, y se repite las veces que haga
+              falta.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>En la app</strong><br /><span class="muted">con la caja del repuesto en la mano</span></td>
+            <td>
+              <strong>Más</strong> → <strong>Inventario</strong> → se toca el repuesto →
+              <strong>Editar el repuesto</strong>. Abajo de la ficha aparece
+              <strong>«A QUÉ VEHÍCULOS LES SIRVE»</strong> con el botón
+              <em>Agregar vehículo</em>. Cada vehículo queda en su tarjeta, con la
+              <strong>✕</strong> para quitarlo.
+              <br /><span class="muted small">Es cosa del Dueño o del Encargado: el técnico ve el
+              inventario pero no lo edita.</span>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>En la plantilla de Excel</strong><br /><span class="muted">para el catálogo entero de un golpe</span></td>
+            <td>
+              Columna <strong>«Aplica a»</strong>, separando los vehículos con punto y coma:
+              <code>Toyota Corolla 2014-2019; Toyota Yaris 2018-2022</code>. Primero la marca,
+              después el modelo y al final los años.
+              <br /><span class="muted small">Ojo: al llenar esa celda se <strong>reemplaza</strong>
+              la lista entera de ese repuesto, no se le suma. Si la deja vacía, no se toca nada.</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <p style="margin-top:8px"><strong>Y aquí está lo que de verdad paga el trabajo:</strong> estando dentro de una orden, con el vehículo ya en pantalla, el buscador de repuestos trae un interruptor que dice <em>«solo lo que le sirve a este carro»</em>. Se enciende y la lista se reduce a lo que aplica a esa placa. El que atiende deja de adivinar.</p>
 
@@ -181,8 +224,29 @@
       <h3 style="margin-top:0">El problema que vimos</h3>
       <p>Entra un vehículo con la luz del motor encendida. Se le pone el escáner, el técnico lee los códigos en la pantalla, los anota en un papel —o no los anota— y el cliente se queda con la palabra del taller. No hay nada que enseñarle, y nada que buscar después cuando el carro vuelve con lo mismo.</p>
 
-      <h3>Cómo va a quedar</h3>
-      <p>El técnico escanea con el <strong>LAUNCH X-431</strong>, como ya lo hace hoy. Al terminar, la tableta arma su informe; el técnico toca <strong>Compartir</strong> y elige <strong>GarajApp</strong>. El informe <strong>queda adjunto a la orden</strong>, y de ahí sale en la cotización que se le manda al cliente por WhatsApp.</p>
+      <h3>Cómo va a quedar, paso a paso</h3>
+      <ol>
+        <li>El técnico <strong>escanea con el LAUNCH X-431</strong>, como ya lo hace hoy.</li>
+        <li>Al terminar, la tableta arma su informe. El técnico toca <strong>Compartir</strong> y,
+        en la lista de aplicaciones que sale, elige <strong>GarajApp</strong>.</li>
+        <li><strong>GarajApp se abre preguntando a qué orden va.</strong> Enseña las órdenes
+        abiertas, las de hoy primero, cada una con <strong>la placa y el nombre del cliente</strong>
+        en grande, y un buscador por placa para cuando hay muchas.</li>
+        <li>El técnico toca la orden del carro, confirma, y el informe <strong>queda adjunto a esa
+        orden</strong>.</li>
+        <li>De ahí sale en la <strong>cotización</strong> que se le manda al cliente por WhatsApp.</li>
+      </ol>
+      <div class="aviso">
+        <strong>Por qué pregunta a qué orden, y qué cuidamos ahí.</strong> El escáner no sabe en
+        qué orden está trabajando el taller: él solo sabe que acaba de leer un carro. Así que la
+        orden la elige el técnico, y esa es la única parte donde alguien se puede equivocar —un
+        informe pegado a la orden equivocada se le manda a otro cliente dentro de una cotización—.
+        Por eso cada opción va a llevar la <strong>placa y el cliente</strong> bien visibles, se va
+        a <strong>pedir confirmación</strong> antes de guardar, y el adjunto se puede
+        <strong>abrir y revisar</strong> —y quitar— antes de que la cotización salga. Lo
+        resumimos así: el sistema no adivina de qué carro es; se lo pregunta y se lo repite.
+      </div>
+
       <p style="margin-top:8px">Deja de ser la palabra del taller y pasa a ser un documento: <em>el carro reporta esto, por eso le estamos cotizando esto otro</em>. Y queda guardado con la orden, que es lo que hoy se pierde en el papel: cuando el mismo carro vuelve en tres meses, ahí está lo que decía la primera vez.</p>
 
       <h3>Por qué así, y no leyendo el escáner desde la app</h3>
@@ -200,7 +264,7 @@
       </div>
 
       <div class="aviso">
-        <strong>Lo que sí hay que hacer de nuestro lado.</strong> Hoy GarajApp solo acepta <em>fotos</em> como adjunto. Hay que abrirle la puerta a los <strong>documentos PDF</strong> y hacer que la app aparezca en la lista de «Compartir con…» del escáner. Es lo que cuesta esta mejora, y es poco.
+        <strong>Lo que sí hay que hacer de nuestro lado.</strong> Hoy GarajApp solo acepta <em>fotos</em> como adjunto. Hay que abrirle la puerta a los <strong>documentos PDF</strong>, hacer que la app <strong>aparezca en la lista de «Compartir con…»</strong> del escáner y del teléfono, y armar la pantalla que pregunta a qué orden va. Es lo que cuesta esta mejora.
       </div>
 
       <h3>Lo que esto no le va a dar</h3>
