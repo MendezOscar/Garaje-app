@@ -332,6 +332,13 @@ onMounted(async () => {
           {{ tenant.planName ?? 'Sin plan' }} · {{ formatMoney(tenant.monthlyFee) }} al mes ·
           cliente desde {{ formatDay(tenant.createdAt) }}
         </p>
+        <!-- El tamaño del taller, que es lo que se cobra: sucursales y técnicos. Es lo que hay
+             que mirar antes de hablar de plan. -->
+        <p class="muted small">
+          {{ tenant.branchCount }} {{ tenant.branchCount === 1 ? 'sucursal' : 'sucursales' }} ·
+          <strong>{{ tenant.technicianCount ?? '—' }}</strong>
+          {{ tenant.technicianCount === 1 ? 'técnico' : 'técnicos' }}
+        </p>
       </div>
       <button v-if="tenant.isActive" type="button" class="btn-danger" @click="suspender">
         Suspender
