@@ -5,7 +5,14 @@ import { platformApi } from '@/api/garaj'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
-import { WorkshopKind, type CreatedTenant, type PlatformTenant } from '@/types/domain'
+import {
+  PLAN_DEFAULTS,
+  PLAN_LABEL,
+  SubscriptionPlan,
+  WorkshopKind,
+  type CreatedTenant,
+  type PlatformTenant,
+} from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
 /**
@@ -56,14 +63,36 @@ const vacio = {
   city: '',
   address: '',
   phone: '',
-  planName: '',
-  monthlyFee: 0,
+  plan: SubscriptionPlan.Basic as SubscriptionPlan,
+  monthlyFee: PLAN_DEFAULTS[SubscriptionPlan.Basic].fee,
   paidThrough: '',
   password: '',
   worksWith: WorkshopKind.Vehicles as WorkshopKind,
 }
 
 const form = ref({ ...vacio })
+
+/**
+ * Al cambiar de plan se propone su cuota. Se propone y no se impone: la cuota se negocia, y
+ * pisarle al que ya escribió un número sería peor que no ayudar.
+ */
+function aplicarPlan() {
+  const sugerida = PLAN_DEFAULTS[form.value.plan].fee
+  const otras = Object.values(PLAN_DEFAULTS).map((d) => d.fee)
+
+  if (!form.value.monthlyFee || otras.includes(Number(form.value.monthlyFee))) {
+    form.value.monthlyFee = sugerida
+  }
+}
+
+/** Qué le toca al taller con el plan elegido, dicho antes de darlo de alta. */
+const queTraeElPlan = computed(() => {
+  const d = PLAN_DEFAULTS[form.value.plan]
+  const tecnicos = d.technicians === null ? 'técnicos sin tope' : `hasta ${d.technicians} técnicos`
+  const diag = d.diagnostics ? 'con módulo de diagnóstico' : 'sin diagnóstico'
+
+  return `${PLAN_LABEL[form.value.plan]}: ${tecnicos}, ${diag}. Los dos se ajustan después en la ficha del taller.`
+})
 
 /** Cuántos hay que atender ya. Es el número que importa al abrir la pantalla. */
 const porCobrar = computed(
@@ -126,7 +155,7 @@ async function crear() {
       city: f.city.trim() || null,
       address: f.address.trim() || null,
       phone: f.phone.trim() || null,
-      planName: f.planName.trim() || null,
+      plan: f.plan,
       monthlyFee: Number(f.monthlyFee) || 0,
       paidThrough: f.paidThrough || null,
       // Vacía, la genera el servidor. Sale igual en la tarjeta de abajo en los dos casos.
@@ -274,7 +303,13 @@ onMounted(load)
       <div class="row">
         <label>
           Plan
-          <input v-model="form.planName" placeholder="Básico" />
+          <!-- Seleccionable y no texto libre: el plan decide el tope de técnicos y si lleva
+               diagnóstico, así que escribirlo a mano dejaba al taller sin ninguno de los dos. -->
+          <select v-model.number="form.plan" @change="aplicarPlan">
+            <option :value="SubscriptionPlan.Basic">Básico</option>
+            <option :value="SubscriptionPlan.Pro">Pro — con diagnóstico</option>
+            <option :value="SubscriptionPlan.Legacy">Heredado — sin topes</option>
+          </select>
         </label>
         <label>
           Cuota mensual
@@ -285,6 +320,8 @@ onMounted(load)
           <input v-model="form.paidThrough" type="date" />
         </label>
       </div>
+
+      <p class="muted small">{{ queTraeElPlan }}</p>
 
       <div class="actions">
         <button type="submit" :disabled="busy">Dar de alta</button>
@@ -316,13 +353,17 @@ onMounted(load)
           <td>
             {{ t.name }}
             <div class="muted small">
-              {{ t.planName ?? 'Sin plan' }} ·
+              {{ PLAN_LABEL[t.plan] ?? t.planName ?? 'Sin plan' }} ·
               {{ t.branchCount }} {{ t.branchCount === 1 ? 'sucursal' : 'sucursales' }}
               <!-- Los técnicos son lo que el plan Taller limita. Sin el número a la vista, el
                    tope no se puede ni revisar ni cobrar. Con `v-if` porque el panel se
                    despliega antes que la API: sin el dato, mejor nada que «· técnicos». -->
               <template v-if="t.technicianCount !== undefined">
-                · {{ t.technicianCount }} {{ t.technicianCount === 1 ? 'técnico' : 'técnicos' }}
+                ·
+                <span :class="{ tope: t.technicianLimit !== null && t.technicianCount >= t.technicianLimit }">
+                  {{ t.technicianCount }}{{ t.technicianLimit === null ? '' : ` de ${t.technicianLimit}` }}
+                  {{ t.technicianCount === 1 ? 'técnico' : 'técnicos' }}
+                </span>
               </template>
             </div>
           </td>
@@ -347,6 +388,13 @@ onMounted(load)
 </template>
 
 <style scoped>
+/* El taller que ya llegó a su tope: es con quien hay que hablar antes de que pida otro
+   técnico y se encuentre con el bloqueo. */
+.tope {
+  color: var(--warning);
+  font-weight: 600;
+}
+
 .acciones {
   display: flex;
   gap: var(--space-2);

@@ -6,6 +6,9 @@ import { platformApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import {
+  PLAN_DEFAULTS,
+  PLAN_LABEL,
+  SubscriptionPlan,
   WorkshopKind,
   type CreatedTenant,
   type PlatformSettings,
@@ -104,7 +107,43 @@ const acuerdo = ref({ unblockedThrough: '', note: '' })
 
 /** La ficha del taller como cliente nuestro: es lo que sale impreso en su factura. */
 const ficha = ref({ name: '', legalName: '', taxId: '', phone: '', email: '', address: '' })
-const plan = ref({ planName: '', monthlyFee: 0, paidThrough: '', graceDays: 5 })
+const plan = ref({
+  plan: SubscriptionPlan.Basic as SubscriptionPlan,
+  monthlyFee: 0,
+  paidThrough: '',
+  graceDays: 5,
+  /** Vacío es sin tope. Se escribe así y no con una casilla: el número es el acuerdo. */
+  technicianLimit: '' as number | '',
+  diagnosticsEnabled: false,
+})
+
+/** El plan con el que el taller está guardado, para saber si el selector lo está moviendo. */
+const planGuardado = ref<SubscriptionPlan>(SubscriptionPlan.Basic)
+
+const cambiandoDePlan = computed(() => plan.value.plan !== planGuardado.value)
+
+/**
+ * Qué va a quedar al guardar. Cambiar de plan reescribe los dos topes con los del plan nuevo
+ * —es lo que se espera al subir a alguien a Pro— y eso hay que decirlo antes, no después.
+ */
+const avisoDelPlan = computed(() => {
+  if (!cambiandoDePlan.value) return ''
+
+  const d = PLAN_DEFAULTS[plan.value.plan]
+  const tecnicos = d.technicians === null ? 'técnicos sin tope' : `hasta ${d.technicians} técnicos`
+  const diag = d.diagnostics ? 'con módulo de diagnóstico' : 'sin módulo de diagnóstico'
+
+  return `Al guardar, el taller queda en ${PLAN_LABEL[plan.value.plan]}: ${tecnicos}, ${diag}.`
+})
+
+function aplicarPlan() {
+  const sugerida = PLAN_DEFAULTS[plan.value.plan].fee
+  const otras = Object.values(PLAN_DEFAULTS).map((d) => d.fee)
+
+  if (!plan.value.monthlyFee || otras.includes(Number(plan.value.monthlyFee))) {
+    plan.value.monthlyFee = sugerida
+  }
+}
 const nuevoDueno = ref({ email: '', fullName: '', password: '' })
 const creado = ref<CreatedTenant | null>(null)
 
@@ -141,11 +180,14 @@ async function load() {
       address: t.address ?? '',
     }
     plan.value = {
-      planName: t.planName ?? '',
+      plan: t.plan,
       monthlyFee: t.monthlyFee,
       paidThrough: t.paidThrough ?? '',
       graceDays: t.graceDays,
+      technicianLimit: t.technicianLimit ?? '',
+      diagnosticsEnabled: t.diagnosticsEnabled,
     }
+    planGuardado.value = t.plan
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar el taller.')
   } finally {
@@ -269,10 +311,14 @@ function guardarPlan() {
   return accion(
     () =>
       platformApi.updateSubscription(id, {
-        planName: plan.value.planName.trim() || null,
+        plan: plan.value.plan,
         monthlyFee: Number(plan.value.monthlyFee) || 0,
         paidThrough: plan.value.paidThrough || null,
         graceDays: Number(plan.value.graceDays) || 0,
+        // Vacío es sin tope. Si el plan cambió, el servidor los reescribe con los del plan
+        // nuevo y estos dos se ignoran: lo dice el aviso de arriba del botón.
+        technicianLimit: plan.value.technicianLimit === '' ? null : Number(plan.value.technicianLimit),
+        diagnosticsEnabled: plan.value.diagnosticsEnabled,
       }),
     'No se pudo guardar el plan.',
   )
@@ -537,13 +583,53 @@ onMounted(async () => {
           <div class="row">
             <label>
               Plan
-              <input v-model="plan.planName" placeholder="Básico" />
+              <!-- Seleccionable: de aquí salen el tope de técnicos y el diagnóstico. -->
+              <select v-model.number="plan.plan" @change="aplicarPlan">
+                <option :value="SubscriptionPlan.Basic">Básico</option>
+                <option :value="SubscriptionPlan.Pro">Pro — con diagnóstico</option>
+                <option :value="SubscriptionPlan.Legacy">Heredado — sin topes</option>
+              </select>
             </label>
             <label>
               Cuota mensual
               <input v-model.number="plan.monthlyFee" type="number" min="0" step="0.01" />
             </label>
           </div>
+
+          <!-- Lo que de verdad rige para este taller, que no tiene por qué ser lo del plan:
+               el que paga por un técnico de más sube a cuatro sin dejar de ser Básico. -->
+          <div class="row">
+            <label>
+              Tope de técnicos
+              <input
+                v-model="plan.technicianLimit"
+                type="number"
+                min="1"
+                max="500"
+                placeholder="Sin tope"
+                :disabled="cambiandoDePlan"
+              />
+            </label>
+            <label class="checkbox">
+              <input
+                v-model="plan.diagnosticsEnabled"
+                type="checkbox"
+                :disabled="cambiandoDePlan"
+              />
+              Módulo de diagnóstico con escáner
+            </label>
+          </div>
+
+          <p class="muted small">
+            <template v-if="tenant">
+              Hoy tiene <strong>{{ tenant.technicianCount }}</strong>
+              {{ tenant.technicianCount === 1 ? 'técnico activo' : 'técnicos activos' }}.
+            </template>
+            Déjelo en blanco para que no tenga tope. Del cuarto técnico en adelante se cobra
+            aparte: súbale el número aquí sin moverlo de plan.
+          </p>
+
+          <p v-if="avisoDelPlan" class="aviso-plan">{{ avisoDelPlan }}</p>
 
           <div class="row">
             <label>
@@ -756,6 +842,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* El aviso de que el plan va a reescribir los topes: se lee justo antes de tocar Guardar. */
+.aviso-plan {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
 h1 {
   margin: 0.25rem 0 0;
 }

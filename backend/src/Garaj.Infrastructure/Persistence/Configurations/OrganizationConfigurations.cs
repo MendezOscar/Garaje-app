@@ -29,6 +29,10 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(x => x.LogoStorageKey).HasMaxLength(500);
 
         b.Property(x => x.PlanName).HasMaxLength(60);
+
+        // Los talleres que ya existen caen en Legacy —el cero del enum— y sin tope: es lo que
+        // se les ofreció, y una migración no es el lugar para cambiarle el trato a nadie.
+        b.Property(x => x.Plan).HasDefaultValue(SubscriptionPlan.Legacy);
         b.Property(x => x.UnblockNote).HasMaxLength(300);
 
         // La lista del panel de plataforma se pide siempre así: lo que vence primero, arriba.

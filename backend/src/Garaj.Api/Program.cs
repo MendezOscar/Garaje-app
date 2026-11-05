@@ -377,7 +377,15 @@ static async Task<int> ProvisionTenantAsync(WebApplication app, string[] args)
             Email: values.GetValueOrDefault("email"),
             Password: values.GetValueOrDefault("password"),
             LogoPath: values.GetValueOrDefault("logo"),
-            PlanName: values.GetValueOrDefault("plan"),
+            Plan: values.GetValueOrDefault("plan")?.ToLowerInvariant() switch
+            {
+                "pro" => SubscriptionPlan.Pro,
+                null or "" or "basico" or "básico" or "basic" => SubscriptionPlan.Basic,
+                // Para dar de alta a mano un taller sin topes, como los de antes de los planes.
+                "heredado" or "legacy" => SubscriptionPlan.Legacy,
+                var otro => throw new AppException(
+                    $"--plan no entiende «{otro}»: use basico, pro o heredado."),
+            },
             MonthlyFee: decimal.TryParse(values.GetValueOrDefault("fee"), out var fee) ? fee : 0,
             PaidThrough: DateOnly.TryParse(values.GetValueOrDefault("paid-through"), out var hasta)
                 ? hasta

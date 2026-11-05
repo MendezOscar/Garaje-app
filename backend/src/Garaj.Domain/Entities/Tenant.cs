@@ -115,8 +115,32 @@ public class Tenant : AuditableEntity
     // parte de lo que define al taller como cliente nuestro, y porque así una sola lectura
     // por clave primaria resuelve si puede trabajar. El historial de pagos sí va aparte.
 
-    /// <summary>Nombre del plan contratado, tal como se le ofreció. Informativo.</summary>
+    /// <summary>
+    /// El plan contratado. De él salen los topes con que nace el taller; después se ajustan
+    /// aparte. Los talleres de antes de los planes se quedan en <c>Legacy</c>: todo incluido.
+    /// </summary>
+    public SubscriptionPlan Plan { get; set; } = SubscriptionPlan.Legacy;
+
+    /// <summary>Nombre del plan contratado, tal como se le ofreció. Informativo: sale impreso.</summary>
     public string? PlanName { get; set; }
+
+    /// <summary>
+    /// Cuántos técnicos activos puede tener. <c>null</c> es sin tope, que es como quedan el
+    /// plan Pro y los talleres de antes de los planes.
+    /// </summary>
+    /// <remarks>
+    /// Va aquí y no deducido del plan porque es lo que se negocia: el taller del plan Básico
+    /// que contrata al cuarto mecánico paga por ese técnico y se le sube el número, sin
+    /// moverlo de plan. El Dueño y los Encargados no cuentan —no son técnicos— y el cliente
+    /// con app tampoco.
+    /// </remarks>
+    public int? TechnicianLimit { get; set; }
+
+    /// <summary>
+    /// Si tiene el módulo de diagnóstico con escáner: el informe dentro de la orden, la
+    /// lectura de los códigos y el historial por vehículo.
+    /// </summary>
+    public bool DiagnosticsEnabled { get; set; }
 
     /// <summary>Cuota mensual acordada, en la moneda del taller.</summary>
     public decimal MonthlyFee { get; set; }

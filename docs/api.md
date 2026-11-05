@@ -900,7 +900,7 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | POST | `/api/platform/tenants/{id}/payments` | Plataforma | Registra el pago y corre el vencimiento |
 | POST | `/api/platform/tenants/{id}/payments/{paymentId}/void` | Plataforma | Anula un pago registrado por error |
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
-| PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento y gracia |
+| PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento, gracia y los topes |
 | POST | `/api/platform/repaso-de-avisos` | Plataforma | Corre el repaso de avisos del calendario |
 | POST | `/api/platform/tenants/{id}/suspend` \| `/reactivate` | Plataforma | El corte definitivo |
 | GET/PUT | `/api/platform/billing/settings` | Plataforma | Nuestros datos de emisor y el ISV con que facturamos |
@@ -908,6 +908,32 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | GET | `/api/platform/billing/invoices/{id}` | Plataforma | El documento emitido |
 | GET | `/api/platform/billing/invoices/{id}.pdf` | Plataforma | Su PDF, para mandárselo al taller |
 | POST | `/api/platform/billing/invoices/{id}/void` | Plataforma | Lo anula. El pago queda |
+
+### Los planes y los topes
+
+`SubscriptionPlan`: `0` Heredado · `1` Básico · `2` Pro. El plan dice **con qué topes nace** el
+taller; lo que manda después son los dos campos del taller, que se ajustan sin moverlo de plan:
+
+| Campo del taller | Qué hace |
+| --- | --- |
+| `technicianLimit` | Cuántos técnicos **activos** admite. `null` es sin tope |
+| `diagnosticsEnabled` | Si tiene el módulo de diagnóstico con escáner |
+
+- **Heredado es el cero a propósito.** Los talleres de antes de que existieran los planes
+  quedaron ahí con la migración: todo incluido y sin topes, que es lo que se les ofreció.
+  Cambiarles el trato con un `ALTER TABLE` habría sido cobrarles por algo que ya tenían.
+- **Con qué nace cada plan** —cuota sugerida, técnicos y diagnóstico— vive en un solo sitio,
+  `Application/Common/Planes.cs`. Cambiar la oferta es cambiar ese archivo.
+- **Cambiar de plan reescribe los dos topes** con los del plan nuevo, y entonces se ignora lo
+  que venga en `technicianLimit` y `diagnosticsEnabled`: es lo que se espera al subir a alguien
+  a Pro. Para mover solo un tope —el técnico de más que el taller paga— se manda el mismo plan
+  y el número nuevo.
+- **El tope se impone al crear y al reactivar un técnico**, no solo al crearlo: si no, se
+  esquivaba dando de baja a uno, creando otro y volviendo a activar al primero. Responde **409**
+  con el número incluido, y el mensaje no manda al Dueño a ninguna pantalla porque el tope no lo
+  puede mover él.
+- **El Dueño y los Encargados no ocupan lugar** —no son técnicos— y el cliente con app tampoco:
+  cobrar por eso sería cobrarle al taller por tener clientes.
 
 ### Nuestra factura, la que recibe el taller
 

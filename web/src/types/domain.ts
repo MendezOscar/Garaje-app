@@ -1309,14 +1309,47 @@ export interface PlatformTenant {
   readOnlyOn: string | null
   lastPaymentOn: string | null
   branchCount: number
-  /** Técnicos activos. Es lo que el plan Taller limita: el Dueño y los Encargados no cuentan. */
+  /** Técnicos activos. Es lo que el plan limita: el Dueño y los Encargados no cuentan. */
   technicianCount: number
+  /** Qué plan contrató. De él salieron los topes de abajo, que después se ajustan aparte. */
+  plan: SubscriptionPlan
+  /** Tope de técnicos activos. Null es sin tope: el plan Pro y los talleres de antes. */
+  technicianLimit: number | null
+  /** Si tiene el módulo de diagnóstico con escáner. */
+  diagnosticsEnabled: boolean
   createdAt: string
   /** Con qué trabaja el taller. Lo decidimos nosotros al darlo de alta. */
   worksWith: WorkshopKind
   /** Su RTN: es lo que lleva impreso la factura que le emitimos. */
   taxId: string | null
   address: string | null
+}
+
+/**
+ * El plan contratado. `Legacy` son los talleres de antes de que existieran los planes: todo
+ * incluido y sin topes, porque es lo que se les ofreció.
+ */
+export const SubscriptionPlan = {
+  Legacy: 0,
+  Basic: 1,
+  Pro: 2,
+} as const
+export type SubscriptionPlan = (typeof SubscriptionPlan)[keyof typeof SubscriptionPlan]
+
+export const PLAN_LABEL: Record<SubscriptionPlan, string> = {
+  [SubscriptionPlan.Legacy]: 'Heredado',
+  [SubscriptionPlan.Basic]: 'Básico',
+  [SubscriptionPlan.Pro]: 'Pro',
+}
+
+/**
+ * Con qué nace cada plan. Los mismos números que `Planes` en el backend, que es quien manda:
+ * esto solo sirve para proponerlos en la pantalla al elegir el plan.
+ */
+export const PLAN_DEFAULTS: Record<SubscriptionPlan, { fee: number; technicians: number | null; diagnostics: boolean }> = {
+  [SubscriptionPlan.Legacy]: { fee: 0, technicians: null, diagnostics: false },
+  [SubscriptionPlan.Basic]: { fee: 850, technicians: 3, diagnostics: false },
+  [SubscriptionPlan.Pro]: { fee: 1250, technicians: null, diagnostics: true },
 }
 
 export interface PlatformTenantDetail {

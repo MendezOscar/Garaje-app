@@ -2764,6 +2764,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("default_warranty_days");
 
+                    b.Property<bool>("DiagnosticsEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("diagnostics_enabled");
+
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -2807,6 +2811,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("phone");
 
+                    b.Property<int>("Plan")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("plan");
+
                     b.Property<string>("PlanName")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
@@ -2831,6 +2841,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("tax_id");
+
+                    b.Property<int?>("TechnicianLimit")
+                        .HasColumnType("integer")
+                        .HasColumnName("technician_limit");
 
                     b.Property<bool>("TechniciansSeePrices")
                         .HasColumnType("boolean")
