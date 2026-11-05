@@ -1309,6 +1309,8 @@ export interface PlatformTenant {
   readOnlyOn: string | null
   lastPaymentOn: string | null
   branchCount: number
+  /** Técnicos activos. Es lo que el plan Taller limita: el Dueño y los Encargados no cuentan. */
+  technicianCount: number
   createdAt: string
   /** Con qué trabaja el taller. Lo decidimos nosotros al darlo de alta. */
   worksWith: WorkshopKind

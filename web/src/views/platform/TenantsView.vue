@@ -317,7 +317,10 @@ onMounted(load)
             {{ t.name }}
             <div class="muted small">
               {{ t.planName ?? 'Sin plan' }} ·
-              {{ t.branchCount }} {{ t.branchCount === 1 ? 'sucursal' : 'sucursales' }}
+              {{ t.branchCount }} {{ t.branchCount === 1 ? 'sucursal' : 'sucursales' }} ·
+              <!-- Los técnicos son lo que el plan Taller limita. Sin el número a la vista, el
+                   tope no se puede ni revisar ni cobrar. -->
+              {{ t.technicianCount }} {{ t.technicianCount === 1 ? 'técnico' : 'técnicos' }}
             </div>
           </td>
           <td>
