@@ -39,6 +39,21 @@ public class PlatformService(
             .Select(g => new { TenantId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
 
+        // Los técnicos activos de cada taller, de un solo viaje: es la lista completa de
+        // talleres y una consulta por fila serían veinte viajes para pintar una columna.
+        var technicianCounts = await db.Users
+            .IgnoreQueryFilters()
+            .Where(u => u.IsActive)
+            .Join(db.UserRoles.IgnoreQueryFilters(), u => u.Id, ur => ur.UserId, (u, ur) => new { u.TenantId, ur.RoleId })
+            .Join(
+                db.Roles.IgnoreQueryFilters().Where(r => r.Name == AppRoles.Technician),
+                x => x.RoleId,
+                r => r.Id,
+                (x, r) => x.TenantId)
+            .GroupBy(tenantId => tenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
         var lastPayments = await db.SubscriptionPayments
             .GroupBy(p => p.TenantId)
             .Select(g => new { TenantId = g.Key, PaidOn = g.Max(p => p.PaidOn) })
@@ -50,6 +65,7 @@ public class PlatformService(
             .Select(t => Map(
                 t,
                 branchCounts.GetValueOrDefault(t.Id),
+                technicianCounts.GetValueOrDefault(t.Id),
                 lastPayments.TryGetValue(t.Id, out var paidOn) ? paidOn : null,
                 today))
             // Lo que vence primero, arriba: es la lista de a quién hay que cobrarle.
@@ -548,7 +564,12 @@ public class PlatformService(
             .ToListAsync(ct);
 
         return new PlatformTenantDetailDto(
-            Map(tenant, await BranchCountAsync(tenant.Id, ct), payments.FirstOrDefault()?.PaidOn, clock.Today()),
+            Map(
+                tenant,
+                await BranchCountAsync(tenant.Id, ct),
+                await TechnicianCountAsync(tenant.Id, ct),
+                payments.FirstOrDefault()?.PaidOn,
+                clock.Today()),
             payments);
     }
 
@@ -560,14 +581,35 @@ public class PlatformService(
             .Select(p => (DateOnly?)p.PaidOn)
             .FirstOrDefaultAsync(ct);
 
-        return Map(tenant, await BranchCountAsync(tenant.Id, ct), lastPayment, clock.Today());
+        return Map(
+            tenant,
+            await BranchCountAsync(tenant.Id, ct),
+            await TechnicianCountAsync(tenant.Id, ct),
+            lastPayment,
+            clock.Today());
     }
 
     private async Task<int> BranchCountAsync(Guid tenantId, CancellationToken ct) =>
         await db.Branches.IgnoreQueryFilters().CountAsync(b => b.TenantId == tenantId, ct);
 
+    /// <summary>
+    /// Técnicos activos del taller. Solo técnicos: el Dueño y los Encargados no cuentan contra
+    /// el tope del plan, y el cliente con app tampoco —cobrar por eso sería cobrarle al taller
+    /// por tener clientes—. El dado de baja deja de contar: el tope es de gente trabajando.
+    /// </summary>
+    private async Task<int> TechnicianCountAsync(Guid tenantId, CancellationToken ct) =>
+        await db.Users.IgnoreQueryFilters()
+            .Where(u => u.TenantId == tenantId && u.IsActive)
+            .Join(db.UserRoles.IgnoreQueryFilters(), u => u.Id, ur => ur.UserId, (u, ur) => ur.RoleId)
+            .Join(
+                db.Roles.IgnoreQueryFilters().Where(r => r.Name == AppRoles.Technician),
+                roleId => roleId,
+                r => r.Id,
+                (roleId, r) => roleId)
+            .CountAsync(ct);
+
     private static PlatformTenantDto Map(
-        Tenant tenant, int branchCount, DateOnly? lastPaymentOn, DateOnly today)
+        Tenant tenant, int branchCount, int technicianCount, DateOnly? lastPaymentOn, DateOnly today)
     {
         var status = SubscriptionRules.For(tenant, today);
 
@@ -590,6 +632,7 @@ public class PlatformService(
             status.ReadOnlyOn,
             lastPaymentOn,
             branchCount,
+            technicianCount,
             tenant.CreatedAt,
             tenant.WorksWith,
             tenant.TaxId,

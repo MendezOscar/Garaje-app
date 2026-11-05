@@ -30,6 +30,9 @@ public record PlatformTenantDto(
     DateOnly? ReadOnlyOn,
     DateOnly? LastPaymentOn,
     int BranchCount,
+    // Cuántos técnicos activos tiene. Es lo que el plan Taller limita, y sin el número a la
+    // vista el tope no se puede ni revisar ni cobrar.
+    int TechnicianCount,
     DateTimeOffset CreatedAt,
     /// <summary>Con qué trabaja el taller. Lo decidimos nosotros, no él.</summary>
     WorkshopKind WorksWith = WorkshopKind.Vehicles,
