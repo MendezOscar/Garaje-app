@@ -46,6 +46,11 @@ const talleres = [
     logo: '/talleres/ariel.jpg',
     fondo: 'oscuro',
   },
+  {
+    nombre: 'LubriSmart',
+    logo: '/talleres/lubrismart.jpg',
+    fondo: 'oscuro',
+  },
 ]
 
 /**
@@ -418,19 +423,30 @@ const preguntas = [
       usa?»— y ninguna lista de funciones le contesta eso.
     -->
     <section class="prueba">
-      <p class="prueba-rotulo">Talleres que ya trabajan con GarajApp</p>
-      <div class="talleres">
-        <figure v-for="taller in talleres" :key="taller.nombre" class="taller">
-          <div class="marco" :class="taller.fondo">
-            <img
-              :src="taller.logo"
-              :alt="`Logo de ${taller.nombre}`"
-              loading="lazy"
-              @error="($event.target as HTMLImageElement).style.display = 'none'"
-            />
-          </div>
-          <figcaption>{{ taller.nombre }}</figcaption>
-        </figure>
+      <div class="prueba-dentro">
+        <header class="prueba-titulo">
+          <p class="prueba-rotulo">Quiénes la usan</p>
+          <h2>
+            {{ talleres.length }} talleres en Honduras ya trabajan con GarajApp
+          </h2>
+          <p class="prueba-pie">
+            De un local con un elevador a varias sucursales. Pregúnteles.
+          </p>
+        </header>
+
+        <div class="talleres">
+          <figure v-for="taller in talleres" :key="taller.nombre" class="taller">
+            <div class="marco" :class="taller.fondo">
+              <img
+                :src="taller.logo"
+                :alt="`Logo de ${taller.nombre}`"
+                loading="lazy"
+                @error="($event.target as HTMLImageElement).style.display = 'none'"
+              />
+            </div>
+            <figcaption>{{ taller.nombre }}</figcaption>
+          </figure>
+        </div>
       </div>
     </section>
 
@@ -1022,49 +1038,92 @@ h1 {
 
 /* ------------------------------------------------------------------ prueba social */
 
+/* La prueba de que esto ya funciona en talleres de verdad. Antes era una línea de logos
+   pequeños flotando entre dos secciones y se leía como un pie de página; ahora es una banda
+   con su propio título, que es el peso que le toca: un dueño de taller no le cree a la lista
+   de funciones, le cree al taller de al lado. */
 .prueba {
+  width: 100%;
+  padding: 3rem 1rem;
+  background:
+    radial-gradient(120% 140% at 50% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
+    var(--surface-alt);
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.prueba-dentro {
   width: var(--ancho);
   margin: 0 auto;
-  padding: 2.5rem 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem 2.5rem;
+}
+
+.prueba-titulo {
   text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.prueba-titulo h2 {
+  margin: 0.375rem 0 0;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  letter-spacing: -0.01em;
 }
 
 .prueba-rotulo {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
+.prueba-pie {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* Auto-fit y no una fila fija: el quinto taller que entre se acomoda solo, y en el teléfono
+   caen de dos en dos sin que nadie toque nada. */
 .talleres {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+  max-width: 56rem;
+  margin: 0 auto;
 }
 
 .taller {
   margin: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
+.taller:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Rectangular y no cuadrado: los logos de taller vienen casi siempre más anchos que altos
+   —una placa, un nombre largo— y en un cuadro quedaban del tamaño de una estampilla.
+   La altura va en píxeles y no en `aspect-ratio` a propósito: la imagen de adentro mide
+   `height: 100%`, y contra una caja cuya altura depende del contenido ese porcentaje no se
+   puede resolver. El logo cuadrado estiraba la placa y se salía del recorte. */
 .marco {
-  width: 4rem;
-  height: 4rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  display: grid;
-  place-items: center;
+  width: 100%;
+  height: 6rem;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -1072,11 +1131,17 @@ h1 {
   background: #fff;
 }
 
+/* Negro y no `--tinta`: casi todos estos logos vienen con su fondo negro incrustado, y el
+   azul oscuro de marca se notaba como un marco más claro a los lados del logo cuadrado. */
 .marco.oscuro {
-  background: var(--tinta);
+  background: #000;
 }
 
+/* `display: block` y no un grid centrado: como ítem de grid, el `height: 100%` de la imagen
+   no se resolvía y el logo cuadrado se escalaba por el ancho, quedando recortado arriba y
+   abajo. Así `contain` hace lo suyo y el logo entra entero, sea cuadrado o alargado. */
 .marco img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
