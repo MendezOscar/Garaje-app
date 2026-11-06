@@ -6,6 +6,11 @@ vendido con el plan Pro. El porqué de cada regla está en [ia.md](ia.md); esto 
 El alcance es **solo la dirección 1**. Las direcciones 2 y 3 reutilizan el cimiento de la
 etapa 0 y no se tocan aquí.
 
+> **Estado al 6 de noviembre de 2026: las cuatro etapas están escritas y desplegadas.** Falta
+> lo que no es código: poner `Assistant__ApiKey` en Render —sin ella el asistente se da por
+> apagado en todos los talleres, diga lo que diga cada interruptor—, encenderlo en Taller Demo
+> y medir un mes. La pantalla del teléfono va en la **1.9.0 (21)**; la 1.8.0 no la lleva.
+
 ---
 
 ## La decisión que hay que tomar antes de escribir nada
@@ -107,7 +112,9 @@ más fino de lo que el taller lo cobra, y **la nota final es demasiado larga** �
 
 ## Etapa 2 · El panel
 
-`AssistantEnabled` y los dos números de créditos entran a `TenantSettingsDto`
+El interruptor acabó viajando en la **sesión** (`CurrentUserDto`) y no en la ficha del taller:
+`/api/tenant` solo lo lee el Dueño, y el Encargado también arma órdenes. Los dos números de
+créditos sí entran a `TenantSettingsDto`
 ([TenantDtos.cs:15](../backend/src/Garaj.Application/Tenants/TenantDtos.cs#L15)), que es de
 donde el panel y la app ya leen con qué funciones cuenta el taller. El tope en lempiras **no**
 entra: ese es nuestro.
@@ -138,7 +145,7 @@ misma propuesta, la misma validación y el mismo endpoint; lo único nuevo es la
 
 En [work_order_detail_screen.dart](../mobile/lib/features/work_orders/work_order_detail_screen.dart),
 una sección al lado de la del escáner —`assistant_section.dart`—, y una pantalla de propuesta
-con la lista editable. El modelo de la app lee el interruptor de `TenantSettingsDto`, así que
+con la lista editable. El modelo de la app lee el interruptor de la sesión, así que
 el botón sencillamente no existe donde la función está apagada.
 
 Sale en una versión de la app. La 1.8.0 no la lleva.
