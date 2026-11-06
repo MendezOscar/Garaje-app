@@ -125,6 +125,11 @@ const navGroups = computed<
               // Se abre todos los días al cerrar, así que va en el menú y no dentro de Reportes.
               { to: { name: 'cash-close' }, label: 'Caja del día' },
               { to: { name: 'reports' }, label: 'Reportes y resultados' },
+              // Los reportes enseñan números; esto dice qué hacer con ellos. Va al lado, y
+              // solo donde el taller tiene el asistente.
+              ...(auth.isOwner && auth.hasAssistant
+                ? [{ to: { name: 'business-reading' }, label: 'La lectura del negocio' }]
+                : []),
             ],
           },
           {

@@ -88,3 +88,34 @@ public class AssistantProposal : TenantEntity
 
     public WorkOrder WorkOrder { get; set; } = null!;
 }
+
+/// <summary>
+/// La lectura del negocio de un periodo: qué pasó, qué cambió y qué conviene hacer.
+/// </summary>
+/// <remarks>
+/// Se guarda entera y con el paquete de números que se le mandó al modelo, por lo mismo que la
+/// propuesta de pasos: cuando una lectura diga algo raro, hay que poder ver con qué cifras la
+/// escribió. Y porque el dueño va a querer comparar la de esta semana con la de hace un mes, y
+/// rehacerla daría otro texto.
+///
+/// El modelo <b>no calcula</b>: recibe los números ya hechos y escribe la lectura. Un modelo
+/// que se equivoca en una resta en el reporte del dueño destruye la confianza en todo lo
+/// demás, y es un error que no se detecta mirando.
+/// </remarks>
+public class BusinessReading : TenantEntity
+{
+    public BusinessReadingKind Kind { get; set; }
+
+    /// <summary>El periodo que mira, en días del taller.</summary>
+    public DateOnly PeriodFrom { get; set; }
+
+    public DateOnly PeriodTo { get; set; }
+
+    /// <summary>El paquete de agregados que se le mandó, en JSON. Ningún nombre de cliente.</summary>
+    public string Data { get; set; } = null!;
+
+    /// <summary>La lectura, como la escribió el modelo.</summary>
+    public string Content { get; set; } = null!;
+
+    public Guid AssistantCallId { get; set; }
+}

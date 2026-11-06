@@ -718,6 +718,28 @@ export interface WorkStepsProposal {
   missing: MissingPart[] | null
 }
 
+/** Una lectura del negocio guardada. `kind`: 1 semana, 2 mes. */
+export interface BusinessReadingListItem {
+  id: string
+  kind: 1 | 2
+  periodFrom: string
+  periodTo: string
+  createdAt: string
+}
+
+export interface BusinessReading {
+  /** Null cuando no hubo lectura: entonces manda `message`. */
+  id: string | null
+  kind: 1 | 2
+  periodFrom: string
+  periodTo: string
+  /** Markdown sencillo: `##`, `-` y `**`. Lo pinta el panel; nadie lo edita. */
+  content: string | null
+  /** Por qué no hay lectura. Sin volumen no se genera, y decirlo es parte de la respuesta. */
+  message: string | null
+  createdAt: string | null
+}
+
 export interface MissingPart {
   /** Con el nombre con el que se pide en una casa de repuestos. */
   name: string

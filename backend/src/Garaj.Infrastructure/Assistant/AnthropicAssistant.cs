@@ -60,11 +60,13 @@ public class AnthropicAssistant(
 
                 // Esquema estricto: no texto que después haya que interpretar. Lo que no cuadre
                 // con el esquema no llega, y lo que llegue se valida igual contra el catálogo.
-                OutputConfig = new OutputConfig
-                {
-                    Effort = Effort.Medium,
-                    Format = new JsonOutputFormat { Schema = prompt.Schema }
-                },
+                OutputConfig = prompt.Schema is null
+                    ? new OutputConfig { Effort = Effort.Medium }
+                    : new OutputConfig
+                    {
+                        Effort = Effort.Medium,
+                        Format = new JsonOutputFormat { Schema = prompt.Schema }
+                    },
 
                 Messages = [new UserMessageParam { Content = prompt.Question }]
             }, cancellationToken: ct);

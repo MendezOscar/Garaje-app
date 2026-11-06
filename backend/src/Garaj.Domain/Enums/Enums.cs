@@ -361,3 +361,10 @@ public enum AssistantProposalStatus
     Accepted = 2,
     Discarded = 3
 }
+
+/// <summary>Cada cuánto se mira el negocio. La semanal es la que se lee; la mensual, la que se guarda.</summary>
+public enum BusinessReadingKind
+{
+    Weekly = 1,
+    Monthly = 2
+}
