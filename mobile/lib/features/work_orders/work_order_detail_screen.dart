@@ -30,6 +30,7 @@ import 'invoice_section.dart';
 import 'parts_section.dart';
 import 'photo_capture.dart';
 import 'photo_gallery.dart';
+import 'assistant_query_screen.dart';
 import 'propose_steps_screen.dart';
 import 'scan_section.dart';
 import 'quotes_section.dart';
@@ -1415,7 +1416,10 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 onApplyTemplate: _applyTemplate,
                 // Los trabajos frecuentes resuelven lo que se repite; el asistente resuelve
                 // el trabajo que no se repite, que es donde se pierde la tarde.
-                onProponerPasos: _tieneAsistente && (order.diagnosis ?? '').trim().isNotEmpty
+                // Proponer los pasos es de quien manda; el técnico tiene la consulta.
+                onProponerPasos: _tieneAsistente
+                        && _isOwner
+                        && (order.diagnosis ?? '').trim().isNotEmpty
                     ? () => _proponerPasos(order)
                     : null,
                 // Elegir el modo de toda la orden se quitó del teléfono: preguntaba lo mismo
@@ -1459,6 +1463,23 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   (order) => PhotoGallery(ownerId: order.id, canEdit: _canEdit),
                 ),
               ),
+              // Preguntar con el vehículo delante. Va al lado del escáner porque es la misma
+              // pregunta —qué le pasa— vista desde el otro lado, y es del técnico: él es
+              // quien lo tiene en la rampa.
+              if (_tieneAsistente && _canEdit)
+                _Fila(
+                  icono: Icons.forum_outlined,
+                  titulo: 'Preguntar',
+                  detalle: 'Con el historial de este taller como respaldo',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AssistantQueryScreen(
+                        workOrderId: order.id,
+                        workOrderNumber: order.number,
+                      ),
+                    ),
+                  ),
+                ),
               // El diagnóstico con el adaptador se entra desde la orden a propósito: así no
               // hay que preguntar de qué carro es la lectura.
               _FilaEscaner(

@@ -17,7 +17,8 @@ namespace Garaj.Api.Controllers;
 public class WorkOrdersController(
     IWorkOrderService service,
     IJobTemplateService jobTemplates,
-    IWorkStepsAssistant workSteps) : ControllerBase
+    IWorkStepsAssistant workSteps,
+    ITechnicianQueryService queries) : ControllerBase
 {
     /// <summary>
     /// Alimenta el kanban del Dueño y la bandeja del Técnico. El alcance lo resuelve el
@@ -139,6 +140,34 @@ public class WorkOrdersController(
     public async Task<ActionResult<AcceptWorkStepsResultDto>> AcceptSteps(
         Guid id, Guid proposalId, AcceptWorkStepsRequest request, CancellationToken ct)
         => Ok(await workSteps.AcceptAsync(id, proposalId, request, ct));
+
+    /// <summary>Las consultas de esta orden. El técnico ve las suyas; quien manda, las del taller.</summary>
+    [HttpGet("{id:guid}/assistant/queries")]
+    [Authorize(Policy = AppPolicies.StaffOnly)]
+    public async Task<ActionResult<IReadOnlyList<ConversationListItemDto>>> Queries(
+        Guid id, CancellationToken ct)
+        => Ok(await queries.ListAsync(id, ct));
+
+    [HttpGet("{id:guid}/assistant/queries/{conversationId:guid}")]
+    [Authorize(Policy = AppPolicies.StaffOnly)]
+    public async Task<ActionResult<ConversationDto>> Query(
+        Guid id, Guid conversationId, CancellationToken ct)
+        => Ok(await queries.GetAsync(conversationId, ct));
+
+    /// <summary>
+    /// Pregunta con el vehículo delante. Sin <c>conversationId</c> abre una consulta nueva.
+    /// </summary>
+    /// <remarks>
+    /// Vale cinco créditos, no uno, y la consulta se cierra sola a las seis preguntas: no es
+    /// solo costo —una conversación larga se desenfoca—. Como el resto del asistente, cuando
+    /// no se puede responde 200 con el motivo, nunca un error.
+    /// </remarks>
+    [HttpPost("{id:guid}/assistant/queries")]
+    [Authorize(Policy = AppPolicies.StaffOnly)]
+    [EnableRateLimiting(RateLimits.Asistente)]
+    public async Task<ActionResult<ConversationDto>> Ask(
+        Guid id, AskAssistantRequest request, CancellationToken ct)
+        => Ok(await queries.AskAsync(id, request.ConversationId, request.Question, ct));
 
     [HttpPut("{id:guid}/tasks/{taskId:guid}")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]

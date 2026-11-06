@@ -54,3 +54,34 @@ public class BusinessReadingConfiguration : IEntityTypeConfiguration<BusinessRea
         b.HasIndex(x => new { x.TenantId, x.Kind, x.PeriodTo }).IsUnique();
     }
 }
+
+public class AssistantConversationConfiguration : IEntityTypeConfiguration<AssistantConversation>
+{
+    public void Configure(EntityTypeBuilder<AssistantConversation> b)
+    {
+        b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+
+        b.HasOne(x => x.WorkOrder)
+            .WithMany()
+            .HasForeignKey(x => x.WorkOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasIndex(x => new { x.TenantId, x.WorkOrderId, x.CreatedAt });
+    }
+}
+
+public class AssistantMessageConfiguration : IEntityTypeConfiguration<AssistantMessage>
+{
+    public void Configure(EntityTypeBuilder<AssistantMessage> b)
+    {
+        b.Property(x => x.Content).IsRequired();
+
+        b.HasOne(x => x.Conversation)
+            .WithMany(x => x.Messages)
+            .HasForeignKey(x => x.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // En el orden en que se dijeron, que es como se lee una conversación.
+        b.HasIndex(x => new { x.ConversationId, x.CreatedAt });
+    }
+}

@@ -4,6 +4,8 @@ import type {
   AcceptWorkStepsResult,
   BusinessReading,
   BusinessReadingListItem,
+  Conversation,
+  ConversationListItem,
   WorkStepsProposal,
   Appointment,
   AppointmentSlot,
@@ -460,6 +462,30 @@ export const workOrdersApi = {
       `/api/work-orders/${id}/assistant/steps/${proposalId}/accept`,
       { tasks },
     )
+    return data
+  },
+  /** Las consultas de esta orden. El técnico ve las suyas; quien manda, las del taller. */
+  async queries(id: string) {
+    const { data } = await api.get<ConversationListItem[]>(
+      `/api/work-orders/${id}/assistant/queries`,
+    )
+    return data
+  },
+  async query(id: string, conversationId: string) {
+    const { data } = await api.get<Conversation>(
+      `/api/work-orders/${id}/assistant/queries/${conversationId}`,
+    )
+    return data
+  },
+  /**
+   * Pregunta con el vehículo delante. Sin `conversationId` abre una consulta nueva; vale 5
+   * créditos y se cierra sola a las seis preguntas.
+   */
+  async ask(id: string, question: string, conversationId?: string) {
+    const { data } = await api.post<Conversation>(`/api/work-orders/${id}/assistant/queries`, {
+      question,
+      conversationId: conversationId ?? null,
+    })
     return data
   },
   /**

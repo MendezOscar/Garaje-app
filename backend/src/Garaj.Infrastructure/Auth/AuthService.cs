@@ -291,7 +291,11 @@ public class AuthService(
             // entra, para no pedirle un precio que el servidor no le va a aceptar.
             role != AppRoles.Technician || tenant.TechniciansSeePrices,
             tenant.WorksWith,
-            tenant.AssistantEnabled && role is AppRoles.Owner or AppRoles.Manager);
+            // El técnico también lo tiene: la consulta con el vehículo delante es suya. Lo
+            // que no puede es proponer los pasos, y eso lo decide la pantalla por el rol, no
+            // este interruptor. Al cliente no le llega nunca.
+            tenant.AssistantEnabled
+                && role is AppRoles.Owner or AppRoles.Manager or AppRoles.Technician);
     }
 
     private async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)

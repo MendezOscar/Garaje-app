@@ -552,3 +552,13 @@ public class AcceptWorkStepsValidator : AbstractValidator<AcceptWorkStepsRequest
         });
     }
 }
+
+public class AskAssistantValidator : AbstractValidator<AskAssistantRequest>
+{
+    public AskAssistantValidator()
+    {
+        RuleFor(x => x.Question)
+            .NotEmpty().WithMessage("Escriba la pregunta.")
+            .MaximumLength(2000);
+    }
+}

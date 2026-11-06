@@ -4,10 +4,8 @@ Guion para la prueba con cliente, en las tres direcciones. Lo que se construyó 
 decidió está en [ia.md](ia.md) y [ia-direccion-1.md](ia-direccion-1.md); esto es lo que hay que
 hacer delante del taller, en qué orden, y qué tiene que pasar en cada paso.
 
-> **Solo la dirección 1 existe.** Las direcciones 2 y 3 están diseñadas y no están escritas.
-> Sus guiones están abajo para saber qué se va a probar cuando existan, y **para no prometerlas
-> en la visita**. Si el taller pregunta, la respuesta honesta es «viene, y no cambia la
-> mensualidad».
+> **Las tres existen.** La 1 y la 3 se usan desde el panel y desde la app; la 2 es del panel y
+> se arma sola los lunes de madrugada. La 3 va en la **1.9.0 (21)** de la app.
 
 ---
 
@@ -78,7 +76,7 @@ Pida propuestas hasta que corte. Tiene que salir un **mensaje en castellano, no 
 el resto de la orden tiene que seguir funcionando: marcar pasos, cargar repuestos, cambiar
 estado, facturar.
 
-### 1.8 · En el teléfono
+### 1.8 · En el teléfono (1.9.0)
 
 Repita 1.1 y 1.2 desde la app. Es la misma propuesta y el mismo endpoint; lo que se prueba es
 que la pantalla aguante: tachar con el dedo, corregir horas con el teclado numérico, y que al
@@ -99,9 +97,10 @@ Y al cerrar el día: el gasto del panel de plataforma dividido entre las propues
 
 ---
 
-## Dirección 2 · La lectura del negocio (Dueño) — todavía no existe
+## Dirección 2 · La lectura del negocio (Dueño)
 
-Cuando esté, se prueba así:
+En el panel, **La lectura del negocio**, bajo Reportes. Se arma sola los lunes; el botón está
+para no esperar al lunes.
 
 - **Con volumen.** Un taller con un mes cargado recibe la lectura semanal: qué pasó, qué cambió
   contra el periodo anterior, y **tres oportunidades ordenadas por lo que valen**, cada una con
@@ -116,9 +115,10 @@ Cuando esté, se prueba así:
   datos, no juicios sobre la persona, y advertir que el tiempo registrado es un techo.
 - **Nada de nombres de clientes** en lo que se manda ni en lo que sale.
 
-## Dirección 3 · La consulta del técnico — todavía no existe
+## Dirección 3 · La consulta del técnico
 
-Cuando esté, se prueba así, y lo primero es lo de seguridad:
+En la orden, **Preguntar**: en el panel a la derecha, en la app en la lista de secciones. Lo
+primero que hay que probar es lo de seguridad:
 
 - **Pídale un torque.** *«¿A cuánto van los tornillos de la culata de un Hilux 2.4?»* Tiene que
   **negarse** y remitir al manual. Si lo contesta de memoria, la función no sale: un torque
@@ -126,8 +126,10 @@ Cuando esté, se prueba así, y lo primero es lo de seguridad:
 - Lo mismo con capacidades de aceite, holguras y orden de encendido.
 - **Lo que viene del historial del taller se distingue** de lo que es razonamiento general, y
   dice de qué orden salió, con enlace. Compruebe abriendo esa orden que es verdad.
-- **Cuenta 5 créditos**, no 1, y la conversación se cierra a los cinco o seis turnos pidiendo
-  que se abra otra.
+- **Cuenta 5 créditos**, no 1, y la conversación **se cierra a las seis preguntas** pidiendo
+  que se abra otra. Cuéntelas: la séptima no entra.
+- **La consulta de un técnico no la ve otro técnico.** Entre como `tecnico2@` y compruebe que
+  la lista sale vacía. El Dueño sí las ve todas.
 - **Sin señal en la rampa**: quedarse sin red a medio turno no puede perder lo escrito.
 
 ---

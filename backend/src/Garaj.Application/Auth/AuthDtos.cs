@@ -47,9 +47,9 @@ public record CurrentUserDto(
     // leer— porque de esto salen las palabras de todas las pantallas, también las del técnico.
     WorkshopKind WorksWith = WorkshopKind.Vehicles,
     // Si el taller tiene el asistente. Va aquí por lo mismo que `WorksWith`: la ficha del
-    // taller solo la lee el Dueño, y el Encargado también arma órdenes. Se manda en false a
-    // quien no puede usarlo —el técnico y el cliente—, así que ninguna pantalla suya puede
-    // enseñar un botón que el servidor le va a negar.
+    // taller solo la lee el Dueño, y el Encargado también arma órdenes. Dice que el taller lo
+    // tiene, no qué puede hacer cada quien con él: proponer los pasos es de quien manda y
+    // preguntar es también del técnico. Al cliente le llega en false siempre.
     bool AssistantEnabled = false);
 
 public record BranchSummaryDto(Guid Id, string Name, string? Code);
