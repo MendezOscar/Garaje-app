@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- El contenedor compartido entre la app y la extensión: es por donde le pasa el PDF.
+	     Tiene que existir también en el perfil de aprovisionamiento de las dos. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.garaj.garajApp</string>
+	</array>
+</dict>
+</plist>

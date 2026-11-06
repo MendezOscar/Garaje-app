@@ -35,6 +35,12 @@ target 'Runner' do
   target 'RunnerTests' do
     inherit! :search_paths
   end
+
+  # La extensión que pone GarajApp en «Compartir con…». Hereda las rutas de búsqueda del
+  # Runner para poder importar `receive_sharing_intent`, que es todo lo que usa.
+  target 'Share Extension' do
+    inherit! :search_paths
+  end
 end
 
 post_install do |installer|

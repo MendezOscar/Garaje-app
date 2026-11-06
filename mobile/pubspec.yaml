@@ -5,7 +5,7 @@ publish_to: 'none'
 # En Android build-name es versionName y build-number es versionCode; en iOS son
 # CFBundleShortVersionString y CFBundleVersion. El de la tienda se pasa al compilar con
 # --build-name / --build-number, así que este valor solo manda en las compilaciones locales.
-version: 1.7.0+19
+version: 1.8.0+20
 
 environment:
   sdk: ^3.9.0
@@ -35,6 +35,10 @@ dependencies:
   # igual —los avisos se guardan en la API y se ven en la campana—. Ver docs/push.md.
   firebase_core: ^4.13.0
   firebase_messaging: ^16.5.0
+  # Recibir «Compartir → GarajApp». Es como entra el informe del escáner: la tableta de
+  # diagnóstico arma su PDF, el técnico lo comparte y la app pregunta a qué orden va.
+  # Versión fija y no ^: la 1.9.0 pide Flutter 3.38 y aquí se compila con la 3.35.
+  receive_sharing_intent: 1.8.1
   # Para mostrar la versión instalada en «Más». Se lee del paquete y no de una constante:
   # una constante se queda vieja el día que alguien suba la versión y no la actualice.
   package_info_plus: ^9.0.1

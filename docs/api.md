@@ -179,7 +179,14 @@ Reglas propias de las fotos, además del alcance general:
 - El **Técnico** adjunta y borra en las órdenes que tiene asignadas, y solo sus propias fotos.
 - El **Dueño** borra cualquier foto del taller.
 
-Se admiten JPEG, PNG, WebP y HEIC, hasta 15 MB (`Storage:MaxUploadBytes`). Las URL de lectura
+Se admiten JPEG, PNG, WebP, HEIC y **PDF**, hasta 15 MB (`Storage:MaxUploadBytes`). El PDF
+está para el informe del escáner: entra por los mismos tres pasos, con
+`contentType: "application/pdf"`. Al confirmarlo se comprueba que el archivo empiece por
+`%PDF-` —la firma del `PUT` ata la etiqueta, no el contenido— y lo que no lo sea se borra del
+bucket. No lleva miniatura: `thumbnailUrl` repite la del original, y quien pinta la galería
+distingue por `contentType`. El PDF de la cotización no lo incrusta —es otro documento, no una
+imagen—: avisa de que va adjunto, y el cliente lo descarga del enlace, donde sale en
+`documents`. Las URL de lectura
 caducan a los 15 minutos (`Storage:PresignedUrlMinutes`): son temporales a propósito, viajan
 en JSON y podrían quedar en una caché o en un log.
 

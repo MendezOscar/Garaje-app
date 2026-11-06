@@ -11,6 +11,41 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.8.0 (20)
+
+### Google Play — «Novedades» (es-419)
+
+```
+El informe del escáner ya entra a la orden.
+
+Termine de escanear, toque Compartir y elija GarajApp: la app pregunta a qué orden va
+—con la placa y el cliente a la vista— y adjunta el informe.
+
+De ahí sale en la cotización, para que el cliente vea de dónde salió el precio en vez de
+tener que creerle al taller.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+El diagnóstico deja de quedarse en la pantalla del escáner.
+
+EL INFORME DEL ESCÁNER, EN LA ORDEN
+· Termine de escanear como siempre. En la tableta —o en el teléfono— toque Compartir y
+  elija GarajApp.
+· La app pregunta a qué orden va: enseña las órdenes abiertas con la placa y el nombre del
+  cliente en grande, con buscador por placa, y repite el vehículo antes de guardar.
+· El informe queda adjunto a la orden, se puede abrir, y se puede quitar.
+
+EN LA COTIZACIÓN
+· El informe se trae a la cotización igual que las fotos, y el cliente lo descarga desde su
+  enlace. El presupuesto deja de ser la palabra del taller y pasa a ser un documento.
+
+Sirve con cualquier escáner que exporte el informe en PDF, no solo con uno.
+```
+
+---
+
 ## 1.7.0 (19)
 
 ### Google Play — «Novedades» (es-419)

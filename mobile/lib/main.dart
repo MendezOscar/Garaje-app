@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:ui';
 
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/auth/auth_controller.dart';
 import 'core/push/push_messaging.dart';
 import 'core/router/app_router.dart';
+import 'core/sharing/informe_compartido.dart';
 import 'core/sync/upload_queue.dart';
 import 'core/theme/garaj_brand.dart';
 import 'core/widgets/porton_de_version.dart';
@@ -65,10 +67,17 @@ class GarajApp extends ConsumerStatefulWidget {
 
 class _GarajAppState extends ConsumerState<GarajApp> {
   late final AppLifecycleListener _lifecycle;
+  StreamSubscription<void>? _compartidos;
 
   @override
   void initState() {
     super.initState();
+
+    // «Compartir → GarajApp» desde el escáner. Llega un PDF sin orden: se guarda y la
+    // pantalla de abajo lo lleva a preguntar a qué orden va, en cuanto haya sesión.
+    _compartidos = escucharCompartidos(
+      (informe) => ref.read(informeCompartidoProvider.notifier).recibir(informe),
+    );
 
     // Las fotos que quedaron esperando red se reintentan al volver a la app. Antes solo se
     // reintentaban al abrir la galería de esa orden, así que una foto tomada en un taller sin
@@ -88,6 +97,7 @@ class _GarajAppState extends ConsumerState<GarajApp> {
 
   @override
   void dispose() {
+    _compartidos?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }
@@ -105,8 +115,22 @@ class _GarajAppState extends ConsumerState<GarajApp> {
         push.start();
         // Y al entrar: si la app se cerró con fotos pendientes, se suben ahora.
         ref.read(uploadQueueProvider.notifier).flush();
+
+        // Lo mismo con el informe que se compartió antes de entrar: ahora ya se le puede
+        // preguntar a qué orden va.
+        if (ref.read(informeCompartidoProvider) != null) {
+          router.push('/adjuntar-informe');
+        }
       } else if (next is AuthSignedOut && previous is AuthSignedIn) {
         push.stop();
+      }
+    });
+
+    // El informe compartido espera a que haya sesión: si llega con la app cerrada, primero
+    // hay que entrar. En cuanto se puede, se abre la pantalla que pregunta a qué orden va.
+    ref.listen<InformeCompartido?>(informeCompartidoProvider, (_, informe) {
+      if (informe != null && ref.read(authControllerProvider) is AuthSignedIn) {
+        router.push('/adjuntar-informe');
       }
     });
 

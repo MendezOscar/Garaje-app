@@ -12,6 +12,9 @@ public record MediaAttachmentDto(
     string ThumbnailUrl,
     string ContentType,
     long SizeBytes,
+    // Cómo se llamaba el archivo cuando llegó. En una foto no importa; en el informe del
+    // escáner es lo único que lo identifica en la lista, porque no tiene miniatura que mirar.
+    string? FileName,
     string? Caption,
     Guid UploadedByUserId,
     string UploadedByName,
@@ -102,6 +105,13 @@ public interface IMediaService
     /// </summary>
     Task<IReadOnlyList<MediaAttachmentDto>> ListForQuotePublicAsync(
         Guid tenantId, Guid quoteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Si el recurso lleva adjuntos que no son imágenes —el informe del escáner—. Es lo que
+    /// decide si el PDF avisa de que hay un informe que el cliente puede descargar aparte.
+    /// </summary>
+    Task<bool> HasDocumentsAsync(
+        MediaOwnerType ownerType, Guid ownerId, Guid tenantId, CancellationToken ct = default);
 
     /// <summary>
     /// Las miniaturas del recurso ya descargadas, para incrustarlas en un PDF que viaja por

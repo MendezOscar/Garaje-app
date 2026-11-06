@@ -241,6 +241,29 @@ onMounted(load)
         </div>
       </section>
 
+      <!--
+        El informe del escáner. Va después de las fotos y antes de aprobar, por lo mismo: es
+        lo que contesta «¿y cómo sé que eso es lo que tiene?». Se descarga, no se mira aquí.
+      -->
+      <section v-if="quote.documents?.length" class="fotos-seccion">
+        <h2>Informe de diagnóstico</h2>
+        <div class="documentos">
+          <a
+            v-for="(doc, i) in quote.documents"
+            :key="i"
+            :href="doc.url"
+            target="_blank"
+            rel="noopener"
+          >
+            <span class="icono" aria-hidden="true">PDF</span>
+            <span>
+              {{ doc.caption ?? doc.fileName }}
+              <span class="muted small">{{ Math.max(1, Math.round(doc.sizeBytes / 1024)) }} KB</span>
+            </span>
+          </a>
+        </div>
+      </section>
+
       <ErrorNote v-if="error" :message="error" />
 
       <!-- Respuesta del cliente -->
@@ -381,6 +404,37 @@ onMounted(load)
   aspect-ratio: 1;
   border-radius: 6px;
   object-fit: cover;
+}
+
+.documentos a {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.documentos a + a {
+  margin-top: 0.375rem;
+}
+
+.documentos .icono {
+  flex: none;
+  padding: 0.25rem 0.375rem;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.documentos .small {
+  display: block;
 }
 
 .page {

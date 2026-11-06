@@ -1367,6 +1367,9 @@ public class WorkOrderService(
             .FirstAsync(t => t.Id == order.TenantId, ct);
 
         var photos = (await media.ListForOrderPublicAsync(order.TenantId, order.Id, ct))
+            // Solo imágenes: el informe del escáner también cuelga de la orden, y aquí saldría
+            // como una foto rota. Al cliente le llega por la cotización, que es donde pesa.
+            .Where(p => p.ContentType.StartsWith("image/"))
             .Select(p => new OrderTrackingPhotoDto(
                 p.Url, p.ThumbnailUrl, p.Caption, p.TakenAt, p.TaskTitle))
             .ToList();
