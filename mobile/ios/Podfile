@@ -54,4 +54,38 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
   end
+
+  # La extensión de compartir importa el módulo de `receive_sharing_intent`, y ese módulo
+  # incluye `Flutter/Flutter.h`. Flutter.framework aparece en la carpeta de productos recién
+  # cuando el Runner corre su script, y la extensión se compila antes que él: en una
+  # compilación limpia —la del archivado para la tienda— no lo encuentra y el archivado falla.
+  # Compilando encima de lo anterior sí funcionaba, que es lo que lo hacía parecer bueno.
+  #
+  # Se le dan las mismas rutas del motor que `flutter_additional_ios_build_settings` les pone
+  # a los pods. Se escriben en el xcconfig que genera CocoaPods y no en el proyecto, porque
+  # llevan la ruta de Flutter de cada máquina y el proyecto sí se versiona.
+  engine = File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine')
+  motor = { :debug => File.join(engine, 'ios', 'Flutter.xcframework'),
+            :release => File.join(engine, 'ios-release', 'Flutter.xcframework') }
+
+  installer.aggregate_targets.each do |aggregate|
+    next unless aggregate.name == 'Pods-Share Extension'
+
+    aggregate.user_build_configurations.each do |nombre, tipo|
+      carpeta = motor[tipo == :debug ? :debug : :release]
+      lineas = []
+
+      Dir.new(carpeta).each_child do |slice|
+        next if slice.start_with?('.')
+
+        if slice.end_with?('-simulator')
+          lineas << "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*] = $(inherited) \"#{carpeta}/#{slice}\""
+        elsif slice.start_with?('ios-')
+          lineas << "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*] = $(inherited) \"#{carpeta}/#{slice}\""
+        end
+      end
+
+      File.open(aggregate.xcconfig_path(nombre), 'a') { |f| f.puts('', lineas) }
+    end
+  end
 end
