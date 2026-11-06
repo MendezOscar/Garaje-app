@@ -640,6 +640,17 @@ class _StockCard extends StatelessWidget {
                       '${item.location == null ? '' : ' · ${item.location}'}',
                       style: theme.textTheme.bodySmall,
                     ),
+                    // A qué carros le sirve, igual que en el panel: una sola línea, porque
+                    // un repuesto con diez aplicaciones no puede empujar al resto de la lista.
+                    if (item.applications.isNotEmpty)
+                      Text(
+                        item.applications.map((a) => a.resumen).join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
                   ],
                 ),
               ),
