@@ -52,6 +52,9 @@ export const useAuthStore = defineStore('auth', () => {
    */
   const seesPrices = computed(() => user.value?.seesPrices !== false)
 
+  /** Si este usuario puede pedirle al asistente que proponga los pasos. */
+  const hasAssistant = computed(() => user.value?.assistantEnabled === true)
+
   async function login(email: string, password: string): Promise<void> {
     const { data } = await api.post<AuthResponse>('/api/auth/login', { email, password })
     saveSession(data)
@@ -116,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
     isTechnician,
     isCustomer,
     seesPrices,
+    hasAssistant,
     login,
     logout,
     loadCurrentUser,

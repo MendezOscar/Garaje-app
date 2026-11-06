@@ -45,6 +45,13 @@ export interface CurrentUser {
    * donde iba un precio.
    */
   seesPrices: boolean
+  /**
+   * Si este usuario tiene el asistente. Viene en la sesión por lo mismo que `worksWith`: la
+   * ficha del taller solo la lee el Dueño, y el Encargado también arma órdenes. Llega en
+   * false a quien no puede usarlo, así que su pantalla no puede ofrecer lo que el servidor
+   * le va a negar.
+   */
+  assistantEnabled: boolean
 }
 
 export type SubscriptionState = 'Active' | 'DueSoon' | 'Grace' | 'ReadOnly' | 'Suspended'
