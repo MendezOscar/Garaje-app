@@ -10,6 +10,10 @@
 
   Los precios viven en tres sitios y hay que moverlos en los tres: las tarjetas de planes, la
   tabla «Qué trae cada plan» y la tabla de conceptos de más abajo, más la línea del pago anual.
+  La asignación de créditos del asistente está escrita en dos sitios: la tabla «Créditos de uso»
+  y el ejemplo de abajo. La fórmula es 150 al mes más 100 por técnico, y 20 al día más 20 por
+  técnico; si cambia, cámbiela en los dos y rehaga el ejemplo con los técnicos de ese taller.
+
   Hoy: Taller L 850, Taller Pro L 1,250, sucursal adicional L 300 (L 400 en Pro), técnico
   adicional L 150.
 
@@ -116,7 +120,7 @@
   <h2>3. Inversión</h2>
   <p>La puesta en marcha —instalación, carga de los datos del taller y capacitación del equipo— <strong>no tiene costo</strong>. Se paga una mensualidad que cubre todo: alojamiento en la nube, respaldos, actualizaciones y soporte.</p>
 
-  <p style="margin-top:8px"><strong>Dos planes.</strong> El <strong>Taller</strong> es la operación completa del día a día. El <strong>Taller Pro</strong> le suma el <strong>diagnóstico con escáner</strong>: el informe del motor entra a la orden y sale en la cotización del cliente.</p>
+  <p style="margin-top:8px"><strong>Dos planes.</strong> El <strong>Taller</strong> es la operación completa del día a día. El <strong>Taller Pro</strong> le suma el <strong>diagnóstico con escáner</strong> —el informe del motor entra a la orden y sale en la cotización del cliente— y el <strong>asistente con inteligencia artificial</strong>, que propone los pasos del trabajo, le contesta al técnico y le lee el negocio cada semana.</p>
 
   <div class="cards">
     <div class="card">
@@ -127,7 +131,7 @@
     <div class="card pop">
       <div class="n">Taller Pro <span class="tag">Con diagnóstico</span></div>
       <div class="pr">L 1,250 <span>/ mes</span></div>
-      <small>Todo lo del plan Taller, <strong>técnicos sin límite</strong> y <strong>el módulo de diagnóstico</strong>: el informe del escáner en la orden, la lectura directa de los códigos y el historial por vehículo.</small>
+      <small>Todo lo del plan Taller, <strong>técnicos sin límite</strong>, <strong>el módulo de diagnóstico</strong> —el informe del escáner en la orden, la lectura directa de los códigos y el historial por vehículo— y <strong>el asistente con inteligencia artificial</strong>.</small>
     </div>
     <div class="card">
       <div class="n">Sucursal adicional</div>
@@ -176,6 +180,18 @@
         <td><strong>Puesta en marcha del escáner</strong><br /><span class="muted">dejarlo conectado y probado con sus vehículos</span></td>
         <td class="num">—</td><td class="num"><strong>Sí</strong></td>
       </tr>
+      <tr>
+        <td><strong>Asistente: los pasos del trabajo</strong><br /><span class="muted">del diagnóstico sale una propuesta de pasos y repuestos de su catálogo, que usted corrige y acepta · 1 crédito</span></td>
+        <td class="num">—</td><td class="num"><strong>Sí</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Asistente: la consulta del técnico</strong><br /><span class="muted">preguntar con el vehículo en la rampa, con lo que su propio taller ya reparó antes · 5 créditos</span></td>
+        <td class="num">—</td><td class="num"><strong>Sí</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Asistente: la lectura del negocio</strong><br /><span class="muted">cada semana, qué pasó con las ventas, el inventario y los técnicos, y qué conviene hacer · sin costo de créditos</span></td>
+        <td class="num">—</td><td class="num"><strong>Sí</strong></td>
+      </tr>
     </tbody>
   </table>
 
@@ -188,6 +204,64 @@
     descripción: esa información las marcas la venden aparte. Los códigos estándar, que son la
     mayoría de lo que entra a diario, salen explicados en español.
   </div>
+
+  <h3>El asistente, y hasta dónde llega</h3>
+  <p>El plan Taller Pro incluye un asistente con inteligencia artificial. Funciona con
+  <strong>Claude Opus 5.5, de Anthropic</strong> —uno de los modelos más capaces que hay hoy—,
+  y si más adelante lo reemplazamos será por otro igual o mejor, nunca por uno más barato a
+  costa de la calidad. Usted no contrata nada con nadie ni pone ninguna clave: va incluido.</p>
+
+  <div class="hl">
+    🤖 <strong>Qué hace, y qué no hace.</strong> El asistente <strong>propone, usted decide</strong>:
+    nada de lo que escribe se guarda solo, ni se le manda al cliente, ni se convierte en una
+    orden sin que alguien del taller lo acepte. <strong>No pone precios</strong> —los pasos y los
+    repuestos salen con los de su propio catálogo—, <strong>no le escribe al cliente</strong>, y
+    <strong>no inventa especificaciones de fábrica</strong>: si el técnico le pregunta un torque
+    o una capacidad de aceite, le dice que eso lo consulte en el manual del fabricante, porque
+    un dato inventado ahí rompe un motor. Lo que sí sabe mejor que nadie es lo que
+    <strong>su taller</strong> ya reparó antes.
+  </div>
+
+  <h3>Créditos de uso</h3>
+  <p>Para que el asistente no se vuelva un gasto sin fondo —ni para usted ni para nosotros—,
+  el uso va por créditos. Se reponen cada mes y <strong>no se acumulan</strong>:</p>
+
+  <table>
+    <thead><tr><th>Concepto</th><th>Detalle</th><th class="num">Créditos</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Proponer los pasos de una orden</strong></td>
+        <td>Del diagnóstico salen los pasos y los repuestos, listos para corregir y aceptar.</td>
+        <td class="num">1</td>
+      </tr>
+      <tr>
+        <td><strong>Una consulta del técnico</strong></td>
+        <td>Una conversación de hasta seis preguntas sobre la orden que tiene en la mano.</td>
+        <td class="num">5</td>
+      </tr>
+      <tr>
+        <td><strong>La lectura semanal del negocio</strong></td>
+        <td>Se la mandamos nosotros. No gasta créditos suyos.</td>
+        <td class="num">0</td>
+      </tr>
+      <tr>
+        <td><strong>Incluido en el Taller Pro</strong><br /><span class="muted">150 al mes, más 100 por cada técnico con acceso a la app</span></td>
+        <td>Su taller, con <strong>2 técnicos</strong>: <strong>350 créditos al mes</strong>, con un máximo de <strong>60 al día</strong>. Si crece el equipo, crece la asignación sola.</td>
+        <td class="num">350 / mes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:10px">Para que se haga una idea de qué tanto es: <strong>350 créditos</strong>
+  dan para proponer los pasos de <strong>150 órdenes</strong> y aún sobran <strong>40 consultas</strong>
+  del técnico en el mes. El tope diario no está para racionarle nada —un día ocupado no pasa de
+  15 o 20 créditos—, sino para que un uso raro no le vacíe el mes en una tarde.</p>
+
+  <p style="margin-top:8px">En el panel ve cuántos le quedan, igual que ve su mensualidad.
+  Cuando se acaban, el asistente se apaga con un aviso que lo dice y vuelve al día siguiente o
+  al mes siguiente, según el tope que se haya tocado; <strong>el resto de GarajApp sigue
+  funcionando igual</strong>. Si su taller llega seguido al límite, nos avisa y lo subimos:
+  es una señal de que le está sacando provecho, no un problema.</p>
 
   <table>
     <thead><tr><th>Concepto</th><th>Detalle</th><th class="num">Monto (HNL)</th></tr></thead>
