@@ -114,10 +114,12 @@ public class WorkStepsAssistant(
         db.AssistantProposals.Add(propuesta);
         await db.SaveChangesAsync(ct);
 
-        var (pasos, repuestos) = await ValidarAsync(cruda, material, orden.BranchId, ct);
+        var (pasos, repuestos, faltantes) =
+            await ValidarAsync(cruda, material, orden.BranchId, ct);
 
         return new WorkStepsProposalDto(
-            propuesta.Id, true, null, pasos, repuestos, Nota(cruda.Nota), Restantes(uso));
+            propuesta.Id, true, null, pasos, repuestos, Nota(cruda.Nota), Restantes(uso),
+            faltantes);
     }
 
     public async Task<AcceptWorkStepsResultDto> AcceptAsync(
@@ -218,13 +220,16 @@ public class WorkStepsAssistant(
         }
     }
 
-    private async Task<(List<ProposedTaskDto>, List<ProposedPartDto>)> ValidarAsync(
-        RespuestaDelAsistente cruda, AssistantCatalogDto material, Guid branchId, CancellationToken ct)
+    private async Task<(List<ProposedTaskDto>, List<ProposedPartDto>, List<MissingPartDto>)>
+        ValidarAsync(
+            RespuestaDelAsistente cruda, AssistantCatalogDto material, Guid branchId,
+            CancellationToken ct)
     {
         var servicios = material.Services.ToDictionary(
             s => s.Code, s => s, StringComparer.OrdinalIgnoreCase);
 
         var pasos = new List<ProposedTaskDto>();
+        var conServicio = new List<(int Indice, Guid ServicioId)>();
 
         foreach (var paso in cruda.Pasos.Take(MaximoPasos))
         {
@@ -237,6 +242,8 @@ public class WorkStepsAssistant(
                 && servicios.TryGetValue(paso.CodigoManoDeObra.Trim(), out var encontrado))
                 servicio = encontrado;
 
+            if (servicio is not null) conServicio.Add((pasos.Count, servicio.Id));
+
             pasos.Add(new ProposedTaskDto(
                 titulo,
                 Recorte(paso.Descripcion, 1000),
@@ -245,13 +252,132 @@ public class WorkStepsAssistant(
                 Math.Clamp(paso.Horas, 0m, MaximoHoras)));
         }
 
+        // Lo que el taller ha cobrado por cada uno de estos trabajos. Lo calcula el servidor:
+        // es un número de sus propias órdenes, no uno que el modelo se saque de la manga.
+        var historial = await HistorialAsync(conServicio.Select(x => x.ServicioId).ToList(), ct);
+
+        foreach (var (indice, servicioId) in conServicio)
+        {
+            if (historial.TryGetValue(servicioId, out var h))
+                pasos[indice] = pasos[indice] with { History = h };
+        }
+
         var repuestos = await SugerirAsync(cruda.Repuestos, branchId, ct);
 
-        return (pasos, repuestos
-            .Select(r => new ProposedPartDto(
-                r.PartId!.Value, r.Sku, r.PartName, r.Unit, r.Quantity, r.Available,
-                r.Description ?? ""))
-            .ToList());
+        return (
+            pasos,
+            repuestos
+                .Select(r => new ProposedPartDto(
+                    r.PartId!.Value, r.Sku, r.PartName, r.Unit, r.Quantity, r.Available,
+                    r.Description ?? ""))
+                .ToList(),
+            Faltantes(cruda.Faltantes, material));
+    }
+
+    /// <summary>
+    /// Lo que el trabajo lleva y el taller no tiene. Va aparte de los repuestos del catálogo
+    /// para que nadie los confunda con existencia.
+    /// </summary>
+    /// <remarks>
+    /// Si el modelo escribe aquí algo que sí está en el catálogo, se descarta: ese ya salió
+    /// —o debió salir— por el otro lado, y verlo dos veces haría dudar de la lista entera.
+    /// </remarks>
+    private static List<MissingPartDto> Faltantes(
+        List<FaltantePropuesto>? propuestos, AssistantCatalogDto material)
+    {
+        if (propuestos is null or { Count: 0 }) return [];
+
+        var enCatalogo = new HashSet<string>(
+            material.Parts.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+
+        var salida = new List<MissingPartDto>();
+
+        foreach (var falta in propuestos.Take(MaximoRepuestos))
+        {
+            var nombre = Recorte(falta.Nombre, 160);
+
+            if (nombre is null || falta.Cantidad <= 0 || enCatalogo.Contains(nombre)) continue;
+
+            salida.Add(new MissingPartDto(
+                nombre,
+                Math.Min(falta.Cantidad, MaximaCantidad),
+                Recorte(falta.ParaElPaso, 200) ?? ""));
+        }
+
+        return salida;
+    }
+
+    /// <summary>
+    /// Qué ha cobrado este taller por cada uno de estos servicios, de sus órdenes entregadas
+    /// del último año.
+    /// </summary>
+    /// <remarks>
+    /// Las filas se traen y la cuenta se hace aquí porque el precio de un paso no está
+    /// guardado: sale del precio a mano si lo tiene, y si no del servicio con las horas que
+    /// llevó —<see cref="WorkOrderTask.PriceWith"/>—. Traducir esa regla a SQL sería tener la
+    /// misma cuenta escrita en dos sitios, que es como empiezan a no coincidir.
+    ///
+    /// Solo entregadas: una orden abierta todavía puede cambiar de precio, y una cancelada no
+    /// se cobró.
+    /// </remarks>
+    private async Task<Dictionary<Guid, TaskHistoryDto>> HistorialAsync(
+        List<Guid> servicioIds, CancellationToken ct)
+    {
+        if (servicioIds.Count == 0) return [];
+
+        var desde = clock.UtcNow.AddYears(-1);
+
+        var filas = await db.WorkOrderTasks
+            .AsNoTracking()
+            .Where(t => t.LaborServiceId != null
+                && servicioIds.Contains(t.LaborServiceId.Value)
+                && t.WorkOrder.Status == WorkOrderStatus.Delivered
+                && t.WorkOrder.ClosedAt >= desde)
+            .Select(t => new
+            {
+                ServicioId = t.LaborServiceId!.Value,
+                t.ManualLaborPrice,
+                t.ActualHours,
+                t.EstimatedHours
+            })
+            .Take(500)
+            .ToListAsync(ct);
+
+        if (filas.Count == 0) return [];
+
+        var servicios = await db.LaborServices
+            .AsNoTracking()
+            .Where(s => servicioIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, ct);
+
+        var historial = new Dictionary<Guid, TaskHistoryDto>();
+
+        foreach (var grupo in filas.GroupBy(f => f.ServicioId))
+        {
+            servicios.TryGetValue(grupo.Key, out var servicio);
+
+            var precios = grupo
+                .Select(f => f.ManualLaborPrice ?? servicio?.PriceFor(f.ActualHours ?? f.EstimatedHours))
+                .Where(p => p is > 0)
+                .Select(p => p!.Value)
+                .ToList();
+
+            var horas = grupo
+                .Select(f => f.ActualHours)
+                .Where(h => h is > 0)
+                .Select(h => h!.Value)
+                .ToList();
+
+            if (precios.Count == 0 && horas.Count == 0) continue;
+
+            historial[grupo.Key] = new TaskHistoryDto(
+                grupo.Count(),
+                precios.Count == 0 ? null : precios.Min(),
+                precios.Count == 0 ? null : precios.Max(),
+                horas.Count == 0 ? null : Math.Round(horas.Average(), 2));
+        }
+
+        return historial;
     }
 
     /// <summary>

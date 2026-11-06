@@ -11,6 +11,7 @@ class WorkStepsProposal {
     required this.parts,
     required this.note,
     required this.creditsLeftToday,
+    this.missing = const [],
   });
 
   factory WorkStepsProposal.fromJson(Map<String, dynamic> json) => WorkStepsProposal(
@@ -25,6 +26,9 @@ class WorkStepsProposal {
             .toList(),
         note: json['note'] as String?,
         creditsLeftToday: (json['creditsLeftToday'] as num?)?.toInt() ?? 0,
+        missing: ((json['missing'] as List<dynamic>?) ?? [])
+            .map((e) => MissingPart.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   /// Null cuando no hubo propuesta: entonces manda [message].
@@ -42,6 +46,63 @@ class WorkStepsProposal {
   final String? note;
 
   final int creditsLeftToday;
+
+  /// Lo que el trabajo lleva y el taller no tiene en catálogo. Va aparte de [parts] para que
+  /// nadie los confunda con existencia: estos hay que comprarlos o darlos de alta.
+  final List<MissingPart> missing;
+}
+
+class MissingPart {
+  const MissingPart({required this.name, required this.quantity, required this.forTask});
+
+  factory MissingPart.fromJson(Map<String, dynamic> json) => MissingPart(
+        name: json['name'] as String,
+        quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
+        forTask: json['forTask'] as String? ?? '',
+      );
+
+  /// Con el nombre con el que se pide en una casa de repuestos.
+  final String name;
+  final double quantity;
+  final String forTask;
+}
+
+/// Lo que el taller ha cobrado por este mismo trabajo, de sus propias órdenes entregadas.
+/// Lo calcula el servidor: no es un precio que la IA se saque de la manga.
+class TaskHistory {
+  const TaskHistory({
+    required this.times,
+    this.priceFrom,
+    this.priceTo,
+    this.typicalHours,
+  });
+
+  factory TaskHistory.fromJson(Map<String, dynamic> json) => TaskHistory(
+        times: (json['times'] as num?)?.toInt() ?? 0,
+        priceFrom: (json['priceFrom'] as num?)?.toDouble(),
+        priceTo: (json['priceTo'] as num?)?.toDouble(),
+        typicalHours: (json['typicalHours'] as num?)?.toDouble(),
+      );
+
+  final int times;
+  final double? priceFrom;
+  final double? priceTo;
+  final double? typicalHours;
+
+  /// Como se lee en una línea: «3 veces antes · cobrado L 525.00 a L 800.00».
+  String get resumen {
+    final veces = '$times ${times == 1 ? 'vez' : 'veces'} antes';
+
+    if (priceFrom == null || priceTo == null) {
+      return typicalHours == null ? 'Hecho $veces' : 'Hecho $veces · $typicalHours h';
+    }
+
+    final precio = priceFrom == priceTo
+        ? 'L ${priceFrom!.toStringAsFixed(2)}'
+        : 'L ${priceFrom!.toStringAsFixed(2)} a L ${priceTo!.toStringAsFixed(2)}';
+
+    return '$veces · cobrado $precio';
+  }
 }
 
 class ProposedTask {
@@ -51,6 +112,7 @@ class ProposedTask {
     required this.laborServiceId,
     required this.laborServiceName,
     required this.hours,
+    this.history,
     this.incluido = true,
   });
 
@@ -60,6 +122,9 @@ class ProposedTask {
         laborServiceId: json['laborServiceId'] as String?,
         laborServiceName: json['laborServiceName'] as String?,
         hours: (json['hours'] as num?)?.toDouble() ?? 0,
+        history: json['history'] == null
+            ? null
+            : TaskHistory.fromJson(json['history'] as Map<String, dynamic>),
       );
 
   final String title;
@@ -71,6 +136,10 @@ class ProposedTask {
   final String? laborServiceName;
 
   double hours;
+
+  /// Null cuando el taller nunca lo ha hecho, o cuando el paso no salió del catálogo. Sin
+  /// historia no se enseña ningún número: la diferencia entre callar y adivinar.
+  final TaskHistory? history;
 
   /// Si se queda. Se edita en la pantalla: tachar un paso es lo primero que hace quien revisa.
   bool incluido;
