@@ -10,9 +10,12 @@
 
   Los precios viven en tres sitios y hay que moverlos en los tres: las tarjetas de planes, la
   tabla «Qué trae cada plan» y la tabla de conceptos de más abajo, más la línea del pago anual.
-  La asignación de créditos del asistente está escrita en dos sitios: la tabla «Créditos de uso»
-  y el ejemplo de abajo. La fórmula es 150 al mes más 100 por técnico, y 20 al día más 20 por
-  técnico; si cambia, cámbiela en los dos y rehaga el ejemplo con los técnicos de ese taller.
+  Los créditos del asistente están en tres sitios: la tabla «Créditos de uso», el ejemplo que
+  la sigue y la tabla de conceptos de abajo. Son 450 al mes y 80 al día, iguales para todo
+  taller, y el paquete adicional va a L 100 por cada 100. Es número fijo a propósito: los
+  técnicos del plan Pro son sin límite —eso es acceso y no cuesta—, y lo que se mide es el
+  asistente. La fórmula interna para decidir a quién subirle la asignación (150 al mes más 100
+  por técnico) vive en docs/ia.md, no aquí: no es una promesa al cliente.
 
   Hoy: Taller L 850, Taller Pro L 1,250, sucursal adicional L 300 (L 400 en Pro), técnico
   adicional L 150.
@@ -245,23 +248,28 @@
         <td class="num">0</td>
       </tr>
       <tr>
-        <td><strong>Incluido en el Taller Pro</strong><br /><span class="muted">150 al mes, más 100 por cada técnico con acceso a la app</span></td>
-        <td>Su taller, con <strong>2 técnicos</strong>: <strong>350 créditos al mes</strong>, con un máximo de <strong>60 al día</strong>. Si crece el equipo, crece la asignación sola.</td>
-        <td class="num">350 / mes</td>
+        <td><strong>Incluido en el Taller Pro</strong></td>
+        <td><strong>450 créditos al mes</strong>, con un máximo de <strong>80 al día</strong>. Los mismos para todo el taller, tenga tres técnicos o quince: lo que se mide es el asistente, no la gente.</td>
+        <td class="num">450 / mes</td>
+      </tr>
+      <tr>
+        <td><strong>Créditos adicionales</strong><br /><span class="muted">si su taller necesita más</span></td>
+        <td>Se agregan al mes en curso y se renuevan con él. Se contratan y se quitan cuando quiera.</td>
+        <td class="num">L 100 por 100</td>
       </tr>
     </tbody>
   </table>
 
-  <p style="margin-top:10px">Para que se haga una idea de qué tanto es: <strong>350 créditos</strong>
-  dan para proponer los pasos de <strong>150 órdenes</strong> y aún sobran <strong>40 consultas</strong>
+  <p style="margin-top:10px">Para que se haga una idea de qué tanto es: <strong>450 créditos</strong>
+  dan para proponer los pasos de <strong>100 órdenes</strong> y aún sobran <strong>70 consultas</strong>
   del técnico en el mes. El tope diario no está para racionarle nada —un día ocupado no pasa de
-  15 o 20 créditos—, sino para que un uso raro no le vacíe el mes en una tarde.</p>
+  20 o 25 créditos—, sino para que un uso raro no le vacíe el mes en una tarde.</p>
 
   <p style="margin-top:8px">En el panel ve cuántos le quedan, igual que ve su mensualidad.
   Cuando se acaban, el asistente se apaga con un aviso que lo dice y vuelve al día siguiente o
   al mes siguiente, según el tope que se haya tocado; <strong>el resto de GarajApp sigue
-  funcionando igual</strong>. Si su taller llega seguido al límite, nos avisa y lo subimos:
-  es una señal de que le está sacando provecho, no un problema.</p>
+  funcionando igual</strong>. Si su taller llega seguido al límite, se le agregan créditos sin
+  cambiar de plan: es señal de que le está sacando provecho, no un problema.</p>
 
   <table>
     <thead><tr><th>Concepto</th><th>Detalle</th><th class="num">Monto (HNL)</th></tr></thead>
@@ -290,6 +298,11 @@
         <td><strong>Técnico adicional</strong><br /><span class="muted">solo en el plan Taller</span></td>
         <td>Del cuarto técnico en adelante. En el plan Taller Pro no hace falta: van sin límite.</td>
         <td class="num">L 150 / mes</td>
+      </tr>
+      <tr>
+        <td><strong>Créditos del asistente</strong><br /><span class="muted">solo en el plan Taller Pro</span></td>
+        <td>El plan incluye 450 al mes. Cada 100 adicionales, si los necesita.</td>
+        <td class="num">L 100 / mes</td>
       </tr>
     </tbody>
   </table>
