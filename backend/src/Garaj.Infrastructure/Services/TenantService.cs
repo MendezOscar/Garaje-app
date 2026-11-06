@@ -418,5 +418,8 @@ public class TenantService(
         tenant.BookingToken,
         tenant.BookingEnabled,
         BookingUrl(tenant.BookingToken),
-        tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id));
+        tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id),
+        tenant.AssistantEnabled,
+        tenant.AssistantCreditsPerMonth,
+        tenant.AssistantCreditsPerDay);
 }

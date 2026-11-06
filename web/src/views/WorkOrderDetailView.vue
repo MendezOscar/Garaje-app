@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl, errorMessage } from '@/api/client'
 import { claimsApi, customersApi, jobTemplatesApi, laborServicesApi, quotesApi, salesApi, tenantApi, usersApi, workOrdersApi } from '@/api/garaj'
+import AssistantSteps from '@/components/AssistantSteps.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
 import VehicleScans from '@/components/VehicleScans.vue'
@@ -26,6 +27,7 @@ import {
   type JobTemplate,
   type LaborService,
   type OrderMessageKind,
+  type AcceptWorkStepsResult,
   type SuggestedPart,
   type QuoteDetail,
   type SaleDetail,
@@ -951,6 +953,16 @@ function aplicarPlantilla() {
   })
 }
 
+/**
+ * Los pasos que el asistente propuso y el dueño aceptó ya están creados en el servidor: aquí
+ * solo hay que volver a leer la orden y dejar los repuestos propuestos donde ya se enseñan los
+ * del trabajo frecuente, que es el mismo sitio y la misma regla —no se cargan solos—.
+ */
+function recibirPropuesta(resultado: AcceptWorkStepsResult) {
+  repuestosSugeridos.value = resultado.suggestedParts
+  return run(load)
+}
+
 /** Carga un repuesto propuesto del catálogo. Si no hay existencia, falla solo esa línea. */
 function cargarSugerido(part: SuggestedPart, i: number) {
   if (!sePuedeCargar(part)) return
@@ -1432,6 +1444,15 @@ onMounted(async () => {
               >
                 Trabajo frecuente
               </button>
+              <!-- Los trabajos frecuentes resuelven lo que se repite; esto resuelve el trabajo
+                   que no se repite, que es donde se pierde la tarde. -->
+              <AssistantSteps
+                :work-order-id="id"
+                :enabled="taller?.assistantEnabled ?? false"
+                :can-edit="canEdit"
+                :has-diagnosis="!!order?.diagnosis"
+                @accepted="recibirPropuesta"
+              />
             </div>
           </div>
 

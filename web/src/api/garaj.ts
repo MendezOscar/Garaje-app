@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { api, download } from './client'
 import type {
+  AcceptWorkStepsResult,
+  WorkStepsProposal,
   Appointment,
   AppointmentSlot,
   AppointmentStatus,
@@ -425,6 +427,36 @@ export const workOrdersApi = {
     const { data } = await api.post<ApplyJobTemplateResult>(
       `/api/work-orders/${id}/apply-template`,
       { templateId },
+    )
+    return data
+  },
+  /**
+   * Del diagnóstico saca una propuesta de pasos y repuestos. **No escribe en la orden.**
+   *
+   * Cuando no se puede —sin créditos del día, sin diagnóstico— responde 200 con
+   * `available: false` y el motivo: eso no es un error y no tiene por qué verse como uno.
+   */
+  async proposeSteps(id: string) {
+    const { data } = await api.post<WorkStepsProposal>(`/api/work-orders/${id}/assistant/steps`, {})
+    return data
+  },
+  /**
+   * Crea los pasos que quedaron después de editar la propuesta. Los repuestos vuelven como
+   * sugerencia: hay que cargarlos uno a uno con `addPart`, que es lo que descuenta la bodega.
+   */
+  async acceptSteps(
+    id: string,
+    proposalId: string,
+    tasks: {
+      title: string
+      description?: string | null
+      laborServiceId?: string | null
+      estimatedHours?: number | null
+    }[],
+  ) {
+    const { data } = await api.post<AcceptWorkStepsResult>(
+      `/api/work-orders/${id}/assistant/steps/${proposalId}/accept`,
+      { tasks },
     )
     return data
   },
@@ -1612,6 +1644,12 @@ export const platformApi = {
       /** Null es sin tope. Se ignora si el plan cambia en esta misma llamada. */
       technicianLimit?: number | null
       diagnosticsEnabled?: boolean
+      /** El asistente va aparte del diagnóstico: aquel es el del escáner. */
+      assistantEnabled?: boolean
+      assistantCreditsPerMonth?: number
+      assistantCreditsPerDay?: number
+      /** Tope de gasto en lempiras al mes. El taller no lo ve. */
+      assistantMonthlyCapHnl?: number
     },
   ) {
     const { data } = await api.put<PlatformTenant>(

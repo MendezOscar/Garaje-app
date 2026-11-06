@@ -694,6 +694,51 @@ export interface ApplyJobTemplateResult {
   suggestedParts: SuggestedPart[]
 }
 
+/**
+ * Lo que el asistente propone a partir del diagnóstico. Es un borrador: nada de esto está en
+ * la orden hasta que alguien lo acepta.
+ */
+export interface WorkStepsProposal {
+  id: string | null
+  /**
+   * En false no hay error que enseñar: es que el taller no tiene el asistente, que se acabaron
+   * las consultas del día, o que falta el diagnóstico. El porqué viene en `message`.
+   */
+  available: boolean
+  message: string | null
+  tasks: ProposedTask[]
+  parts: ProposedPart[]
+  /** Lo que el asistente quiso aclarar: qué falta averiguar, qué repuesto no estaba. */
+  note: string | null
+  creditsLeftToday: number
+}
+
+export interface ProposedTask {
+  title: string
+  description: string | null
+  /** El servicio del catálogo con el que se cobra. Null es correcto y pasa seguido. */
+  laborServiceId: string | null
+  laborServiceName: string | null
+  hours: number
+}
+
+export interface ProposedPart {
+  partId: string
+  sku: string
+  name: string
+  unit: string
+  quantity: number
+  /** Existencia en la bodega de la sucursal de la orden. */
+  available: number
+  /** Para qué paso es, con las palabras del asistente. */
+  forTask: string
+}
+
+export interface AcceptWorkStepsResult {
+  tasks: WorkOrderTask[]
+  suggestedParts: SuggestedPart[]
+}
+
 export interface SuggestedPart {
   partId: string | null
   sku: string
@@ -1295,6 +1340,10 @@ export interface TenantSettings {
   bookingUrl: string | null
   /** Ruta relativa a la base de la API, o null. Se abre con `apiUrl()`. */
   logoUrl: string | null
+  /** Si el taller tiene el asistente. Lo enciende la plataforma, no el taller. */
+  assistantEnabled: boolean
+  assistantCreditsPerMonth: number
+  assistantCreditsPerDay: number
 }
 
 /**
@@ -1328,6 +1377,14 @@ export interface PlatformTenant {
   technicianLimit: number | null
   /** Si tiene el módulo de diagnóstico con escáner. */
   diagnosticsEnabled: boolean
+  /** Si tiene el asistente. Es otro interruptor: el de arriba es el del escáner. */
+  assistantEnabled: boolean
+  assistantCreditsPerMonth: number
+  assistantCreditsPerDay: number
+  /** Tope de gasto en lempiras al mes. Este número no lo ve el taller. */
+  assistantMonthlyCapHnl: number
+  /** Lo que lleva gastado este mes. Es contra esto que se revisa el tope. */
+  assistantSpentHnl: number
   createdAt: string
   /** Con qué trabaja el taller. Lo decidimos nosotros al darlo de alta. */
   worksWith: WorkshopKind

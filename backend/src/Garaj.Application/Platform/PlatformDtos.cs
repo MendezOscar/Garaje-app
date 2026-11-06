@@ -39,6 +39,16 @@ public record PlatformTenantDto(
     SubscriptionPlan Plan = SubscriptionPlan.Legacy,
     int? TechnicianLimit = null,
     bool DiagnosticsEnabled = false,
+    /// <summary>
+    /// El asistente, con sus créditos y su tope de gasto. Aquí sí sale el tope en lempiras:
+    /// esta pantalla la vemos nosotros.
+    /// </summary>
+    bool AssistantEnabled = false,
+    int AssistantCreditsPerMonth = 0,
+    int AssistantCreditsPerDay = 0,
+    decimal AssistantMonthlyCapHnl = 0m,
+    /// <summary>Lo que lleva gastado este mes, en lempiras. Sin esto el tope no se revisa.</summary>
+    decimal AssistantSpentHnl = 0m,
     /// <summary>Con qué trabaja el taller. Lo decidimos nosotros, no él.</summary>
     WorkshopKind WorksWith = WorkshopKind.Vehicles,
     /// <summary>Su RTN, que es lo que lleva impreso la factura que le emitimos.</summary>
@@ -178,7 +188,11 @@ public record UpdateSubscriptionRequest(
     DateOnly? PaidThrough,
     int GraceDays,
     int? TechnicianLimit = null,
-    bool DiagnosticsEnabled = false);
+    bool DiagnosticsEnabled = false,
+    bool AssistantEnabled = false,
+    int AssistantCreditsPerMonth = 0,
+    int AssistantCreditsPerDay = 0,
+    decimal AssistantMonthlyCapHnl = 0m);
 
 /// <summary>
 /// Lo que hacemos nosotros con nuestros clientes: darlos de alta, cobrarles y, si hace falta,

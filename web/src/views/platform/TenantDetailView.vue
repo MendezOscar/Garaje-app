@@ -115,6 +115,12 @@ const plan = ref({
   /** Vacío es sin tope. Se escribe así y no con una casilla: el número es el acuerdo. */
   technicianLimit: '' as number | '',
   diagnosticsEnabled: false,
+  /** El asistente va aparte del diagnóstico: aquel es el del escáner. */
+  assistantEnabled: false,
+  assistantCreditsPerMonth: 450,
+  assistantCreditsPerDay: 80,
+  /** Tope de gasto en lempiras al mes. Este número no lo ve el taller. */
+  assistantMonthlyCapHnl: 220,
 })
 
 /** El plan con el que el taller está guardado, para saber si el selector lo está moviendo. */
@@ -186,6 +192,10 @@ async function load() {
       graceDays: t.graceDays,
       technicianLimit: t.technicianLimit ?? '',
       diagnosticsEnabled: t.diagnosticsEnabled,
+      assistantEnabled: t.assistantEnabled,
+      assistantCreditsPerMonth: t.assistantCreditsPerMonth,
+      assistantCreditsPerDay: t.assistantCreditsPerDay,
+      assistantMonthlyCapHnl: t.assistantMonthlyCapHnl,
     }
     planGuardado.value = t.plan
   } catch (e) {
@@ -319,6 +329,10 @@ function guardarPlan() {
         // nuevo y estos dos se ignoran: lo dice el aviso de arriba del botón.
         technicianLimit: plan.value.technicianLimit === '' ? null : Number(plan.value.technicianLimit),
         diagnosticsEnabled: plan.value.diagnosticsEnabled,
+        assistantEnabled: plan.value.assistantEnabled,
+        assistantCreditsPerMonth: Number(plan.value.assistantCreditsPerMonth) || 0,
+        assistantCreditsPerDay: Number(plan.value.assistantCreditsPerDay) || 0,
+        assistantMonthlyCapHnl: Number(plan.value.assistantMonthlyCapHnl) || 0,
       }),
     'No se pudo guardar el plan.',
   )
@@ -619,6 +633,62 @@ onMounted(async () => {
               Módulo de diagnóstico con escáner
             </label>
           </div>
+
+          <!-- El asistente lleva interruptor propio: con uno solo, apagárselo a un taller le
+               apagaría también el escáner que ya está usando dentro de las órdenes. -->
+          <div class="row">
+            <label class="checkbox">
+              <input
+                v-model="plan.assistantEnabled"
+                type="checkbox"
+                :disabled="cambiandoDePlan"
+              />
+              Asistente
+            </label>
+          </div>
+
+          <div v-if="plan.assistantEnabled" class="row">
+            <label>
+              Créditos al mes
+              <input
+                v-model="plan.assistantCreditsPerMonth"
+                type="number"
+                min="0"
+                max="20000"
+                :disabled="cambiandoDePlan"
+              />
+            </label>
+            <label>
+              Créditos al día
+              <input
+                v-model="plan.assistantCreditsPerDay"
+                type="number"
+                min="0"
+                max="2000"
+                :disabled="cambiandoDePlan"
+              />
+            </label>
+            <label>
+              Tope de gasto (L al mes)
+              <input
+                v-model="plan.assistantMonthlyCapHnl"
+                type="number"
+                min="0"
+                max="50000"
+                :disabled="cambiandoDePlan"
+              />
+            </label>
+          </div>
+
+          <p v-if="plan.assistantEnabled" class="muted small">
+            Una propuesta de pasos vale 1 crédito y una consulta del técnico 5; la lectura del
+            negocio no gasta.
+            <template v-if="tenant">
+              Este mes lleva gastados <strong>L {{ tenant.assistantSpentHnl.toFixed(2) }}</strong>
+              de los {{ plan.assistantMonthlyCapHnl }} del tope.
+            </template>
+            El tope de gasto corta aunque le queden créditos, y el taller no lo ve.
+          </p>
 
           <p class="muted small">
             <template v-if="tenant">
