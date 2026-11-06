@@ -22,9 +22,18 @@ nada. Son cuatro archivos y una tarde.
 
 ## Paso 1 · Sacar los casos
 
+Primero se apunta la terminal a la base. El script reparte la cadena de conexión en las
+variables que psql lee solo, y **nunca imprime la contraseña**:
+
 ```bash
 cd pruebas/ia-pasos
-psql "$CADENA" -v taller='Taller Demo' -v casos=10 -t -A -f 1-casos.sql -o casos.json
+source 0-conectar.sh produccion   # o sin «produccion» para la base local
+```
+
+Y ya se sacan los casos:
+
+```bash
+psql -v taller='Taller Demo' -v casos=10 -t -A -f 1-casos.sql -o casos.json
 ```
 
 Saca del taller que se le diga sus diez órdenes más recientes **que tengan diagnóstico escrito
