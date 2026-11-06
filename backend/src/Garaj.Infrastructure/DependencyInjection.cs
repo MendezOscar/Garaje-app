@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Appointments;
+using Garaj.Application.Assistant;
 using Garaj.Application.Auth;
 using Garaj.Application.Branches;
 using Garaj.Application.Customers;
@@ -14,6 +15,7 @@ using Garaj.Application.Tenants;
 using Garaj.Application.Users;
 using Garaj.Application.VehicleScans;
 using Garaj.Application.WorkOrders;
+using Garaj.Infrastructure.Assistant;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Jobs;
@@ -42,6 +44,7 @@ public static class DependencyInjection
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
+        services.Configure<AssistantOptions>(configuration.GetSection(AssistantOptions.SectionName));
 
         // Para el logo del taller, que se pedía al almacenamiento en cada cotización abierta y
         // en cada PDF. En memoria del proceso: hay una sola instancia, y si algún día hay dos,
@@ -127,6 +130,12 @@ public static class DependencyInjection
         services.AddSingleton<IStorageService, S3StorageService>();
         services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<IVehicleScanService, VehicleScanService>();
+
+        // El asistente. Singleton el cliente del modelo —mantiene su pool de conexiones—, y
+        // por petición lo que necesita el taller de la petición: la cuota y el catálogo.
+        services.AddSingleton<IAssistant, AnthropicAssistant>();
+        services.AddScoped<IAssistantQuota, AssistantQuotaService>();
+        services.AddScoped<IAssistantCatalog, AssistantCatalog>();
 
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.

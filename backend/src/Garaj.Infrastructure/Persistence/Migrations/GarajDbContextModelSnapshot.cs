@@ -149,6 +149,174 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.ToTable("appointments", (string)null);
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.AssistantCall", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("CacheReadTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("cache_read_tokens");
+
+                    b.Property<int>("CacheWriteTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("cache_write_tokens");
+
+                    b.Property<decimal>("CostUsd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("cost_usd");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("Credits")
+                        .HasColumnType("integer")
+                        .HasColumnName("credits");
+
+                    b.Property<int>("ElapsedMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("elapsed_ms");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("error");
+
+                    b.Property<int>("Feature")
+                        .HasColumnType("integer")
+                        .HasColumnName("feature");
+
+                    b.Property<int>("InputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("input_tokens");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("model");
+
+                    b.Property<int>("OutputTokens")
+                        .HasColumnType("integer")
+                        .HasColumnName("output_tokens");
+
+                    b.Property<bool>("Succeeded")
+                        .HasColumnType("boolean")
+                        .HasColumnName("succeeded");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid?>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assistant_calls");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_assistant_calls_created_at");
+
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_assistant_calls_tenant_id_created_at");
+
+                    b.ToTable("assistant_calls", (string)null);
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.AssistantProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<Guid?>("AcceptedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("accepted_by_user_id");
+
+                    b.Property<Guid>("AssistantCallId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assistant_call_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("Feature")
+                        .HasColumnType("integer")
+                        .HasColumnName("feature");
+
+                    b.Property<string>("Request")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("request");
+
+                    b.Property<string>("Response")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("response");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assistant_proposals");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_assistant_proposals_work_order_id");
+
+                    b.HasIndex("TenantId", "WorkOrderId", "CreatedAt")
+                        .HasDatabaseName("ix_assistant_proposals_tenant_id_work_order_id_created_at");
+
+                    b.ToTable("assistant_proposals", (string)null);
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.Branch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2719,6 +2887,23 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("address");
 
+                    b.Property<int>("AssistantCreditsPerDay")
+                        .HasColumnType("integer")
+                        .HasColumnName("assistant_credits_per_day");
+
+                    b.Property<int>("AssistantCreditsPerMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("assistant_credits_per_month");
+
+                    b.Property<bool>("AssistantEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("assistant_enabled");
+
+                    b.Property<decimal>("AssistantMonthlyCapHnl")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("assistant_monthly_cap_hnl");
+
                     b.Property<bool>("BookingEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("booking_enabled");
@@ -4079,6 +4264,18 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Navigation("Equipment");
 
                     b.Navigation("Vehicle");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.AssistantProposal", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.WorkOrder", "WorkOrder")
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_assistant_proposals_work_orders_work_order_id");
+
+                    b.Navigation("WorkOrder");
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.Branch", b =>

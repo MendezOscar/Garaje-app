@@ -300,6 +300,17 @@ public class PlatformService(
         tenant.PlanName = Planes.NombreDe(request.Plan);
         tenant.TechnicianLimit = cambioDePlan ? Planes.TecnicosDe(request.Plan) : NormalizeLimit(request.TechnicianLimit);
         tenant.DiagnosticsEnabled = cambioDePlan ? Planes.DiagnosticoDe(request.Plan) : request.DiagnosticsEnabled;
+
+        // El asistente y sus créditos se reescriben solo al mover de plan. Mientras el panel
+        // no tenga su interruptor, lo que ya tenga el taller manda: así un taller al que se
+        // le apagó a mano no se le vuelve a encender por guardar otra cosa.
+        if (cambioDePlan)
+        {
+            tenant.AssistantEnabled = Planes.AsistenteDe(request.Plan);
+            tenant.AssistantCreditsPerMonth = Planes.CreditosDe(request.Plan).Mes;
+            tenant.AssistantCreditsPerDay = Planes.CreditosDe(request.Plan).Dia;
+            tenant.AssistantMonthlyCapHnl = Planes.TopeMensualDe(request.Plan);
+        }
         tenant.MonthlyFee = request.MonthlyFee;
         tenant.PaidThrough = request.PaidThrough;
         tenant.GraceDays = NormalizeGraceDays(request.GraceDays);

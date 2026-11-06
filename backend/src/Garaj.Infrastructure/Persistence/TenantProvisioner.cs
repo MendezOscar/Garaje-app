@@ -98,6 +98,12 @@ public class TenantProvisioner(
             PlanName = Planes.NombreDe(request.Plan),
             TechnicianLimit = Planes.TecnicosDe(request.Plan),
             DiagnosticsEnabled = Planes.DiagnosticoDe(request.Plan),
+            // El asistente nace del plan, pero no se enciende de verdad hasta que el servidor
+            // tenga la llave del modelo: sin ella la cuota lo da por apagado en todos lados.
+            AssistantEnabled = Planes.AsistenteDe(request.Plan),
+            AssistantCreditsPerMonth = Planes.CreditosDe(request.Plan).Mes,
+            AssistantCreditsPerDay = Planes.CreditosDe(request.Plan).Dia,
+            AssistantMonthlyCapHnl = Planes.TopeMensualDe(request.Plan),
             // Cero quiere decir «la del plan»: al instalar casi nunca se negocia la cuota, y
             // escribirla a mano en cada alta era la forma segura de dejarla en cero.
             MonthlyFee = request.MonthlyFee > 0 ? request.MonthlyFee : Planes.CuotaDe(request.Plan),

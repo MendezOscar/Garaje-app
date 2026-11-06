@@ -142,6 +142,43 @@ public class Tenant : AuditableEntity
     /// </summary>
     public bool DiagnosticsEnabled { get; set; }
 
+    /// <summary>
+    /// Si tiene el asistente: proponer los pasos de un diagnóstico, la lectura del negocio y
+    /// la consulta del técnico.
+    /// </summary>
+    /// <remarks>
+    /// Va aparte de <see cref="DiagnosticsEnabled"/> y no mezclado con él, aunque los dos
+    /// nazcan del plan Pro: ese es el del escáner. Con un solo interruptor, apagarle el
+    /// asistente a un taller —porque se disparó el costo, o porque se está depurando— le
+    /// apagaría también el escáner que ya está usando dentro de las órdenes.
+    /// </remarks>
+    public bool AssistantEnabled { get; set; }
+
+    /// <summary>
+    /// Créditos del asistente al mes. Una propuesta de pasos vale 1 y una consulta del técnico
+    /// 5; la lectura del negocio no gasta.
+    /// </summary>
+    public int AssistantCreditsPerMonth { get; set; }
+
+    /// <summary>
+    /// Tope diario de créditos. Es el que de verdad protege: el mensual se agota en una tarde
+    /// si alguien descubre el juguete, y un tope diario le pone un piso de varios días a
+    /// cualquier desastre sin racionarle nada a un día ocupado normal.
+    /// </summary>
+    public int AssistantCreditsPerDay { get; set; }
+
+    /// <summary>
+    /// Tope de gasto mensual en lempiras, que corta aunque queden créditos. <b>No se le
+    /// enseña al taller.</b>
+    /// </summary>
+    /// <remarks>
+    /// Los créditos son una aproximación: una propuesta en un taller con 400 repuestos en
+    /// catálogo cuesta más que en uno con 40, porque va más texto en cada llamada. Este es el
+    /// techo en dinero real que hay debajo, y se cuenta con el costo que devuelve cada
+    /// llamada, no con una estimación.
+    /// </remarks>
+    public decimal AssistantMonthlyCapHnl { get; set; }
+
     /// <summary>Cuota mensual acordada, en la moneda del taller.</summary>
     public decimal MonthlyFee { get; set; }
 
