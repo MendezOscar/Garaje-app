@@ -334,3 +334,30 @@ public enum DtcStatus
     /// </summary>
     Permanent = 3
 }
+
+/// <summary>
+/// Para qué se llamó al modelo. Es lo que decide cuántos créditos cuesta y permite separar el
+/// consumo por función cuando haya que decidir cuál apagar.
+/// </summary>
+public enum AssistantFeature
+{
+    /// <summary>Proponer los pasos y repuestos de un diagnóstico. Vale 1 crédito.</summary>
+    WorkSteps = 1,
+
+    /// <summary>La lectura semanal del negocio. No gasta créditos del taller: la manda él.</summary>
+    BusinessReading = 2,
+
+    /// <summary>La consulta del técnico con la orden abierta. Vale 5 créditos.</summary>
+    TechnicianQuery = 3
+}
+
+/// <summary>
+/// En qué quedó una propuesta. Nada de lo que escribe el asistente se guarda solo: nace como
+/// borrador y solo un humano la convierte en pasos de la orden.
+/// </summary>
+public enum AssistantProposalStatus
+{
+    Draft = 1,
+    Accepted = 2,
+    Discarded = 3
+}

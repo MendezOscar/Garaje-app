@@ -45,6 +45,10 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
 
     public DbSet<MediaAttachment> MediaAttachments => Set<MediaAttachment>();
 
+    /// <summary>Una fila por llamada al modelo. Es sobre lo que se cuentan los topes.</summary>
+    public DbSet<AssistantCall> AssistantCalls => Set<AssistantCall>();
+    public DbSet<AssistantProposal> AssistantProposals => Set<AssistantProposal>();
+
     /// <summary>Trabajos frecuentes: los pasos y repuestos de lo que el taller repite.</summary>
     public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();
     public DbSet<JobTemplateTask> JobTemplateTasks => Set<JobTemplateTask>();

@@ -24,7 +24,7 @@ namespace Garaj.Tests;
 /// </remarks>
 public class AplicacionesDelRepuestoTests
 {
-    private const string CadenaLocal = "Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj";
+    private const string CadenaLocal = "Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-dev-secret";
 
     private static GarajDbContext Contexto(Guid taller)
     {
@@ -106,7 +106,7 @@ public sealed class RequiereBaseLocalAttribute : FactAttribute
     public RequiereBaseLocalAttribute()
     {
         var cadena = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-            ?? "Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj";
+            ?? "Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-dev-secret";
 
         try
         {
