@@ -1,3 +1,4 @@
+using Garaj.Application.Assistant;
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
 using Garaj.Application.Quotes;
@@ -14,7 +15,9 @@ namespace Garaj.Api.Controllers;
 [Authorize]
 [Route("api/work-orders")]
 public class WorkOrdersController(
-    IWorkOrderService service, IJobTemplateService jobTemplates) : ControllerBase
+    IWorkOrderService service,
+    IJobTemplateService jobTemplates,
+    IWorkStepsAssistant workSteps) : ControllerBase
 {
     /// <summary>
     /// Alimenta el kanban del Dueño y la bandeja del Técnico. El alcance lo resuelve el
@@ -110,6 +113,32 @@ public class WorkOrdersController(
     public async Task<ActionResult<ApplyJobTemplateResultDto>> ApplyTemplate(
         Guid id, ApplyJobTemplateRequest request, CancellationToken ct)
         => Ok(await jobTemplates.ApplyToWorkOrderAsync(id, request, ct));
+
+    /// <summary>
+    /// Del diagnóstico saca una propuesta de pasos y repuestos. <b>No escribe en la orden</b>:
+    /// lo que devuelve es un borrador que el dueño edita y acepta.
+    /// </summary>
+    /// <remarks>
+    /// Devuelve 200 con <c>available: false</c> y el motivo cuando no se puede —sin créditos
+    /// del día, sin diagnóstico, el asistente caído—: eso no es un error del taller y no tiene
+    /// por qué verse como uno. Un taller sin el asistente recibe 404, no 403: un 403
+    /// confirmaría que la ruta existe y qué hace.
+    /// </remarks>
+    [HttpPost("{id:guid}/assistant/steps")]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
+    [EnableRateLimiting(RateLimits.Asistente)]
+    public async Task<ActionResult<WorkStepsProposalDto>> ProposeSteps(Guid id, CancellationToken ct)
+        => Ok(await workSteps.ProposeAsync(id, ct));
+
+    /// <summary>
+    /// Crea en la orden los pasos que quedaron después de editar la propuesta, y devuelve los
+    /// repuestos como sugerencia —cargarlos descontaría bodega y el trabajo no se ha hecho—.
+    /// </summary>
+    [HttpPost("{id:guid}/assistant/steps/{proposalId:guid}/accept")]
+    [Authorize(Policy = AppPolicies.ManagementOnly)]
+    public async Task<ActionResult<AcceptWorkStepsResultDto>> AcceptSteps(
+        Guid id, Guid proposalId, AcceptWorkStepsRequest request, CancellationToken ct)
+        => Ok(await workSteps.AcceptAsync(id, proposalId, request, ct));
 
     [HttpPut("{id:guid}/tasks/{taskId:guid}")]
     [Authorize(Policy = AppPolicies.TechnicianOrOwner)]

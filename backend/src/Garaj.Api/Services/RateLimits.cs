@@ -26,4 +26,12 @@ public static class RateLimits
     /// sin dar para repetirlo en bucle.
     /// </summary>
     public const string Carga = "carga";
+
+    /// <summary>
+    /// Pedirle algo al modelo. Es lo único que cuesta dinero de verdad en cada llamada, así
+    /// que lleva freno propio además de los créditos del taller: los créditos protegen del
+    /// uso, esto protege del error que reintenta en bucle, que es el escenario que arruina un
+    /// mes. Da de sobra para una propuesta tras otra a mano.
+    /// </summary>
+    public const string Asistente = "asistente";
 }

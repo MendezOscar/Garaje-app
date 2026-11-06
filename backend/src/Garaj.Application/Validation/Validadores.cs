@@ -1,5 +1,6 @@
 using FluentValidation;
 using Garaj.Application.Appointments;
+using Garaj.Application.Assistant;
 using Garaj.Application.Auth;
 using Garaj.Application.Customers;
 using Garaj.Application.Inventory;
@@ -517,6 +518,37 @@ public class CreateVehicleScanValidator : AbstractValidator<CreateVehicleScanReq
             code.RuleFor(c => c.Code).NotEmpty().MaximumLength(10);
             code.RuleFor(c => c.Status).IsInEnum();
             code.RuleFor(c => c.Description).MaximumLength(300);
+        });
+    }
+}
+
+/// <summary>
+/// Lo que se acepta de una propuesta del asistente. Se valida como cualquier otro envío del
+/// panel: lo que llega aquí ya pasó por manos humanas, pero llega por HTTP como todo lo demás.
+/// </summary>
+public class AcceptWorkStepsValidator : AbstractValidator<AcceptWorkStepsRequest>
+{
+    public AcceptWorkStepsValidator()
+    {
+        RuleFor(x => x.Tasks)
+            .NotEmpty().WithMessage("No quedó ningún paso que agregar.");
+
+        RuleFor(x => x.Tasks.Count)
+            .LessThanOrEqualTo(20)
+            .WithMessage("Son demasiados pasos para una sola orden.");
+
+        RuleForEach(x => x.Tasks).ChildRules(task =>
+        {
+            task.RuleFor(t => t.Title)
+                .NotEmpty().WithMessage("Cada paso necesita un título.")
+                .MaximumLength(200);
+
+            task.RuleFor(t => t.Description).MaximumLength(1000);
+
+            task.RuleFor(t => t.EstimatedHours)
+                .InclusiveBetween(0m, 40m)
+                .When(t => t.EstimatedHours.HasValue)
+                .WithMessage("Las horas de un paso no llegan a tantas.");
         });
     }
 }

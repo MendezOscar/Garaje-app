@@ -87,6 +87,15 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         }));
 
+    options.AddPolicy(RateLimits.Asistente, http => RateLimitPartition.GetFixedWindowLimiter(
+        QuienPide(http),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 6,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
     // Encima de todo lo anterior: el límite de cada endpoint sigue valiendo, y además nadie
     // —con sesión o sin ella— pasa de este techo. Es lo que impide martillar una ruta
     // autenticada, que hasta ahora no tenía freno ninguno.
