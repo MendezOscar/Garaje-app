@@ -15,6 +15,7 @@ import '../../core/api/quote_repository.dart';
 import '../../core/api/sale_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/api/tenant_repository.dart';
+import '../../core/api/vehicle_scan_repository.dart';
 import '../../core/api/work_order_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/current_user.dart';
@@ -29,6 +30,7 @@ import 'invoice_section.dart';
 import 'parts_section.dart';
 import 'photo_capture.dart';
 import 'photo_gallery.dart';
+import 'scan_section.dart';
 import 'quotes_section.dart';
 import 'reception_screen.dart';
 
@@ -1429,6 +1431,14 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   (order) => PhotoGallery(ownerId: order.id, canEdit: _canEdit),
                 ),
               ),
+              // El diagnóstico con el adaptador se entra desde la orden a propósito: así no
+              // hay que preguntar de qué carro es la lectura.
+              _FilaEscaner(
+                workOrderId: order.id,
+                onTap: () => _abrirSeccion(
+                  (order) => ScanSection(order: order, canEdit: _canEdit),
+                ),
+              ),
               // El Técnico también avisa: muchas veces es él quien entrega el vehículo. El
               // Dueño además lo tiene en la barra fija, que es donde cae la mano después de
               // mover el estado.
@@ -2713,6 +2723,32 @@ class _FilaDiagnostico extends StatelessWidget {
       detalle: escrito == null || escrito.isEmpty
           ? 'Sin escribir: qué se encontró al revisar'
           : escrito,
+      onTap: onTap,
+    );
+  }
+}
+
+/// Las lecturas del adaptador OBD2 que lleva la orden.
+class _FilaEscaner extends ConsumerWidget {
+  const _FilaEscaner({required this.workOrderId, required this.onTap});
+
+  final String workOrderId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lecturas = ref.watch(vehicleScansProvider(workOrderId)).value;
+    final codigos = lecturas?.fold<int>(0, (suma, l) => suma + l.codes.length) ?? 0;
+
+    return _Fila(
+      icono: Icons.memory_outlined,
+      titulo: 'Diagnóstico del escáner',
+      detalle: switch (lecturas) {
+        null => 'Códigos leídos del vehículo',
+        [] => 'Todavía no se ha escaneado',
+        final l => '${l.length} ${l.length == 1 ? 'lectura' : 'lecturas'}'
+            '${codigos == 0 ? '' : ' · $codigos ${codigos == 1 ? 'código' : 'códigos'}'}',
+      },
       onTap: onTap,
     );
   }

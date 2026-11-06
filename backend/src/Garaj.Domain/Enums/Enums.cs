@@ -314,3 +314,23 @@ public enum SubscriptionState
     /// <summary>Suspendido a mano por nosotros. No entra.</summary>
     Suspended = 5
 }
+
+/// <summary>
+/// En qué estado reportó el vehículo un código de falla. Son las tres memorias del OBD2 y no
+/// significan lo mismo para quien repara: una falla confirmada se atiende hoy, una pendiente
+/// puede ser un falso positivo de un solo arranque.
+/// </summary>
+public enum DtcStatus
+{
+    /// <summary>Confirmada: el vehículo la vio repetirse y encendió la luz del motor.</summary>
+    Stored = 1,
+
+    /// <summary>Pendiente: se vio una vez y espera confirmación en el siguiente ciclo.</summary>
+    Pending = 2,
+
+    /// <summary>
+    /// Permanente: la grabó el vehículo y no se borra con el escáner; solo desaparece cuando
+    /// el propio vehículo comprueba que la falla ya no está. Es la que delata un borrado.
+    /// </summary>
+    Permanent = 3
+}

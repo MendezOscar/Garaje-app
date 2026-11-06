@@ -5,6 +5,7 @@ import { apiUrl, errorMessage } from '@/api/client'
 import { claimsApi, customersApi, jobTemplatesApi, laborServicesApi, quotesApi, salesApi, tenantApi, usersApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
+import VehicleScans from '@/components/VehicleScans.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import WorkOrderParts from '@/components/WorkOrderParts.vue'
 import { useTaller } from '@/composables/useTaller'
@@ -1856,6 +1857,8 @@ onMounted(async () => {
         />
 
         <PhotoGallery :work-order-id="order.id" :can-edit="canEdit" />
+
+        <VehicleScans :work-order-id="order.id" />
       </div>
 
       <!-- La columna de consulta: quién es el cliente, qué se le cobra, y plegado lo que solo
