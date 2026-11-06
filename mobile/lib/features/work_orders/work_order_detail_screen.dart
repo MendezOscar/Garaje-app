@@ -30,6 +30,7 @@ import 'invoice_section.dart';
 import 'parts_section.dart';
 import 'photo_capture.dart';
 import 'photo_gallery.dart';
+import 'propose_steps_screen.dart';
 import 'scan_section.dart';
 import 'quotes_section.dart';
 import 'reception_screen.dart';
@@ -62,6 +63,13 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   bool get _esDueno {
     final auth = ref.read(authControllerProvider);
     return auth is AuthSignedIn && auth.user.esDueno;
+  }
+
+  /// Si este usuario tiene el asistente. Llega en la sesión, así que no hace falta pedirle
+  /// la ficha del taller —que solo el Dueño puede leer— para saber si ofrecer el botón.
+  bool get _tieneAsistente {
+    final auth = ref.read(authControllerProvider);
+    return auth is AuthSignedIn && auth.user.assistantEnabled;
   }
 
   bool get _isTechnician {
@@ -855,6 +863,21 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   ///
   /// Los repuestos no se cargan solos: cargarlos descuenta la bodega, y aquí el trabajo apenas
   /// empieza. Se ofrecen en una hoja para irlos cargando conforme se instalan.
+  /// Abre la propuesta del asistente. Al volver se recarga la orden: los pasos los creó el
+  /// servidor al aceptar, no esta pantalla.
+  Future<void> _proponerPasos(WorkOrderDetail order) async {
+    final aceptada = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ProposeStepsScreen(
+          workOrderId: widget.id,
+          workOrderNumber: order.number,
+        ),
+      ),
+    );
+
+    if (aceptada == true && mounted) ref.invalidate(workOrderDetailProvider(widget.id));
+  }
+
   Future<void> _applyTemplate() async {
     final templates = ref.read(jobTemplatesProvider).value ?? const <JobTemplate>[];
     if (templates.isEmpty) return;
@@ -1390,6 +1413,11 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                 siguienteId: siguientePaso?.id,
                 hasTemplates: (ref.watch(jobTemplatesProvider).value ?? const []).isNotEmpty,
                 onApplyTemplate: _applyTemplate,
+                // Los trabajos frecuentes resuelven lo que se repite; el asistente resuelve
+                // el trabajo que no se repite, que es donde se pierde la tarde.
+                onProponerPasos: _tieneAsistente && (order.diagnosis ?? '').trim().isNotEmpty
+                    ? () => _proponerPasos(order)
+                    : null,
                 // Elegir el modo de toda la orden se quitó del teléfono: preguntaba lo mismo
                 // que ahora pregunta cada paso —«cómo se cobra»—, y con el precio a mano por
                 // paso ya no hace falta cambiar la orden entera. El modo de un total único
@@ -2178,6 +2206,7 @@ class _TasksCard extends StatelessWidget {
     required this.siguienteId,
     required this.hasTemplates,
     required this.onApplyTemplate,
+    required this.onProponerPasos,
     required this.onEditarTotal,
     required this.esDueno,
   });
@@ -2196,6 +2225,10 @@ class _TasksCard extends StatelessWidget {
   final void Function(WorkOrderTask task, bool value) onToggle;
   final VoidCallback onAdd;
   final VoidCallback onApplyTemplate;
+
+  /// Pedirle los pasos al asistente. Null cuando el taller no lo tiene o falta el diagnóstico:
+  /// sin diagnóstico el servidor ni llama al modelo, así que ofrecerlo sería mentir.
+  final VoidCallback? onProponerPasos;
 
   /// Cambiar si la mano de obra sale del catálogo o de un total a mano. Null para quien no
   /// puede: es del Dueño.
@@ -2283,6 +2316,12 @@ class _TasksCard extends StatelessWidget {
                       onPressed: busy ? null : onApplyTemplate,
                       icon: const Icon(Icons.bolt_outlined, size: 18),
                       label: const Text('Trabajo frecuente'),
+                    ),
+                  if (onProponerPasos != null)
+                    TextButton.icon(
+                      onPressed: busy ? null : onProponerPasos,
+                      icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                      label: const Text('Proponer los pasos'),
                     ),
                 ],
               ),

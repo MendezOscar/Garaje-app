@@ -1448,7 +1448,7 @@ onMounted(async () => {
                    que no se repite, que es donde se pierde la tarde. -->
               <AssistantSteps
                 :work-order-id="id"
-                :enabled="taller?.assistantEnabled ?? false"
+                :enabled="auth.hasAssistant"
                 :can-edit="canEdit"
                 :has-diagnosis="!!order?.diagnosis"
                 @accepted="recibirPropuesta"
