@@ -83,6 +83,17 @@ const comparacion = [
       'y su hora. El conteo deja de ser una sorpresa.',
   },
   {
+    hoy: 'El diagnóstico se queda en el escáner',
+    textoHoy:
+      'La tableta dice qué tiene el carro y ahí se queda. Cargar los pasos y los repuestos es ' +
+      'trabajo de oficina, y mientras no se haga el técnico espera.',
+    con: 'Del código a los pasos',
+    textoCon:
+      'La lectura queda dentro de la orden, con cada código explicado. Con el diagnóstico ' +
+      'escrito, el asistente propone los pasos y los repuestos de su catálogo; usted corrige y ' +
+      'acepta.',
+  },
+  {
     hoy: 'El fin de mes',
     textoHoy:
       'Se factura de memoria y en el cuaderno. Al cerrar, nadie puede decir qué dejó el mes ' +
@@ -109,6 +120,8 @@ const modulos = [
   'Citas por enlace',
   'Reportes y Excel',
   'Encargados por sucursal',
+  'Diagnóstico con escáner',
+  'Asistente con IA',
 ]
 
 /** El flujo real del taller, en el orden en que pasa. */
@@ -240,6 +253,20 @@ const incluye = [
     texto:
       'Si el vehículo vuelve, el reclamo queda pegado a su factura y la reparación se abre como ' +
       'orden nueva. Así se sabe qué costó la garantía.',
+  },
+  {
+    titulo: 'Diagnóstico con escáner',
+    texto:
+      'El informe de su escáner queda adjunto a la orden y viaja con la cotización. Y con un ' +
+      'adaptador OBD2 Bluetooth, la app lee los códigos ella misma, los explica en español y ' +
+      'después le dice a qué otros carros del taller les salió el mismo.',
+  },
+  {
+    titulo: 'Asistente con IA',
+    texto:
+      'Con el diagnóstico escrito, propone los pasos del trabajo y los repuestos —de su ' +
+      'catálogo, no de uno ajeno—. Usted tacha, corrige y acepta: nada entra a la orden sin ' +
+      'que lo apruebe. Va con el plan Pro.',
   },
   {
     titulo: 'Su gente y sus sucursales',
