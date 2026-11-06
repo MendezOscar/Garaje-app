@@ -1,7 +1,9 @@
 import axios from 'axios'
-import { api, download } from './client'
+import { api, apiUrl, download } from './client'
 import type {
   AcceptWorkStepsResult,
+  BusinessReading,
+  BusinessReadingListItem,
   WorkStepsProposal,
   Appointment,
   AppointmentSlot,
@@ -1396,6 +1398,33 @@ export const expensesApi = {
       params: params(query),
     })
     return data
+  },
+}
+
+/**
+ * La lectura del negocio. Solo el Dueño: es un reporte sobre su negocio y sobre su gente.
+ */
+export const businessReadingsApi = {
+  async list() {
+    const { data } = await api.get<BusinessReadingListItem[]>('/api/assistant/business-readings')
+    return data
+  },
+  async get(id: string) {
+    const { data } = await api.get<BusinessReading>(`/api/assistant/business-readings/${id}`)
+    return data
+  },
+  /**
+   * Arma la del periodo cerrado. Si ya existe devuelve la que hay sin volver a llamar al
+   * modelo, y sin volumen responde 200 con el motivo en `message`.
+   */
+  async generate(kind: 1 | 2) {
+    const { data } = await api.post<BusinessReading>(
+      `/api/assistant/business-readings?kind=${kind}`,
+    )
+    return data
+  },
+  pdfUrl(id: string) {
+    return apiUrl(`/api/assistant/business-readings/${id}/pdf`)
   },
 }
 

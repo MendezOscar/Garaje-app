@@ -41,12 +41,16 @@ public interface IAssistant
 /// <param name="Schema">
 /// El esquema JSON de la respuesta. Estricto a propósito: texto que después haya que
 /// interpretar es exactamente lo que no se quiere.
+///
+/// Null solo donde la respuesta <b>es</b> el texto y nadie la va a interpretar —la lectura del
+/// negocio, que se le enseña al dueño tal cual—. En todo lo que después se convierte en datos
+/// de la orden, el esquema no es opcional.
 /// </param>
 public record AssistantPrompt(
     string Instructions,
     string Context,
     string Question,
-    IReadOnlyDictionary<string, JsonElement> Schema,
+    IReadOnlyDictionary<string, JsonElement>? Schema,
     int MaxTokens = 4000);
 
 /// <param name="Json">La respuesta cruda. Null si la llamada falló.</param>

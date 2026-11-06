@@ -169,6 +169,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner, Roles.Manager] },
       },
       {
+        // Solo el Dueño: es un reporte sobre su negocio y sobre su gente. El Encargado ve su
+        // sucursal en los reportes de siempre, no el juicio del conjunto.
+        path: 'lectura',
+        name: 'business-reading',
+        component: () => import('@/views/owner/BusinessReadingView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         // La agenda: lo que el cliente apartó por el enlace o desde la app. El Encargado ve
         // la de sus sucursales.
         path: 'citas',

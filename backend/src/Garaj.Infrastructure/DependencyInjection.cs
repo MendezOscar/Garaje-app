@@ -137,6 +137,7 @@ public static class DependencyInjection
         services.AddScoped<IAssistantQuota, AssistantQuotaService>();
         services.AddScoped<IAssistantCatalog, AssistantCatalog>();
         services.AddScoped<IWorkStepsAssistant, WorkStepsAssistant>();
+        services.AddScoped<IBusinessReadingService, BusinessReadingService>();
 
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.
@@ -152,6 +153,10 @@ public static class DependencyInjection
         // Lo único que corre sin que nadie lo pida: los avisos que dependen del calendario.
         services.AddScoped<IRepasoDeAvisos, RepasoDeAvisos>();
         services.AddHostedService<RepasoDiario>();
+
+        // La lectura del negocio corre de madrugada: no hay nadie esperándola, y el lunes el
+        // dueño la encuentra hecha en vez de tener que pedirla.
+        services.AddHostedService<LecturaSemanal>();
 
         return services;
     }

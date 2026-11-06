@@ -41,3 +41,16 @@ public class AssistantProposalConfiguration : IEntityTypeConfiguration<Assistant
         b.HasIndex(x => new { x.TenantId, x.WorkOrderId, x.CreatedAt });
     }
 }
+
+public class BusinessReadingConfiguration : IEntityTypeConfiguration<BusinessReading>
+{
+    public void Configure(EntityTypeBuilder<BusinessReading> b)
+    {
+        b.Property(x => x.Data).IsRequired();
+        b.Property(x => x.Content).IsRequired();
+
+        // La última primero, que es la que se abre. Y una sola por periodo y tipo: pedirla dos
+        // veces el mismo lunes gastaría dos llamadas para decir lo mismo.
+        b.HasIndex(x => new { x.TenantId, x.Kind, x.PeriodTo }).IsUnique();
+    }
+}

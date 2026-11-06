@@ -48,6 +48,7 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     /// <summary>Una fila por llamada al modelo. Es sobre lo que se cuentan los topes.</summary>
     public DbSet<AssistantCall> AssistantCalls => Set<AssistantCall>();
     public DbSet<AssistantProposal> AssistantProposals => Set<AssistantProposal>();
+    public DbSet<BusinessReading> BusinessReadings => Set<BusinessReading>();
 
     /// <summary>Trabajos frecuentes: los pasos y repuestos de lo que el taller repite.</summary>
     public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();
