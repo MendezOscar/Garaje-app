@@ -7,6 +7,16 @@ import { useEscape } from '@/composables/useEscape'
 import { MediaOwnerType, type MediaAttachment, type QuotePhotoCandidate } from '@/types/domain'
 import { formatDateTime } from '@/utils/format'
 
+/**
+ * Si el panel deja adjuntar PDF. En falso hasta que la 1.8.0 esté publicada en App Store y
+ * Google Play: la versión que hoy tienen los talleres instalada pinta cualquier adjunto como
+ * foto, así que un informe subido desde el panel se le vería como una imagen rota dentro de
+ * la orden. El servidor sí los acepta ya; lo único cerrado es esta puerta.
+ *
+ * Para abrirlo: poner `true` y desplegar. No hace falta tocar nada más.
+ */
+const PDF_DESDE_EL_PANEL: boolean = false
+
 const props = defineProps<{
   /** Fotos de una orden: las suyas y las de sus pasos, agrupadas por paso. */
   workOrderId?: string
@@ -97,9 +107,25 @@ async function onFilesPicked(event: Event) {
   if (!files.length) return
 
   error.value = ''
-  uploading.value = files.length
 
-  for (const file of files) {
+  // El navegador no respeta `accept` si el archivo llega arrastrado o si el usuario escoge
+  // «todos los archivos»: la puerta de verdad es esta.
+  const admitidos = PDF_DESDE_EL_PANEL
+    ? files
+    : files.filter((f) => f.type !== 'application/pdf')
+
+  if (admitidos.length < files.length) {
+    error.value =
+      'Todavía no se pueden adjuntar PDF desde el panel. Se habilita cuando la nueva versión ' +
+      'de la app esté publicada, para que a quien tenga la anterior no se le vea como una ' +
+      'foto rota.'
+  }
+
+  if (!admitidos.length) return
+
+  uploading.value = admitidos.length
+
+  for (const file of admitidos) {
     try {
       await mediaApi.upload(file, owner.value)
     } catch (e) {
@@ -233,12 +259,14 @@ onMounted(load)
           }}
         </button>
       </div>
-      <!-- El PDF entra por aquí también: el informe del escáner puede llegar al correo del
-           taller y adjuntarse desde el panel, sin pasar por el teléfono. -->
+      <!-- El PDF va a entrar por aquí también —el informe del escáner puede llegar al correo
+           del taller—, pero está cerrado hasta que la 1.8.0 esté en las dos tiendas: la
+           versión instalada hoy en los teléfonos pinta todo adjunto como foto, y un PDF se
+           le vería como una imagen rota en la orden. Ver `PDF_DESDE_EL_PANEL`. -->
       <input
         ref="fileInput"
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        :accept="PDF_DESDE_EL_PANEL ? 'image/jpeg,image/png,image/webp,application/pdf' : 'image/jpeg,image/png,image/webp'"
         multiple
         hidden
         @change="onFilesPicked"
