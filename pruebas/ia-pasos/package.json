@@ -1,0 +1,11 @@
+{
+  "name": "prueba-ia-pasos",
+  "private": true,
+  "type": "module",
+  "description": "Prueba a mano de «Proponer los pasos». No forma parte de GarajApp.",
+  "scripts": { "probar": "node 3-probar.mjs" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "zod": "^4.6.7"
+  }
+}
