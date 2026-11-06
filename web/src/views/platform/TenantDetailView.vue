@@ -612,84 +612,20 @@ onMounted(async () => {
 
           <!-- Lo que de verdad rige para este taller, que no tiene por qué ser lo del plan:
                el que paga por un técnico de más sube a cuatro sin dejar de ser Básico. -->
-          <div class="row">
-            <label>
-              Tope de técnicos
-              <input
-                v-model="plan.technicianLimit"
-                type="number"
-                min="1"
-                max="500"
-                placeholder="Sin tope"
-                :disabled="cambiandoDePlan"
-              />
-            </label>
-            <label class="checkbox">
-              <input
-                v-model="plan.diagnosticsEnabled"
-                type="checkbox"
-                :disabled="cambiandoDePlan"
-              />
-              Módulo de diagnóstico con escáner
-            </label>
-          </div>
+          <label class="corta">
+            Tope de técnicos
+            <input
+              v-model="plan.technicianLimit"
+              type="number"
+              min="1"
+              max="500"
+              placeholder="Sin tope"
+              :disabled="cambiandoDePlan"
+            />
+          </label>
 
-          <!-- El asistente lleva interruptor propio: con uno solo, apagárselo a un taller le
-               apagaría también el escáner que ya está usando dentro de las órdenes. -->
-          <div class="row">
-            <label class="checkbox">
-              <input
-                v-model="plan.assistantEnabled"
-                type="checkbox"
-                :disabled="cambiandoDePlan"
-              />
-              Asistente
-            </label>
-          </div>
-
-          <div v-if="plan.assistantEnabled" class="row">
-            <label>
-              Créditos al mes
-              <input
-                v-model="plan.assistantCreditsPerMonth"
-                type="number"
-                min="0"
-                max="20000"
-                :disabled="cambiandoDePlan"
-              />
-            </label>
-            <label>
-              Créditos al día
-              <input
-                v-model="plan.assistantCreditsPerDay"
-                type="number"
-                min="0"
-                max="2000"
-                :disabled="cambiandoDePlan"
-              />
-            </label>
-            <label>
-              Tope de gasto (L al mes)
-              <input
-                v-model="plan.assistantMonthlyCapHnl"
-                type="number"
-                min="0"
-                max="50000"
-                :disabled="cambiandoDePlan"
-              />
-            </label>
-          </div>
-
-          <p v-if="plan.assistantEnabled" class="muted small">
-            Una propuesta de pasos vale 1 crédito y una consulta del técnico 5; la lectura del
-            negocio no gasta.
-            <template v-if="tenant">
-              Este mes lleva gastados <strong>L {{ tenant.assistantSpentHnl.toFixed(2) }}</strong>
-              de los {{ plan.assistantMonthlyCapHnl }} del tope.
-            </template>
-            El tope de gasto corta aunque le queden créditos, y el taller no lo ve.
-          </p>
-
+          <!-- La ayuda va pegada a su campo. Suelta al final de la tarjeta parecía explicar
+               lo último que se leyó, que era otra cosa. -->
           <p class="muted small">
             <template v-if="tenant">
               Hoy tiene <strong>{{ tenant.technicianCount }}</strong>
@@ -698,6 +634,57 @@ onMounted(async () => {
             Déjelo en blanco para que no tenga tope. Del cuarto técnico en adelante se cobra
             aparte: súbale el número aquí sin moverlo de plan.
           </p>
+
+          <!-- Los dos módulos que se venden aparte, juntos y con su casilla a la izquierda del
+               texto. El asistente lleva interruptor propio: con uno solo, apagárselo a un
+               taller le apagaría también el escáner que ya está usando dentro de las órdenes. -->
+          <fieldset class="modulos" :disabled="cambiandoDePlan">
+            <legend>Módulos</legend>
+
+            <label class="checkbox">
+              <input v-model="plan.diagnosticsEnabled" type="checkbox" />
+              <span>
+                Diagnóstico con escáner
+                <em>El informe en la orden y la lectura de códigos con el adaptador.</em>
+              </span>
+            </label>
+
+            <label class="checkbox">
+              <input v-model="plan.assistantEnabled" type="checkbox" />
+              <span>
+                Asistente
+                <em>Propone los pasos y los repuestos a partir del diagnóstico.</em>
+              </span>
+            </label>
+
+            <div v-if="plan.assistantEnabled" class="creditos">
+              <div class="row">
+                <label>
+                  Créditos al mes
+                  <input v-model="plan.assistantCreditsPerMonth" type="number" min="0" max="20000" />
+                </label>
+                <label>
+                  Créditos al día
+                  <input v-model="plan.assistantCreditsPerDay" type="number" min="0" max="2000" />
+                </label>
+                <label>
+                  Tope de gasto, L al mes
+                  <input v-model="plan.assistantMonthlyCapHnl" type="number" min="0" max="50000" />
+                </label>
+              </div>
+
+              <p class="muted small">
+                Una propuesta de pasos vale 1 crédito y una consulta del técnico 5; la lectura
+                del negocio no gasta.
+                <template v-if="tenant">
+                  Este mes lleva gastados
+                  <strong>L {{ tenant.assistantSpentHnl.toFixed(2) }}</strong>
+                  de los {{ plan.assistantMonthlyCapHnl }} del tope.
+                </template>
+                El tope de gasto corta aunque le queden créditos, y el taller no lo ve.
+              </p>
+            </div>
+          </fieldset>
 
           <p v-if="avisoDelPlan" class="aviso-plan">{{ avisoDelPlan }}</p>
 
@@ -988,6 +975,59 @@ label {
   gap: 0.25rem;
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
+}
+
+/* Una casilla no es un campo con etiqueta encima: va al lado del texto. Sin esto heredaba
+   el `column` de arriba y salía flotando sobre su propia etiqueta. */
+label.checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+label.checkbox input {
+  margin-top: 0.15rem;
+  width: auto;
+  flex: none;
+}
+
+label.checkbox span {
+  display: flex;
+  flex-direction: column;
+}
+
+label.checkbox em {
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* El campo de un solo dato no se estira a lo ancho de la tarjeta: se lee como si esperara
+   una frase. */
+.corta {
+  max-width: 14rem;
+}
+
+.modulos {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.modulos legend {
+  padding: 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.modulos[disabled] {
+  opacity: 0.55;
+}
+
+/* Sangrados bajo su casilla: son ajustes del asistente, no otra cosa de la tarjeta. */
+.creditos {
+  margin: 0.25rem 0 0 1.75rem;
 }
 
 .actions {
