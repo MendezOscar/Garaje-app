@@ -197,6 +197,10 @@ public record PublicQuoteDto(
     // Las fotos del daño. Van al final porque se leen después del precio: primero cuánto es,
     // luego por qué.
     IReadOnlyList<PublicQuotePhotoDto> Photos,
+    // Los informes adjuntos —el del escáner, normalmente—. Van aparte de las fotos porque no
+    // se miran: se descargan. Es lo que convierte el presupuesto en algo que el cliente puede
+    // enseñar en otro lado, en vez de la palabra del taller.
+    IReadOnlyList<PublicQuoteDocumentDto> Documents,
     // El token del seguimiento, cuando la cotización ya se convirtió en orden. Es lo que
     // permite que el cliente siga con **el mismo enlace** en vez de esperar otro por WhatsApp:
     // aprobó, y desde ahí ve avanzar su vehículo y al final descarga la factura.
@@ -206,6 +210,9 @@ public record PublicQuoteDto(
 
 /// <summary>Una foto de la cotización tal como la ve el cliente: sin ids ni quién la subió.</summary>
 public record PublicQuotePhotoDto(string Url, string ThumbnailUrl, string? Caption);
+
+/// <summary>Un documento adjunto a la cotización: nombre, peso y de dónde bajarlo.</summary>
+public record PublicQuoteDocumentDto(string Url, string FileName, long SizeBytes, string? Caption);
 
 public record PublicQuoteLineDto(
     LineType LineType,

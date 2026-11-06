@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>GarajApp</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <!-- Sin esto el paquete sale sin identificador y Xcode corta la compilacion con
+         «Embedded binary's bundle identifier is not prefixed with the parent app's». -->
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+    <key>AppGroupId</key>
+    <string>$(CUSTOM_GROUP_ID)</string>
+    <key>CFBundleVersion</key>
+    <string>$(FLUTTER_BUILD_NUMBER)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(FLUTTER_BUILD_NAME)</string>
+    <key>NSExtension</key>
+    <dict>
+      <key>NSExtensionAttributes</key>
+      <dict>
+        <!-- Un archivo y nada más: lo que entra por aquí es el informe del escáner. Las
+             fotos se toman con la cámara dentro de la orden, que además las comprime. -->
+        <key>NSExtensionActivationRule</key>
+        <dict>
+          <key>NSExtensionActivationSupportsFileWithMaxCount</key>
+          <integer>1</integer>
+        </dict>
+      </dict>
+      <key>NSExtensionMainStoryboard</key>
+      <string>MainInterface</string>
+      <key>NSExtensionPointIdentifier</key>
+      <string>com.apple.share-services</string>
+    </dict>
+  </dict>
+</plist>

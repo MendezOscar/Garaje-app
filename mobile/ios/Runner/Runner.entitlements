@@ -10,5 +10,14 @@
 	-->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!--
+		El contenedor que comparte la app con la extensión de compartir: por ahí entra el
+		informe del escáner cuando alguien lo manda con «Compartir → GarajApp». Tiene que
+		estar dado de alta en el portal de Apple y en los dos perfiles.
+	-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.garaj.garajApp</string>
+	</array>
 </dict>
 </plist>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/media_repository.dart';
@@ -81,7 +82,7 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('¿Eliminar la foto?'),
+        title: Text(photo.esImagen ? '¿Eliminar la foto?' : '¿Eliminar el documento?'),
         content: const Text('No se puede deshacer.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
@@ -210,22 +211,42 @@ class _PhotoGalleryState extends ConsumerState<PhotoGallery> {
               apiErrorMessage(e, 'No se pudieron cargar las fotos.'),
               style: theme.textTheme.bodySmall,
             ),
-            data: (photos) => photos.isEmpty && pending.isEmpty
-                ? Text(
-                    widget.canEdit ? widget.vacioPropio : widget.vacioAjeno,
-                    style: theme.textTheme.bodySmall,
-                  )
-                : GridView.count(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 6,
-                    crossAxisSpacing: 6,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      for (final photo in photos)
-                        _Thumbnail(photo: photo, onTap: () => _open(photo)),
-                    ],
-                  ),
+            data: (adjuntos) {
+              // Las imágenes van en la cuadrícula; lo que no lo es —el informe del escáner—
+              // va debajo como lista: no tiene miniatura, se identifica por su nombre.
+              final fotos = adjuntos.where((a) => a.esImagen).toList();
+              final documentos = adjuntos.where((a) => !a.esImagen).toList();
+
+              if (adjuntos.isEmpty && pending.isEmpty) {
+                return Text(
+                  widget.canEdit ? widget.vacioPropio : widget.vacioAjeno,
+                  style: theme.textTheme.bodySmall,
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (fotos.isNotEmpty)
+                    GridView.count(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        for (final photo in fotos)
+                          _Thumbnail(photo: photo, onTap: () => _open(photo)),
+                      ],
+                    ),
+                  for (final documento in documentos)
+                    _DocumentoAdjunto(
+                      documento: documento,
+                      onDelete: widget.canEdit ? () => _delete(documento) : null,
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -264,7 +285,7 @@ class _SelectorDeLaOrdenState extends State<_SelectorDeLaOrden> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Fotos de la orden', style: theme.textTheme.titleMedium),
+            Text('Fotos y documentos de la orden', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
               'Las que tomó el técnico. El presupuesto enseña $_cabenEnElPdf; '
@@ -355,14 +376,33 @@ class _Candidata extends StatelessWidget {
           children: [
             Opacity(
               opacity: candidata.alreadyCopied ? 0.4 : 1,
-              child: Image.network(
-                candidata.photo.thumbnailUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  child: Icon(Icons.broken_image_outlined, color: theme.colorScheme.outline),
-                ),
-              ),
+              child: candidata.photo.esImagen
+                  ? Image.network(
+                      candidata.photo.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.broken_image_outlined, color: theme.colorScheme.outline),
+                      ),
+                    )
+                  : Container(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      padding: const EdgeInsets.all(6),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.picture_as_pdf_outlined, color: theme.colorScheme.primary),
+                          const SizedBox(height: 4),
+                          Text(
+                            candidata.photo.fileName ?? 'Informe',
+                            style: theme.textTheme.labelSmall,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
             ),
             if (candidata.alreadyCopied)
               const Positioned(
@@ -377,6 +417,44 @@ class _Candidata extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Un adjunto que no es foto: el informe del escáner. Se abre fuera de la app —el visor del
+/// teléfono lee PDF mejor que cualquier cosa que pintáramos aquí— y se puede quitar.
+class _DocumentoAdjunto extends StatelessWidget {
+  const _DocumentoAdjunto({required this.documento, this.onDelete});
+
+  final MediaAttachment documento;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final kb = documento.sizeBytes / 1024;
+    final peso = kb >= 1024 ? '${(kb / 1024).toStringAsFixed(1)} MB' : '${kb.round()} KB';
+
+    return Card(
+      margin: const EdgeInsets.only(top: 6),
+      child: ListTile(
+        leading: Icon(Icons.picture_as_pdf_outlined, color: theme.colorScheme.primary),
+        title: Text(
+          documento.caption ?? documento.fileName ?? 'Informe',
+          style: theme.textTheme.bodyMedium,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text('$peso · ${documento.uploadedByName}', style: theme.textTheme.bodySmall),
+        trailing: onDelete == null
+            ? const Icon(Icons.open_in_new, size: 18)
+            : IconButton(
+                tooltip: 'Quitar el documento',
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline),
+              ),
+        onTap: () => launchUrl(Uri.parse(documento.url), mode: LaunchMode.externalApplication),
       ),
     );
   }

@@ -27,6 +27,7 @@ import '../../features/shell/customer_shell.dart';
 import '../../features/shell/owner_shell.dart';
 import '../../features/shell/technician_shell.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/work_orders/attach_report_screen.dart';
 import '../../features/work_orders/vehicle_history_lookup_screen.dart';
 import '../../features/work_orders/work_order_detail_screen.dart';
 import '../../features/work_orders/work_order_list_screen.dart';
@@ -74,6 +75,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // puede verla y devuelve 404 si no le corresponde. Los avisos y la petición de cita
       // están por encima del perfil: cada uno ve lo suyo dentro de la pantalla.
       if (location.startsWith('/ordenes') ||
+          location == '/adjuntar-informe' ||
           location.startsWith('/presupuesto/') ||
           location == '/avisos' ||
           location == '/nueva-cita' ||
@@ -170,6 +172,9 @@ List<RouteBase> garajRoutes() => [
           emptyMessage: 'No hay órdenes abiertas.',
         ),
       ),
+      // A dónde cae lo que se comparte desde el escáner: la app pregunta a qué orden va antes
+      // de guardar nada. No tiene perfil propio —el backend ya decide qué órdenes se ven—.
+      GoRoute(path: '/adjuntar-informe', builder: (_, __) => const AttachReportScreen()),
       GoRoute(
         path: '/ordenes/:id',
         builder: (_, state) => WorkOrderDetailScreen(id: state.pathParameters['id']!),

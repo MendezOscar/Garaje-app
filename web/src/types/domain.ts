@@ -823,6 +823,13 @@ export interface PublicQuote {
     thumbnailUrl: string
     caption: string | null
   }[]
+  /** Los informes adjuntos —el del escáner—. No se miran: se descargan. */
+  documents: {
+    url: string
+    fileName: string
+    sizeBytes: number
+    caption: string | null
+  }[]
   /**
    * El token del seguimiento, cuando la cotización ya se convirtió en orden. Con esto el
    * cliente sigue con el mismo enlace: ve avanzar su vehículo y descarga la factura al final.
@@ -1124,6 +1131,8 @@ export interface MediaAttachment {
   thumbnailUrl: string
   contentType: string
   sizeBytes: number
+  /** Cómo se llamaba el archivo al llegar. Es el nombre de lo que no tiene miniatura. */
+  fileName: string | null
   caption: string | null
   uploadedByUserId: string
   uploadedByName: string

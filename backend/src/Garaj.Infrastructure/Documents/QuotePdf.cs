@@ -24,15 +24,19 @@ public static class QuotePdf
     /// Miniaturas del daño, ya descargadas. Van al final del documento: el cliente lee primero
     /// el precio y después por qué. Vacío si la cotización no lleva fotos.
     /// </param>
+    /// <param name="conInforme">
+    /// Si la cotización lleva adjunto el informe del escáner. No se incrusta —es otro PDF y
+    /// no una imagen—, así que el documento solo avisa de que está y dónde se descarga.
+    /// </param>
     public static byte[] Render(
         QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId,
-        byte[]? logo = null, IReadOnlyList<byte[]>? photos = null)
-        => Build(quote, tenantName, legalName, phone, taxId, logo, photos).GeneratePdf();
+        byte[]? logo = null, IReadOnlyList<byte[]>? photos = null, bool conInforme = false)
+        => Build(quote, tenantName, legalName, phone, taxId, logo, photos, conInforme).GeneratePdf();
 
     /// <summary>El documento sin generar, para poder coserle otro delante.</summary>
     public static IDocument Build(
         QuoteDetailDto quote, string tenantName, string? legalName, string? phone, string? taxId,
-        byte[]? logo = null, IReadOnlyList<byte[]>? photos = null)
+        byte[]? logo = null, IReadOnlyList<byte[]>? photos = null, bool conInforme = false)
     {
         return Document.Create(container =>
         {
@@ -44,7 +48,7 @@ public static class QuotePdf
 
                 page.Header().Element(header => Header(header, quote, tenantName, legalName, phone, taxId, logo));
                 page.Content().PaddingVertical(1, Unit.Centimetre)
-                    .Element(content => Content(content, quote, photos ?? []));
+                    .Element(content => Content(content, quote, photos ?? [], conInforme));
                 page.Footer().Element(footer => Footer(footer, quote));
             });
         });
@@ -86,7 +90,7 @@ public static class QuotePdf
     }
 
     private static void Content(
-        IContainer container, QuoteDetailDto quote, IReadOnlyList<byte[]> photos)
+        IContainer container, QuoteDetailDto quote, IReadOnlyList<byte[]> photos, bool conInforme)
     {
         container.Column(column =>
         {
@@ -230,6 +234,17 @@ public static class QuotePdf
                     if (quote.CustomerResponseNote is { } note)
                         c.Item().Text($"«{note}»").FontSize(9).Italic();
                 });
+            }
+
+            // El informe del escáner no se incrusta: es otro PDF, y QuestPDF cose documentos,
+            // no páginas sueltas dentro de una columna. Se avisa de que está, y el cliente lo
+            // baja del mismo enlace donde está mirando esto.
+            if (conInforme)
+            {
+                column.Item().PaddingTop(8).Text(
+                    "Esta cotización lleva adjunto el informe del escáner de diagnóstico. "
+                    + "Se descarga desde el enlace de la cotización.")
+                    .FontSize(9).Italic().FontColor(Colors.Grey.Darken2);
             }
 
             if (photos.Count > 0) column.Item().Element(item => Photos(item, photos));

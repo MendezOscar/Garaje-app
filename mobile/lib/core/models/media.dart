@@ -46,9 +46,12 @@ class MediaAttachment {
     required this.ownerId,
     required this.url,
     required this.thumbnailUrl,
+    required this.contentType,
+    required this.sizeBytes,
     required this.uploadedByName,
     required this.takenAt,
     required this.isVisibleToCustomer,
+    this.fileName,
     this.caption,
     this.taskTitle,
   });
@@ -59,6 +62,9 @@ class MediaAttachment {
         ownerId: json['ownerId'] as String,
         url: json['url'] as String,
         thumbnailUrl: json['thumbnailUrl'] as String,
+        contentType: json['contentType'] as String? ?? 'image/jpeg',
+        sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
+        fileName: json['fileName'] as String?,
         caption: json['caption'] as String?,
         uploadedByName: json['uploadedByName'] as String,
         takenAt: DateTime.parse(json['takenAt'] as String),
@@ -73,7 +79,17 @@ class MediaAttachment {
   /// URL prefirmada temporal. Caduca, así que no se cachea ni se comparte fuera de la app.
   final String url;
   final String thumbnailUrl;
+
+  /// Qué es el archivo. Lo que no empieza por `image/` es un documento —el informe del
+  /// escáner— y se dibuja como tal: no tiene miniatura que enseñar.
+  final String contentType;
+  final int sizeBytes;
+
+  /// Cómo se llamaba el archivo al llegar. Es lo que identifica un informe en la lista.
+  final String? fileName;
   final String? caption;
+
+  bool get esImagen => contentType.startsWith('image/');
   final String uploadedByName;
   final DateTime takenAt;
   final bool isVisibleToCustomer;

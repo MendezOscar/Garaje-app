@@ -19,8 +19,15 @@ public class MediaService(
     IOptions<StorageOptions> options,
     ILogger<MediaService> logger) : IMediaService
 {
+    /// <summary>
+    /// Fotos, y el PDF. El PDF está aquí por el informe del escáner: la tableta de
+    /// diagnóstico lo comparte a la app y queda colgado de la orden como un adjunto más.
+    /// Cualquier escáner que exporte un informe entra por la misma puerta.
+    /// </summary>
     private static readonly string[] AllowedContentTypes =
-        ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+        ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
+
+    public const string Pdf = "application/pdf";
 
     private readonly StorageOptions _options = options.Value;
 
@@ -104,8 +111,25 @@ public class MediaService(
 
         attachment.SizeBytes = pesaDeVerdad;
 
+        // Lo mismo que el peso: el tipo que se declaró al pedir la URL es una promesa. La
+        // firma del PUT ata la etiqueta, no el contenido, así que un PDF se mira por dentro
+        // antes de darlo por bueno —y lo que no lo sea se borra en vez de quedar servido a
+        // un cliente como si fuera el informe de su carro—.
+        if (attachment.ContentType == Pdf && !await EsPdfDeVerdadAsync(attachment.StorageKey, ct))
+        {
+            await storage.DeleteAsync(attachment.StorageKey, ct);
+            db.MediaAttachments.Remove(attachment);
+            await db.SaveChangesAsync(ct);
+
+            throw new AppException("El archivo no es un PDF.");
+        }
+
         attachment.IsConfirmed = true;
-        attachment.ThumbnailKey = await TryCreateThumbnailAsync(attachment, ct);
+
+        // Un PDF no tiene miniatura: la galería lo dibuja como documento, con su nombre.
+        attachment.ThumbnailKey = attachment.ContentType.StartsWith("image/")
+            ? await TryCreateThumbnailAsync(attachment, ct)
+            : null;
 
         await db.SaveChangesAsync(ct);
         return await MapAsync(attachment, ct);
@@ -333,6 +357,16 @@ public class MediaService(
         return await MapAsync(items, ct);
     }
 
+    public Task<bool> HasDocumentsAsync(
+        MediaOwnerType ownerType, Guid ownerId, Guid tenantId, CancellationToken ct = default) =>
+        db.MediaAttachments.AsNoTracking().IgnoreQueryFilters()
+            .AnyAsync(m => m.TenantId == tenantId
+                           && m.IsConfirmed
+                           && m.IsVisibleToCustomer
+                           && m.OwnerType == ownerType
+                           && m.OwnerId == ownerId
+                           && !m.ContentType.StartsWith("image/"), ct);
+
     public async Task<IReadOnlyList<byte[]>> DownloadThumbnailsAsync(
         MediaOwnerType ownerType, Guid ownerId, Guid tenantId, int max, CancellationToken ct = default)
     {
@@ -343,7 +377,10 @@ public class MediaService(
                         && m.IsConfirmed
                         && m.IsVisibleToCustomer
                         && m.OwnerType == ownerType
-                        && m.OwnerId == ownerId)
+                        && m.OwnerId == ownerId
+                        // Solo imágenes: el que arma el PDF espera una imagen, y un informe
+                        // adjunto metido por aquí tumbaría la cotización entera.
+                        && m.ContentType.StartsWith("image/"))
             .OrderBy(m => m.TakenAt)
             .Take(max)
             .Select(m => m.ThumbnailKey ?? m.StorageKey)
@@ -566,6 +603,30 @@ public class MediaService(
         }
     }
 
+    /// <summary>
+    /// Los cinco primeros bytes de un PDF son siempre <c>%PDF-</c>. No valida el documento
+    /// entero —para eso haría falta parsearlo— pero sí descarta lo que no lo es.
+    /// </summary>
+    private async Task<bool> EsPdfDeVerdadAsync(string key, CancellationToken ct)
+    {
+        try
+        {
+            await using var stream = await storage.DownloadAsync(key, ct);
+
+            var cabecera = new byte[5];
+            var leidos = await stream.ReadAtLeastAsync(cabecera, 5, throwOnEndOfStream: false, ct);
+
+            return leidos == 5 && "%PDF-"u8.SequenceEqual(cabecera);
+        }
+        catch (Exception e)
+        {
+            // Si no se pudo leer no se afirma que esté mal: el adjunto se queda y el técnico
+            // lo ve en la orden. Perder el informe por un tropiezo del bucket sería peor.
+            logger.LogWarning(e, "No se pudo comprobar si {Key} es un PDF.", key);
+            return true;
+        }
+    }
+
     private async Task TryDeleteObjectAsync(string key, CancellationToken ct)
     {
         try
@@ -600,6 +661,7 @@ public class MediaService(
             "image/png" => ".png",
             "image/webp" => ".webp",
             "image/heic" or "image/heif" => ".heic",
+            Pdf => ".pdf",
             _ => ".jpg"
         };
 
@@ -649,6 +711,7 @@ public class MediaService(
                 thumbnailUrl,
                 m.ContentType,
                 m.SizeBytes,
+                m.OriginalFileName,
                 m.Caption,
                 m.UploadedByUserId,
                 names.GetValueOrDefault(m.UploadedByUserId, "—"),

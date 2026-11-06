@@ -59,11 +59,19 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 useEscape(() => (preview.value = null))
 
+const esImagen = (m: MediaAttachment) => m.contentType.startsWith('image/')
+
+/**
+ * Lo que no es imagen —el informe del escáner, normalmente— va aparte y como lista: no tiene
+ * miniatura que mirar, se abre y se lee.
+ */
+const documentos = computed(() => photos.value.filter((m) => !esImagen(m)))
+
 /** Las fotos de un paso van agrupadas bajo su título; las de la orden, juntas al principio. */
 const groups = computed(() => {
   const byGroup = new Map<string, MediaAttachment[]>()
 
-  for (const photo of photos.value) {
+  for (const photo of photos.value.filter(esImagen)) {
     const key = photo.taskTitle ?? 'General'
     byGroup.set(key, [...(byGroup.get(key) ?? []), photo])
   }
@@ -169,8 +177,24 @@ async function traerElegidas() {
   }
 }
 
+/** Kilobytes o megas, lo que se lea mejor: el informe del escáner suele pesar un par de megas. */
+function peso(bytes: number) {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
 async function remove(photo: MediaAttachment) {
-  if (!confirm('¿Eliminar esta foto? No se puede deshacer.')) return
+  const esDoc = !esImagen(photo)
+
+  if (
+    !confirm(
+      esDoc
+        ? '¿Eliminar este documento? No se puede deshacer.'
+        : '¿Eliminar esta foto? No se puede deshacer.',
+    )
+  )
+    return
 
   busy.value = true
   try {
@@ -209,10 +233,12 @@ onMounted(load)
           }}
         </button>
       </div>
+      <!-- El PDF entra por aquí también: el informe del escáner puede llegar al correo del
+           taller y adjuntarse desde el panel, sin pasar por el teléfono. -->
       <input
         ref="fileInput"
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
         multiple
         hidden
         @change="onFilesPicked"
@@ -235,6 +261,23 @@ onMounted(load)
         </figure>
       </div>
     </div>
+
+    <!-- Los documentos: el informe del escáner y lo que venga por el mismo camino. -->
+    <div v-if="documentos.length" class="docs">
+      <h3>Documentos</h3>
+      <div v-for="doc in documentos" :key="doc.id" class="doc">
+        <a :href="doc.url" target="_blank" rel="noopener">
+          <span class="icono" aria-hidden="true">PDF</span>
+          <span class="nombre">
+            {{ doc.caption ?? doc.fileName ?? 'Informe' }}
+            <span class="muted small">{{ peso(doc.sizeBytes) }} · {{ doc.uploadedByName }}</span>
+          </span>
+        </a>
+        <button v-if="canEdit" type="button" class="btn-ghost" :disabled="busy" @click="remove(doc)">
+          Quitar
+        </button>
+      </div>
+    </div>
   </article>
 
   <!-- El selector: la galería de la orden, con lo que ya se trajo marcado y fuera de juego. -->
@@ -242,10 +285,10 @@ onMounted(load)
     <div class="selector">
       <header>
         <div>
-          <h2>Fotos de la orden</h2>
+          <h2>Fotos y documentos de la orden</h2>
           <p class="muted small">
-            Las que tomó el técnico. El PDF enseña {{ CABEN_EN_EL_PDF }}; el resto las ve el
-            cliente en el enlace.
+            Lo que puso el técnico, fotos e informes del escáner. El PDF enseña
+            {{ CABEN_EN_EL_PDF }} fotos; el resto, y los informes, los ve el cliente en el enlace.
           </p>
         </div>
         <button type="button" @click="eligiendo = false">Cerrar</button>
@@ -271,7 +314,13 @@ onMounted(load)
             :disabled="c.alreadyCopied"
             @click="alternar(c.photo.id)"
           >
+            <!-- Un informe no tiene miniatura: se enseña como documento, con su nombre. -->
+            <span v-if="!c.photo.contentType.startsWith('image/')" class="doc-thumb">
+              <span class="icono" aria-hidden="true">PDF</span>
+              <span class="small">{{ c.photo.fileName ?? 'Informe' }}</span>
+            </span>
             <img
+              v-else
               :src="c.photo.thumbnailUrl"
               :alt="c.photo.caption ?? 'Foto de la orden'"
               loading="lazy"
@@ -365,6 +414,65 @@ onMounted(load)
 
 .elegibles .thumb.traida {
   cursor: not-allowed;
+}
+
+/* Documentos: lista y no cuadrícula. Un informe se identifica por su nombre, no por su cara. */
+.docs {
+  margin-top: 0.75rem;
+}
+
+.doc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+
+.doc + .doc {
+  margin-top: 0.375rem;
+}
+
+.doc a {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.doc .nombre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.icono {
+  flex: none;
+  padding: 0.25rem 0.375rem;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.doc-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0.5rem;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .marca {

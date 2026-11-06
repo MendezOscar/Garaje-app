@@ -393,8 +393,11 @@ public class QuoteService(
         var photos = await media.DownloadThumbnailsAsync(
             MediaOwnerType.Quote, id, tenant.Id, PhotosInPdf, ct);
 
+        var conInforme = await media.HasDocumentsAsync(MediaOwnerType.Quote, id, tenant.Id, ct);
+
         var presupuesto = QuotePdf.Build(
-            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
+            detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos,
+            conInforme);
 
         if (!includeReception || detail.WorkOrderId is not { } workOrderId)
             return presupuesto.GeneratePdf();
@@ -467,9 +470,12 @@ public class QuoteService(
                 var logo = await tenants.TryGetLogoBytesAsync(tenant.Id, ct);
                 var photos = await media.DownloadThumbnailsAsync(
                     MediaOwnerType.Quote, quote.Id, quote.TenantId, PhotosInPdf, ct);
+                var conInforme = await media.HasDocumentsAsync(
+                    MediaOwnerType.Quote, quote.Id, quote.TenantId, ct);
 
                 return QuotePdf.Render(
-                    detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos);
+                    detail, tenant.Name, tenant.LegalName, tenant.Phone, tenant.TaxId, logo, photos,
+                    conInforme);
             });
     }
 
@@ -860,8 +866,19 @@ public class QuoteService(
 
         var vehicle = await ActivoAsync(quote, ct);
 
-        var photos = (await media.ListForQuotePublicAsync(quote.TenantId, quote.Id, ct))
+        var adjuntos = await media.ListForQuotePublicAsync(quote.TenantId, quote.Id, ct);
+
+        var photos = adjuntos
+            .Where(p => p.ContentType.StartsWith("image/"))
             .Select(p => new PublicQuotePhotoDto(p.Url, p.ThumbnailUrl, p.Caption))
+            .ToList();
+
+        // Lo que no es imagen se descarga: el informe del escáner, que es lo que respalda el
+        // presupuesto. Si se mezclara con las fotos saldría como una imagen rota.
+        var documents = adjuntos
+            .Where(p => !p.ContentType.StartsWith("image/"))
+            .Select(p => new PublicQuoteDocumentDto(
+                p.Url, p.FileName ?? "Informe.pdf", p.SizeBytes, p.Caption))
             .ToList();
 
         // Si la cotización ya se convirtió en orden, el cliente puede seguir con este mismo
@@ -906,6 +923,7 @@ public class QuoteService(
                     l.BoughtOutside, l.SupplierName))
                 .ToList(),
             photos,
+            documents,
             trackingToken,
             vehicle?.Kind ?? AssetKind.Vehicle);
     }
