@@ -1,0 +1,5 @@
+# Los casos salen de la base y llevan datos de talleres reales. No se versionan.
+casos.json
+resultado.md
+node_modules/
+package-lock.json
