@@ -578,6 +578,8 @@ export interface StockItem {
   costPrice: number
   salePrice: number
   isBelowMinimum: boolean
+  /** A qué vehículos les sirve. Vacío mientras nadie lo llene. */
+  applications: PartApplication[]
 }
 
 export interface StockMovement {

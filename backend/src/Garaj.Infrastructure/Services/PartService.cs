@@ -291,7 +291,16 @@ public class PartService(
                 if (existe)
                 {
                     actualizados++;
-                    if (apply) Apply(parte!, deseado!);
+
+                    if (apply)
+                    {
+                        Apply(parte!, deseado!);
+                        // «Aplica a» se guardaba solo desde la pantalla de Inventario: aquí se
+                        // leía del Excel, se anunciaba en la vista previa y se perdía al
+                        // guardar. El taller subía su plantilla, el panel le decía que sí, y
+                        // dentro de la orden el filtro por vehículo no encontraba nada.
+                        AplicarAplicaciones(parte!, deseado!.Applications);
+                    }
                     buenas.Add(new ImportRowDto(
                         fila.Numero, sku, deseado!.Name, "actualiza", null, QueCambia(cambios, fila.Dato!)));
                 }
@@ -304,6 +313,7 @@ public class PartService(
                     {
                         Apply(parte, deseado!);
                         db.Parts.Add(parte);
+                        AplicarAplicaciones(parte, deseado!.Applications);
                         existentes[sku] = parte;
                     }
 

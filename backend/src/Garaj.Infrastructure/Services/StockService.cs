@@ -350,7 +350,11 @@ public class StockService(
             s.Location,
             s.Part.CostPrice,
             s.Part.SalePrice,
-            s.MinQuantity > 0 && s.Quantity <= s.MinQuantity));
+            s.MinQuantity > 0 && s.Quantity <= s.MinQuantity,
+            s.Part.Applications
+                .OrderBy(a => a.Brand).ThenBy(a => a.Model).ThenBy(a => a.YearFrom)
+                .Select(a => new PartApplicationDto(a.Brand, a.Model, a.YearFrom, a.YearTo, a.Engine))
+                .ToList()));
 
     private IQueryable<StockMovementDto> ProjectMovements(IQueryable<StockMovement> q) =>
         q.Select(m => new StockMovementDto(
