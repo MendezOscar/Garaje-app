@@ -516,14 +516,23 @@ public class PartService(
             var hasta = aplica.YearTo;
             if (desde is { } d && hasta is { } h && d > h) (desde, hasta) = (h, d);
 
-            part.Applications.Add(new PartApplication
+            var nueva = new PartApplication
             {
+                Part = part,
                 Brand = marca,
                 Model = Limpio(aplica.Model),
                 YearFrom = desde,
                 YearTo = hasta,
                 Engine = Limpio(aplica.Engine)
-            });
+            };
+
+            // Se da de alta explícitamente en vez de solo colgarla de `part.Applications`.
+            // `BaseEntity` pone el Id al construir, así que la fila nueva ya trae clave; EF
+            // ve una clave puesta bajo un padre que ya existe, concluye que es una edición y
+            // emite UPDATE en vez de INSERT. Ese UPDATE no encuentra nada —la fila vieja
+            // acaba de borrarse— y el taller recibía «Alguien más cambió esto mientras usted
+            // trabajaba» al guardar un repuesto que ya tenía vehículos.
+            db.PartApplications.Add(nueva);
         }
     }
 
