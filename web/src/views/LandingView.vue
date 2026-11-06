@@ -153,8 +153,11 @@ const pasos = [
 ]
 
 /**
- * Los tres bloques grandes, cada uno con su captura. Son las tres cosas que un dueño quiere
- * ver antes de creer: la orden, lo que ve su cliente y el cobro.
+ * Los bloques grandes, cada uno con su captura. Son las cosas que un dueño quiere ver antes de
+ * creer: la orden, lo que el asistente le propone, lo que ve su cliente y el cobro.
+ *
+ * El del asistente va segundo y no último a propósito: es lo que nadie más le está ofreciendo,
+ * y el que viene comparando deja de leer antes del final.
  */
 const bloques = [
   {
@@ -175,6 +178,25 @@ const bloques = [
     alto: 848,
   },
   {
+    etiqueta: 'El asistente',
+    titulo: 'Del diagnóstico salen los pasos, y usted corrige',
+    texto:
+      'Con el diagnóstico escrito, el asistente propone los pasos del trabajo y los repuestos ' +
+      '—de su catálogo, no de uno ajeno—. Usted tacha lo que no, corrige las horas y acepta. ' +
+      'Nada entra a la orden sin que lo apruebe, y al lado de cada paso ve lo que su propio ' +
+      'taller cobró por ese mismo trabajo antes.',
+    puntos: [
+      'Le dice lo que haría falta y no tiene en catálogo, para comprarlo',
+      'No inventa torques ni capacidades: para eso remite al manual de la marca',
+      'El técnico pregunta con el carro en la rampa, y le contesta con las órdenes del taller',
+    ],
+    imagen: '/capturas/telefono-asistente.png?v=2026-11',
+    alt: 'La propuesta del asistente en el teléfono: los pasos con sus horas, los repuestos y la nota',
+    ancho: 390,
+    alto: 820,
+    invertido: true,
+  },
+  {
     etiqueta: 'Su cliente',
     titulo: 'La cotización la aprueba él, desde su teléfono',
     texto:
@@ -190,7 +212,6 @@ const bloques = [
     alt: 'La cotización tal como la abre el cliente desde WhatsApp, con el detalle y el total',
     ancho: 390,
     alto: 820,
-    invertido: true,
   },
   {
     etiqueta: 'El cobro',
@@ -208,6 +229,7 @@ const bloques = [
     alt: 'Cerrar y facturar en el teléfono: el total, la forma de pago y el aviso del próximo servicio',
     ancho: 390,
     alto: 848,
+    invertido: true,
   },
 ]
 
@@ -363,6 +385,12 @@ const preguntas = [
           <p class="claim">
             GarajApp lleva las órdenes de trabajo, el inventario, las cotizaciones y el cobro de
             su taller de autos y motos. En el teléfono, que es donde usted trabaja.
+          </p>
+          <!-- Una línea, no un párrafo: lo que el taller compra sigue siendo lo de arriba.
+               Esto es lo que lo hace mirar dos veces. -->
+          <p class="claim nuevo">
+            <strong>Y ahora con asistente:</strong> del diagnóstico salen los pasos y los
+            repuestos de su catálogo, y el técnico pregunta con el carro en la rampa.
           </p>
           <div class="acciones">
             <a class="boton grande" :href="whatsapp" target="_blank" rel="noopener">
@@ -948,6 +976,19 @@ h1 {
   font-size: clamp(1rem, 2.4vw, 1.1875rem);
   line-height: 1.55;
   color: #c3d0e2;
+}
+
+/* La línea del asistente: se distingue del reclamo principal sin gritar, porque lo que el
+   taller compra sigue siendo lo de arriba. Esto es lo que lo hace mirar dos veces. */
+.claim.nuevo {
+  border-left: 3px solid #4d8df6;
+  padding-left: 0.8rem;
+  font-size: clamp(0.95rem, 2.1vw, 1.0625rem);
+  color: #dbe6f5;
+}
+
+.claim.nuevo strong {
+  color: #fff;
 }
 
 .acciones {
