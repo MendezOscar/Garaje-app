@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<!--
+  El plan de la IA, del 6 de noviembre de 2026. Mismo estilo que propuesta-garajapp.html,
+  primeros-pasos-garajapp.html y mejoras-garajapp.html, pero este NO se le entrega al taller:
+  es interno. Lleva precios de la API, nombres de clases y el recorrido de seguridad, y habla
+  de lo que todavía no existe. Lo mismo está en docs/ia.md; esto es para leerlo de corrido o
+  imprimirlo (Cmd+P → Guardar como PDF).
+
+  Si algún día se le enseña algo de esto a un taller, se escribe otro documento con lenguaje
+  de taller, como se hizo con las mejoras: aquí hay números que son nuestros, no suyos.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IA en GarajApp — plan de trabajo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  h1, h2, h3, .mejora .n { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+  .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
+  h1 { font-size: 26px; letter-spacing:-0.02em; }
+  h2 { font-size: 17px; color:var(--brand-dark); margin: 28px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
+  h3 { font-size:15px; margin:18px 0 4px; color:var(--brand-dark); }
+  p, li, td, th { font-size: 14.5px; }
+  .muted { color: var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
+  .meta { text-align:right; font-size:13px; color:var(--muted); }
+  ul, ol { margin: 6px 0 6px 20px; }
+  ul li, ol li { margin: 3px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; font-size:14px; }
+  th, td { text-align:left; padding: 9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background: var(--brand-light); color:var(--brand-dark); }
+  /* Cada mejora va numerada y grande a la izquierda, como los primeros pasos: el taller la
+     busca por su número cuando pregunta «¿y la 3?». */
+  .mejora { display:flex; gap:14px; align-items:flex-start; margin-top:16px; }
+  .mejora .n { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:12px; font-size:14px; }
+  .aviso { border-left:4px solid var(--brand); background:#fbfcfe; padding:10px 14px; margin-top:10px; font-size:14px; }
+  .ejemplo { border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-top:10px; font-size:14px; background:#fbfcfe; }
+  .mejora table { margin-top:8px; }
+  .mejora table td { font-size:14px; }
+  .mejora ol { margin: 6px 0 6px 20px; }
+  .mejora ol li { margin: 4px 0; }
+  /* Cómo probarlo: verde apagado, para que se distinga de un aviso y se encuentre rápido
+     cuando alguien va buscando qué validar. */
+  .probar { border:1px solid #cfe3d4; background:#f3f9f5; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:14px; }
+  .probar .t { display:block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#2f6b45; margin-bottom:6px; }
+  .probar ol { margin:6px 0 0 20px; }
+  .probar ol li { margin:4px 0; }
+  .ejemplo .t { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px; }
+  code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
+  .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+  /* Propio de este documento: es interno y lleva cosas que el de los talleres no tiene. */
+  .interno { background:#fff8e6; border:1px solid #f0dca8; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:14px; }
+  .no { border-left:4px solid #c0392b; background:#fdf6f5; padding:10px 14px; margin-top:10px; font-size:14px; }
+  .num { text-align:right; font-variant-numeric: tabular-nums; }
+  .dir { display:flex; gap:14px; align-items:flex-start; margin-top:18px; }
+  .dir .n { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', system-ui, sans-serif; }
+  .dir h3:first-child { margin-top:0; }
+  @media print {
+    body { background:#fff; }
+    .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
+    @page { margin: 14mm; }
+    h2 { break-after: avoid; }
+    .mejora, .ejemplo, .probar, .hl, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="246" height="77" role="img" aria-label="GarajApp">
+      <title>GarajApp — logotipo horizontal</title>
+      <path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#1F6FEB"></path>
+      <text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#14171C">G</text>
+      <g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#14171C">GarajApp</text></g>
+      </svg>
+      <p class="muted" style="margin-top:2px">El taller ordenado, desde el teléfono</p>
+    </div>
+    <div class="meta">
+      <strong>Plan de trabajo — IA</strong><br />
+      Documento <strong>interno</strong><br />
+      Fecha: 6 de noviembre de 2026<br />
+      Estado: sin empezar
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px">IA en GarajApp: tres direcciones</h1>
+  <p class="muted" style="margin-top:6px">Decididas el 6 de noviembre de 2026. Ninguna está empezada: esto es lo que hay que construir y, sobre todo, <strong>lo que hay que decidir antes de escribir la primera línea</strong>. Lo mismo está en <code>docs/ia.md</code>.</p>
+
+  <table>
+    <tr><th style="width:52px"></th><th style="width:150px">Para quién</th><th>Qué hace</th></tr>
+    <tr><td><strong>1</strong></td><td>Dueño y Encargado</td><td><strong>Los pasos del trabajo.</strong> Del diagnóstico sale una propuesta de pasos y repuestos, que él edita y acepta.</td></tr>
+    <tr><td><strong>2</strong></td><td>Dueño</td><td><strong>La lectura del negocio.</strong> Una vez por semana: qué pasó con las ventas, el inventario y los técnicos, y qué conviene hacer.</td></tr>
+    <tr><td><strong>3</strong></td><td>Técnico</td><td><strong>La consulta.</strong> Preguntar con el vehículo en la rampa, usando lo que el propio taller ya reparó antes.</td></tr>
+  </table>
+
+  <div class="interno">
+    <strong>Esto es interno.</strong> Lleva precios de la API, nombres de clases y el recorrido de seguridad. Si algo de esto se le enseña a un taller, se escribe otro documento con lenguaje de taller, como se hizo con las mejoras.
+  </div>
+
+  <h2>Lo que ya existe y no hay que construir</h2>
+  <p>Importa más que el modelo que se elija, porque es lo que hace que la propuesta salga con <strong>los precios del taller</strong> y no con precios inventados.</p>
+  <ul>
+    <li><strong>Trabajos frecuentes</strong> (<code>JobTemplate</code>): pasos con horas y servicio de catálogo, más repuestos con cantidad. Ya es la forma exacta que tiene que producir la dirección 1, así que la IA no inventa un formato nuevo: <strong>llena el que ya se usa</strong>.</li>
+    <li><strong>Catálogo de mano de obra</strong> (<code>LaborService</code>) y de <strong>repuestos</strong> (<code>Part</code>), con <code>PartApplication</code> —para qué vehículos sirve cada repuesto—. Es lo que permite ofrecer repuestos que el taller <strong>tiene</strong>.</li>
+    <li><strong>Las lecturas del escáner</strong> (<code>VehicleScan</code>, de esta misma semana): los códigos de falla guardados uno por uno. Es la mejor entrada que puede tener un diagnóstico asistido, y ya está.</li>
+    <li><strong>Los reportes</strong> (<code>IReportService</code>): tablero, ingresos, tiempo por técnico, cierre de caja, repuestos bajo mínimo, cuentas por cobrar. La dirección 2 <strong>no necesita consultas nuevas</strong>; necesita juntar las que hay.</li>
+    <li><strong>El historial del vehículo y del cliente</strong>: órdenes anteriores con su diagnóstico, sus pasos y sus repuestos. Es el material de la dirección 3.</li>
+    <li><strong><code>Tenant.DiagnosticsEnabled</code></strong>, que nace en <code>true</code> con el plan Pro y hoy <strong>no cierra nada</strong>: está puesto y no se consulta en ningún lado. Es el interruptor comercial que estas tres funciones estaban esperando.</li>
+    <li><strong>El vocabulario del taller</strong> (<code>WorkshopKind</code>): hay talleres de <strong>equipos</strong>, no solo de vehículos. Un prompt que hable de «el carro» se ve mal en la mitad de los clientes.</li>
+  </ul>
+
+  <h2>Las cinco decisiones que mandan sobre lo demás</h2>
+  <p class="muted">Si alguna se decide mal, lo demás no se arregla después.</p>
+
+  <h3>1 · La llave vive en el servidor y nada más</h3>
+  <p>La app y el panel <strong>nunca</strong> hablan con la API del modelo. Llaman a GarajApp, GarajApp llama al modelo. Misma regla que Supabase y Firebase, y por el mismo motivo: una llave dentro de un <code>.ipa</code> es una llave pública. En Render va como variable de entorno y <strong>no entra al repositorio, que además es público</strong>.</p>
+
+  <h3>2 · El dato del cliente no sale crudo</h3>
+  <p>El nombre, el teléfono, el RTN y la dirección no tienen por qué viajar a ninguna parte para que salga una lista de pasos. <strong>Va lo que la tarea necesita y nada más.</strong> La placa tampoco: el vehículo se describe por marca, modelo, año y kilometraje. La dirección 2 es el caso extremo y el más fácil: se manda un <strong>paquete de números ya calculados</strong>, no filas de la base.</p>
+
+  <h3>3 · La IA no calcula, explica</h3>
+  <p>Todas las cifras las calcula el servidor en SQL, como hoy. La IA recibe los números hechos y escribe la lectura. <strong>Nunca se le pide que sume ni que saque un porcentaje:</strong> un modelo que se equivoca en una resta en el reporte mensual del dueño destruye la confianza en todo lo demás, y es un error que no se detecta mirando.</p>
+  <p>Lo mismo en la dirección 1: la IA propone <strong>qué</strong> pasos y <strong>qué</strong> repuestos; el precio lo pone el catálogo. Nunca sale un número de la IA a una cotización.</p>
+
+  <h3>4 · Todo lo que produce es un borrador</h3>
+  <p>Nada se guarda solo, se le manda al cliente solo, ni se convierte en orden solo. Sale marcado como propuesta, el humano lo edita y lo acepta. El botón dice <strong>«Aceptar»</strong>, no «Guardar».</p>
+
+  <h3>5 · Es del plan Pro, y hay tope</h3>
+  <p><code>DiagnosticsEnabled</code> cierra las tres. Y aparte del plan, cada taller lleva un <strong>tope mensual de consumo</strong> que se cuenta en el servidor y se corta al llegar —como ya se corta por mensualidad vencida en <code>SubscriptionGuardMiddleware</code>—. Sin tope, un técnico curioso una tarde se lleva el margen del mes. Al llegar al tope la función se apaga con un mensaje que lo dice, no con un error.</p>
+
+  <h2>Las tres direcciones</h2>
+
+  <div class="dir">
+    <div class="n">1</div>
+    <div style="flex:1">
+      <h3>Los pasos del trabajo</h3>
+      <p><strong>El problema.</strong> El técnico escribe el diagnóstico y ahí se queda. Cargar los pasos y los repuestos es trabajo de oficina, lo hace el dueño, y mientras no lo haga el técnico no puede seguir. Los trabajos frecuentes resuelven lo repetido —el cambio de aceite—, pero no el trabajo que no se repite, que es justo donde se pierde la tarde.</p>
+      <p style="margin-top:8px"><strong>Cómo queda.</strong> En la orden, con el diagnóstico escrito, un botón: <strong>«Proponer los pasos»</strong>. Sale una lista editable: pasos con su título, sus horas y el servicio del catálogo con el que se cobran; repuestos del catálogo del taller con su cantidad. Se tachan los que no, se corrigen las horas, se acepta. Entran a la orden como si se hubieran escrito a mano, y aparece la opción de guardar el conjunto como trabajo frecuente.</p>
+      <div class="ejemplo">
+        <span class="t">Qué se le manda al modelo</span>
+        El diagnóstico · marca, modelo, año y kilometraje · los códigos de la última lectura del escáner si la hay · los servicios de mano de obra del taller · los repuestos <strong>ya filtrados para ese vehículo</strong> por <code>PartApplication</code>.
+      </div>
+      <p style="margin-top:10px"><strong>Lo que hay que hacer bien, o no sirve:</strong></p>
+      <ul>
+        <li><strong>La salida es estructurada</strong>, con esquema estricto, y los repuestos van <strong>referenciados por el id del catálogo</strong>, no por nombre. A un modelo al que se le deja escribir el nombre termina ofreciendo repuestos que el taller no tiene.</li>
+        <li><strong>Si no hay repuesto que sirva, se dice.</strong> Vale más un paso sin repuesto que un repuesto equivocado: el que lo revisa está apurado y acepta lo que ve.</li>
+        <li><strong>El vocabulario del taller.</strong> En un taller de equipos no se dice vehículo.</li>
+      </ul>
+      <div class="aviso">
+        <strong>Lo que cuesta de verdad no es el modelo, es el filtro del catálogo.</strong> Mandar los 400 repuestos del taller en cada llamada es caro y además empeora la respuesta. El filtro por vehículo y categoría es el trabajo real de esta dirección.
+      </div>
+    </div>
+  </div>
+
+  <div class="dir">
+    <div class="n">2</div>
+    <div style="flex:1">
+      <h3>La lectura del negocio</h3>
+      <p><strong>El problema.</strong> El tablero enseña números, y los números no dicen qué hacer. El dueño ve que el margen bajó y no sabe si fue el repuesto que subió de precio, el técnico que se tardó o el descuento que dio el encargado. Nadie abre el reporte de tiempo por técnico dos veces.</p>
+      <p style="margin-top:8px"><strong>Cómo queda.</strong> Una vez por semana —y un cierre al mes— el dueño recibe en el panel una lectura de una página: qué pasó, qué cambió respecto al periodo anterior, y <strong>tres oportunidades ordenadas por lo que valen</strong>, cada una con el número que la respalda y qué haría falta para aprovecharla. Se abre en el panel y se baja en PDF.</p>
+      <div class="ejemplo">
+        <span class="t">Qué se le manda al modelo</span>
+        Un paquete de agregados armado con los reportes que ya existen —ingresos, margen, órdenes por estado y atrasadas, cotizaciones sin respuesta y su tasa de aprobación, repuestos bajo mínimo y los que más rotan, horas y órdenes por técnico, cuentas por cobrar y vencidas, gastos por categoría—, el mismo paquete del periodo anterior para comparar, y nada más. <strong>Sin nombres de clientes.</strong>
+      </div>
+      <p style="margin-top:10px"><strong>Lo que hay que hacer bien:</strong></p>
+      <ul>
+        <li><strong>Los técnicos salen por nombre y eso es delicado.</strong> Es un reporte para el dueño sobre personas que trabajan ahí. El tono se instruye explícitamente: datos, no juicios sobre la persona. Y el reporte dice que el tiempo registrado es <strong>un techo</strong> —ya lo dice <code>TechnicianTimeRowDto.AutoClosed</code>, porque el sistema cierra tramos que nadie paró—.</li>
+        <li><strong>Un taller con dos órdenes en la semana no tiene lectura que dar.</strong> Debajo de cierto volumen no se genera, y se dice por qué: inventar una tendencia con cuatro datos es peor que no decir nada.</li>
+        <li><strong>Corre de noche y en lote.</strong> No hay nadie esperando, así que va por la API de lotes, que cuesta la mitad.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="dir">
+    <div class="n">3</div>
+    <div style="flex:1">
+      <h3>La consulta del técnico</h3>
+      <p><strong>El problema.</strong> El técnico tiene el vehículo en la rampa y una duda. Hoy pregunta al compañero, busca en el teléfono o prueba. Y el taller ya reparó ese mismo problema en ese mismo modelo hace cuatro meses, pero eso está dentro de una orden cerrada que nadie va a abrir.</p>
+      <p style="margin-top:8px"><strong>Cómo queda.</strong> Dentro de la orden, <strong>«Preguntar»</strong>. Una conversación corta con el contexto ya puesto —el vehículo, el diagnóstico, los códigos— y, como material, <strong>lo que este taller ya hizo</strong>: órdenes cerradas del mismo modelo con su diagnóstico, sus pasos y sus repuestos.</p>
+      <div class="hl">
+        Esa es la parte que vale y la que nadie más puede dar: <em>«a tres Corolla 2015 con P0301 este taller les cambió la bobina del cilindro 3, y en uno de ellos volvió a los dos meses»</em>.
+      </div>
+      <p style="margin-top:10px"><strong>Aquí es cuestión de seguridad, no de calidad:</strong></p>
+      <ul>
+        <li><strong>No inventa especificaciones.</strong> Un torque, una capacidad de aceite, un orden de encendido o un color de cable inventados mandan a alguien a romper un motor. El sistema se instruye para <strong>negarse</strong> a darlos de memoria y remitir al manual del fabricante. Es la diferencia entre una herramienta y un riesgo.</li>
+        <li><strong>Lo que viene del historial se distingue de lo que es razonamiento general</strong>, y se dice de cuál orden salió, con enlace. Lo que el taller hizo es un hecho; lo demás es una idea.</li>
+        <li><strong>Es la cara de las tres.</strong> Una conversación de ocho turnos cuesta cerca de treinta veces lo que una propuesta de pasos. Aquí el tope deja de ser teórico.</li>
+        <li><strong>En la rampa no hay señal.</strong> La pantalla tiene que aguantar quedarse sin red a medio turno sin perder lo escrito, y decirlo.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Qué cuesta</h2>
+  <p>Precios de la API al 6 de noviembre de 2026, por millón de tokens, y a <strong>L 26 por dólar</strong>:</p>
+  <table>
+    <tr><th>Modelo</th><th class="num">Entrada</th><th class="num">Salida</th><th class="num">Lectura de caché</th></tr>
+    <tr><td><code>claude-opus-5-5</code></td><td class="num">$4.00</td><td class="num">$20.00</td><td class="num">$0.20</td></tr>
+    <tr><td><code>claude-sonnet-5-5</code></td><td class="num">$2.00</td><td class="num">$10.00</td><td class="num">$0.20</td></tr>
+    <tr><td><code>claude-haiku-5-5</code></td><td class="num">$0.10</td><td class="num">$0.50</td><td class="num">—</td></tr>
+  </table>
+
+  <p style="margin-top:14px">Con el prompt y el catálogo del taller en caché, y un taller de tres técnicos:</p>
+  <table>
+    <tr><th></th><th class="num">Por llamada<br /><span class="muted" style="font-weight:400">Opus 5.5</span></th><th class="num">Al mes</th><th class="num">Con Sonnet 5.5</th></tr>
+    <tr><td><strong>1 ·</strong> Pasos <span class="muted">(≈150 al mes)</span></td><td class="num">≈ L 0.35</td><td class="num"><strong>≈ L 50</strong></td><td class="num">≈ L 25</td></tr>
+    <tr><td><strong>2 ·</strong> Lectura <span class="muted">(5 al mes, en lote)</span></td><td class="num">≈ L 0.55</td><td class="num"><strong>≈ L 3</strong></td><td class="num">≈ L 1.50</td></tr>
+    <tr><td><strong>3 ·</strong> Consulta <span class="muted">(8 turnos, 75 al mes)</span></td><td class="num">≈ L 2.70</td><td class="num"><strong>≈ L 200</strong></td><td class="num">≈ L 100</td></tr>
+  </table>
+
+  <div class="hl">
+    <strong>Lo que dicen estos números.</strong> Contra una mensualidad de L 1,250, las direcciones 1 y 2 son gratis en la práctica. Elegir el modelo barato ahí ahorra L 25 al mes y se paga con la primera propuesta que salga mal y haya que corregir a mano. Donde el modelo sí se discute es en la 3, que es la única que puede crecer sin techo —y para eso está el tope, no un modelo peor—.
+  </div>
+
+  <p style="margin-top:12px"><strong>La recomendación:</strong> <code>claude-opus-5-5</code> en las tres, con caché del prompt y del catálogo, la 2 en lote, y el tope mensual por taller. Bajar a <code>claude-sonnet-5-5</code> en la 3 es razonable si el tope empieza a tocarse seguido; es decisión de negocio y se toma <strong>con el consumo medido, no antes</strong>.</p>
+
+  <div class="aviso">
+    <strong>Tres cosas que no están en la tabla.</strong> El caché solo sirve si el prefijo no cambia —el catálogo va antes que la pregunta, siempre en el mismo orden—; cada reintento se paga igual que el primer intento; y el consumo se registra por taller <strong>desde la primera llamada</strong>, porque sin eso el tope es una idea y no un tope.
+  </div>
+
+  <h2>Seguridad</h2>
+  <p>Recorrido de <code>docs/seguridad.md</code> con lo nuevo. Es lo que toca hacer antes de cerrar cada dirección.</p>
+  <table>
+    <tr><th style="width:150px">Punto</th><th>Qué aplica</th></tr>
+    <tr><td><strong>§4</strong> Aislamiento</td><td>Todo lo que entra a un prompt sale de consultas que ya pasaron por <code>AccessScope</code>. Nada de <code>BypassTenantFilter</code>: hay usuario detrás de cada llamada. El historial de la dirección 3 se arma con las órdenes del taller, y de un técnico, con las suyas.</td></tr>
+    <tr><td><strong>§6</strong> Validación</td><td>La respuesta del modelo <strong>se valida como si viniera de un cliente hostil</strong>, porque a efectos prácticos viene de afuera: ids de repuesto que existan y sean del taller, cantidades positivas, horas en rango, largos recortados. Un id que no cuadre se descarta, no se guarda.</td></tr>
+    <tr><td><strong>§8</strong> Contraseña temporal</td><td>Los endpoints nuevos quedan cerrados solos mientras la contraseña sea la provisional. Correcto, no hay nada que hacer.</td></tr>
+    <tr><td><strong>§9</strong> Lo congelado</td><td>La propuesta aceptada se guarda como pasos normales, con precios congelados como cualquier otro. La propuesta se guarda <strong>con lo que se le mandó al modelo</strong>: cuando una salga mal, hay que poder ver qué vio.</td></tr>
+    <tr><td><strong>§11</strong> Probar como se usa</td><td>Que el endpoint devuelva algo no prueba nada. Hacen falta <strong>treinta órdenes reales ya cerradas</strong> y comparar la propuesta contra los pasos que el taller de verdad cargó. Se arma <strong>antes</strong> del prompt: sin eso no hay forma de saber si un cambio mejoró o empeoró, y se termina ajustando a ojo.</td></tr>
+  </table>
+  <div class="aviso">
+    <strong>Y una que no está en <code>seguridad.md</code> y debería:</strong> el diagnóstico lo escribe un humano y entra a un prompt. Alguien puede escribir instrucciones ahí. No es el riesgo clásico —quien escribe el diagnóstico es del mismo taller que ve el resultado—, pero la salida estructurada y la validación de ids son justamente lo que impide que importe.
+  </div>
+
+  <h2>El orden</h2>
+  <ol>
+    <li><strong>El cimiento, sin funciones.</strong> Cliente del modelo en Infrastructure, llave por variable de entorno, conteo y tope por taller, registro de cada llamada con lo que se mandó, y <code>DiagnosticsEnabled</code> cerrando de verdad. Nada de esto se ve, y todo lo demás lo necesita.</li>
+    <li><strong>El conjunto de prueba</strong> de la dirección 1: treinta órdenes cerradas con sus pasos reales. Antes del prompt.</li>
+    <li><strong>Dirección 1, solo panel.</strong> Mayor valor por lo que cuesta, y ya tiene la forma de salida definida por los trabajos frecuentes.</li>
+    <li><strong>Dirección 2.</strong> Reusa los reportes; casi todo el trabajo es armar el paquete y el PDF.</li>
+    <li><strong>La 1 en la app</strong>, una vez que el panel enseñó qué propuestas acepta la gente y cuáles no.</li>
+    <li><strong>Dirección 3.</strong> La última a propósito: la más cara, la de más riesgo, y la que mejor funciona cuando ya hay historial y lecturas del escáner cargadas.</li>
+  </ol>
+
+  <h2>Lo que no se va a hacer</h2>
+  <div class="no"><strong>Chatear con el negocio</strong> («¿cuánto vendí en marzo?»). Suena bien y es una trampa: obliga a dejar que el modelo arme consultas, que es el agujero de seguridad más grande que se puede abrir en una aplicación de varios talleres. Los números los da el reporte.</div>
+  <div class="no"><strong>Escribirle al cliente.</strong> Ni la cotización ni el aviso de WhatsApp los redacta la IA. Lo que sale con el nombre del taller lo escribe el taller.</div>
+  <div class="no"><strong>Precios.</strong> Ni sugerir cuánto cobrar, ni estimar el costo de un repuesto que no está en el catálogo.</div>
+  <div class="no"><strong>Leer las fotos.</strong> La foto de un daño es evidencia para un humano. Dictaminar sobre una imagen es otra discusión, y más cara.</div>
+  <div class="no"><strong>Traducir códigos de fabricante.</strong> La tabla de la app cubre los de la norma; los propios de cada marca los vende la marca con su equipo. Un significado inventado para un <code>P1xxx</code> es el tipo de error que no se nota hasta que alguien cambió la pieza equivocada.</div>
+
+  <div class="foot">
+    <strong>Óscar Méndez</strong> · GarajApp · documento interno<br />
+    El mismo contenido, en texto: <code>docs/ia.md</code>
+  </div>
+</div>
+</body>
+</html>
