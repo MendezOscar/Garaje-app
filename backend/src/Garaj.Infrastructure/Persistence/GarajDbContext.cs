@@ -49,6 +49,8 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<AssistantCall> AssistantCalls => Set<AssistantCall>();
     public DbSet<AssistantProposal> AssistantProposals => Set<AssistantProposal>();
     public DbSet<BusinessReading> BusinessReadings => Set<BusinessReading>();
+    public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
+    public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
 
     /// <summary>Trabajos frecuentes: los pasos y repuestos de lo que el taller repite.</summary>
     public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();

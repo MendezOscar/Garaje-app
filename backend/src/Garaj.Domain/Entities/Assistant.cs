@@ -119,3 +119,50 @@ public class BusinessReading : TenantEntity
 
     public Guid AssistantCallId { get; set; }
 }
+
+/// <summary>
+/// Una consulta del técnico sobre una orden: la conversación entera, con su contexto.
+/// </summary>
+/// <remarks>
+/// Es corta a propósito y se cierra sola a los pocos turnos. No es solo costo —vale cinco
+/// veces lo que una propuesta—: una conversación larga se desenfoca, y una pregunta concreta
+/// por consulta se contesta mejor que seis preguntas encadenadas.
+///
+/// Se guarda entera porque es lo que el taller aprendió sobre ese vehículo, y porque cuando
+/// una respuesta salga mal hay que poder leer la conversación que la produjo.
+/// </remarks>
+public class AssistantConversation : TenantEntity
+{
+    public Guid WorkOrderId { get; set; }
+
+    /// <summary>Quién preguntó. Un técnico ve las suyas; el Dueño, las de su taller.</summary>
+    public Guid? StartedByUserId { get; set; }
+
+    /// <summary>De qué va, sacado de la primera pregunta. Es lo que se lista.</summary>
+    public string Title { get; set; } = null!;
+
+    /// <summary>
+    /// Cerrada. Al llegar al tope de turnos se cierra y hay que abrir otra: es la forma de que
+    /// una conversación no se alargue sola hasta perder el hilo y el presupuesto.
+    /// </summary>
+    public bool IsClosed { get; set; }
+
+    public WorkOrder WorkOrder { get; set; } = null!;
+    public ICollection<AssistantMessage> Messages { get; set; } = new List<AssistantMessage>();
+}
+
+/// <summary>Un turno de la consulta: lo que preguntó el técnico o lo que contestó.</summary>
+public class AssistantMessage : TenantEntity
+{
+    public Guid ConversationId { get; set; }
+
+    /// <summary>Si lo escribió la persona. En false lo escribió el modelo.</summary>
+    public bool FromUser { get; set; }
+
+    public string Content { get; set; } = null!;
+
+    /// <summary>La llamada que produjo esta respuesta. Null en lo que escribió la persona.</summary>
+    public Guid? AssistantCallId { get; set; }
+
+    public AssistantConversation Conversation { get; set; } = null!;
+}

@@ -718,6 +718,34 @@ export interface WorkStepsProposal {
   missing: MissingPart[] | null
 }
 
+/** Una consulta del técnico sobre la orden. */
+export interface ConversationListItem {
+  id: string
+  title: string
+  isClosed: boolean
+  /** Cuántas preguntas lleva. Se cierra a las seis. */
+  turns: number
+  createdAt: string
+}
+
+export interface Conversation {
+  /** Null cuando no llegó a abrirse: entonces manda `message`. */
+  id: string | null
+  title: string | null
+  isClosed: boolean
+  turns: ConversationTurn[]
+  /** Por qué no se pudo preguntar. Nunca un error. */
+  message: string | null
+  /** Una consulta vale 5 créditos, así que el que pregunta tiene que poder decidir. */
+  creditsLeftToday: number
+}
+
+export interface ConversationTurn {
+  fromUser: boolean
+  content: string
+  at: string
+}
+
 /** Una lectura del negocio guardada. `kind`: 1 semana, 2 mes. */
 export interface BusinessReadingListItem {
   id: string

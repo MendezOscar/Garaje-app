@@ -138,6 +138,7 @@ public static class DependencyInjection
         services.AddScoped<IAssistantCatalog, AssistantCatalog>();
         services.AddScoped<IWorkStepsAssistant, WorkStepsAssistant>();
         services.AddScoped<IBusinessReadingService, BusinessReadingService>();
+        services.AddScoped<ITechnicianQueryService, TechnicianQueryService>();
 
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.

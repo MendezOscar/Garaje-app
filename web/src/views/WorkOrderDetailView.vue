@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl, errorMessage } from '@/api/client'
 import { claimsApi, customersApi, jobTemplatesApi, laborServicesApi, quotesApi, salesApi, tenantApi, usersApi, workOrdersApi } from '@/api/garaj'
+import AssistantQueries from '@/components/AssistantQueries.vue'
 import AssistantSteps from '@/components/AssistantSteps.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import PhotoGallery from '@/components/PhotoGallery.vue'
@@ -1448,7 +1449,7 @@ onMounted(async () => {
                    que no se repite, que es donde se pierde la tarde. -->
               <AssistantSteps
                 :work-order-id="id"
-                :enabled="auth.hasAssistant"
+                :enabled="auth.hasAssistant && auth.isManagement"
                 :can-edit="canEdit"
                 :has-diagnosis="!!order?.diagnosis"
                 @accepted="recibirPropuesta"
@@ -1880,6 +1881,13 @@ onMounted(async () => {
         <PhotoGallery :work-order-id="order.id" :can-edit="canEdit" />
 
         <VehicleScans :work-order-id="order.id" />
+
+        <!-- Preguntar con el vehículo delante. Va al lado de las lecturas del escáner porque
+             es la misma pregunta —qué le pasa— vista desde el otro lado. -->
+        <article v-if="auth.hasAssistant" class="card">
+          <h2>Preguntar</h2>
+          <AssistantQueries :work-order-id="order.id" :enabled="auth.hasAssistant" />
+        </article>
       </div>
 
       <!-- La columna de consulta: quién es el cliente, qué se le cobra, y plegado lo que solo
