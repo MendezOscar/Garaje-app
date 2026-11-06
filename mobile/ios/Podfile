@@ -85,7 +85,17 @@ post_install do |installer|
         end
       end
 
-      File.open(aggregate.xcconfig_path(nombre), 'a') { |f| f.puts('', lineas) }
+      # La extension tiene su propio Info.plist y alli la version se pide como
+      # $(FLUTTER_BUILD_NAME)/$(FLUTTER_BUILD_NUMBER), pero esas variables solo existen en
+      # el Generated.xcconfig que lee el Runner: en la extension quedaban vacias y el
+      # iPhone rechazaba la instalacion con «does not have a CFBundleVersion key». Se
+      # incluye el mismo archivo para que la version salga de pubspec.yaml y no se quede
+      # atras en la proxima publicacion.
+      generado = '../../../Flutter/Generated.xcconfig'
+
+      File.open(aggregate.xcconfig_path(nombre), 'a') do |f|
+        f.puts('', %(#include? "#{generado}"), '', lineas)
+      end
     end
   end
 end
