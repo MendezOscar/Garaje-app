@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!--
+  El asistente, explicado al taller. Hermano de mejoras-garajapp.html y de
+  escaner-garajapp.html: mismo estilo, mismo ancho, misma impresión. Va al taller del plan
+  Pro, que es el único que lo lleva.
+
+  Se manda por WhatsApp o correo, o se imprime a PDF (Cmd+P → Guardar como PDF).
+
+  Dos cosas están escritas a propósito aunque no las pregunten: que lo que escribe el
+  asistente es un borrador que nadie manda ni guarda solo, y que no inventa torques ni
+  capacidades del fabricante. La primera es lo que hace que se pueda confiar en la función;
+  la segunda es lo que impide que alguien rompa un motor confiando en ella. El documento
+  interno con los números y el plan es informes/ia-garajapp.html, y ese NO se entrega.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mejoras en camino — GarajApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  h1, h2, h3, .mejora .n { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+  .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
+  h1 { font-size: 26px; letter-spacing:-0.02em; }
+  h2 { font-size: 17px; color:var(--brand-dark); margin: 28px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
+  h3 { font-size:15px; margin:18px 0 4px; color:var(--brand-dark); }
+  p, li, td, th { font-size: 14.5px; }
+  .muted { color: var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
+  .meta { text-align:right; font-size:13px; color:var(--muted); }
+  ul, ol { margin: 6px 0 6px 20px; }
+  ul li, ol li { margin: 3px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; font-size:14px; }
+  th, td { text-align:left; padding: 9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background: var(--brand-light); color:var(--brand-dark); }
+  /* Cada mejora va numerada y grande a la izquierda, como los primeros pasos: el taller la
+     busca por su número cuando pregunta «¿y la 3?». */
+  .mejora { display:flex; gap:14px; align-items:flex-start; margin-top:16px; }
+  .mejora .n { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:12px; font-size:14px; }
+  .aviso { border-left:4px solid var(--brand); background:#fbfcfe; padding:10px 14px; margin-top:10px; font-size:14px; }
+  .ejemplo { border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-top:10px; font-size:14px; background:#fbfcfe; }
+  .mejora table { margin-top:8px; }
+  .mejora table td { font-size:14px; }
+  .mejora ol { margin: 6px 0 6px 20px; }
+  .mejora ol li { margin: 4px 0; }
+  /* Cómo probarlo: verde apagado, para que se distinga de un aviso y se encuentre rápido
+     cuando alguien va buscando qué validar. */
+  .probar { border:1px solid #cfe3d4; background:#f3f9f5; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:14px; }
+  .probar .t { display:block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#2f6b45; margin-bottom:6px; }
+  .probar ol { margin:6px 0 0 20px; }
+  .probar ol li { margin:4px 0; }
+  .ejemplo .t { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px; }
+  code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
+  .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+  @media print {
+    body { background:#fff; }
+    .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
+    @page { margin: 14mm; }
+    h2 { break-after: avoid; }
+    .mejora, .ejemplo, .probar, .hl, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="246" height="77" role="img" aria-label="GarajApp">
+      <title>GarajApp — logotipo horizontal</title>
+      <path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#1F6FEB"></path>
+      <text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#14171C">G</text>
+      <g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#14171C">GarajApp</text></g>
+      </svg>
+      <p class="muted" style="margin-top:2px">El taller ordenado, desde el teléfono</p>
+    </div>
+    <div class="meta">
+      <strong>El asistente</strong><br />
+      Preparado para: <strong>su taller</strong><br />
+      Fecha: 6 de noviembre de 2026<br />
+      Incluido en: <strong>plan Pro</strong>
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px">Del diagnóstico a los pasos, sin pasar por la oficina</h1>
+  <p class="muted" style="margin-top:6px">El técnico escribe el diagnóstico y ahí se queda. Cargar los pasos y los repuestos es trabajo de escritorio, lo hace el dueño, y mientras no lo haga el técnico espera. Los trabajos frecuentes resuelven lo que se repite —el cambio de aceite—; esto resuelve <strong>el trabajo que no se repite</strong>, que es justo donde se pierde la tarde.</p>
+
+  <div class="hl">
+    <strong>Lo primero, porque es lo que importa:</strong> el asistente <strong>propone</strong>.
+    No guarda nada solo, no le escribe al cliente, no manda cotizaciones y no pone precios.
+    Usted tacha lo que no, corrige lo que haga falta y acepta. Hasta que toque
+    <strong>Aceptar</strong>, la orden no cambia.
+  </div>
+
+  <h2>1 · Cómo se usa</h2>
+
+  <div class="mejora">
+    <div class="n">1</div>
+    <div>
+      <h3 style="margin-top:0">Los tres toques</h3>
+      <ol>
+        <li>En la orden, con el <strong>diagnóstico escrito</strong>, toque <strong>Proponer los pasos</strong>. Está al lado de «Trabajo frecuente».</li>
+        <li>Sale una lista: cada paso con sus horas y el servicio de su catálogo con el que se cobra, y debajo los repuestos que llevaría.</li>
+        <li>Tache los pasos que no, corrija las horas, y toque <strong>Aceptar</strong>.</li>
+      </ol>
+      <p style="margin-top:6px">Los pasos entran a la orden como si los hubiera escrito a mano. Se puede hacer <strong>desde el panel y desde el teléfono</strong>.</p>
+
+      <div class="ejemplo">
+        <span class="t">Un ejemplo real</span>
+        Diagnóstico: <em>«Pastillas delanteras gastadas, disco en buen estado, chilla al frenar
+        en frío»</em>. El asistente propone desmontar y revisar, cambiar las pastillas
+        delanteras, limpiar y lubricar las mordazas, y probar en carretera — con sus horas, el
+        servicio de su catálogo y el juego de pastillas <strong>que usted tiene en bodega</strong>.
+      </div>
+
+      <div class="aviso">
+        <strong>Los repuestos no se cargan solos.</strong> Se proponen y quedan a la vista para
+        cargarlos cuando de verdad se instalen. Cargar un repuesto descuenta la bodega, y al
+        armar la orden el trabajo todavía no se ha hecho.
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · Lo que no hace, y por qué</h2>
+
+  <div class="mejora">
+    <div class="n">2</div>
+    <div>
+      <h3 style="margin-top:0">No ofrece repuestos que usted no tenga</h3>
+      <p>Solo propone de <strong>su catálogo</strong>, y mirando para qué vehículos sirve cada uno. Si lo que hace falta no lo tiene, se lo dice en la nota en vez de inventarlo: un paso sin repuesto se arregla en diez segundos, un repuesto que no existe le hace perder la mañana.</p>
+
+      <h3>No inventa datos del fabricante</h3>
+      <p>Torques, capacidades de aceite, holguras, orden de encendido: <strong>no los da de memoria</strong>. Cuando un paso los necesita, le dice que los consulte en el manual. Un torque inventado manda a alguien a romper un motor, y esa es la línea entre una herramienta y un riesgo.</p>
+
+      <h3>No pone precios</h3>
+      <p>Ni de repuestos ni de mano de obra. Los pone <strong>su catálogo</strong> al armar la propuesta, con los precios que usted tiene puestos hoy.</p>
+
+      <h3>Si el diagnóstico no alcanza, lo dice</h3>
+      <p>Con un «no enciende» no se inventa una reparación: devuelve la lista vacía y le dice qué haría falta averiguar primero. Pasa seguido, y es la respuesta correcta.</p>
+
+      <h3>No le escribe al cliente</h3>
+      <p>Ni la cotización ni el aviso de WhatsApp. Lo que sale con el nombre de su taller lo escribe su taller.</p>
+    </div>
+  </div>
+
+  <h2>3 · Cuántas consultas trae</h2>
+
+  <div class="mejora">
+    <div class="n">3</div>
+    <div>
+      <h3 style="margin-top:0">450 créditos al mes, con máximo de 80 al día</h3>
+      <table>
+        <tr><th>Qué</th><th>Cuánto gasta</th></tr>
+        <tr><td>Una propuesta de pasos</td><td>1 crédito</td></tr>
+        <tr><td>Una consulta del técnico <span class="muted">(más adelante)</span></td><td>5 créditos</td></tr>
+        <tr><td>La lectura semanal del negocio <span class="muted">(más adelante)</span></td><td>Sin costo de créditos</td></tr>
+      </table>
+      <p style="margin-top:8px">Son los mismos 450 tenga usted tres técnicos o quince: lo que se mide es el asistente, no su gente. Un día ocupado no pasa de 20 o 25, así que el tope diario no le raciona nada — está para que un descuido no le gaste el mes en una tarde.</p>
+      <p style="margin-top:6px">Si su taller necesita más, se venden aparte: <strong>L 100 por cada 100 créditos</strong>.</p>
+
+      <div class="aviso">
+        Cuando se acaban, la función se apaga con un mensaje que lo dice —«se acabaron las
+        consultas de hoy, vuelven mañana»— y <strong>el resto de GarajApp sigue igual</strong>:
+        las órdenes, el inventario y la facturación no dependen de esto.
+      </div>
+    </div>
+  </div>
+
+  <h2>4 · Qué se manda y qué no</h2>
+  <p>Para proponer unos pasos no hace falta saber de quién es el carro, así que <strong>no se manda</strong>: ni el nombre del cliente, ni su teléfono, ni su RTN, ni su dirección, <strong>ni la placa</strong>.</p>
+  <p style="margin-top:6px">Lo que sí viaja es lo que hace falta para el trabajo: el diagnóstico escrito, la marca, el modelo, el año y el kilometraje, los códigos de la última lectura del escáner si la hay, y su catálogo de repuestos y mano de obra. Nada de eso se usa para entrenar nada.</p>
+
+  <h2>5 · Lo que viene después</h2>
+  <p>El asistente nace con los pasos del trabajo, que es lo que más tiempo le quita. Hay dos cosas más en camino, y las dos están pensadas pero todavía <strong>no están</strong>:</p>
+  <ul>
+    <li><strong>La lectura del negocio.</strong> Una vez por semana, una página con qué pasó con las ventas, el inventario y los técnicos, y tres oportunidades ordenadas por lo que valen. Sin costo de créditos.</li>
+    <li><strong>La consulta del técnico.</strong> Preguntar con el vehículo en la rampa, con el historial de su propio taller como respaldo: <em>«a tres Corolla 2015 con este código, aquí se les cambió la bobina del cilindro 3»</em>.</li>
+  </ul>
+  <p class="muted" style="margin-top:8px">Se avisará cuando estén. No cambian la mensualidad del plan Pro.</p>
+
+  <div class="probar">
+    <span class="t">Cómo probarlo</span>
+    <ol>
+      <li>Abra una orden con el diagnóstico bien escrito y toque <strong>Proponer los pasos</strong>.</li>
+      <li>Compruebe, con Inventario abierto al lado, que <strong>cada repuesto propuesto existe en su catálogo</strong>.</li>
+      <li>Tache un paso, cámbiele las horas a otro y acepte: en la orden tienen que quedar solo
+      los que dejó, con las horas que usted puso.</li>
+      <li>En otra orden escriba solo «no enciende» y pida la propuesta: <strong>no debe inventar
+      una reparación</strong>, tiene que decirle qué falta averiguar.</li>
+    </ol>
+  </div>
+
+  <div class="foot">
+    <strong>Óscar Méndez</strong> · GarajApp<br />
+    ✉️ soporte@garajeapp.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 www.garajeapp.com
+  </div>
+</div>
+</body>
+</html>
