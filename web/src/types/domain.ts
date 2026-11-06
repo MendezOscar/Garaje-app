@@ -1734,3 +1734,56 @@ export interface TechnicianPayProposal {
   /** Lo que ya se le pagó en el periodo, de los gastos de salario. */
   alreadyPaid: number
 }
+
+/** En qué memoria del vehículo estaba el código. Coincide con `Garaj.Domain.Enums.DtcStatus`. */
+export const DtcStatus = {
+  Stored: 1,
+  Pending: 2,
+  Permanent: 3,
+} as const
+export type DtcStatus = (typeof DtcStatus)[keyof typeof DtcStatus]
+
+export const DTC_STATUS_LABEL: Record<DtcStatus, string> = {
+  [DtcStatus.Stored]: 'Confirmada',
+  [DtcStatus.Pending]: 'Pendiente',
+  [DtcStatus.Permanent]: 'Permanente',
+}
+
+export interface VehicleScanCode {
+  code: string
+  status: DtcStatus
+  /** Qué significa, en español. Null en los códigos propios del fabricante. */
+  description: string | null
+  isGeneric: boolean
+}
+
+/** Una lectura del vehículo hecha con el adaptador OBD2 desde la app. */
+export interface VehicleScan {
+  id: string
+  workOrderId: string
+  scannedAt: string
+  scannedByName: string
+  codes: VehicleScanCode[]
+  vin: string | null
+  mileage: number | null
+  deviceName: string | null
+  protocol: string | null
+  notes: string | null
+  /** El informe en PDF que quedó adjunto a la orden. */
+  attachmentId: string | null
+}
+
+/** Dónde ha salido un código en el taller. */
+export interface VehicleScanHit {
+  scanId: string
+  workOrderId: string
+  workOrderNumber: string
+  scannedAt: string
+  code: string
+  status: DtcStatus
+  description: string | null
+  vehicleId: string | null
+  plate: string | null
+  vehicleLabel: string
+  customerName: string
+}

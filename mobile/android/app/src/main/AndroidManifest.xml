@@ -3,6 +3,19 @@
          negarlo no rompe nada: los avisos se siguen viendo en la campana. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- El adaptador OBD2 del carro. Solo Bluetooth LE: «neverForLocation» le dice a Android
+         que no se usa para ubicar a nadie, y así no hay que pedirle al técnico el permiso de
+         ubicación, que asusta y no hace falta. Las de abajo son para Android 11 y anteriores,
+         donde no existían las de arriba. -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="28"/>
+
     <application
         android:label="GarajApp"
         android:name="${applicationName}"

@@ -12,6 +12,7 @@ using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.Tenants;
 using Garaj.Application.Users;
+using Garaj.Application.VehicleScans;
 using Garaj.Application.WorkOrders;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
@@ -125,6 +126,7 @@ public static class DependencyInjection
         // petición desperdicia handshakes TLS contra el bucket.
         services.AddSingleton<IStorageService, S3StorageService>();
         services.AddScoped<IMediaService, MediaService>();
+        services.AddScoped<IVehicleScanService, VehicleScanService>();
 
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.

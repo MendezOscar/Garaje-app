@@ -51,6 +51,10 @@
 		<string>Garaj usa la cámara para documentar con fotos el proceso de reparación de cada vehículo.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Garaj usa sus fotos para adjuntar evidencia a las órdenes de trabajo.</string>
+		<!-- El adaptador OBD2 que se enchufa al vehículo. iOS solo habla por Bluetooth LE con
+	     aparatos que no estén certificados por Apple, por eso el adaptador tiene que ser LE. -->
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>Garaj usa Bluetooth para conectarse al adaptador de diagnóstico del vehículo y leer los códigos de falla.</string>
 		<!-- La app solo usa HTTPS estándar, así que entra en la exención de criptografía: sin
 	     esta clave App Store Connect pregunta por «export compliance» en cada subida. -->
 		<key>ITSAppUsesNonExemptEncryption</key>

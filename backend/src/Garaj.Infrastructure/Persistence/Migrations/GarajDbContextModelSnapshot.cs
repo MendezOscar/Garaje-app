@@ -3070,6 +3070,155 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.ToTable("vehicle_receptions", (string)null);
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.VehicleScan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("device_name");
+
+                    b.Property<Guid?>("MediaAttachmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_attachment_id");
+
+                    b.Property<int?>("Mileage")
+                        .HasColumnType("integer")
+                        .HasColumnName("mileage");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Protocol")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("protocol");
+
+                    b.Property<DateTimeOffset>("ScannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scanned_at");
+
+                    b.Property<Guid>("ScannedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scanned_by_user_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<Guid?>("VehicleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehicle_id");
+
+                    b.Property<string>("Vin")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("vin");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("work_order_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vehicle_scans");
+
+                    b.HasIndex("WorkOrderId")
+                        .HasDatabaseName("ix_vehicle_scans_work_order_id");
+
+                    b.HasIndex("TenantId", "VehicleId", "ScannedAt")
+                        .HasDatabaseName("ix_vehicle_scans_tenant_id_vehicle_id_scanned_at");
+
+                    b.HasIndex("TenantId", "WorkOrderId", "ScannedAt")
+                        .HasDatabaseName("ix_vehicle_scans_tenant_id_work_order_id_scanned_at");
+
+                    b.ToTable("vehicle_scans", (string)null);
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.VehicleScanCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsGeneric")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_generic");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<Guid>("VehicleScanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehicle_scan_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vehicle_scan_codes");
+
+                    b.HasIndex("TenantId", "Code")
+                        .HasDatabaseName("ix_vehicle_scan_codes_tenant_id_code");
+
+                    b.HasIndex("VehicleScanId", "Code", "Status")
+                        .IsUnique()
+                        .HasDatabaseName("ix_vehicle_scan_codes_vehicle_scan_id_code_status");
+
+                    b.ToTable("vehicle_scan_codes", (string)null);
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.WorkOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4254,6 +4403,30 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Navigation("WorkOrder");
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.VehicleScan", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.WorkOrder", "WorkOrder")
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vehicle_scans_work_orders_work_order_id");
+
+                    b.Navigation("WorkOrder");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.VehicleScanCode", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.VehicleScan", "Scan")
+                        .WithMany("Codes")
+                        .HasForeignKey("VehicleScanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vehicle_scan_codes_vehicle_scans_vehicle_scan_id");
+
+                    b.Navigation("Scan");
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.WorkOrder", b =>
                 {
                     b.HasOne("Garaj.Domain.Entities.Branch", "Branch")
@@ -4484,6 +4657,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Garaj.Domain.Entities.Vehicle", b =>
                 {
                     b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.VehicleScan", b =>
+                {
+                    b.Navigation("Codes");
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.WorkOrder", b =>

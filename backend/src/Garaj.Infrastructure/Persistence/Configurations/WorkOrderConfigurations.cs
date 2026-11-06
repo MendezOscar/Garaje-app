@@ -181,3 +181,48 @@ public class VehicleReceptionConfiguration : IEntityTypeConfiguration<VehicleRec
         b.HasIndex(x => x.ServiceRequestId).IsUnique().HasFilter("service_request_id IS NOT NULL");
     }
 }
+
+public class VehicleScanConfiguration : IEntityTypeConfiguration<VehicleScan>
+{
+    public void Configure(EntityTypeBuilder<VehicleScan> b)
+    {
+        b.Property(x => x.Vin).HasMaxLength(20);
+        b.Property(x => x.DeviceName).HasMaxLength(100);
+        b.Property(x => x.Protocol).HasMaxLength(60);
+        b.Property(x => x.Notes).HasMaxLength(1000);
+
+        b.HasOne(x => x.WorkOrder)
+            .WithMany()
+            .HasForeignKey(x => x.WorkOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // La galería de la orden pide las lecturas de la orden, de la más reciente a la vieja.
+        b.HasIndex(x => new { x.TenantId, x.WorkOrderId, x.ScannedAt });
+
+        // «Qué le ha salido a este carro»: el historial del vehículo, que es lo que se mira
+        // cuando vuelve con lo mismo tres meses después.
+        b.HasIndex(x => new { x.TenantId, x.VehicleId, x.ScannedAt });
+    }
+}
+
+public class VehicleScanCodeConfiguration : IEntityTypeConfiguration<VehicleScanCode>
+{
+    public void Configure(EntityTypeBuilder<VehicleScanCode> b)
+    {
+        b.Property(x => x.Code).HasMaxLength(10).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(300);
+
+        b.HasOne(x => x.Scan)
+            .WithMany(x => x.Codes)
+            .HasForeignKey(x => x.VehicleScanId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // La razón de ser de toda esta tabla: buscar «todos los carros que reportaron P0301»
+        // sin recorrer las lecturas una por una.
+        b.HasIndex(x => new { x.TenantId, x.Code });
+
+        // El mismo código no se repite dos veces en la misma lectura con el mismo estado:
+        // el adaptador los devuelve así cuando una falla la reportan dos módulos distintos.
+        b.HasIndex(x => new { x.VehicleScanId, x.Code, x.Status }).IsUnique();
+    }
+}

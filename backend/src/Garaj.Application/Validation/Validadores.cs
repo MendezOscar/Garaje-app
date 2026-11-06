@@ -8,6 +8,7 @@ using Garaj.Application.Quotes;
 using Garaj.Application.Sales;
 using Garaj.Application.ServiceRequests;
 using Garaj.Application.Platform;
+using Garaj.Application.VehicleScans;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Rules;
 
@@ -485,4 +486,37 @@ public class RefreshTokenValidator : AbstractValidator<RefreshTokenRequest>
 public class DeleteAccountValidator : AbstractValidator<DeleteAccountRequest>
 {
     public DeleteAccountValidator() => RuleFor(x => x.Confirm).NotEmpty().MaximumLength(50);
+}
+
+/// <summary>
+/// La lectura del adaptador OBD2. Los códigos los limpia el servicio —descarta los que no
+/// tienen forma de código y los repetidos—, así que aquí solo se para lo que sobra de tamaño
+/// y lo que no se puede arreglar descartando: una orden sin identificar.
+/// </summary>
+public class CreateVehicleScanValidator : AbstractValidator<CreateVehicleScanRequest>
+{
+    public CreateVehicleScanValidator()
+    {
+        RuleFor(x => x.WorkOrderId)
+            .NotEmpty().WithMessage("Diga a qué orden pertenece la lectura.");
+
+        RuleFor(x => x.Codes).NotNull();
+
+        RuleFor(x => x.Vin).MaximumLength(20);
+        RuleFor(x => x.DeviceName).MaximumLength(100);
+        RuleFor(x => x.Protocol).MaximumLength(60);
+        RuleFor(x => x.Notes).MaximumLength(1000);
+
+        RuleFor(x => x.Mileage)
+            .InclusiveBetween(0, 10_000_000)
+            .When(x => x.Mileage.HasValue)
+            .WithMessage("El kilometraje no parece de un vehículo.");
+
+        RuleForEach(x => x.Codes).ChildRules(code =>
+        {
+            code.RuleFor(c => c.Code).NotEmpty().MaximumLength(10);
+            code.RuleFor(c => c.Status).IsInEnum();
+            code.RuleFor(c => c.Description).MaximumLength(300);
+        });
+    }
 }

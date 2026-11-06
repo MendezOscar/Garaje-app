@@ -190,6 +190,52 @@ imagen—: avisa de que va adjunto, y el cliente lo descarga del enlace, donde s
 caducan a los 15 minutos (`Storage:PresignedUrlMinutes`): son temporales a propósito, viajan
 en JSON y podrían quedar en una caché o en un log.
 
+### El escáner del vehículo
+
+Dos caminos, y la diferencia no es el aparato sino el formato.
+
+El **informe en PDF** de la tableta de diagnóstico entra por `api/media` como un adjunto
+cualquiera (arriba): se comparte desde el escáner, se elige la orden y queda ahí. Es un
+documento: se enseña y no se consulta.
+
+La **lectura con adaptador OBD2** entra por aquí, código por código, que es lo que permite
+preguntar después a qué carros les ha salido un mismo código. La hace la app por Bluetooth LE
+desde dentro de la orden —así no hay que preguntar de qué vehículo es— y el servidor arma el
+informe en PDF y lo deja adjunto a la orden, de donde sale solo a la cotización por el camino
+que ya existía.
+
+| Método | Ruta | Auth | Qué hace |
+| --- | --- | --- | --- |
+| POST | `/api/vehicle-scans` | el taller | Guarda la lectura y adjunta su informe a la orden |
+| GET | `/api/vehicle-scans/work-order/{id}` | cualquiera con la orden | Las lecturas de una orden |
+| GET | `/api/vehicle-scans/vehicle/{id}` | cualquiera con la orden | El historial del vehículo |
+| GET | `/api/vehicle-scans/search?code=` | cualquiera con la orden | Dónde ha salido un código |
+| DELETE | `/api/vehicle-scans/{id}` | Dueño o Encargado | Borra la lectura |
+
+El **Cliente** no registra lecturas: el diagnóstico es el dictamen del taller. El **Técnico**
+solo en las órdenes que tiene asignadas, y la búsqueda le devuelve únicamente apariciones en
+esas órdenes: el alcance es el mismo que el de la orden, no uno nuevo.
+
+`status` de cada código: `1` confirmada —el vehículo la vio repetirse y encendió la luz—,
+`2` pendiente, `3` permanente. El mismo código puede venir en dos memorias; se guarda una vez
+por memoria y la lista devuelta ordena por estado.
+
+La **descripción la manda el cliente**, no el servidor. La tabla de códigos vive en la app
+porque se escanea con el carro en la rampa, que es donde peor anda la señal, y queda copiada
+en la lectura: si mañana se corrige un texto, lo leído ayer sigue diciendo lo que el técnico
+leyó. Los códigos propios del fabricante (`P1xxx`) se guardan con `isGeneric: false` y sin
+descripción: esa información la vende cada marca con su equipo.
+
+El servidor **limpia lo que entra**: deja los códigos en mayúsculas, descarta lo que no tenga
+la forma de la norma (`^[PCBU][0-3][0-9A-F]{3}$`), quita repetidos y corta en 50. Los
+adaptadores baratos cuelan restos de la línea serie entre las respuestas, y eso no puede
+acabar en el PDF del cliente. Una lectura **sin códigos es válida**: es la evidencia de que el
+vehículo salió limpio.
+
+Si la lectura trae VIN y el vehículo no lo tenía escrito, se le rellena; si ya lo tenía, no se
+pisa. El `attachmentId` de la respuesta es el informe generado, o `null` si no se pudo armar
+—la lectura vale igual, el informe se rehace—.
+
 ### Fase 3 — inventario
 
 La regla de la que depende todo lo demás: **el stock no se edita, se mueve**. Cada variación

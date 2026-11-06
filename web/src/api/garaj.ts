@@ -73,6 +73,8 @@ import type {
   WhatsAppLink,
   WorkshopKind,
   SubscriptionPlan,
+  VehicleScan,
+  VehicleScanHit,
 } from '@/types/domain'
 
 /** Quita claves vacías para no mandar `?status=` y que el backend lo lea como filtro. */
@@ -707,6 +709,25 @@ export const mediaApi = {
 
   async remove(id: string) {
     await api.delete(`/api/media/${id}`)
+  },
+}
+
+/**
+ * Las lecturas del adaptador OBD2. El panel solo consulta: escanear se hace desde la app,
+ * que es la que está en el taller con el carro delante.
+ */
+export const vehicleScansApi = {
+  async listForWorkOrder(workOrderId: string): Promise<VehicleScan[]> {
+    const { data } = await api.get<VehicleScan[]>(`/api/vehicle-scans/work-order/${workOrderId}`)
+    return data
+  },
+
+  /** Dónde más ha salido un código. Admite el principio: «P03». */
+  async search(code: string): Promise<VehicleScanHit[]> {
+    const { data } = await api.get<VehicleScanHit[]>('/api/vehicle-scans/search', {
+      params: { code },
+    })
+    return data
   },
 }
 

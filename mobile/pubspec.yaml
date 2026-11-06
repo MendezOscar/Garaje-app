@@ -39,6 +39,14 @@ dependencies:
   # diagnóstico arma su PDF, el técnico lo comparte y la app pregunta a qué orden va.
   # Versión fija y no ^: la 1.9.0 pide Flutter 3.38 y aquí se compila con la 3.35.
   receive_sharing_intent: 1.8.1
+  # Hablar con el adaptador OBD2 del vehículo. Solo Bluetooth LE: los adaptadores azules
+  # baratos son Bluetooth clásico y el iPhone no los ve, así que soportarlos significaría
+  # una función que existe en Android y no en iPhone.
+  #
+  # NO SUBIR A LA 2.x SIN PAGAR: desde la 2.0 el paquete dejó el BSD-3 y exige licencia
+  # comercial a las empresas con fines de lucro —por eso allí `connect()` pide `license:`—.
+  # La 1.35.5 es la última bajo BSD-3 y tiene la misma API que usamos.
+  flutter_blue_plus: 1.35.5
   # Para mostrar la versión instalada en «Más». Se lee del paquete y no de una constante:
   # una constante se queda vieja el día que alguien suba la versión y no la actualice.
   package_info_plus: ^9.0.1

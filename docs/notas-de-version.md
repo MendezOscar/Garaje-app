@@ -16,13 +16,14 @@ Dos reglas que no son de estilo sino de la tienda:
 ### Google Play — «Novedades» (es-419)
 
 ```
-El informe del escáner ya entra a la orden.
+El diagnóstico ya entra a la orden.
 
-Termine de escanear, toque Compartir y elija GarajApp: la app pregunta a qué orden va
-—con la placa y el cliente a la vista— y adjunta el informe.
+Termine de escanear, toque Compartir y elija GarajApp: la app pregunta a qué orden va —con
+la placa a la vista— y adjunta el informe. De ahí sale en la cotización del cliente.
 
-De ahí sale en la cotización, para que el cliente vea de dónde salió el precio en vez de
-tener que creerle al taller.
+Y con un adaptador OBD2 Bluetooth la app lee el carro ella misma: entre a la orden, toque
+Escanear vehículo y cada código queda guardado con lo que significa. Después puede buscar a
+qué otros carros les salió el mismo.
 ```
 
 ### App Store — «Novedades de esta versión»
@@ -42,6 +43,15 @@ EN LA COTIZACIÓN
   enlace. El presupuesto deja de ser la palabra del taller y pasa a ser un documento.
 
 Sirve con cualquier escáner que exporte el informe en PDF, no solo con uno.
+
+LEER EL VEHÍCULO DESDE LA APP
+· Con un adaptador OBD2 Bluetooth enchufado al conector del carro, entre a la orden y toque
+  Escanear vehículo.
+· La app lee las tres memorias de fallas, enseña cada código con lo que significa en
+  español, y lo guarda en la orden con su informe adjunto.
+· Toque un código para ver a qué otros vehículos del taller les ha salido el mismo.
+· El adaptador tiene que ser Bluetooth LE. Los adaptadores de Bluetooth clásico no los ve el
+  iPhone, y no es algo que se pueda arreglar desde la app.
 ```
 
 ---
