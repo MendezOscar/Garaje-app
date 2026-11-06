@@ -76,7 +76,12 @@ public static class WorkStepsPrompt
             el catálogo y el trabajo los lleva, van. Es trabajo que el taller a veces deja de
             cobrar.
 
-        12. **La nota es de una o dos líneas.** Solo lo que el dueño necesita saber para
+        12. **Lo que haga falta y no esté en el catálogo va en `faltantes`**, no en los pasos
+            ni escondido en la nota. Ahí se escribe con el nombre con el que se pide en una
+            casa de repuestos —«retenedor de cigüeñal delantero», no «pieza de sellado»— y con
+            la cantidad. Lo que sí está en el catálogo **nunca** va aquí.
+
+        13. **La nota es de una o dos líneas.** Solo lo que el dueño necesita saber para
             decidir: qué falta averiguar, o qué repuesto hizo falta y no estaba. Nada de
             resumir lo que ya está en los pasos.
         """;
@@ -137,7 +142,7 @@ public static class WorkStepsPrompt
         {
             ["type"] = J("object"),
             ["additionalProperties"] = J(false),
-            ["required"] = J(new[] { "pasos", "repuestos", "nota" }),
+            ["required"] = J(new[] { "pasos", "repuestos", "faltantes", "nota" }),
             ["properties"] = J(new
             {
                 pasos = new
@@ -173,6 +178,22 @@ public static class WorkStepsPrompt
                         }
                     }
                 },
+                faltantes = new
+                {
+                    type = "array",
+                    items = new
+                    {
+                        type = "object",
+                        additionalProperties = false,
+                        required = new[] { "nombre", "cantidad", "paraElPaso" },
+                        properties = new
+                        {
+                            nombre = new { type = "string" },
+                            cantidad = new { type = "number" },
+                            paraElPaso = new { type = "string" }
+                        }
+                    }
+                },
                 nota = new { type = new[] { "string", "null" } }
             })
         };
@@ -182,8 +203,14 @@ public static class WorkStepsPrompt
 
 /// <summary>Lo que devuelve el modelo, antes de validarlo. Viene de afuera: no se confía.</summary>
 public record RespuestaDelAsistente(
-    List<PasoPropuesto> Pasos, List<RepuestoPropuesto> Repuestos, string? Nota);
+    List<PasoPropuesto> Pasos,
+    List<RepuestoPropuesto> Repuestos,
+    List<FaltantePropuesto>? Faltantes,
+    string? Nota);
 
 public record PasoPropuesto(string Titulo, string? Descripcion, string? CodigoManoDeObra, decimal Horas);
 
 public record RepuestoPropuesto(string Sku, decimal Cantidad, string? ParaElPaso);
+
+/// <summary>Algo que el trabajo lleva y el taller no tiene en catálogo.</summary>
+public record FaltantePropuesto(string Nombre, decimal Cantidad, string? ParaElPaso);

@@ -131,6 +131,24 @@ class _ProposeStepsScreenState extends ConsumerState<ProposeStepsScreen> {
                       style: theme.textTheme.bodyMedium,
                     ),
                   for (final paso in propuesta.tasks) _FilaPropuesta(paso: paso, onCambio: () => setState(() {})),
+                  // Lo que el trabajo lleva y no está en el catálogo. Separado de los
+                  // repuestos a propósito: de esto no hay existencia, hay que comprarlo.
+                  if (propuesta.missing.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Esto haría falta y no está en su catálogo:',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 4),
+                    for (final f in propuesta.missing)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          '${_cantidad(f.quantity)} · ${f.name}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                  ],
                   if (propuesta.parts.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Text(
@@ -221,6 +239,14 @@ class _FilaPropuesta extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  // El número sale de las órdenes que este taller ya cobró, no del asistente.
+                  if (paso.history != null)
+                    Text(
+                      paso.history!.resumen,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                 ],
               ),
             ),

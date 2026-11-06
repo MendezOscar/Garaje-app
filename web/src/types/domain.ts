@@ -711,6 +711,29 @@ export interface WorkStepsProposal {
   /** Lo que el asistente quiso aclarar: qué falta averiguar, qué repuesto no estaba. */
   note: string | null
   creditsLeftToday: number
+  /**
+   * Lo que el trabajo lleva y el taller no tiene en catálogo. Va aparte de `parts` para que
+   * nadie los confunda con existencia: estos hay que comprarlos o darlos de alta.
+   */
+  missing: MissingPart[] | null
+}
+
+export interface MissingPart {
+  /** Con el nombre con el que se pide en una casa de repuestos. */
+  name: string
+  quantity: number
+  forTask: string
+}
+
+/**
+ * Lo que el taller ha cobrado por este mismo trabajo. Lo calcula el servidor con las órdenes
+ * que ya entregó: no es un precio que la IA se saque de la manga.
+ */
+export interface TaskHistory {
+  times: number
+  priceFrom: number | null
+  priceTo: number | null
+  typicalHours: number | null
 }
 
 export interface ProposedTask {
@@ -720,6 +743,8 @@ export interface ProposedTask {
   laborServiceId: string | null
   laborServiceName: string | null
   hours: number
+  /** Null cuando el taller nunca lo ha hecho, o cuando el paso no salió del catálogo. */
+  history: TaskHistory | null
 }
 
 export interface ProposedPart {

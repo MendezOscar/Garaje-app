@@ -3,7 +3,8 @@ import { computed, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
-import type { AcceptWorkStepsResult, ProposedTask, WorkStepsProposal } from '@/types/domain'
+import type { AcceptWorkStepsResult, ProposedTask, TaskHistory, WorkStepsProposal } from '@/types/domain'
+import { formatMoney } from '@/utils/format'
 
 /**
  * «Proponer los pasos»: del diagnóstico sale una lista que el dueño edita y acepta.
@@ -79,6 +80,27 @@ async function aceptar() {
   }
 }
 
+/**
+ * Lo que el taller ha cobrado por ese trabajo antes. Sale del servidor, de sus propias órdenes
+ * entregadas: es lo que se enseña en vez de un precio inventado.
+ */
+function cobradoAntes(h: TaskHistory): string {
+  const veces = `${h.times} ${h.times === 1 ? 'vez' : 'veces'}`
+
+  if (h.priceFrom === null || h.priceTo === null) {
+    return h.typicalHours === null
+      ? `Hecho ${veces} antes`
+      : `Hecho ${veces} antes · ${h.typicalHours} h`
+  }
+
+  const precio =
+    h.priceFrom === h.priceTo
+      ? formatMoney(h.priceFrom)
+      : `${formatMoney(h.priceFrom)} a ${formatMoney(h.priceTo)}`
+
+  return `${veces} antes · cobrado ${precio}`
+}
+
 function cerrar() {
   propuesta.value = null
   pasos.value = []
@@ -127,6 +149,8 @@ function cerrar() {
               <em class="muted small">
                 {{ paso.laborServiceName ?? 'Sin servicio del catálogo' }}
               </em>
+              <!-- El número viene de las órdenes que este taller ya cobró, no del asistente. -->
+              <em v-if="paso.history" class="antes">{{ cobradoAntes(paso.history) }}</em>
             </span>
           </label>
           <label class="horas">
@@ -146,6 +170,17 @@ function cerrar() {
             <em v-if="r.available < r.quantity" class="sin-existencia">
               quedan {{ r.available }}
             </em>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Lo que el trabajo lleva y no está en el catálogo. Separado de lo de arriba a
+           propósito: de esto no hay existencia, hay que comprarlo o darlo de alta. -->
+      <div v-if="propuesta.missing?.length" class="faltantes">
+        <p class="muted small">Esto haría falta y no está en su catálogo:</p>
+        <ul>
+          <li v-for="(f, i) in propuesta.missing" :key="i">
+            {{ f.quantity }} · {{ f.name }}
           </li>
         </ul>
       </div>
@@ -231,6 +266,25 @@ function cerrar() {
 .horas input {
   width: 4.5rem;
   text-align: right;
+}
+
+.antes {
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.faltantes {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.faltantes ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
 }
 
 .repuestos ul {

@@ -274,6 +274,136 @@ public class ProponerLosPasosTests
     }
 
     [RequiereBaseLocal]
+    public async Task Lo_que_hace_falta_y_no_esta_en_catalogo_sale_aparte()
+    {
+        var (taller, orden) = await EscenarioAsync();
+
+        await using var db = Contexto(taller);
+        var sku = await db.Parts.Select(p => p.Sku).FirstAsync();
+        var nombre = await db.Parts.Select(p => p.Name).FirstAsync();
+
+        var modelo = new AsistenteDeMentira(Respuesta(new
+        {
+            pasos = new[]
+            {
+                new { titulo = "Cambiar pastillas", descripcion = "", codigoManoDeObra = (string?)null, horas = 1.5 }
+            },
+            repuestos = new[] { new { sku, cantidad = 1.0, paraElPaso = "Cambiar pastillas" } },
+            faltantes = new[]
+            {
+                new { nombre = "Retenedor de cigüeñal delantero", cantidad = 1.0, paraElPaso = "Cambiar pastillas" },
+                // Este sí está en el catálogo: verlo en las dos listas haría dudar de ambas.
+                new { nombre, cantidad = 1.0, paraElPaso = "Cambiar pastillas" },
+                // Y una cantidad imposible no se corrige, se descarta.
+                new { nombre = "Empaque", cantidad = 0.0, paraElPaso = "Cambiar pastillas" }
+            },
+            nota = (string?)null
+        }));
+
+        var propuesta = await Servicio(db, modelo).ProposeAsync(orden);
+
+        Assert.NotNull(propuesta.Missing);
+        Assert.Single(propuesta.Missing!);
+        Assert.Equal("Retenedor de cigüeñal delantero", propuesta.Missing![0].Name);
+
+        // Y el del catálogo sigue estando donde le toca, con su existencia.
+        Assert.Single(propuesta.Parts);
+    }
+
+    [RequiereBaseLocal]
+    public async Task El_precio_de_un_paso_sale_de_las_ordenes_del_taller_no_del_modelo()
+    {
+        var (taller, orden) = await EscenarioAsync();
+
+        Guid servicioId;
+
+        // Dos trabajos iguales ya entregados: uno cobrado a mano y otro por catálogo.
+        await using (var historia = Contexto(taller))
+        {
+            var servicio = await historia.LaborServices.FirstAsync();
+            servicioId = servicio.Id;
+
+            var sucursal = await historia.Branches.Select(b => b.Id).FirstAsync();
+            var vehiculo = await historia.Vehicles.Select(v => v.Id).FirstAsync();
+
+            for (var i = 0; i < 2; i++)
+            {
+                var vieja = new WorkOrder
+                {
+                    TenantId = taller, BranchId = sucursal, VehicleId = vehiculo,
+                    Number = "OT-VIEJA-$i".Replace("$i", i.ToString()),
+                    Description = "Trabajo anterior",
+                    Status = WorkOrderStatus.Delivered,
+                    OpenedAt = DateTimeOffset.UtcNow.AddDays(-30),
+                    ClosedAt = DateTimeOffset.UtcNow.AddDays(-29)
+                };
+
+                historia.WorkOrders.Add(vieja);
+                historia.WorkOrderTasks.Add(new WorkOrderTask
+                {
+                    TenantId = taller,
+                    WorkOrder = vieja,
+                    Title = "Cambio de pastillas",
+                    LaborServiceId = servicioId,
+                    ActualHours = 1.5m,
+                    // El primero se cobró a mano; el segundo sale del catálogo: 1.5 h × 350.
+                    ManualLaborPrice = i == 0 ? 800m : null
+                });
+            }
+
+            await historia.SaveChangesAsync();
+        }
+
+        await using var db = Contexto(taller);
+        var codigo = await db.LaborServices.Select(x => x.Code).FirstAsync();
+
+        var modelo = new AsistenteDeMentira(Respuesta(new
+        {
+            pasos = new[]
+            {
+                new { titulo = "Cambiar pastillas", descripcion = "", codigoManoDeObra = codigo, horas = 1.5 }
+            },
+            repuestos = Array.Empty<object>(),
+            faltantes = Array.Empty<object>(),
+            nota = (string?)null
+        }));
+
+        var propuesta = await Servicio(db, modelo).ProposeAsync(orden);
+        var historial = propuesta.Tasks[0].History;
+
+        Assert.NotNull(historial);
+        Assert.Equal(2, historial!.Times);
+        Assert.Equal(525m, historial.PriceFrom);   // 1.5 h × 350 del catálogo
+        Assert.Equal(800m, historial.PriceTo);     // el que se cobró a mano
+        Assert.Equal(1.5m, historial.TypicalHours);
+    }
+
+    [RequiereBaseLocal]
+    public async Task Un_trabajo_que_el_taller_nunca_ha_hecho_no_trae_precio_inventado()
+    {
+        var (taller, orden) = await EscenarioAsync();
+
+        await using var db = Contexto(taller);
+        var codigo = await db.LaborServices.Select(s => s.Code).FirstAsync();
+
+        var modelo = new AsistenteDeMentira(Respuesta(new
+        {
+            pasos = new[]
+            {
+                new { titulo = "Cambiar pastillas", descripcion = "", codigoManoDeObra = codigo, horas = 1.5 }
+            },
+            repuestos = Array.Empty<object>(),
+            faltantes = Array.Empty<object>(),
+            nota = (string?)null
+        }));
+
+        var propuesta = await Servicio(db, modelo).ProposeAsync(orden);
+
+        // Sin historia no se enseña ningún número. Es la diferencia entre callar y adivinar.
+        Assert.Null(propuesta.Tasks[0].History);
+    }
+
+    [RequiereBaseLocal]
     public async Task El_catalogo_va_antes_que_la_pregunta_para_que_el_cache_sirva()
     {
         var (taller, orden) = await EscenarioAsync();

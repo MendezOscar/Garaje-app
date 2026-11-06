@@ -41,7 +41,10 @@ public record WorkStepsProposalDto(
     IReadOnlyList<ProposedTaskDto> Tasks,
     IReadOnlyList<ProposedPartDto> Parts,
     string? Note,
-    int CreditsLeftToday);
+    int CreditsLeftToday,
+    // Lo que el trabajo lleva y el taller no tiene en catálogo. Va aparte de los repuestos
+    // para que nadie los confunda con existencia: estos hay que comprarlos o darlos de alta.
+    IReadOnlyList<MissingPartDto>? Missing = null);
 
 /// <param name="LaborServiceId">
 /// El servicio del catálogo con el que se cobra, si alguno calza. Null es correcto: vale más
@@ -52,7 +55,30 @@ public record ProposedTaskDto(
     string? Description,
     Guid? LaborServiceId,
     string? LaborServiceName,
-    decimal Hours);
+    decimal Hours,
+    // Lo que este mismo trabajo ha costado antes en este taller. Null cuando no se ha hecho
+    // nunca, o cuando el paso no salió del catálogo.
+    TaskHistoryDto? History = null);
+
+/// <summary>
+/// Lo que el taller ha cobrado por este mismo trabajo, sacado de sus propias órdenes
+/// entregadas.
+/// </summary>
+/// <remarks>
+/// Lo calcula el servidor, no la IA. Es la diferencia entre un número real y uno inventado con
+/// cara de seguridad: este sale de órdenes que el taller cerró y cobró, y el que saldría de un
+/// modelo sería un precio de un catálogo ajeno metido en una cotización que va por WhatsApp.
+/// </remarks>
+public record TaskHistoryDto(
+    int Times,
+    decimal? PriceFrom,
+    decimal? PriceTo,
+    decimal? TypicalHours);
+
+/// <param name="Name">
+/// Con el nombre con el que se pide en una casa de repuestos, que es para lo que sirve.
+/// </param>
+public record MissingPartDto(string Name, decimal Quantity, string ForTask);
 
 /// <param name="ForTask">
 /// Para qué paso es. Sirve para que al tachar un paso se vea qué repuesto se va con él.
