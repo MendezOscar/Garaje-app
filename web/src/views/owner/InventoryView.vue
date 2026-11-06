@@ -171,6 +171,27 @@ async function openEditPart(item: StockItem) {
   panel.value = 'part'
 }
 
+/**
+ * Las aplicaciones dichas como las diría el que atiende: «Toyota Corolla 2014-2019».
+ *
+ * Sin modelo es toda la marca y sin años son todos, así que lo que falta no se escribe: poner
+ * «Toyota — todos» ocuparía el doble y diría lo mismo que «Toyota».
+ */
+function vehiculos(aplicaciones: PartApplication[]): string {
+  return aplicaciones
+    .map((a) => {
+      const anios =
+        a.yearFrom && a.yearTo && a.yearFrom !== a.yearTo
+          ? ` ${a.yearFrom}-${a.yearTo}`
+          : a.yearFrom
+            ? ` ${a.yearFrom}`
+            : ''
+
+      return [a.brand, a.model, anios].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+    })
+    .join(' · ')
+}
+
 function savePart() {
   const form = partForm.value
   const body = {
@@ -446,6 +467,12 @@ onMounted(async () => {
           <td>
             <strong>{{ item.partName }}</strong>
             <div class="muted small">{{ item.sku }} · {{ item.brand ?? '—' }}</div>
+            <!-- Para qué carros sirve, en la lista y no solo en la ficha: la pregunta se hace
+                 mirando la lista —«¿este filtro es el del Corolla o el de la Hilux?»— y abrir
+                 cada repuesto para averiguarlo es justo lo que nadie hace. -->
+            <div v-if="item.applications?.length" class="aplica" :title="vehiculos(item.applications)">
+              {{ vehiculos(item.applications) }}
+            </div>
           </td>
           <td>{{ item.branchName }}</td>
           <td class="num">
@@ -682,6 +709,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* Una línea, cortada con puntos suspensivos: son datos de apoyo, no pueden empujar la fila. */
+.aplica {
+  font-size: 0.75rem;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22rem;
+}
+
 .bodega {
   display: grid;
   gap: 0.75rem;

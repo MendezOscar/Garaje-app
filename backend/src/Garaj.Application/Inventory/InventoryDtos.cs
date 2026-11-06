@@ -79,7 +79,10 @@ public record StockItemDto(
     // reponer, sin tener que abrir la ficha del repuesto para ver en cuánto se compró.
     decimal CostPrice,
     decimal SalePrice,
-    bool IsBelowMinimum);
+    bool IsBelowMinimum,
+    // A qué vehículos les sirve. Va aquí y no solo en la ficha porque la pregunta se hace
+    // mirando la lista: «¿este filtro es el del Corolla o el de la Hilux?».
+    IReadOnlyList<PartApplicationDto> Applications);
 
 public record StockQuery : PageQuery
 {
