@@ -76,13 +76,37 @@ una orden sola. Sale marcado como propuesta, el humano lo edita y lo acepta. Don
 nota más es en la dirección 1: aceptar la propuesta es lo que crea los pasos, y el botón dice
 «Aceptar», no «Guardar».
 
-### 5. Es del plan Pro, y hay tope
+### 5. Es del plan Pro, y hay tres techos
 
-`DiagnosticsEnabled` cierra las tres. Y aparte del plan, cada taller lleva un **tope mensual
-de consumo** que se cuenta en el servidor y se corta al llegar —como ya se corta por
-mensualidad vencida en `SubscriptionGuardMiddleware`—. Sin tope, un técnico curioso una tarde
-se lleva el margen del mes. Al llegar al tope la función se apaga con un mensaje que lo dice,
-no con un error.
+`DiagnosticsEnabled` cierra las tres direcciones. Debajo del plan van **tres techos**, y hacen
+falta los tres porque protegen de cosas distintas:
+
+**El del taller, en créditos.** Un solo número que el taller entiende: el plan Pro incluye
+**450 créditos al mes, con máximo de 80 al día**. Una propuesta de pasos vale **1 crédito**,
+una consulta del técnico **5**, la lectura del negocio **0** —esa la manda el taller, no la
+pide—. Son los mismos 450 tenga tres técnicos o quince: lo que se mide es el asistente, no la
+gente, y así el «técnicos sin límite» que el plan Pro ya vende sigue siendo cierto. Si un
+taller necesita más, se venden a **L 100 por cada 100 créditos**.
+
+El tope **diario** es el que de verdad protege: el mensual se agota en una tarde si alguien
+descubre el juguete, y 80 al día le pone un piso de varios días a cualquier desastre. Un día
+ocupado no pasa de 20 o 25 créditos, así que no raciona nada.
+
+**El suyo, en dinero.** Los créditos son una aproximación: una propuesta en un taller con 400
+repuestos en catálogo cuesta más que en uno con 40, porque va más texto en cada llamada. Por
+eso debajo de los créditos va un **techo en lempiras por taller** —unos **L 220**— que corta
+aunque queden créditos. Ese número no lo ve el taller. Y se cuenta el **costo real que
+devuelve cada llamada**, no una estimación; los reintentos y las llamadas que fallan también
+se cobran, así que también se cuentan.
+
+**El de la plataforma.** El escenario que arruina un mes no es un taller curioso, es un bug
+que reintenta en bucle de madrugada. Un **techo mensual global** en configuración apaga la
+función para todos y avisa; y aparte, un **límite de gasto en la consola de Anthropic**, que
+es el único candado que no depende de que el código esté bien.
+
+Al llegar a cualquiera de los tres la función se apaga con un mensaje que lo dice —«se
+acabaron las consultas de hoy, vuelven mañana»—, nunca con un error, y el resto de GarajApp
+sigue funcionando igual.
 
 ---
 
@@ -173,8 +197,10 @@ taller les cambió la bobina del cilindro 3, y en uno de ellos volvió a los dos
   una herramienta y un riesgo.
 - **Lo que viene del historial se distingue de lo que es razonamiento general**, y se dice de
   cuál orden salió, con enlace. Lo que el taller hizo es un hecho; lo demás es una idea.
-- **Es la cara cara de las tres.** Una conversación de ocho turnos cuesta cerca de treinta
-  veces lo que una propuesta de pasos. Aquí es donde el tope mensual deja de ser teórico.
+- **Es la cara de las tres.** Una consulta vale **5 créditos** contra **1** de una propuesta,
+  y conviene **cerrarla en cinco o seis turnos** y pedir que se abra otra. No es solo costo:
+  una conversación larga se desenfoca, y una pregunta concreta por consulta se contesta mejor.
+  Aquí es donde los techos dejan de ser teóricos.
 - **En la rampa no hay señal.** La pantalla tiene que aguantar quedarse sin red a medio turno
   sin perder lo escrito, y decirlo.
 
@@ -190,30 +216,75 @@ Precios de la API al 6 de noviembre de 2026, por millón de tokens, y a L 26 por
 | `claude-sonnet-5-5` | $2.00 | $10.00 | $0.20 |
 | `claude-haiku-5-5` | $0.10 | $0.50 | — |
 
-Con el prompt del sistema y el catálogo del taller en caché, y un taller de tres técnicos:
+### Lo que se midió
 
-| | Por llamada (Opus 5.5) | Al mes | Con Sonnet 5.5 |
-| --- | --- | --- | --- |
-| 1 · Pasos (≈150 al mes) | ≈ L 0.35 | **≈ L 50** | ≈ L 25 |
-| 2 · Lectura (5 al mes, en lote) | ≈ L 0.55 | **≈ L 3** | ≈ L 1.50 |
-| 3 · Consulta (8 turnos, 75 al mes) | ≈ L 2.70 | **≈ L 200** | ≈ L 100 |
+La dirección 1 **ya se probó de verdad** con `pruebas/ia-pasos`: dos tandas de casos reales
+sacados de la base, con Opus 5.5 y el catálogo en caché.
 
-**Lo que dicen estos números:** contra una mensualidad de L 1,250, las direcciones 1 y 2 son
-gratis en la práctica. Elegir el modelo barato ahí ahorra L 25 al mes y se paga con la primera
-propuesta que salga mal y haya que corregir a mano. Donde el modelo sí se discute es en la
-3, que es la única que puede crecer sin techo —y para eso está el tope, no un modelo peor—.
+| | Estimado | **Medido** |
+| --- | --- | --- |
+| Una propuesta de pasos | L 0.35 | **L 0.46** |
+| Entrada por llamada | ~3,700 tokens | **~70 tokens** (el catálogo se lee de caché) |
+| Salida por llamada | ~600 tokens | **~1,000 tokens** |
 
-La recomendación es **`claude-opus-5-5` en las tres**, con caché del prompt y del catálogo, la
-2 en lote, y el tope mensual por taller. Bajar a `claude-sonnet-5-5` en la 3 es una decisión
-razonable si el tope empieza a tocarse seguido; es decisión de negocio y se toma con el
-consumo medido, no antes.
+Un **28% por encima** de lo estimado, y la causa está a la vista: **la salida es más larga de
+lo previsto**, no la entrada. El caché funciona mejor de lo esperado —la entrada bajó de 3,700
+tokens a 70—, pero la nota que el asistente escribe al final pesa más que todo lo demás junto.
+Acortarla es la única palanca que importa en esta dirección, y además es mejor producto.
 
-**Tres cosas que no están en la tabla y conviene no olvidar:** el caché solo sirve si el
-prefijo no cambia —el catálogo va antes que la pregunta, siempre en el mismo orden—; cada
-reintento se paga igual que el primer intento; y el consumo se registra por taller desde la
-primera llamada, porque sin eso el tope es una idea y no un tope.
+Las direcciones 2 y 3 **no están medidas**: no existen todavía. Lo de abajo sigue siendo
+estimación, y la de la consulta es la más floja de las tres porque nadie sabe cuántos turnos
+va a durar de verdad.
 
----
+### Al mes, por taller
+
+Con los 450 créditos del plan Pro y el costo medido de **L 0.46 por crédito**:
+
+| | Al mes |
+| --- | --- |
+| Si consume los 450 créditos completos | **≈ L 207** |
+| Consumo esperado (40% de la asignación) | **≈ L 83** |
+| La lectura semanal del negocio, que no gasta créditos | **≈ L 2.75** (5 informes, en lote) |
+
+Contra los **L 400** que el plan Pro cobra sobre el Básico: **48% de margen en el peor caso,
+79% con el consumo esperado**. El 40% es supuesto, no dato: el primer mes de registro de
+consumo lo reemplaza.
+
+### Qué modelo
+
+**`claude-opus-5-5` en las tres**, con caché del prompt y del catálogo y la dirección 2 en
+lote. No se abarata por modelo: bajar las tres a Sonnet ahorra unos L 67 al mes por taller y
+la dirección 3 es la que tiene riesgo físico —un torque inventado rompe un motor—, donde un
+modelo que obedece peor la instrucción de negarse es exactamente lo que no conviene. El costo
+se controla con los techos, que son números que se fijan, no con un modelo que adivina peor.
+
+**La condición de cambio, escrita desde ahora:** si al medir un mes real el costo por taller
+pasa de **L 120**, la dirección 3 se mueve a `claude-sonnet-5-5` y se vuelve a correr contra
+el conjunto de prueba. Si no lo pasa, se queda. Así lo decide el consumo medido y no la
+corazonada de nadie.
+
+**Y el proveedor va detrás de una interfaz en Infrastructure**, como ya está `IStorageService`.
+Cambiar de modelo o de proveedor tiene que ser configuración, no reescribir.
+
+### Lo gratis, y por qué no
+
+Se evaluó. La capa gratuita de Gemini **usa el contenido para mejorar sus productos** y puede
+ser leído por revisores humanos: ahí viajarían los diagnósticos del taller y, en la dirección
+2, sus ingresos y márgenes. No se puede vender privacidad y usar eso. Además sus límites son
+**por organización, no por taller**, así que se agotan justo cuando el negocio funciona.
+Groq dice en sus términos que su capa gratuita no es para producción. Y el servidor propio con
+modelo abierto, que es la que parece gratis, es la más cara: un GPU en renta anda por **$1,800
+al mes** y el punto de equilibrio contra una API barata está en miles de millones de tokens —a
+este volumen sale unas sesenta veces más caro, más el mantenimiento—.
+
+Lo barato de verdad sería `claude-haiku-5-5`, a unos L 15 al mes por taller. No se descarta
+para siempre; se descarta **para la dirección 3**, por lo dicho arriba.
+
+**Tres cosas que no están en las tablas y conviene no olvidar:** el caché solo sirve si el
+prefijo no cambia —el catálogo va antes que la pregunta, siempre en el mismo orden, y la
+prueba confirmó que así funciona—; cada reintento se paga igual que el primer intento; y el
+consumo se registra por taller desde la primera llamada, porque sin eso el techo es una idea
+y no un techo.
 
 ## Seguridad
 
@@ -251,14 +322,39 @@ estructurada y la validación de ids son justamente lo que impide que importe.
 1. **El cimiento, sin funciones.** Cliente del modelo en Infrastructure, llave por variable de
    entorno, conteo y tope de consumo por taller, registro de cada llamada con lo que se mandó,
    y `DiagnosticsEnabled` cerrando de verdad. Nada de esto se ve, y todo lo demás lo necesita.
-2. **El conjunto de prueba** de la dirección 1: treinta órdenes cerradas con sus pasos reales.
-   Antes del prompt.
-3. **Dirección 1**, solo panel. Es la de mayor valor por lo que cuesta, y la que ya tiene la
-   forma de salida definida por los trabajos frecuentes.
+2. **El conjunto de prueba** de la dirección 1: órdenes cerradas con sus pasos reales, para
+   comparar contra ellas. Antes del prompt. **Primera vuelta hecha** —ver abajo—, pendiente
+   armarlo con treinta casos cuando haya órdenes para armarlo.
+3. **Dirección 1**, solo panel. Es la de mayor valor por lo que cuesta, la que ya tiene la
+   forma de salida definida por los trabajos frecuentes, y la única probada.
 4. **Dirección 2.** Reusa los reportes; casi todo el trabajo es armar el paquete y el PDF.
 5. **La 1 en la app**, una vez que el panel enseñó qué propuestas acepta la gente y cuáles no.
 6. **Dirección 3.** La última a propósito: es la más cara, la de más riesgo y la que mejor
    funciona cuando ya hay historial del taller cargado y lecturas del escáner guardadas.
+
+---
+
+## Lo que la prueba ya dejó claro
+
+`pruebas/ia-pasos` corrió la dirección 1 contra casos reales de la base, sin tocar nada del
+producto. Lo que se comprobó, y vale para cuando se construya:
+
+- **Las reglas del prompt se sostienen.** Ni un solo repuesto fuera del catálogo en los casos
+  corridos: todos los SKU propuestos existían. La validación por id del lado del servidor
+  sigue haciendo falta —es una respuesta de afuera—, pero no se está peleando contra el
+  modelo.
+- **Se niega cuando toca.** Con un diagnóstico pobre devolvió la lista vacía y pidió lo que
+  faltaba averiguar, en vez de inventar pasos. Era la regla 6 y es la que más se temía.
+- **Aguanta la escritura de taller**: faltas de ortografía, frases cortadas, varias
+  observaciones sueltas en un mismo campo.
+- **Propone trabajo que el taller a veces no cobra.** En un caso el técnico había anotado
+  cuatro hallazgos y la orden facturó uno; la propuesta traía los cuatro. Eso es ingreso, y
+  es un argumento de venta que no estaba en el plan.
+- **El caché funciona**: la entrada bajó de ~3,700 tokens a ~70 en cuanto el catálogo quedó
+  cacheado. Confirma que el orden importa —catálogo primero, pregunta después—.
+- **Lo que hay que corregir en el prompt:** las cantidades no siempre cuadran, se le olvidan
+  los consumibles que sí se cobran, parte el trabajo más fino de lo que el taller lo cobra, y
+  la nota final es demasiado larga —que es, además, de dónde sale el 28% de sobrecosto—.
 
 ---
 
