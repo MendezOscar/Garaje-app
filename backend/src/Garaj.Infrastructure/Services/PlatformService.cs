@@ -4,10 +4,12 @@ using Garaj.Application.Platform;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
+using Garaj.Infrastructure.Assistant;
 using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Garaj.Infrastructure.Services;
 
@@ -25,7 +27,8 @@ public class PlatformService(
     ITenantContext tenantContext,
     IDateTimeProvider clock,
     TenantProvisioner provisioner,
-    UserManager<AppUser> userManager) : IPlatformService
+    UserManager<AppUser> userManager,
+    IOptions<AssistantOptions> assistantOptions) : IPlatformService
 {
     public async Task<IReadOnlyList<PlatformTenantDto>> ListAsync(CancellationToken ct = default)
     {
@@ -60,6 +63,7 @@ public class PlatformService(
             .ToDictionaryAsync(x => x.TenantId, x => x.PaidOn, ct);
 
         var today = clock.Today();
+        var gastoDelMes = await GastoDelAsistenteAsync(ct);
 
         return tenants
             .Select(t => Map(
@@ -67,7 +71,8 @@ public class PlatformService(
                 branchCounts.GetValueOrDefault(t.Id),
                 technicianCounts.GetValueOrDefault(t.Id),
                 lastPayments.TryGetValue(t.Id, out var paidOn) ? paidOn : null,
-                today))
+                today,
+                gastoDelMes.GetValueOrDefault(t.Id)))
             // Lo que vence primero, arriba: es la lista de a quién hay que cobrarle.
             .OrderBy(t => t.PaidThrough ?? DateOnly.MaxValue)
             .ThenBy(t => t.Name)
@@ -310,6 +315,13 @@ public class PlatformService(
             tenant.AssistantCreditsPerMonth = Planes.CreditosDe(request.Plan).Mes;
             tenant.AssistantCreditsPerDay = Planes.CreditosDe(request.Plan).Dia;
             tenant.AssistantMonthlyCapHnl = Planes.TopeMensualDe(request.Plan);
+        }
+        else
+        {
+            tenant.AssistantEnabled = request.AssistantEnabled;
+            tenant.AssistantCreditsPerMonth = Math.Clamp(request.AssistantCreditsPerMonth, 0, 20_000);
+            tenant.AssistantCreditsPerDay = Math.Clamp(request.AssistantCreditsPerDay, 0, 2_000);
+            tenant.AssistantMonthlyCapHnl = Math.Clamp(request.AssistantMonthlyCapHnl, 0m, 50_000m);
         }
         tenant.MonthlyFee = request.MonthlyFee;
         tenant.PaidThrough = request.PaidThrough;
@@ -607,7 +619,36 @@ public class PlatformService(
             await BranchCountAsync(tenant.Id, ct),
             await TechnicianCountAsync(tenant.Id, ct),
             lastPayment,
-            clock.Today());
+            clock.Today(),
+            (await GastoDelAsistenteAsync(ct)).GetValueOrDefault(tenant.Id));
+    }
+
+    /// <summary>
+    /// Lo que lleva gastado cada taller en el asistente este mes, en lempiras, de un solo
+    /// viaje. Sin este número el tope de gasto es una columna que nadie puede revisar.
+    /// </summary>
+    /// <remarks>
+    /// Salta el filtro por tenant porque es la plataforma mirando a todos sus clientes, que es
+    /// lo que esta pantalla hace con cada columna que enseña. El cambio de dólares a lempiras
+    /// va con el mismo número que usa la cuota.
+    /// </remarks>
+    private async Task<Dictionary<Guid, decimal>> GastoDelAsistenteAsync(CancellationToken ct)
+    {
+        var hoy = clock.Today();
+        var desde = new DateTimeOffset(hoy.Year, hoy.Month, 1, 0, 0, 0, TimeSpan.FromHours(-6))
+            .ToUniversalTime();
+
+        var porTaller = await db.AssistantCalls
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.CreatedAt >= desde)
+            .GroupBy(c => c.TenantId)
+            .Select(g => new { TenantId = g.Key, Usd = g.Sum(c => c.CostUsd) })
+            .ToListAsync(ct);
+
+        var lempirasPorDolar = assistantOptions.Value.HnlPerUsd;
+
+        return porTaller.ToDictionary(x => x.TenantId, x => Math.Round(x.Usd * lempirasPorDolar, 2));
     }
 
     private async Task<int> BranchCountAsync(Guid tenantId, CancellationToken ct) =>
@@ -630,7 +671,8 @@ public class PlatformService(
             .CountAsync(ct);
 
     private static PlatformTenantDto Map(
-        Tenant tenant, int branchCount, int technicianCount, DateOnly? lastPaymentOn, DateOnly today)
+        Tenant tenant, int branchCount, int technicianCount, DateOnly? lastPaymentOn,
+        DateOnly today, decimal assistantSpentHnl = 0m)
     {
         var status = SubscriptionRules.For(tenant, today);
 
@@ -658,6 +700,11 @@ public class PlatformService(
             tenant.Plan,
             tenant.TechnicianLimit,
             tenant.DiagnosticsEnabled,
+            tenant.AssistantEnabled,
+            tenant.AssistantCreditsPerMonth,
+            tenant.AssistantCreditsPerDay,
+            tenant.AssistantMonthlyCapHnl,
+            assistantSpentHnl,
             tenant.WorksWith,
             tenant.TaxId,
             tenant.Address);

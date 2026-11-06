@@ -41,7 +41,13 @@ public record TenantSettingsDto(
     Guid BookingToken,
     bool BookingEnabled,
     string? BookingUrl,
-    string? LogoUrl);
+    string? LogoUrl,
+    // El asistente: si lo tiene y con cuántos créditos. Lo enciende la plataforma, no el
+    // taller, así que viaja de solo lectura. El tope en lempiras no sale de aquí: ese es
+    // nuestro, y enseñárselo al taller invitaría a discutirlo.
+    bool AssistantEnabled = false,
+    int AssistantCreditsPerMonth = 0,
+    int AssistantCreditsPerDay = 0);
 
 public record UpdateTenantRequest(
     string Name,
