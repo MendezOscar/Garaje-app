@@ -190,10 +190,10 @@ const bloques = [
       'No inventa torques ni capacidades: para eso remite al manual de la marca',
       'El técnico pregunta con el carro en la rampa, y le contesta con las órdenes del taller',
     ],
-    imagen: '/capturas/telefono-asistente.png?v=2026-11',
-    alt: 'La propuesta del asistente en el teléfono: los pasos con sus horas, los repuestos y la nota',
+    imagen: '/capturas/telefono-asistente.png?v=2026-11b',
+    alt: 'La propuesta del asistente en el teléfono: la nota de lo que falta, los seis pasos con sus horas y el botón de aceptar',
     ancho: 390,
-    alto: 820,
+    alto: 837,
     invertido: true,
   },
   {
