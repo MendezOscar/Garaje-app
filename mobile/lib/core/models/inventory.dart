@@ -127,6 +127,7 @@ class StockItem {
     this.brand,
     this.category,
     this.location,
+    this.applications = const [],
   });
 
   factory StockItem.fromJson(Map<String, dynamic> json) => StockItem(
@@ -144,6 +145,9 @@ class StockItem {
         costPrice: (json['costPrice'] as num?)?.toDouble() ?? 0,
         salePrice: (json['salePrice'] as num?)?.toDouble() ?? 0,
         isBelowMinimum: json['isBelowMinimum'] as bool? ?? false,
+        applications: ((json['applications'] as List<dynamic>?) ?? [])
+            .map((e) => PartApplication.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   final String partId;
@@ -160,6 +164,9 @@ class StockItem {
   final double costPrice;
   final double salePrice;
   final bool isBelowMinimum;
+
+  /// A qué vehículos les sirve. Vacío mientras nadie lo llene, que es lo normal.
+  final List<PartApplication> applications;
 }
 
 /// Tipos de movimiento. Mismos valores que `Garaj.Domain.Enums.StockMovementType`.
