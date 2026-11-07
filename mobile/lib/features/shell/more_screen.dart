@@ -37,6 +37,10 @@ class MoreScreen extends ConsumerWidget {
     final manda = auth.user.manda;
     final esDueno = auth.user.esDueno;
 
+    // El armado de motos es de un contrato, no de un plan: existe en el taller que lo tiene
+    // y en ningún otro. El técnico también lo lleva, que es quien registra en la bodega.
+    final armado = auth.user.assemblyEnabled;
+
     final d = manda ? ref.watch(dashboardProvider).value : null;
     final recordatorios = manda ? ref.watch(remindersDueProvider).value : null;
 
@@ -67,6 +71,27 @@ class MoreScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
+
+          // Arriba del todo donde existe: en ese taller es lo que se hace todo el día, no
+          // un ajuste que se busca una vez al mes.
+          if (armado) ...[
+            _Group(
+              title: 'Armado de motos',
+              rows: [
+                _Row(
+                  icon: Icons.two_wheeler_outlined,
+                  label: 'Armé una moto',
+                  route: '/armar-moto',
+                ),
+                _Row(
+                  icon: Icons.fact_check_outlined,
+                  label: 'Mis motos armadas',
+                  route: '/motos-armadas',
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
 
           if (manda) ...[
             _Group(

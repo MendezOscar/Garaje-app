@@ -51,6 +51,15 @@ class MyWorkScreen extends ConsumerWidget {
           const NotificationBell(),
         ],
       ),
+      // Donde el taller arma motos, esa es la jornada del técnico y no un extra: el botón va
+      // flotando y no escondido en «Más», que es donde no lo vuelve a buscar.
+      floatingActionButton: auth.user.assemblyEnabled
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/armar-moto'),
+              icon: const Icon(Icons.two_wheeler),
+              label: const Text('Armé una moto'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(openOrdersProvider),
         child: ordenes.when(

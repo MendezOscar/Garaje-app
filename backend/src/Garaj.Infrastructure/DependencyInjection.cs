@@ -144,6 +144,7 @@ public static class DependencyInjection
 
         // Armado de motos. Va apagado en todos los talleres salvo donde se contrate.
         services.AddScoped<IAssemblyCatalogService, AssemblyCatalogService>();
+        services.AddScoped<IMotorcycleAssemblyService, MotorcycleAssemblyService>();
 
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.

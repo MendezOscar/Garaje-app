@@ -12,7 +12,11 @@ enum MediaOwnerType {
   expense(5),
 
   /// Cómo entró el vehículo o el equipo. Son las que salen en la ficha de recepción.
-  reception(6);
+  reception(6),
+
+  /// La foto de la serie de una moto armada. Es la prueba de que esa moto existió y de que
+  /// la serie que se cobró es la que estaba en el chasis.
+  motorcycleAssembly(7);
 
   const MediaOwnerType(this.value);
 
