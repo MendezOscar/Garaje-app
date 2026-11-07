@@ -22,14 +22,24 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
   // Solo los formatos que llevan estas etiquetas. Acotarlo hace la lectura más rápida y
   // evita que un QR de otra caja se cuele.
   final _controlador = MobileScannerController(
-    formats: const [BarcodeFormat.code39, BarcodeFormat.code128, BarcodeFormat.dataMatrix],
+    formats: const [
+      BarcodeFormat.code39,
+      BarcodeFormat.code128,
+      BarcodeFormat.dataMatrix,
+    ],
     detectionSpeed: DetectionSpeed.normal,
   );
 
   /// Lo que se ha visto en esta sesión, para no volver a avisar del mismo.
   final _vistos = <String>{};
 
+  /// Dos series distintas dentro del recuadro: hay más de una caja a la vista.
+  bool _hayDosCajas = false;
+
   bool _devuelto = false;
+
+  /// El tamaño del recuadro de la guía. Es también el área que de verdad se lee.
+  static const _guia = Size(280, 140);
 
   @override
   void dispose() {
@@ -49,11 +59,22 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
       _vistos.add(normalizarSerie(c));
     }
 
-    final serie = serieDeLaEtiqueta(codigos);
+    // En una bodega las cajas están pegadas. Si en el recuadro entran dos series distintas,
+    // no se escoge una: se registraría una moto que no es la que se armó, y eso no da error
+    // —queda guardado y nadie se entera hasta que el contratista reclame—.
+    final series = codigos.map(normalizarSerie).where(pareceSerie).toSet();
+
+    if (series.length > 1) {
+      if (mounted) setState(() => _hayDosCajas = true);
+      return;
+    }
+
+    final serie = series.isEmpty ? null : series.first;
+
     if (serie == null) {
       // Se vio algo, pero no el VIN: en una caja hay cuatro códigos y tres no sirven. Se
       // sigue leyendo sin decir nada, que es lo que pasa mientras uno mueve el teléfono.
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _hayDosCajas = false);
       return;
     }
 
@@ -70,25 +91,36 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          MobileScanner(
-            controller: _controlador,
-            onDetect: _alLeer,
-            errorBuilder: (context, error) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.no_photography_outlined, size: 40),
-                    const SizedBox(height: 12),
-                    Text(
-                      error.errorCode == MobileScannerErrorCode.permissionDenied
-                          ? 'La app no tiene permiso para usar la cámara. Se puede dar en '
-                              'los ajustes del teléfono, o teclear la serie a mano.'
-                          : 'No se pudo abrir la cámara. Teclee la serie a mano.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+          LayoutBuilder(
+            builder: (context, medidas) => MobileScanner(
+              controller: _controlador,
+              onDetect: _alLeer,
+
+              // El recuadro de la guía es de verdad: fuera de él no se lee. Sin esto, la
+              // cámara agarraría la etiqueta de la caja de al lado sin avisar.
+              scanWindow: Rect.fromCenter(
+                center: Offset(medidas.maxWidth / 2, medidas.maxHeight / 2),
+                width: _guia.width,
+                height: _guia.height,
+              ),
+              errorBuilder: (context, error) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.no_photography_outlined, size: 40),
+                      const SizedBox(height: 12),
+                      Text(
+                        error.errorCode ==
+                                MobileScannerErrorCode.permissionDenied
+                            ? 'La app no tiene permiso para usar la cámara. Se puede dar en '
+                                  'los ajustes del teléfono, o teclear la serie a mano.'
+                            : 'No se pudo abrir la cámara. Teclee la serie a mano.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -98,10 +130,15 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
           IgnorePointer(
             child: Center(
               child: Container(
-                width: 280,
-                height: 140,
+                width: _guia.width,
+                height: _guia.height,
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2),
+                  border: Border.all(
+                    color: _hayDosCajas
+                        ? Colors.amber
+                        : Colors.white.withValues(alpha: 0.9),
+                    width: _hayDosCajas ? 3 : 2,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -128,11 +165,14 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _vistos.isEmpty
-                          ? 'Es el de diecisiete caracteres. Los otros de la caja —envío, '
-                              'SKU, número de motor— no sirven.'
+                      _hayDosCajas
+                          ? 'Se ven dos cajas distintas en el recuadro. Acérquese hasta que '
+                                'solo entre la etiqueta de la que acaba de armar.'
+                          : _vistos.isEmpty
+                          ? 'Es el de diecisiete caracteres. Los otros de la caja '
+                                '—envío, SKU, número de motor— no sirven.'
                           : 'Ya se leyeron ${_vistos.length} códigos de la caja, pero '
-                              'ninguno es el VIN. Acérquese al que dice VIN.',
+                                'ninguno es el VIN. Acérquese al que dice VIN.',
                       style: theme.textTheme.bodySmall,
                       textAlign: TextAlign.center,
                     ),
