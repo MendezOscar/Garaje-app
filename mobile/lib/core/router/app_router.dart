@@ -21,6 +21,8 @@ import '../../features/users/users_screen.dart';
 import '../../features/service_requests/new_service_request_screen.dart';
 import '../../features/service_requests/service_requests_screen.dart';
 import '../../features/appointments/appointments_screen.dart';
+import '../../features/assembly/my_assemblies_screen.dart';
+import '../../features/assembly/register_motorcycle_screen.dart';
 import '../../features/customer/new_appointment_screen.dart';
 import '../../features/customer/quote_screen.dart';
 import '../../features/shell/customer_shell.dart';
@@ -184,6 +186,10 @@ List<RouteBase> garajRoutes() => [
         path: '/presupuesto/:id',
         builder: (_, state) => QuoteScreen(id: state.pathParameters['id']!),
       ),
+      // Armado de motos: el registro en la bodega y lo que cada quien lleva armado. Solo
+      // existen donde el taller tiene el módulo; la API responde 404 en los demás.
+      GoRoute(path: '/armar-moto', builder: (_, __) => const RegisterMotorcycleScreen()),
+      GoRoute(path: '/motos-armadas', builder: (_, __) => const MyAssembliesScreen()),
       GoRoute(path: '/nueva-cita', builder: (_, __) => const NewServiceRequestScreen()),
       GoRoute(path: '/pedir-cita', builder: (_, __) => const NewAppointmentScreen()),
       GoRoute(path: '/citas', builder: (_, __) => const AppointmentsScreen()),

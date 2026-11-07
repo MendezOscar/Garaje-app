@@ -70,3 +70,41 @@ public class AssemblyController(IAssemblyCatalogService service) : ControllerBas
         Guid id, SaveAssemblyWarehouseRequest request, CancellationToken ct)
         => Ok(await service.SaveWarehouseAsync(id, request, ct));
 }
+
+/// <summary>
+/// Las motos armadas: lo que el técnico registra parado en la bodega.
+/// </summary>
+/// <remarks>
+/// Lo que se le cobra al contratista no viaja en estas respuestas cuando pregunta un técnico.
+/// El taller sin el módulo recibe 404.
+/// </remarks>
+[ApiController]
+[Authorize]
+[Route("api/assembly/motorcycles")]
+public class MotorcyclesController(IMotorcycleAssemblyService service) : ControllerBase
+{
+    /// <summary>Las tres listas para registrar sin teclear. Sin un solo precio.</summary>
+    [HttpGet("pick-lists")]
+    public async Task<ActionResult<AssemblyPickListsDto>> PickLists(CancellationToken ct)
+        => Ok(await service.PickListsAsync(ct));
+
+    [HttpPost]
+    public async Task<ActionResult<MotorcycleAssemblyDto>> Register(
+        RegisterMotorcycleRequest request, CancellationToken ct)
+        => Ok(await service.RegisterAsync(request, ct));
+
+    /// <summary>Lo que lleva armado quien pregunta, y lo que suma para él.</summary>
+    [HttpGet("mine")]
+    public async Task<ActionResult<MyAssembliesDto>> Mine(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
+        => Ok(await service.MineAsync(from, to, ct));
+
+    /// <summary>
+    /// Qué modelo suele llevar una serie como esa, aprendido de lo ya registrado en este
+    /// taller. Siempre una propuesta: la confirma quien tiene la moto delante.
+    /// </summary>
+    [HttpGet("guess-model")]
+    public async Task<ActionResult<ModelGuessDto>> GuessModel(
+        [FromQuery] string serial, CancellationToken ct)
+        => Ok(await service.GuessModelAsync(serial ?? string.Empty, ct));
+}

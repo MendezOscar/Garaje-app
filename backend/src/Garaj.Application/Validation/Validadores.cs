@@ -117,6 +117,22 @@ public class SaveCustomerValidator : AbstractValidator<SaveCustomerRequest>
     }
 }
 
+/// <summary>
+/// El registro de una moto. Los topes de largo; si la serie es creíble y si el modelo tiene
+/// precio con ese contratista lo decide el servicio, que es el que puede mirar el catálogo.
+/// </summary>
+public class RegisterMotorcycleValidator : AbstractValidator<RegisterMotorcycleRequest>
+{
+    public RegisterMotorcycleValidator()
+    {
+        RuleFor(x => x.Serial).NotEmpty().MaximumLength(25);
+        RuleFor(x => x.ModelId).NotEmpty();
+        RuleFor(x => x.ContractorId).NotEmpty();
+        RuleFor(x => x.WarehouseId).NotEmpty();
+        RuleFor(x => x.Notes).MaximumLength(500);
+    }
+}
+
 public class SaveAssemblyContractorValidator : AbstractValidator<SaveAssemblyContractorRequest>
 {
     public SaveAssemblyContractorValidator()

@@ -522,6 +522,20 @@ public class MediaService(
             return;
         }
 
+        // La foto de la serie de una moto armada. El técnico ve las suyas y quien manda las
+        // del taller: es la prueba de que esa moto existió y de que la serie que se cobró es
+        // la que estaba en el chasis, así que la mira quien factura.
+        if (ownerType == MediaOwnerType.MotorcycleAssembly)
+        {
+            var q = db.MotorcycleAssemblies.AsNoTracking().Where(m => m.Id == ownerId);
+
+            if (!scope.IsManagement) q = q.Where(m => m.TechnicianUserId == scope.UserId);
+
+            if (!await q.AnyAsync(ct)) throw new NotFoundException("La moto no existe.");
+
+            return;
+        }
+
         // La hoja de recepción se llena al recibir, cuando la orden todavía no existe: ahí
         // las fotos cuelgan del requerimiento, y al aprobarlo se pasan a la orden con la hoja.
         if (ownerType == MediaOwnerType.Reception
@@ -653,6 +667,7 @@ public class MediaService(
             MediaOwnerType.Quote => "quotes",
             MediaOwnerType.Expense => "expenses",
             MediaOwnerType.Reception => "receptions",
+            MediaOwnerType.MotorcycleAssembly => "motorcycle-assemblies",
             _ => "other"
         };
 

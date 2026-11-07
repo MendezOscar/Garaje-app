@@ -25,12 +25,16 @@ public class ArmadoDeMotosTests
     private const string CadenaLocal =
         "Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-dev-secret";
 
-    private static GarajDbContext Contexto(Guid taller, string rol, Guid? usuario = null)
+    private static GarajDbContext Contexto(
+        Guid taller, string rol, Guid? usuario = null, Guid? sucursal = null)
     {
         var cadena = Environment.GetEnvironmentVariable("ConnectionStrings__Default") ?? CadenaLocal;
 
         var contexto = new TenantContext();
-        contexto.Initialize(taller, usuario ?? Guid.NewGuid(), rol, [], null);
+
+        contexto.Initialize(
+            taller, usuario ?? Guid.NewGuid(), rol,
+            sucursal is { } s ? [s] : [], null);
 
         var options = new DbContextOptionsBuilder<GarajDbContext>()
             .UseNpgsql(cadena)
@@ -152,6 +156,193 @@ public class ArmadoDeMotosTests
         Assert.Equal("FT150", despues.Rates[0].ModelName);
         Assert.Equal(275m, despues.Rates[0].Charge);
         Assert.Equal(100m, despues.Rates[0].TechnicianPay);
+    }
+
+    /// <summary>Un taller listo para registrar: contratista, modelo con precio y bodega.</summary>
+    private static async Task<(Guid Taller, Guid Sucursal, Guid Contratista, Guid Modelo, Guid Bodega)>
+        ContratoAsync()
+    {
+        var taller = await TallerAsync(conArmado: true);
+        var sucursal = Guid.NewGuid();
+
+        await using var db = Contexto(taller, AppRoles.Owner);
+
+        db.Branches.Add(new Branch
+        {
+            Id = sucursal, TenantId = taller, Name = "Matriz",
+            Code = $"{taller:N}"[..3].ToUpperInvariant(), IsActive = true
+        });
+
+        await db.SaveChangesAsync();
+
+        var servicio = Servicio(db);
+        var modelo = await servicio.SaveModelAsync(null, new SaveAssemblyModelRequest("FT150"));
+        var bodega = await servicio.SaveWarehouseAsync(
+            null, new SaveAssemblyWarehouseRequest("Bodega Sur"));
+        var contratista = await servicio.SaveContractorAsync(
+            null, new SaveAssemblyContractorRequest("Distribuidora del Norte", null));
+
+        await servicio.SaveRatesAsync(contratista.Id, new SaveAssemblyRatesRequest([
+            new SaveAssemblyRateLine(modelo.Id, 250m, 90m)
+        ]));
+
+        return (taller, sucursal, contratista.Id, modelo.Id, bodega.Id);
+    }
+
+    private static MotorcycleAssemblyService Registro(GarajDbContext db) =>
+        new(db, db.TenantContext, new DateTimeProvider());
+
+    /// <summary>
+    /// El técnico necesita las tres listas para registrar, y el catálogo del dueño no se las
+    /// puede dar: de ahí cuelgan los precios. Por eso van por su propia puerta, sin un solo
+    /// número.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task El_tecnico_lee_las_listas_para_registrar_sin_ver_precios()
+    {
+        var (taller, sucursal, _, _, _) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Technician, Guid.NewGuid(), sucursal);
+
+        // La puerta del dueño se le cierra…
+        await Assert.ThrowsAsync<ForbiddenException>(() => Servicio(db).ContractorsAsync());
+
+        // …y la suya le da lo que necesita para registrar.
+        var listas = await Registro(db).PickListsAsync();
+
+        Assert.Single(listas.Contractors);
+        Assert.Single(listas.Models);
+        Assert.Single(listas.Warehouses);
+        Assert.True(listas.Contractors.Count > 0);
+    }
+
+    [RequiereBaseLocal]
+    public async Task El_tecnico_registra_y_no_recibe_lo_que_el_taller_cobra()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+        var tecnico = Guid.NewGuid();
+
+        await using var db = Contexto(taller, AppRoles.Technician, tecnico, sucursal);
+
+        var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3c1-ja1234-rt-567890", modelo, contratista, bodega));
+
+        // La serie queda normalizada como el VIN de un vehículo.
+        Assert.Equal("3C1JA1234RT567890", moto.Serial);
+
+        // Su pago sí; el cobro del taller no sale del servidor. No se esconde: no viaja.
+        Assert.Equal(90m, moto.TechnicianPay);
+        Assert.Null(moto.Charge);
+    }
+
+    [RequiereBaseLocal]
+    public async Task El_dueno_si_ve_lo_que_se_cobra()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+
+        var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT567890", modelo, contratista, bodega, BranchId: sucursal));
+
+        Assert.Equal(250m, moto.Charge);
+    }
+
+    [RequiereBaseLocal]
+    public async Task Un_modelo_sin_precio_con_ese_contratista_no_se_registra()
+    {
+        var (taller, sucursal, contratista, _, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var servicio = Servicio(db);
+
+        // Un modelo nuevo que todavía no se negoció con nadie.
+        var sinPrecio = await servicio.SaveModelAsync(null, new SaveAssemblyModelRequest("DT125"));
+
+        // Registrarlo en cero haría que esa moto se armara gratis y nadie lo notaría hasta
+        // cuadrar el mes.
+        await Assert.ThrowsAsync<AppException>(() => Registro(db).RegisterAsync(
+            new RegisterMotorcycleRequest(
+                "3C1JA1234RT567891", sinPrecio.Id, contratista, bodega, BranchId: sucursal)));
+    }
+
+    [RequiereBaseLocal]
+    public async Task La_misma_serie_tecleada_distinto_rebota_igual()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var registro = Registro(db);
+
+        await registro.RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT567890", modelo, contratista, bodega, BranchId: sucursal));
+
+        await Assert.ThrowsAsync<ConflictException>(() => registro.RegisterAsync(
+            new RegisterMotorcycleRequest(
+                "3c1 ja1234 rt 567890", modelo, contratista, bodega, BranchId: sucursal)));
+    }
+
+    [RequiereBaseLocal]
+    public async Task El_tecnico_solo_ve_lo_suyo_y_lo_que_suma_para_el()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        var uno = Guid.NewGuid();
+        var otro = Guid.NewGuid();
+
+        await using (var db = Contexto(taller, AppRoles.Technician, uno, sucursal))
+        {
+            await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+                "3C1JA1234RT000001", modelo, contratista, bodega));
+            await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+                "3C1JA1234RT000002", modelo, contratista, bodega));
+        }
+
+        await using (var db = Contexto(taller, AppRoles.Technician, otro, sucursal))
+        {
+            await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+                "3C1JA1234RT000003", modelo, contratista, bodega));
+        }
+
+        await using var mias = Contexto(taller, AppRoles.Technician, uno, sucursal);
+        var lo_mio = await Registro(mias).MineAsync(null, null);
+
+        Assert.Equal(2, lo_mio.Count);
+        Assert.Equal(180m, lo_mio.Pay);
+        Assert.All(lo_mio.Items, m => Assert.Null(m.Charge));
+    }
+
+    /// <summary>
+    /// La tabla de prefijos que se aprende sola. Es lo que hace que registrar una moto sean
+    /// tres toques: la primera de cada prefijo se teclea, de la segunda en adelante se
+    /// propone. No hay tabla que comprar, y la que sale es la de los modelos que este taller
+    /// de verdad arma.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task El_modelo_se_propone_desde_la_segunda_moto_del_mismo_prefijo()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var registro = Registro(db);
+
+        // Antes de la primera no hay nada que proponer, y no se inventa.
+        var antes = await registro.GuessModelAsync("3C1JA1234RT999999");
+        Assert.Null(antes.ModelId);
+
+        await registro.RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT000001", modelo, contratista, bodega, BranchId: sucursal));
+
+        // Otro chasis del mismo prefijo: mismos ocho primeros caracteres, distinto correlativo.
+        var despues = await registro.GuessModelAsync("3C1JA1234RT000002");
+
+        Assert.Equal(modelo, despues.ModelId);
+        Assert.Equal("FT150", despues.ModelName);
+        Assert.Equal(1, despues.SeenBefore);
+
+        // Y un prefijo que nunca se ha visto sigue sin propuesta.
+        var ajeno = await registro.GuessModelAsync("9XYKK9999ZZ000001");
+        Assert.Null(ajeno.ModelId);
     }
 
     /// <summary>
