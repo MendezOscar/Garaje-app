@@ -90,6 +90,11 @@ public record MotorcycleAssemblyDto(
     string? Notes,
     decimal? Charge);
 
+/// <param name="TechnicianUserId">
+/// Quién la armó. Lo manda el panel, donde el dueño registra la moto que el técnico le
+/// reportó por teléfono. Desde la app va vacío y se usa a quien está dentro: un técnico
+/// solo registra lo suyo.
+/// </param>
 public record RegisterMotorcycleRequest(
     string Serial,
     Guid ModelId,
@@ -97,7 +102,8 @@ public record RegisterMotorcycleRequest(
     Guid WarehouseId,
     DateOnly? AssembledOn = null,
     Guid? BranchId = null,
-    string? Notes = null);
+    string? Notes = null,
+    Guid? TechnicianUserId = null);
 
 /// <summary>
 /// Lo que el técnico necesita a mano para registrar sin teclear: con quién se trabaja, qué

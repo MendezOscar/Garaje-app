@@ -1838,6 +1838,34 @@ export type AssemblyFilter = {
  * su propia puerta en la app y por ahí ese número no sale.
  */
 export const assemblyAdminApi = {
+  /**
+   * Registrar una moto desde el panel: la que el técnico reportó por teléfono, y la que se
+   * carga mientras se prueba el módulo sin andar saltando al celular.
+   */
+  async register(body: {
+    serial: string
+    modelId: string
+    contractorId: string
+    warehouseId: string
+    technicianUserId?: string
+    assembledOn?: string
+    branchId?: string
+    notes?: string
+  }) {
+    const { data } = await api.post<{ id: string; serial: string }>(
+      '/api/assembly/motorcycles',
+      body,
+    )
+    return data
+  },
+  /** Qué modelo suele llevar una serie así, aprendido de lo ya registrado. */
+  async guessModel(serial: string) {
+    const { data } = await api.get<{ modelId: string | null; modelName: string | null; seenBefore: number }>(
+      '/api/assembly/motorcycles/guess-model',
+      { params: { serial } },
+    )
+    return data
+  },
   async list(filtro: AssemblyFilter = {}) {
     const { data } = await api.get<AssemblyPage>('/api/assembly/admin/motorcycles', {
       params: params(filtro),
