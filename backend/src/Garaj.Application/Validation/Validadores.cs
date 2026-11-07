@@ -116,6 +116,20 @@ public class SaveCustomerValidator : AbstractValidator<SaveCustomerRequest>
     }
 }
 
+/// <summary>
+/// El VIN estándar son 17 caracteres y no usa I, O ni Q para que no se confundan con 1 y 0.
+/// Aquí solo se limita el largo: hay chasis viejos y de otros mercados que no lo cumplen, y
+/// rechazar el número que el taller tiene a la vista sería peor que guardarlo. El aviso de
+/// «esto no parece un VIN» lo da la pantalla.
+/// </summary>
+public class SetVinValidator : AbstractValidator<SetVinRequest>
+{
+    public SetVinValidator()
+    {
+        RuleFor(x => x.Vin).MaximumLength(25);
+    }
+}
+
 public class SaveVehicleValidator : AbstractValidator<SaveVehicleRequest>
 {
     public SaveVehicleValidator()

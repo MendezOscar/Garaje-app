@@ -241,6 +241,7 @@ class WorkOrderDetail {
     this.claimWasUnderWarranty,
     this.claimIsOpen,
     this.plate,
+    this.vin,
     this.diagnosis,
     this.mileageIn,
     this.promisedAt,
@@ -262,6 +263,7 @@ class WorkOrderDetail {
         vehicleLabel: json['vehicleLabel'] as String,
         vehicleType: VehicleType.fromValue(json['vehicleType'] as int),
         plate: json['plate'] as String?,
+        vin: json['vin'] as String?,
         customerId: json['customerId'] as String,
         customerName: json['customerName'] as String,
         customerPhone: json['customerPhone'] as String,
@@ -307,6 +309,9 @@ class WorkOrderDetail {
   final String vehicleLabel;
   final VehicleType vehicleType;
   final String? plate;
+
+  /// VIN o número de serie del chasis. En la moto sin placa es el único identificador.
+  final String? vin;
   final String customerId;
   final String customerName;
   final String customerPhone;

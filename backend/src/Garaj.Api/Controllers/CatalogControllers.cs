@@ -199,4 +199,12 @@ public class VehiclesController(IVehicleService service) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<VehicleDto>> Update(Guid id, SaveVehicleRequest request, CancellationToken ct)
         => Ok(await service.UpdateAsync(id, request, ct));
+
+    /// <summary>
+    /// Llenar el VIN desde la orden, con el vehículo delante. Solo ese campo: mandar la ficha
+    /// entera desde una pantalla que no la tiene completa es como se borran datos.
+    /// </summary>
+    [HttpPut("{id:guid}/vin")]
+    public async Task<ActionResult<VehicleDto>> SetVin(Guid id, SetVinRequest request, CancellationToken ct)
+        => Ok(await service.SetVinAsync(id, request, ct));
 }

@@ -50,9 +50,16 @@ public class WorkOrderService(
             var term = query.Search.Trim();
             var plate = PlateFormatter.Normalize(term);
 
+            // El VIN entra en la misma caja que la placa y el número de orden. Es lo que
+            // hace que el historial de una moto sin placa se pueda buscar: se teclean los
+            // últimos dígitos del chasis, no los diecisiete.
+            var vin = VinFormatter.Normalize(term);
+
             q = q.Where(w =>
                 EF.Functions.ILike(w.Number, $"%{term}%")
                 || (w.Vehicle != null && w.Vehicle.Plate != null && w.Vehicle.Plate.Contains(plate))
+                || (vin.Length >= 4 && w.Vehicle != null && w.Vehicle.Vin != null
+                    && w.Vehicle.Vin.Contains(vin))
                 || (w.Vehicle != null && EF.Functions.ILike(w.Vehicle.Customer.FullName, $"%{term}%"))
                 || (w.Equipment != null && EF.Functions.ILike(w.Equipment.Customer.FullName, $"%{term}%"))
                 || (w.Equipment != null && w.Equipment.SerialNumber != null
@@ -2048,7 +2055,8 @@ public class WorkOrderService(
             AssetOf(order),
             // El cronómetro no se le esconde a nadie del taller: el técnico necesita ver lo
             // que lleva, y el dueño lo mismo. Al cliente no le dice nada y no se le manda.
-            scope.IsCustomer ? null : await TiempoAsync(order, names, ct));
+            scope.IsCustomer ? null : await TiempoAsync(order, names, ct),
+            order.Vehicle?.Vin);
     }
 
     public async Task<WorkOrderDetailDto> SetWarrantyDecisionAsync(

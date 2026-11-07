@@ -42,3 +42,20 @@ public static partial class PlateFormatter
     [GeneratedRegex(@"[^A-Za-z0-9]")]
     private static partial Regex NonAlphanumeric();
 }
+
+/// <summary>
+/// Normaliza el VIN o número de serie: mayúsculas y sin separadores, igual que la placa.
+/// </summary>
+/// <remarks>
+/// Se teclea de una foto o de una calcomanía, así que llega con guiones, espacios y en
+/// minúsculas según quién lo escriba. Si no se normaliza, el mismo chasis queda guardado de
+/// tres maneras y la búsqueda —que es para lo que sirve— no encuentra ninguna.
+/// </remarks>
+public static partial class VinFormatter
+{
+    public static string Normalize(string? vin) =>
+        NoAlfanumerico().Replace(vin ?? string.Empty, string.Empty).ToUpperInvariant();
+
+    [GeneratedRegex(@"[^A-Za-z0-9]")]
+    private static partial Regex NoAlfanumerico();
+}

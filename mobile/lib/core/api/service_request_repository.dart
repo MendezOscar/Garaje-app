@@ -205,6 +205,7 @@ class ServiceRequestRepository {
     required String brand,
     required String model,
     String? plate,
+    String? vin,
   }) async {
     final customer = await _dio.post<Map<String, dynamic>>(
       '/api/customers',
@@ -219,12 +220,25 @@ class ServiceRequestRepository {
         'brand': brand,
         'model': model,
         'plate': plate,
+        'vin': vin,
       },
     );
 
     return (
       vehicle: VehicleOption.fromJson(vehicle.data!),
       customerId: customer.data!['id'] as String,
+    );
+  }
+
+  /// Llenar o corregir el VIN de un vehículo que ya existe, con él delante.
+  ///
+  /// Solo ese campo: casi todos los vehículos se dieron de alta antes de que se pudiera
+  /// escribir, y mandar la ficha entera desde una pantalla que no la tiene completa es como
+  /// se borran datos.
+  Future<void> setVehicleVin(String vehicleId, String? vin) async {
+    await _dio.put<Map<String, dynamic>>(
+      '/api/vehicles/$vehicleId/vin',
+      data: {'vin': vin},
     );
   }
 

@@ -13,6 +13,7 @@ import '../../core/api/labor_service_repository.dart';
 import '../../core/api/media_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/api/sale_repository.dart';
+import '../../core/api/service_request_repository.dart';
 import '../../core/api/staff_repository.dart';
 import '../../core/api/tenant_repository.dart';
 import '../../core/api/vehicle_scan_repository.dart';
@@ -997,6 +998,69 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   ///
   /// El precio del catálogo se cambia donde ya se cambiaba —tocando el precio azul de la
   /// fila—, así que aquí ese campo ni aparece: serían dos precios para el mismo paso.
+  /// Llenar o corregir el VIN con el vehículo delante.
+  ///
+  /// Casi ninguno lo trae: el campo existía en la base pero ninguna pantalla lo escribía, así
+  /// que la única manera de ponérselo a los que ya están dados de alta es desde su orden.
+  Future<void> _editarVin(WorkOrderDetail order) async {
+    final texto = TextEditingController(text: order.vin ?? '');
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setInner) {
+          final limpio = texto.text.replaceAll(RegExp('[^A-Za-z0-9]'), '').toUpperCase();
+
+          // Aviso, no bloqueo: hay chasis viejos y de otros mercados que no siguen el
+          // estándar, y negarse a guardar el número que el taller tiene a la vista sería peor.
+          final aviso = limpio.isEmpty
+              ? null
+              : limpio.length != 17
+                  ? 'Son ${limpio.length} caracteres; un VIN estándar lleva 17.'
+                  : RegExp('[IOQ]').hasMatch(limpio)
+                      ? 'Un VIN no lleva I, O ni Q: revise si son 1, 0 o 9.'
+                      : null;
+
+          return AlertDialog(
+            title: const Text('VIN / Serie del chasis'),
+            content: TextField(
+              controller: texto,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              maxLength: 25,
+              decoration: InputDecoration(
+                labelText: 'VIN / Serie',
+                helperText: aviso ?? 'Sin guiones ni espacios.',
+              ),
+              onChanged: (_) => setInner(() {}),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (guardar != true) return;
+
+    final vin = texto.text.trim();
+
+    await _run(() async {
+      await ref
+          .read(serviceRequestRepositoryProvider)
+          .setVehicleVin(order.vehicleId, vin.isEmpty ? null : vin);
+    });
+  }
+
   Future<void> _editarPaso(WorkOrderTask task, WorkOrderDetail order) async {
     final titulo = TextEditingController(text: task.title);
     final precio = TextEditingController(
@@ -1329,7 +1393,17 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              _Header(order: order, atraso: _atraso(order), mostrarTecnico: !_isTechnician),
+              _Header(
+                order: order,
+                atraso: _atraso(order),
+                mostrarTecnico: !_isTechnician,
+                // Lo llena quien manda, igual que el resto de la ficha del vehículo. En
+                // un taller de equipos no va: ahí `vehicleId` trae el id del equipo, que no
+                // tiene VIN, y la ruta respondería 404.
+                onEditarVin: _isOwner && _canEdit && !ref.watch(esDeEquiposProvider)
+                    ? () => _editarVin(order)
+                    : null,
+              ),
 
               // Las órdenes que nacen de un reclamo, arriba de todo: lo primero que hay que
               // saber de esta orden es quién la va a pagar, y hasta que no se decide el
@@ -1712,7 +1786,12 @@ class _NotifySectionState extends ConsumerState<_NotifySection> {
 /// orden. El motivo de ingreso va sin rótulo: es la primera frase de la pantalla y no
 /// necesita que nadie le explique qué es.
 class _Header extends StatelessWidget {
-  const _Header({required this.order, required this.atraso, required this.mostrarTecnico});
+  const _Header({
+    required this.order,
+    required this.atraso,
+    required this.mostrarTecnico,
+    this.onEditarVin,
+  });
 
   final WorkOrderDetail order;
   final int? atraso;
@@ -1720,6 +1799,10 @@ class _Header extends StatelessWidget {
   /// Quién tiene el vehículo. Al Cliente le importa —es lo que preguntaría por teléfono— y al
   /// Dueño también; al Técnico no, que leería su propio nombre en cada orden.
   final bool mostrarTecnico;
+
+  /// Llenar o corregir el VIN con el vehículo delante. Null donde no se puede: casi ningún
+  /// vehículo lo trae, porque el campo no se podía escribir hasta ahora.
+  final VoidCallback? onEditarVin;
 
   @override
   Widget build(BuildContext context) {
@@ -1759,6 +1842,37 @@ class _Header extends StatelessWidget {
             if (order.plate != null) ...[const SizedBox(width: 8), _Placa(order.plate!)],
           ],
         ),
+
+        // El VIN en su propio renglón: son diecisiete caracteres que se leen de uno en uno
+        // contra el chasis, y pegados a la placa no se distinguen.
+        if (order.vin != null || onEditarVin != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (order.vin != null)
+                Flexible(
+                  child: Text(
+                    'VIN / Serie ${order.vin}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (onEditarVin != null)
+                TextButton(
+                  onPressed: onEditarVin,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(order.vin == null ? 'Agregar VIN / Serie' : 'Corregir'),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 4),
         Text(
           [

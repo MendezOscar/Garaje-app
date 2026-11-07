@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiUrl, errorMessage } from '@/api/client'
-import { claimsApi, customersApi, jobTemplatesApi, laborServicesApi, quotesApi, salesApi, tenantApi, usersApi, workOrdersApi } from '@/api/garaj'
+import { claimsApi, customersApi, jobTemplatesApi, laborServicesApi, quotesApi, salesApi, tenantApi, usersApi, vehiclesApi, workOrdersApi } from '@/api/garaj'
 import AssistantQueries from '@/components/AssistantQueries.vue'
 import AssistantSteps from '@/components/AssistantSteps.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
@@ -204,6 +204,51 @@ const impedimentoCai = computed(() => {
 
 const id = computed(() => route.params.id as string)
 const canEdit = computed(() => !auth.isCustomer)
+
+/**
+ * El VIN del vehículo, que se puede llenar desde la orden.
+ *
+ * Casi ningún vehículo lo trae: el campo existía en la base pero ninguna pantalla lo
+ * escribía, así que la única manera de ponérselo a los que ya están dados de alta es con el
+ * vehículo delante, que es aquí. Lo edita quien manda, igual que el resto de la ficha.
+ */
+const editandoVin = ref(false)
+const vinNuevo = ref('')
+const puedeEditarVin = computed(() => auth.isManagement && !!order.value?.vehicleId)
+
+/**
+ * El VIN estándar son 17 caracteres y no usa I, O ni Q —se confunden con 1 y 0—. Es un aviso
+ * y no un bloqueo: hay chasis viejos y de otros mercados que no lo siguen, y negarse a
+ * guardar el número que el taller tiene a la vista sería peor que guardarlo raro.
+ */
+const vinRaro = computed(() => {
+  const v = vinNuevo.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  if (!v) return ''
+  if (v.length !== 17) return `Son ${v.length} caracteres; un VIN estándar lleva 17.`
+  return /[IOQ]/.test(v) ? 'Un VIN no lleva I, O ni Q: revise si son 1, 0 o 9.' : ''
+})
+
+function abrirVin() {
+  vinNuevo.value = order.value?.vin ?? ''
+  editandoVin.value = true
+}
+
+async function guardarVin() {
+  if (!order.value?.vehicleId) return
+
+  busy.value = true
+  error.value = ''
+
+  try {
+    await vehiclesApi.setVin(order.value.vehicleId, vinNuevo.value.trim() || null)
+    order.value = await workOrdersApi.get(id.value)
+    editandoVin.value = false
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
 
 /**
  * El estado siguiente «hacia adelante»: el menor de los permitidos que esté por encima del
@@ -1238,6 +1283,39 @@ onMounted(async () => {
             · prometida {{ formatDateTime(order.promisedAt) }}
           </template>
         </p>
+
+        <!-- El VIN va en su propia línea y no pegado a la placa: son diecisiete caracteres
+             que se leen de uno en uno contra el chasis. Y se puede llenar desde aquí porque
+             casi ningún vehículo lo trae: el campo no se podía escribir hasta ahora. -->
+        <p v-if="order.vehicleId" class="muted small vin">
+          <template v-if="order.vin && !editandoVin">
+            VIN / Serie <span class="plate num">{{ order.vin }}</span>
+            <button v-if="puedeEditarVin" type="button" class="link" @click="abrirVin">
+              Corregir
+            </button>
+          </template>
+          <button
+            v-else-if="puedeEditarVin && !editandoVin"
+            type="button"
+            class="link"
+            @click="abrirVin"
+          >
+            Agregar VIN / Serie
+          </button>
+          <template v-if="editandoVin">
+            <input
+              v-model="vinNuevo"
+              placeholder="VIN / Serie del chasis"
+              maxlength="25"
+              :disabled="busy"
+            />
+            <button type="button" :disabled="busy" @click="guardarVin">Guardar</button>
+            <button type="button" class="link" :disabled="busy" @click="editandoVin = false">
+              Cancelar
+            </button>
+          </template>
+        </p>
+        <p v-if="editandoVin && vinRaro" class="muted small">{{ vinRaro }}</p>
       </div>
 
       <div class="acciones">
@@ -3004,6 +3082,20 @@ dd {
   border-radius: 3px;
   font-family: ui-monospace, monospace;
   font-size: 0.8125rem;
+}
+
+/* La fila del VIN: el campo tiene que dar para los diecisiete caracteres sin cortarlos. */
+.vin {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.vin input {
+  width: 15rem;
+  font-family: ui-monospace, monospace;
 }
 
 .wa {
