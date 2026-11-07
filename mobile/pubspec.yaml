@@ -20,6 +20,11 @@ dependencies:
   dio: ^5.11.0
   flutter_secure_storage: ^10.3.1
   image_picker: ^1.2.2
+
+  # Leer el código de barras de la etiqueta de la caja de la moto: ahí viene el VIN, y
+  # leerlo de un código hecho para máquinas no se equivoca como se equivoca una persona
+  # tecleando diecisiete caracteres. BSD-3, sin licencia comercial de por medio.
+  mobile_scanner: 7.5.0
   flutter_image_compress: ^2.5.1
   path_provider: ^2.1.5
   url_launcher: ^6.3.2
