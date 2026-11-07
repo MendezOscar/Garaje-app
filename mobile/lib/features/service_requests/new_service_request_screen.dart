@@ -520,6 +520,7 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
   final _brand = TextEditingController();
   final _model = TextEditingController();
   final _plate = TextEditingController();
+  final _vin = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
 
@@ -543,6 +544,19 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
     return auth is AuthSignedIn && auth.user.manda;
   }
 
+  /// El VIN estándar son 17 caracteres y no usa I, O ni Q, que se confunden con 1 y 0.
+  ///
+  /// Es un aviso y no un bloqueo: hay chasis viejos y de otros mercados que no lo siguen, y
+  /// negarse a guardar el número que el taller tiene a la vista sería peor que guardarlo raro.
+  String? get _avisoDelVin {
+    final v = _vin.text.replaceAll(RegExp('[^A-Za-z0-9]'), '').toUpperCase();
+    if (v.isEmpty) return null;
+    if (v.length != 17) return 'Son ${v.length} caracteres; un VIN estándar lleva 17.';
+    return RegExp('[IOQ]').hasMatch(v)
+        ? 'Un VIN no lleva I, O ni Q: revise si son 1, 0 o 9.'
+        : null;
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -550,6 +564,7 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
     _brand.dispose();
     _model.dispose();
     _plate.dispose();
+    _vin.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -585,6 +600,7 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
                   brand: _brand.text.trim(),
                   model: _model.text.trim(),
                   plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(),
+                  vin: _vin.text.trim().isEmpty ? null : _vin.text.trim(),
                 ));
 
       _created = created;
@@ -709,6 +725,23 @@ class _NewCustomerSheetState extends ConsumerState<_NewCustomerSheet> {
               ),
               textCapitalization: TextCapitalization.characters,
             ),
+
+            // En la moto sin placa, el número del chasis es el único identificador que
+            // tiene. En el taller de equipos no va: ahí la serie ya es el campo de arriba.
+            if (!esEquipos) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _vin,
+                decoration: InputDecoration(
+                  labelText: 'VIN / Serie del chasis (opcional)',
+                  helperText: _avisoDelVin ?? 'Sin guiones ni espacios.',
+                ),
+                textCapitalization: TextCapitalization.characters,
+                autocorrect: false,
+                maxLength: 25,
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
 
             const SizedBox(height: 12),
             if (_isOwner) ...[

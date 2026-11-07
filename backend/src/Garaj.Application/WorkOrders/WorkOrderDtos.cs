@@ -94,7 +94,12 @@ public record WorkOrderDetailDto(
     // Lo que entró al taller, sea vehículo o equipo.
     AssetRefDto? Asset = null,
     /// <summary>El cronómetro: cuánto se lleva trabajado en esta orden y si está corriendo.</summary>
-    WorkOrderTimeDto? Time = null);
+    WorkOrderTimeDto? Time = null,
+    /// <summary>
+    /// VIN o número de serie del vehículo. Va al final y con valor por omisión para no mover
+    /// las posiciones de un record que ya está publicado en una versión de la app.
+    /// </summary>
+    string? Vin = null);
 
 /// <summary>
 /// El tiempo de la orden, en tramos ya sumados.

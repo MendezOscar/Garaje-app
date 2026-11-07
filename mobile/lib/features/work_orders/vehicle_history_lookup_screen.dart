@@ -78,7 +78,7 @@ class _VehicleHistoryLookupScreenState extends ConsumerState<VehicleHistoryLooku
               onSubmitted: _buscar,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Placa, cliente o número de orden',
+                hintText: 'Placa, VIN, cliente o número de orden',
                 border: const OutlineInputBorder(),
                 suffixIcon: _buscador.text.isEmpty
                     ? null

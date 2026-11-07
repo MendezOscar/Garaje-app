@@ -111,7 +111,8 @@ public class ProponerLosPasosTests
         db.Vehicles.Add(new Vehicle
         {
             Id = vehiculo, TenantId = taller, CustomerId = cliente, Type = VehicleType.Car,
-            Brand = "Toyota", Model = "Corolla", Year = 2015, IsActive = true
+            Brand = "Toyota", Model = "Corolla", Year = 2015, IsActive = true,
+            Plate = $"P{corto[..6]}", Vin = $"9BWZZZ377VT{corto[..6]}"
         });
 
         db.WorkOrders.Add(new WorkOrder
@@ -425,8 +426,16 @@ public class ProponerLosPasosTests
         Assert.Contains("Pastillas delanteras gastadas", modelo.Prompt.Question);
         Assert.DoesNotContain("Pastillas delanteras gastadas", modelo.Prompt.Context);
 
-        // Y nada que identifique al cliente: ni nombre, ni teléfono, ni placa.
+        // Y nada que identifique al cliente ni al vehículo: ni nombre, ni teléfono, ni placa,
+        // ni VIN. El VIN se agregó después y es de los que alguien mete «para dar contexto»:
+        // no le sirve de nada al modelo y sí identifica un chasis.
         Assert.DoesNotContain("placa", modelo.Prompt.Question.ToLower());
+
+        var enviado = modelo.Prompt.Instructions + modelo.Prompt.Context + modelo.Prompt.Question;
+
+        Assert.DoesNotContain("Cliente de prueba", enviado);
+        Assert.DoesNotContain("50499990000", enviado);
+        Assert.DoesNotContain("9BWZZZ377VT", enviado);
     }
 
     /// <summary>

@@ -115,6 +115,19 @@ const newVehicle = ref({
   model: '',
   year: '' as string | number,
   plate: '',
+  vin: '',
+})
+
+/**
+ * El VIN estándar son 17 caracteres y no usa I, O ni Q —se confunden con 1 y 0—. No se
+ * rechaza lo que no cumpla: hay chasis viejos y de otros mercados que no lo siguen, y negarse
+ * a guardar el número que el taller tiene a la vista sería peor. Solo se avisa.
+ */
+const vinRaro = computed(() => {
+  const v = newVehicle.value.vin.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  if (!v) return ''
+  if (v.length !== 17) return `Son ${v.length} caracteres; un VIN estándar lleva 17.`
+  return /[IOQ]/.test(v) ? 'Un VIN no lleva I, O ni Q: revise si son 1, 0 o 9.' : ''
 })
 const creatingVehicle = ref(false)
 
@@ -290,12 +303,20 @@ async function saveVehicle() {
       model: newVehicle.value.model.trim(),
       year: Number(newVehicle.value.year) || undefined,
       plate: newVehicle.value.plate.trim() || undefined,
+      vin: newVehicle.value.vin.trim() || undefined,
     })
 
     vehicles.value = [...vehicles.value, created]
     form.value.vehicleId = created.id
     creatingVehicle.value = false
-    newVehicle.value = { type: VehicleType.Motorcycle, brand: '', model: '', year: '', plate: '' }
+    newVehicle.value = {
+      type: VehicleType.Motorcycle,
+      brand: '',
+      model: '',
+      year: '',
+      plate: '',
+      vin: '',
+    }
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo registrar el vehículo.')
   } finally {
@@ -527,6 +548,16 @@ onMounted(async () => {
               <input v-model="newVehicle.plate" placeholder="Placa" class="narrow" />
               <button type="button" :disabled="busy" @click="saveVehicle">Guardar</button>
             </div>
+            <!-- En su propia fila: en la moto sin placa es el único identificador que hay, y
+                 son diecisiete caracteres que se teclean mirando el chasis. -->
+            <div class="row">
+              <input
+                v-model="newVehicle.vin"
+                placeholder="VIN / Serie del chasis (opcional)"
+                maxlength="25"
+              />
+            </div>
+            <p v-if="vinRaro" class="muted small">{{ vinRaro }}</p>
           </fieldset>
 
           <fieldset v-if="creatingVehicle && esDeEquipos">

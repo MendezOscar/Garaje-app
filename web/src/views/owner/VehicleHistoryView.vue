@@ -124,7 +124,7 @@ function limpiar() {
 
 
     <form class="buscador" @submit.prevent="buscar">
-      <input v-model="search" placeholder="Placa, cliente o número de orden" />
+      <input v-model="search" placeholder="Placa, VIN, cliente o número de orden" />
       <button type="submit" :disabled="loading || !search.trim()">Buscar</button>
       <button v-if="buscado" type="button" class="btn-ghost" @click="limpiar">Limpiar</button>
     </form>

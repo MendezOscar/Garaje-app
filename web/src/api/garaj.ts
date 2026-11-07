@@ -201,10 +201,19 @@ export const vehiclesApi = {
     model: string
     year?: number
     plate?: string
+    vin?: string
     color?: string
     mileage?: number
   }) {
     const { data } = await api.post<Vehicle>('/api/vehicles', body)
+    return data
+  },
+  /**
+   * Llenar el VIN de un vehículo que ya existe, con él delante. Solo ese campo: casi todos se
+   * dieron de alta antes de que este se pudiera escribir.
+   */
+  async setVin(id: string, vin: string | null) {
+    const { data } = await api.put<Vehicle>(`/api/vehicles/${id}/vin`, { vin })
     return data
   },
 }

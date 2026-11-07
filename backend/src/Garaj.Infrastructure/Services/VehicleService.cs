@@ -25,8 +25,14 @@ public class VehicleService(GarajDbContext db, ITenantContext tenantContext) : I
             var term = query.Search.Trim();
             var plate = PlateFormatter.Normalize(term);
 
+            // El VIN se busca con el mismo término normalizado que la placa: en una moto sin
+            // placa es el único nombre que tiene, y quien lo teclea copia los últimos dígitos
+            // de la calcomanía, no los diecisiete.
+            var vin = VinFormatter.Normalize(term);
+
             q = q.Where(v =>
                 (v.Plate != null && v.Plate.Contains(plate))
+                || (vin.Length >= 4 && v.Vin != null && v.Vin.Contains(vin))
                 || EF.Functions.ILike(v.Brand, $"%{term}%")
                 || EF.Functions.ILike(v.Model, $"%{term}%")
                 || EF.Functions.ILike(v.Customer.FullName, $"%{term}%"));
@@ -97,6 +103,32 @@ public class VehicleService(GarajDbContext db, ITenantContext tenantContext) : I
         return await GetAsync(id, ct);
     }
 
+    public async Task<VehicleDto> SetVinAsync(
+        Guid id, SetVinRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
+
+        var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, ct)
+            ?? throw new NotFoundException("El vehículo no existe.");
+
+        var vin = VinFormatter.Normalize(request.Vin);
+        vin = string.IsNullOrEmpty(vin) ? null : vin;
+
+        if (vin is not null)
+        {
+            var repetido = await db.Vehicles.AnyAsync(v => v.Vin == vin && v.Id != id, ct);
+
+            if (repetido)
+                throw new ConflictException($"Ya hay un vehículo registrado con el VIN {vin}.");
+        }
+
+        vehicle.Vin = vin;
+        await db.SaveChangesAsync(ct);
+
+        return await GetAsync(id, ct);
+    }
+
     /// <summary>Un Cliente solo ve los vehículos que están a su nombre.</summary>
     private IQueryable<Vehicle> Scoped(AccessScope scope)
     {
@@ -123,7 +155,23 @@ public class VehicleService(GarajDbContext db, ITenantContext tenantContext) : I
         vehicle.Model = request.Model.Trim();
         vehicle.Year = request.Year;
         vehicle.Plate = plate;
-        vehicle.Vin = request.Vin?.Trim().ToUpperInvariant();
+
+        var vin = VinFormatter.Normalize(request.Vin);
+        vin = string.IsNullOrEmpty(vin) ? null : vin;
+
+        // El VIN identifica el chasis, así que repetido significa el mismo vehículo cargado
+        // dos veces. Se trata igual que la placa, y con más razón: la moto sin placa no tiene
+        // otra manera de distinguirse.
+        if (vin is not null)
+        {
+            var repetido = await db.Vehicles
+                .AnyAsync(v => v.Vin == vin && v.Id != vehicle.Id, ct);
+
+            if (repetido)
+                throw new ConflictException($"Ya hay un vehículo registrado con el VIN {vin}.");
+        }
+
+        vehicle.Vin = vin;
         vehicle.Color = request.Color?.Trim();
         vehicle.Notes = request.Notes?.Trim();
         vehicle.IsActive = request.IsActive;

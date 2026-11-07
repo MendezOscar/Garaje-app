@@ -36,7 +36,12 @@ public sealed record DatosDeRecepcion(
     string? DeliveredByName,
     string? ReceivedByName,
     /// <summary>Si lo que entró fue un vehículo o un equipo. Cambia rótulos, no la hoja.</summary>
-    AssetKind Kind = AssetKind.Vehicle);
+    AssetKind Kind = AssetKind.Vehicle,
+    /// <summary>
+    /// VIN o número de serie del chasis. Se imprime porque es lo que identifica a la moto que
+    /// no tiene placa, y lo que el cliente compara si después discute qué le entregaron.
+    /// </summary>
+    string? Vin = null);
 
 public static class ReceptionPdf
 {
@@ -156,6 +161,11 @@ public static class ReceptionPdf
 
             var km = ficha.Mileage is { } m ? $" · {m:N0} km" : string.Empty;
             column.Item().Text($"{identificador}{km}").FontSize(10);
+
+            // En su propia línea y no pegado a la placa: son diecisiete caracteres y quien
+            // los compara con el chasis los lee de uno en uno.
+            if (!esEquipo && !string.IsNullOrWhiteSpace(ficha.Vin))
+                column.Item().Text($"VIN / Serie: {ficha.Vin}").FontSize(10);
 
             column.Item().Text($"Cliente: {ficha.CustomerName} · {ficha.CustomerPhone}").FontSize(10);
 

@@ -50,12 +50,17 @@ public class CustomerService(
             var term = query.Search.Trim();
             var plate = PlateFormatter.Normalize(term);
 
-            // Una sola búsqueda para los tres identificadores que el mostrador usa de verdad:
-            // el nombre, el teléfono con el que llaman y la placa que traen a la vista.
+            var vin = VinFormatter.Normalize(term);
+
+            // Una sola búsqueda para los identificadores que el mostrador usa de verdad: el
+            // nombre, el teléfono con el que llaman, la placa que traen a la vista y —en la
+            // moto que no tiene placa— el número de serie.
             q = q.Where(c =>
                 EF.Functions.ILike(c.FullName, $"%{term}%")
                 || c.Phone.Contains(term)
-                || c.Vehicles.Any(v => v.Plate != null && v.Plate.Contains(plate)));
+                || c.Vehicles.Any(v => v.Plate != null && v.Plate.Contains(plate))
+                || (vin.Length >= 4
+                    && c.Vehicles.Any(v => v.Vin != null && v.Vin.Contains(vin))));
         }
 
         var total = await q.CountAsync(ct);

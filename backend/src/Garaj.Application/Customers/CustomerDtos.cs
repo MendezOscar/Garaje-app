@@ -90,10 +90,22 @@ public interface ICustomerService
         Guid id, GrantAppAccessRequest request, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Solo el VIN o número de serie, para llenarlo con el vehículo delante sin tener que mandar
+/// la ficha entera.
+/// </summary>
+/// <remarks>
+/// Existe porque la mayoría de los vehículos se dieron de alta antes de que este campo se
+/// pudiera escribir, y reconstruir un `SaveVehicleRequest` completo desde la orden corre el
+/// riesgo de borrar lo que no viaje en él.
+/// </remarks>
+public record SetVinRequest(string? Vin);
+
 public interface IVehicleService
 {
     Task<PagedResult<VehicleDto>> ListAsync(VehicleQuery query, CancellationToken ct = default);
     Task<VehicleDto> GetAsync(Guid id, CancellationToken ct = default);
     Task<VehicleDto> CreateAsync(SaveVehicleRequest request, CancellationToken ct = default);
     Task<VehicleDto> UpdateAsync(Guid id, SaveVehicleRequest request, CancellationToken ct = default);
+    Task<VehicleDto> SetVinAsync(Guid id, SetVinRequest request, CancellationToken ct = default);
 }

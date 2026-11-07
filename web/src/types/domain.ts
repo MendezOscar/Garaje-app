@@ -1291,6 +1291,8 @@ export interface WorkOrderDetail {
   asset: AssetRef | null
   vehicleType: VehicleType
   plate: string | null
+  /** VIN o número de serie del chasis. En la moto sin placa es el único identificador. */
+  vin: string | null
   vehicleMileage: number | null
   customerId: string
   customerName: string
