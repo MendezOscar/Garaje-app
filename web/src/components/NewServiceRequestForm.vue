@@ -546,16 +546,18 @@ onMounted(async () => {
               <input v-model="newVehicle.model" placeholder="Modelo" />
               <input v-model="newVehicle.year" type="number" placeholder="Año" class="narrow" />
               <input v-model="newVehicle.plate" placeholder="Placa" class="narrow" />
-              <button type="button" :disabled="busy" @click="saveVehicle">Guardar</button>
             </div>
-            <!-- En su propia fila: en la moto sin placa es el único identificador que hay, y
-                 son diecisiete caracteres que se teclean mirando el chasis. -->
+            <!-- El VIN en su propia fila: son diecisiete caracteres que se teclean mirando el
+                 chasis, y en la moto sin placa es el único identificador que hay. Guardar baja
+                 con él: arriba quedaba antes del último campo e invitaba a guardar a medias. -->
             <div class="row">
               <input
                 v-model="newVehicle.vin"
                 placeholder="VIN / Serie del chasis (opcional)"
                 maxlength="25"
+                class="vin"
               />
+              <button type="button" :disabled="busy" @click="saveVehicle">Guardar</button>
             </div>
             <p v-if="vinRaro" class="muted small">{{ vinRaro }}</p>
           </fieldset>
@@ -670,6 +672,15 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* Diecisiete caracteres en monoespaciada: ancho de lo que lleva dentro, no de la fila.
+   Con `.row input` de por medio hace falta nombrar los dos: ese selector pesa más que la
+   clase sola y le devolvería el `flex: 1`. */
+.row input.vin {
+  flex: 0 1 22rem;
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+}
+
 /* En pantalla propia el formulario no lleva marco ni la línea que lo separaba de la cabecera
    del panel: el marco lo pone la pantalla y la cabecera no existe. */
 .hoja {
