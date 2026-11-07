@@ -313,6 +313,83 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.ToTable("assembly_rates", (string)null);
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.AssemblySettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_user_id");
+
+                    b.Property<Guid?>("ContractorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contractor_id");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<DateOnly>("PeriodFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("period_from");
+
+                    b.Property<DateOnly>("PeriodTo")
+                        .HasColumnType("date")
+                        .HasColumnName("period_to");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("reference");
+
+                    b.Property<Guid?>("TechnicianUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("technician_user_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assembly_settlements");
+
+                    b.HasIndex("ContractorId")
+                        .HasDatabaseName("ix_assembly_settlements_contractor_id");
+
+                    b.HasIndex("TenantId", "Kind", "PeriodTo")
+                        .HasDatabaseName("ix_assembly_settlements_tenant_id_kind_period_to");
+
+                    b.ToTable("assembly_settlements", (string)null);
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.AssemblyWarehouse", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1732,6 +1809,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("assembled_on");
 
+                    b.Property<Guid?>("BillingSettlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("billing_settlement_id");
+
                     b.Property<Guid>("BranchId")
                         .HasColumnType("uuid")
                         .HasColumnName("branch_id");
@@ -1761,6 +1842,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("notes");
+
+                    b.Property<Guid?>("PaySettlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pay_settlement_id");
 
                     b.Property<string>("Serial")
                         .IsRequired()
@@ -1810,6 +1895,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "AssembledOn")
                         .HasDatabaseName("ix_motorcycle_assemblies_tenant_id_assembled_on");
+
+                    b.HasIndex("TenantId", "BillingSettlementId")
+                        .HasDatabaseName("ix_motorcycle_assemblies_tenant_id_billing_settlement_id");
+
+                    b.HasIndex("TenantId", "PaySettlementId")
+                        .HasDatabaseName("ix_motorcycle_assemblies_tenant_id_pay_settlement_id");
 
                     b.HasIndex("TenantId", "Serial")
                         .IsUnique()
@@ -4773,6 +4864,17 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Navigation("Contractor");
 
                     b.Navigation("Model");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.AssemblySettlement", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.AssemblyContractor", "Contractor")
+                        .WithMany()
+                        .HasForeignKey("ContractorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_assembly_settlements_assembly_contractors_contractor_id");
+
+                    b.Navigation("Contractor");
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.AssistantConversation", b =>

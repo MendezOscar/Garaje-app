@@ -185,6 +185,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // Lo armado: lo que se factura y lo que se paga. El Encargado ve sus sucursales.
+        path: 'motos-armadas',
+        name: 'assembly',
+        component: () => import('@/views/owner/AssemblyView.vue'),
+        meta: { roles: [Roles.Owner, Roles.Manager] },
+      },
+      {
         // La agenda: lo que el cliente apartó por el enlace o desde la app. El Encargado ve
         // la de sus sucursales.
         path: 'citas',

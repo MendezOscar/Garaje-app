@@ -1,4 +1,7 @@
 using Garaj.Application.Assembly;
+using Garaj.Application.Common;
+using Garaj.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -107,4 +110,126 @@ public class MotorcyclesController(IMotorcycleAssemblyService service) : Control
     public async Task<ActionResult<ModelGuessDto>> GuessModel(
         [FromQuery] string serial, CancellationToken ct)
         => Ok(await service.GuessModelAsync(serial ?? string.Empty, ct));
+}
+
+/// <summary>
+/// El lado del dueño: revisar lo armado, corregirlo, cerrar los cortes y sacar los reportes.
+/// </summary>
+/// <remarks>
+/// Todo aquí lleva el cobro al contratista, así que todo es de quien manda. El técnico tiene
+/// su propia puerta —<c>api/assembly/motorcycles</c>— y por ahí ese número no sale.
+/// </remarks>
+[ApiController]
+[Authorize(Policy = AppPolicies.ManagementOnly)]
+[Route("api/assembly/admin")]
+public class AssemblyAdminController(
+    IAssemblyAdminService service,
+    IAssemblyReportService reports,
+    IAssemblyImportService imports) : ControllerBase
+{
+    [HttpGet("motorcycles")]
+    public async Task<ActionResult<AssemblyPageDto>> List(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => Ok(await service.ListAsync(query, ct));
+
+    [HttpPut("motorcycles/{id:guid}")]
+    public async Task<ActionResult<AssemblyRowDto>> Correct(
+        Guid id, CorrectMotorcycleRequest request, CancellationToken ct)
+        => Ok(await service.CorrectAsync(id, request, ct));
+
+    /// <summary>Borrar la que se registró por error. Solo el Dueño, y solo si no está en un corte.</summary>
+    [HttpDelete("motorcycles/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpGet("technicians")]
+    public async Task<ActionResult<IReadOnlyList<AssemblyNameDto>>> Technicians(CancellationToken ct)
+        => Ok(await service.TechniciansAsync(ct));
+
+    [HttpGet("settlements")]
+    public async Task<ActionResult<IReadOnlyList<AssemblySettlementDto>>> Settlements(
+        CancellationToken ct)
+        => Ok(await service.SettlementsAsync(ct));
+
+    /// <summary>Cerrar un corte: congela lo que incluyó. Es lo que impide cobrar dos veces.</summary>
+    [HttpPost("settlements")]
+    public async Task<ActionResult<AssemblySettlementDto>> Close(
+        CloseSettlementRequest request, CancellationToken ct)
+        => Ok(await service.CloseAsync(request, ct));
+
+    /// <summary>Reabrirlo suelta las motos. Es la única manera honesta de corregir un corte.</summary>
+    [HttpDelete("settlements/{id:guid}")]
+    public async Task<IActionResult> Reopen(Guid id, CancellationToken ct)
+    {
+        await service.ReopenAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpGet("reports/billing")]
+    public async Task<ActionResult<AssemblyBillingReportDto>> Billing(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => Ok(await reports.BillingAsync(query, ct));
+
+    [HttpGet("reports/billing.xlsx")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> BillingExcel(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => File(
+            await reports.BillingExcelAsync(query, ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Motos armadas.xlsx");
+
+    [HttpGet("reports/billing.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> BillingPdf(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => File(await reports.BillingPdfAsync(query, ct), "application/pdf", "Motos armadas.pdf");
+
+    [HttpGet("reports/pay")]
+    public async Task<ActionResult<AssemblyPayReportDto>> Pay(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => Ok(await reports.PayAsync(query, ct));
+
+    [HttpGet("reports/pay.xlsx")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> PayExcel(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => File(
+            await reports.PayExcelAsync(query, ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Pago a tecnicos.xlsx");
+
+    [HttpGet("reports/pay.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> PayPdf(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => File(await reports.PayPdfAsync(query, ct), "application/pdf", "Pago a tecnicos.pdf");
+
+    /// <summary>
+    /// El Excel que el taller llevaba antes. Con <c>apply=false</c> solo enseña qué entraría.
+    /// </summary>
+    /// <remarks>
+    /// No crea catálogo: la fila que nombre un modelo, una bodega o un técnico que no existe
+    /// se rechaza con el motivo escrito. Crear catálogo desde una hoja ajena es cómo se
+    /// terminan con el mismo modelo escrito de tres maneras.
+    /// </remarks>
+    [HttpPost("import")]
+    [EnableRateLimiting(RateLimits.Carga)]
+    [RequestSizeLimit(8 * 1024 * 1024)]
+    public async Task<ActionResult<AssemblyImportPreviewDto>> Import(
+        IFormFile file, [FromQuery] Guid contractorId, [FromQuery] bool apply,
+        CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            throw new AppException("Adjunte el archivo.");
+
+        await using var stream = file.OpenReadStream();
+
+        return Ok(apply
+            ? await imports.CommitAsync(stream, contractorId, ct)
+            : await imports.PreviewAsync(stream, contractorId, ct));
+    }
 }

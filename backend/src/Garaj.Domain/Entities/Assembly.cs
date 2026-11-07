@@ -1,4 +1,5 @@
 using Garaj.Domain.Common;
+using Garaj.Domain.Enums;
 
 namespace Garaj.Domain.Entities;
 
@@ -122,8 +123,60 @@ public class MotorcycleAssembly : TenantEntity
 
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// El corte de facturación que ya la incluyó, o null si todavía está por facturar.
+    /// </summary>
+    /// <remarks>
+    /// Es lo que impide cobrar dos veces el mismo mes y lo que congela la fila: una moto ya
+    /// facturada no se corrige ni se borra, porque del otro lado hay una factura emitida.
+    /// </remarks>
+    public Guid? BillingSettlementId { get; set; }
+
+    /// <summary>El corte de pago que ya la incluyó, o null si todavía está por pagar.</summary>
+    public Guid? PaySettlementId { get; set; }
+
+    public bool Congelada => BillingSettlementId is not null || PaySettlementId is not null;
+
     public Branch Branch { get; set; } = null!;
     public AssemblyContractor Contractor { get; set; } = null!;
     public AssemblyModel Model { get; set; } = null!;
     public AssemblyWarehouse Warehouse { get; set; } = null!;
+}
+
+/// <summary>
+/// Un corte: el periodo que ya se facturó al contratista, o el que ya se le pagó a un técnico.
+/// </summary>
+/// <remarks>
+/// Existe para resolver la pregunta que la hoja de cálculo nunca pudo contestar: «¿esto ya lo
+/// cobré?». Al cerrarlo, las motos del periodo quedan marcadas y dejan de aparecer en lo que
+/// falta por facturar o por pagar, y ya no se pueden corregir: del otro lado hay una factura
+/// emitida o una plata entregada.
+///
+/// Se puede reabrir, que es la única manera honesta de corregir un corte mal hecho: reabrir
+/// suelta las motos y deja rastro de quién lo hizo.
+/// </remarks>
+public class AssemblySettlement : TenantEntity
+{
+    public AssemblySettlementKind Kind { get; set; }
+
+    public DateOnly PeriodFrom { get; set; }
+    public DateOnly PeriodTo { get; set; }
+
+    /// <summary>A quién se le facturó. Null en un corte de pago.</summary>
+    public Guid? ContractorId { get; set; }
+
+    /// <summary>A quién se le pagó. Null en un corte de facturación.</summary>
+    public Guid? TechnicianUserId { get; set; }
+
+    public int Count { get; set; }
+
+    /// <summary>Lo que sumó: el cobro en un corte de facturación, el pago en uno de pago.</summary>
+    public decimal Total { get; set; }
+
+    /// <summary>El número de factura o de la nota de pago. Lo escribe quien cierra.</summary>
+    public string? Reference { get; set; }
+
+    public Guid? ClosedByUserId { get; set; }
+
+    public AssemblyContractor? Contractor { get; set; }
 }

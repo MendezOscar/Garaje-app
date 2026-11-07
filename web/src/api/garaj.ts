@@ -3,6 +3,12 @@ import { api, download } from './client'
 import type {
   AcceptWorkStepsResult,
   AssemblyContractor,
+  AssemblyImportPreview,
+  AssemblyPage,
+  AssemblyPayReport,
+  AssemblyRow,
+  AssemblySettlement,
+  AssemblySettlementKind,
   AssemblyModel,
   AssemblyWarehouse,
   BusinessReading,
@@ -1805,6 +1811,104 @@ export const assemblyApi = {
     const { data } = await api.put<AssemblyWarehouse>(`/api/assembly/warehouses/${id}`, {
       name,
       isActive,
+    })
+    return data
+  },
+}
+
+/** Lo que el dueño filtra cuando va a facturar o a pagar. */
+export type AssemblyFilter = {
+  from?: string
+  to?: string
+  contractorId?: string
+  technicianUserId?: string
+  warehouseId?: string
+  modelId?: string
+  onlyUnbilled?: boolean
+  onlyUnpaid?: boolean
+  serial?: string
+  page?: number
+  pageSize?: number
+}
+
+/**
+ * El lado del dueño del armado de motos: revisar, corregir, cerrar cortes y bajar reportes.
+ *
+ * Todo esto lleva el cobro al contratista, así que todo es de quien manda. El técnico tiene
+ * su propia puerta en la app y por ahí ese número no sale.
+ */
+export const assemblyAdminApi = {
+  async list(filtro: AssemblyFilter = {}) {
+    const { data } = await api.get<AssemblyPage>('/api/assembly/admin/motorcycles', {
+      params: params(filtro),
+    })
+    return data
+  },
+  async correct(
+    id: string,
+    body: {
+      serial: string
+      modelId: string
+      contractorId: string
+      warehouseId: string
+      technicianUserId: string
+      assembledOn: string
+      notes?: string | null
+      charge?: number | null
+      technicianPay?: number | null
+    },
+  ) {
+    const { data } = await api.put<AssemblyRow>(`/api/assembly/admin/motorcycles/${id}`, body)
+    return data
+  },
+  async remove(id: string) {
+    await api.delete(`/api/assembly/admin/motorcycles/${id}`)
+  },
+  async technicians() {
+    const { data } = await api.get<{ id: string; name: string }[]>(
+      '/api/assembly/admin/technicians',
+    )
+    return data
+  },
+  async settlements() {
+    const { data } = await api.get<AssemblySettlement[]>('/api/assembly/admin/settlements')
+    return data
+  },
+  /** Cerrar un corte congela lo que incluyó: es lo que impide cobrar o pagar dos veces. */
+  async close(body: {
+    kind: AssemblySettlementKind
+    from: string
+    to: string
+    contractorId?: string
+    technicianUserId?: string
+    reference?: string
+  }) {
+    const { data } = await api.post<AssemblySettlement>('/api/assembly/admin/settlements', body)
+    return data
+  },
+  /** Reabrirlo suelta las motos. Es la única manera honesta de corregir un corte. */
+  async reopen(id: string) {
+    await api.delete(`/api/assembly/admin/settlements/${id}`)
+  },
+  async payReport(filtro: AssemblyFilter = {}) {
+    const { data } = await api.get<AssemblyPayReport>('/api/assembly/admin/reports/pay', {
+      params: params(filtro),
+    })
+    return data
+  },
+  async downloadBilling(filtro: AssemblyFilter, formato: 'xlsx' | 'pdf', nombre: string) {
+    await download(`/api/assembly/admin/reports/billing.${formato}`, `${nombre}.${formato}`, params(filtro))
+  },
+  async downloadPay(filtro: AssemblyFilter, formato: 'xlsx' | 'pdf', nombre: string) {
+    await download(`/api/assembly/admin/reports/pay.${formato}`, `${nombre}.${formato}`, params(filtro))
+  },
+  /** El Excel de antes. Con `apply` en false solo enseña qué entraría. */
+  async import(file: File, contractorId: string, apply: boolean) {
+    const body = new FormData()
+    body.append('file', file)
+
+    const { data } = await api.post<AssemblyImportPreview>('/api/assembly/admin/import', body, {
+      params: { contractorId, apply },
     })
     return data
   },

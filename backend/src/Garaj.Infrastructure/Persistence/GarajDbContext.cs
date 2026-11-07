@@ -58,6 +58,7 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<AssemblyRate> AssemblyRates => Set<AssemblyRate>();
     public DbSet<AssemblyWarehouse> AssemblyWarehouses => Set<AssemblyWarehouse>();
     public DbSet<MotorcycleAssembly> MotorcycleAssemblies => Set<MotorcycleAssembly>();
+    public DbSet<AssemblySettlement> AssemblySettlements => Set<AssemblySettlement>();
 
     /// <summary>Trabajos frecuentes: los pasos y repuestos de lo que el taller repite.</summary>
     public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();

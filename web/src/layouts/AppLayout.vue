@@ -124,6 +124,11 @@ const navGroups = computed<
               },
               // Se abre todos los días al cerrar, así que va en el menú y no dentro de Reportes.
               { to: { name: 'cash-close' }, label: 'Caja del día' },
+              // Donde se arman motos, esto es la facturación del mes: va con el dinero y no
+              // escondido en Ajustes, que es donde está su catálogo.
+              ...(auth.hasAssembly
+                ? [{ to: { name: 'assembly' }, label: 'Motos armadas' }]
+                : []),
               { to: { name: 'reports' }, label: 'Reportes y resultados' },
               // Los reportes enseñan números; esto dice qué hacer con ellos. Va al lado, y
               // solo donde el taller tiene el asistente.

@@ -1,0 +1,368 @@
+using Garaj.Application.Abstractions;
+using Garaj.Application.Assembly;
+using Garaj.Application.Common;
+using Garaj.Domain.Entities;
+using Garaj.Domain.Enums;
+using Garaj.Infrastructure.Persistence;
+using Garaj.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
+
+namespace Garaj.Infrastructure.Assembly;
+
+/// <summary>
+/// El lado del dueño: revisar lo armado, corregir lo que venga mal y cerrar los cortes.
+/// </summary>
+/// <remarks>
+/// El corte es el centro de esto. Contesta la pregunta que una hoja de cálculo nunca pudo
+/// contestar —«¿esto ya lo cobré?»— y, al cerrarse, congela las motos que incluyó: del otro
+/// lado hay una factura emitida o una plata entregada, y corregir una fila después sería
+/// cambiar el pasado. Se puede reabrir, que es la única manera honesta de arreglar un corte
+/// mal hecho.
+/// </remarks>
+public class AssemblyAdminService(
+    GarajDbContext db,
+    ITenantContext tenantContext,
+    IDateTimeProvider clock) : IAssemblyAdminService
+{
+    public async Task<AssemblyPageDto> ListAsync(
+        AssemblyQuery query, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        var scope = EnsureManda();
+
+        var q = Filtrar(query, scope);
+
+        // Los totales son los del filtro entero, no los de la página: quien va a facturar
+        // necesita el total del periodo, no el de las primeras veinticinco.
+        var totales = await q
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Cuantas = g.Count(),
+                Cobro = g.Sum(m => m.Charge),
+                Pago = g.Sum(m => m.TechnicianPay)
+            })
+            .FirstOrDefaultAsync(ct);
+
+        var filas = await q
+            .OrderByDescending(m => m.AssembledOn).ThenByDescending(m => m.CreatedAt)
+            .Skip(query.Skip)
+            .Take(query.PageSize)
+            .Select(m => new
+            {
+                m.Id,
+                m.AssembledOn,
+                m.Serial,
+                ModelName = m.Model.Name,
+                ContractorName = m.Contractor.Name,
+                WarehouseName = m.Warehouse.Name,
+                m.TechnicianUserId,
+                m.Charge,
+                m.TechnicianPay,
+                m.Notes,
+                Billed = m.BillingSettlementId != null,
+                Paid = m.PaySettlementId != null
+            })
+            .ToListAsync(ct);
+
+        var nombres = await NombresAsync(filas.Select(f => f.TechnicianUserId), ct);
+
+        var items = filas.Select(f => new AssemblyRowDto(
+            f.Id, f.AssembledOn, f.Serial, f.ModelName, f.ContractorName, f.WarehouseName,
+            nombres.GetValueOrDefault(f.TechnicianUserId, "—"),
+            f.Charge, f.TechnicianPay, f.Notes, f.Billed, f.Paid)).ToList();
+
+        return new AssemblyPageDto(
+            items,
+            totales?.Cuantas ?? 0,
+            query.Page,
+            query.PageSize,
+            totales?.Cobro ?? 0m,
+            totales?.Pago ?? 0m);
+    }
+
+    public async Task<AssemblyRowDto> CorrectAsync(
+        Guid id, CorrectMotorcycleRequest request, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        var scope = EnsureManda();
+
+        var moto = await db.MotorcycleAssemblies.FirstOrDefaultAsync(m => m.Id == id, ct)
+            ?? throw new NotFoundException("La moto no existe.");
+
+        scope.EnsureBranchAllowed(moto.BranchId);
+        EnsureNoCongelada(moto);
+
+        var serie = VinFormatter.Normalize(request.Serial);
+
+        if (serie.Length < 6)
+            throw new AppException("La serie está muy corta. Cópiela completa del chasis.");
+
+        if (serie != moto.Serial)
+        {
+            var repetida = await db.MotorcycleAssemblies.AsNoTracking()
+                .AnyAsync(m => m.Serial == serie && m.Id != id, ct);
+
+            if (repetida)
+                throw new ConflictException($"La serie {serie} ya está en otra moto.");
+        }
+
+        if (request.AssembledOn > clock.Today())
+            throw new AppException("No se puede poner una fecha de mañana.");
+
+        // Los importes: los que vengan escritos a mano, y si no vienen, los de la tarifa de
+        // hoy. Es lo que se quiere cuando la moto se registró con el modelo equivocado.
+        var cobro = request.Charge;
+        var pago = request.TechnicianPay;
+
+        if (cobro is null || pago is null)
+        {
+            var tarifa = await db.AssemblyRates.AsNoTracking()
+                .FirstOrDefaultAsync(
+                    r => r.ContractorId == request.ContractorId && r.ModelId == request.ModelId,
+                    ct);
+
+            if (tarifa is null)
+                throw new AppException(
+                    "Ese modelo no tiene precio con ese contratista. Póngalo en la ficha del " +
+                    "contratista, o escriba los montos a mano aquí.");
+
+            cobro ??= tarifa.Charge;
+            pago ??= tarifa.TechnicianPay;
+        }
+
+        if (cobro < 0 || pago < 0)
+            throw new AppException("Ni el cobro ni el pago pueden ser negativos.");
+
+        moto.Serial = serie;
+        moto.ModelId = request.ModelId;
+        moto.ContractorId = request.ContractorId;
+        moto.WarehouseId = request.WarehouseId;
+        moto.TechnicianUserId = request.TechnicianUserId;
+        moto.AssembledOn = request.AssembledOn;
+        moto.Notes = request.Notes?.Trim();
+        moto.Charge = cobro.Value;
+        moto.TechnicianPay = pago.Value;
+
+        await db.SaveChangesAsync(ct);
+
+        var pagina = await ListAsync(new AssemblyQuery { PageSize = 1, Serial = serie }, ct);
+
+        return pagina.Items.FirstOrDefault()
+            ?? throw new NotFoundException("La moto no existe.");
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        var scope = EnsureManda();
+        scope.EnsureOwner();
+
+        var moto = await db.MotorcycleAssemblies.FirstOrDefaultAsync(m => m.Id == id, ct)
+            ?? throw new NotFoundException("La moto no existe.");
+
+        EnsureNoCongelada(moto);
+
+        db.MotorcycleAssemblies.Remove(moto);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<AssemblySettlementDto>> SettlementsAsync(
+        CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        EnsureManda();
+
+        var cortes = await db.AssemblySettlements.AsNoTracking()
+            .OrderByDescending(s => s.PeriodTo).ThenByDescending(s => s.CreatedAt)
+            .Take(200)
+            .Select(s => new
+            {
+                s.Id, s.Kind, s.PeriodFrom, s.PeriodTo,
+                s.ContractorId, ContractorName = s.Contractor!.Name,
+                s.TechnicianUserId, s.Count, s.Total, s.Reference, s.CreatedAt, s.ClosedByUserId
+            })
+            .ToListAsync(ct);
+
+        var ids = cortes.SelectMany(c => new[] { c.TechnicianUserId, c.ClosedByUserId })
+            .Where(x => x is not null).Select(x => x!.Value);
+
+        var nombres = await NombresAsync(ids, ct);
+
+        return cortes.Select(c => new AssemblySettlementDto(
+            c.Id, c.Kind, c.PeriodFrom, c.PeriodTo,
+            c.ContractorId, c.ContractorName,
+            c.TechnicianUserId,
+            c.TechnicianUserId is { } t ? nombres.GetValueOrDefault(t, "—") : null,
+            c.Count, c.Total, c.Reference, c.CreatedAt,
+            c.ClosedByUserId is { } u ? nombres.GetValueOrDefault(u) : null)).ToList();
+    }
+
+    public async Task<AssemblySettlementDto> CloseAsync(
+        CloseSettlementRequest request, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        var scope = EnsureManda();
+        scope.EnsureOwner();
+
+        if (request.To < request.From)
+            throw new AppException("El periodo termina antes de empezar.");
+
+        var esFacturacion = request.Kind == AssemblySettlementKind.Billing;
+
+        if (esFacturacion && request.ContractorId is null)
+            throw new AppException("Diga a qué contratista se le facturó.");
+
+        if (!esFacturacion && request.TechnicianUserId is null)
+            throw new AppException("Diga a qué técnico se le pagó.");
+
+        // Solo lo que todavía no entró en un corte del mismo tipo. Es lo que impide cobrar o
+        // pagar dos veces el mismo mes, y por eso el filtro no es negociable.
+        var q = db.MotorcycleAssemblies
+            .Where(m => m.AssembledOn >= request.From && m.AssembledOn <= request.To);
+
+        q = esFacturacion
+            ? q.Where(m => m.BillingSettlementId == null && m.ContractorId == request.ContractorId)
+            : q.Where(m => m.PaySettlementId == null && m.TechnicianUserId == request.TechnicianUserId);
+
+        var motos = await q.ToListAsync(ct);
+
+        if (motos.Count == 0)
+            throw new AppException("No hay nada pendiente en ese periodo. Ya se cerró o no hubo.");
+
+        var corte = new AssemblySettlement
+        {
+            Kind = request.Kind,
+            PeriodFrom = request.From,
+            PeriodTo = request.To,
+            ContractorId = esFacturacion ? request.ContractorId : null,
+            TechnicianUserId = esFacturacion ? null : request.TechnicianUserId,
+            Count = motos.Count,
+            Total = esFacturacion ? motos.Sum(m => m.Charge) : motos.Sum(m => m.TechnicianPay),
+            Reference = request.Reference?.Trim(),
+            ClosedByUserId = scope.UserId
+        };
+
+        db.AssemblySettlements.Add(corte);
+
+        foreach (var moto in motos)
+        {
+            if (esFacturacion) moto.BillingSettlementId = corte.Id;
+            else moto.PaySettlementId = corte.Id;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        var cortes = await SettlementsAsync(ct);
+
+        return cortes.First(c => c.Id == corte.Id);
+    }
+
+    public async Task ReopenAsync(Guid id, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        var scope = EnsureManda();
+        scope.EnsureOwner();
+
+        var corte = await db.AssemblySettlements.FirstOrDefaultAsync(s => s.Id == id, ct)
+            ?? throw new NotFoundException("El corte no existe.");
+
+        var motos = corte.Kind == AssemblySettlementKind.Billing
+            ? await db.MotorcycleAssemblies.Where(m => m.BillingSettlementId == id).ToListAsync(ct)
+            : await db.MotorcycleAssemblies.Where(m => m.PaySettlementId == id).ToListAsync(ct);
+
+        foreach (var moto in motos)
+        {
+            if (corte.Kind == AssemblySettlementKind.Billing) moto.BillingSettlementId = null;
+            else moto.PaySettlementId = null;
+        }
+
+        db.AssemblySettlements.Remove(corte);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<AssemblyNameDto>> TechniciansAsync(
+        CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        EnsureManda();
+
+        // Quiénes han armado, no quiénes son técnicos: a quien nunca armó una moto no hay
+        // nada que pagarle, y en el filtro sería ruido.
+        var ids = await db.MotorcycleAssemblies.AsNoTracking()
+            .Select(m => m.TechnicianUserId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .OrderBy(u => u.FullName)
+            .Select(u => new AssemblyNameDto(u.Id, u.FullName))
+            .ToListAsync(ct);
+    }
+
+    /// <summary>El filtro de la lista. Lo comparten la página, los totales y los reportes.</summary>
+    internal IQueryable<MotorcycleAssembly> Filtrar(AssemblyQuery query, AccessScope scope)
+    {
+        var q = db.MotorcycleAssemblies.AsNoTracking();
+
+        // El Encargado ve lo de sus sucursales. El reporte se corta por sucursal, así que
+        // esto no es cosmético.
+        if (scope.BranchFilter() is { } sucursales)
+            q = q.Where(m => sucursales.Contains(m.BranchId));
+
+        if (query.From is { } desde) q = q.Where(m => m.AssembledOn >= desde);
+        if (query.To is { } hasta) q = q.Where(m => m.AssembledOn <= hasta);
+        if (query.ContractorId is { } c) q = q.Where(m => m.ContractorId == c);
+        if (query.TechnicianUserId is { } t) q = q.Where(m => m.TechnicianUserId == t);
+        if (query.WarehouseId is { } w) q = q.Where(m => m.WarehouseId == w);
+        if (query.ModelId is { } mo) q = q.Where(m => m.ModelId == mo);
+        if (query.OnlyUnbilled) q = q.Where(m => m.BillingSettlementId == null);
+        if (query.OnlyUnpaid) q = q.Where(m => m.PaySettlementId == null);
+
+        if (!string.IsNullOrWhiteSpace(query.Serial))
+        {
+            var serie = VinFormatter.Normalize(query.Serial);
+            if (serie.Length >= 3) q = q.Where(m => m.Serial.Contains(serie));
+        }
+
+        return q;
+    }
+
+    internal async Task<Dictionary<Guid, string>> NombresAsync(
+        IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var lista = ids.Distinct().ToList();
+
+        return await db.Users.AsNoTracking()
+            .Where(u => lista.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+    }
+
+    private static void EnsureNoCongelada(MotorcycleAssembly moto)
+    {
+        if (!moto.Congelada) return;
+
+        throw new ConflictException(
+            moto.BillingSettlementId is not null
+                ? "Esta moto ya se facturó. Reabra el corte si de verdad hay que corregirla."
+                : "Esta moto ya se pagó. Reabra el corte si de verdad hay que corregirla.");
+    }
+
+    private AccessScope EnsureManda()
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsureManagement();
+        return scope;
+    }
+
+    private async Task EnsureEnabledAsync(CancellationToken ct)
+    {
+        var encendido = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => t.AssemblyEnabled)
+            .FirstOrDefaultAsync(ct);
+
+        if (!encendido) throw new NotFoundException();
+    }
+}
