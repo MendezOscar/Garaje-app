@@ -536,7 +536,11 @@ onMounted(async () => {
 
           <fieldset v-if="creatingVehicle && !esDeEquipos">
             <legend>Vehículo nuevo</legend>
-            <div class="row">
+            <!-- Rejilla y no dos filas de flex: con flex cada fila estira lo suyo, los
+                 campos no alinean entre filas y la última deja un hueco a la derecha. Cuatro
+                 columnas iguales, el chasis ocupando dos —son diecisiete caracteres— y
+                 Guardar al final, después del último campo y no antes. -->
+            <div class="alta-vehiculo">
               <select v-model.number="newVehicle.type">
                 <option v-for="(label, value) in VEHICLE_TYPE_LABEL" :key="value" :value="Number(value)">
                   {{ label }}
@@ -544,22 +548,17 @@ onMounted(async () => {
               </select>
               <input v-model="newVehicle.brand" placeholder="Marca" />
               <input v-model="newVehicle.model" placeholder="Modelo" />
-              <input v-model="newVehicle.year" type="number" placeholder="Año" class="narrow" />
-              <input v-model="newVehicle.plate" placeholder="Placa" class="narrow" />
-            </div>
-            <!-- El VIN en su propia fila: son diecisiete caracteres que se teclean mirando el
-                 chasis, y en la moto sin placa es el único identificador que hay. Guardar baja
-                 con él: arriba quedaba antes del último campo e invitaba a guardar a medias. -->
-            <div class="row">
+              <input v-model="newVehicle.year" type="number" placeholder="Año" />
+              <input v-model="newVehicle.plate" placeholder="Placa" class="placa" />
               <input
                 v-model="newVehicle.vin"
-                placeholder="VIN / Serie del chasis (opcional)"
+                placeholder="VIN / Serie del chasis"
                 maxlength="25"
                 class="vin"
               />
               <button type="button" :disabled="busy" @click="saveVehicle">Guardar</button>
             </div>
-            <p v-if="vinRaro" class="muted small">{{ vinRaro }}</p>
+            <p v-if="vinRaro" class="muted small nota">{{ vinRaro }}</p>
           </fieldset>
 
           <fieldset v-if="creatingVehicle && esDeEquipos">
@@ -672,13 +671,69 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* Diecisiete caracteres en monoespaciada: ancho de lo que lleva dentro, no de la fila.
-   Con `.row input` de por medio hace falta nombrar los dos: ese selector pesa más que la
-   clase sola y le devolvería el `flex: 1`. */
-.row input.vin {
-  flex: 0 1 22rem;
+/*
+ * El alta de un vehículo: cuatro columnas iguales que alinean las dos filas.
+ *
+ * Nombre propio y no `.campos`, que ya está tomado más abajo en este mismo componente con
+ * otra rejilla: la de después ganaba y los campos salían en cinco columnas con un hueco.
+ */
+.alta-vehiculo {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.alta-vehiculo input,
+.alta-vehiculo select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* El chasis ocupa dos columnas: diecisiete caracteres no caben en una. */
+.alta-vehiculo .vin {
+  grid-column: span 2;
   font-family: ui-monospace, monospace;
+}
+
+/* Mayúsculas a lo tecleado, no al texto de ayuda: en mayúsculas ese texto grita. */
+.alta-vehiculo .vin:not(:placeholder-shown) {
   text-transform: uppercase;
+}
+
+.alta-vehiculo button {
+  width: 100%;
+}
+
+.nota {
+  margin: 0.375rem 0 0;
+}
+
+/*
+ * En dos columnas los seis campos caben en tres filas, pero la placa quedaría sola con un
+ * hueco al lado: se ensancha ella, el chasis y el botón, y no queda ninguna celda vacía.
+ */
+@media (max-width: 52rem) {
+  .alta-vehiculo {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alta-vehiculo .placa,
+  .alta-vehiculo button {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 30rem) {
+  .alta-vehiculo {
+    grid-template-columns: 1fr;
+  }
+
+  .alta-vehiculo .placa,
+  .alta-vehiculo .vin,
+  .alta-vehiculo button {
+    grid-column: span 1;
+  }
 }
 
 /* En pantalla propia el formulario no lleva marco ni la línea que lo separaba de la cabecera
