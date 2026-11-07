@@ -112,7 +112,7 @@ public class MotorcycleAssemblyService(
             ContractorId = request.ContractorId,
             ModelId = request.ModelId,
             WarehouseId = request.WarehouseId,
-            TechnicianUserId = scope.UserId,
+            TechnicianUserId = await ResolverTecnicoAsync(scope, request.TechnicianUserId, ct),
             AssembledOn = dia,
             Serial = serie,
             Charge = tarifa.Charge,
@@ -255,6 +255,27 @@ public class MotorcycleAssemblyService(
         db.ChangeTracker.Clear();
         return await db.MotorcycleAssemblies.AsNoTracking()
             .AnyAsync(m => m.Serial == serie && m.Id != propia, ct);
+    }
+
+    /// <summary>
+    /// A quién se le apunta la moto.
+    /// </summary>
+    /// <remarks>
+    /// Un técnico solo registra lo suyo: lo que venga en la petición se ignora. Quien manda
+    /// puede apuntársela a otro, que es el caso del dueño cargando la que le reportaron por
+    /// teléfono, y entonces tiene que ser alguien de su taller.
+    /// </remarks>
+    private async Task<Guid> ResolverTecnicoAsync(
+        AccessScope scope, Guid? pedido, CancellationToken ct)
+    {
+        if (!scope.IsManagement || pedido is not { } id || id == scope.UserId)
+            return scope.UserId;
+
+        var existe = await db.Users.AsNoTracking().AnyAsync(u => u.Id == id, ct);
+
+        if (!existe) throw new NotFoundException("Ese usuario no existe en el taller.");
+
+        return id;
     }
 
     /// <summary>

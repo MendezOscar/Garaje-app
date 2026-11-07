@@ -4,6 +4,7 @@ using Garaj.Application.Common;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Assembly;
+using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Garaj.Infrastructure.Persistence.Interceptors;
 using Garaj.Infrastructure.Services;
@@ -343,6 +344,48 @@ public class ArmadoDeMotosTests
         // Y un prefijo que nunca se ha visto sigue sin propuesta.
         var ajeno = await registro.GuessModelAsync("9XYKK9999ZZ000001");
         Assert.Null(ajeno.ModelId);
+    }
+
+    /// <summary>
+    /// El dueño registra la moto que el técnico le reportó por teléfono, y queda a nombre
+    /// del técnico. Un técnico, en cambio, solo puede registrar lo suyo: lo que mande en el
+    /// campo se ignora, porque si no cualquiera se apunta motos a nombre de otro.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task El_dueno_registra_a_nombre_de_un_tecnico_y_el_tecnico_solo_a_su_nombre()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        var tecnico = Guid.NewGuid();
+        var otro = Guid.NewGuid();
+
+        await using (var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal))
+        {
+            db.Users.Add(new AppUser
+            {
+                Id = tecnico, TenantId = taller, FullName = "Kevin Discua",
+                UserName = $"k{tecnico:N}@prueba.hn", Email = $"k{tecnico:N}@prueba.hn",
+                IsActive = true
+            });
+
+            await db.SaveChangesAsync();
+
+            var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+                "3C1JA1234RT000001", modelo, contratista, bodega,
+                BranchId: sucursal, TechnicianUserId: tecnico));
+
+            Assert.Equal(tecnico, moto.TechnicianUserId);
+        }
+
+        await using (var db = Contexto(taller, AppRoles.Technician, otro, sucursal))
+        {
+            // Pide que se la apunten a otro: se ignora y queda a su nombre.
+            var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+                "3C1JA1234RT000002", modelo, contratista, bodega,
+                TechnicianUserId: tecnico));
+
+            Assert.Equal(otro, moto.TechnicianUserId);
+        }
     }
 
     private static AssemblyAdminService Panel(GarajDbContext db) =>

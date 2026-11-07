@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { assemblyAdminApi, assemblyApi, type AssemblyFilter } from '@/api/garaj'
+import { assemblyAdminApi, assemblyApi, usersApi, type AssemblyFilter } from '@/api/garaj'
+import { useAuthStore } from '@/stores/auth'
 import ErrorNote from '@/components/ErrorNote.vue'
 import type {
   AssemblyContractor,
@@ -25,6 +26,8 @@ import { formatMoney } from '@/utils/format'
  * El corte es lo que contesta «¿esto ya lo cobré?». Al cerrarlo, esas motos se congelan: del
  * otro lado hay una factura emitida o una plata entregada.
  */
+const auth = useAuthStore()
+
 const contratistas = ref<AssemblyContractor[]>([])
 const modelos = ref<AssemblyModel[]>([])
 const bodegas = ref<AssemblyWarehouse[]>([])
@@ -53,7 +56,7 @@ const filtro = ref({
   serial: '',
 })
 
-const pestana = ref<'motos' | 'pago' | 'cortes' | 'importar'>('motos')
+const pestana = ref<'registrar' | 'motos' | 'pago' | 'cortes' | 'importar'>('motos')
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -93,6 +96,12 @@ onMounted(async () => {
     modelos.value = m
     bodegas.value = b
     tecnicos.value = t
+
+    // Para el desplegable de «quién la armó» hacen falta todos, no solo los que ya armaron
+    // alguna: la primera moto de cada técnico no tendría a quién apuntarse.
+    personal.value = (await usersApi.list()).filter((u) => u.isActive)
+
+    if (b.length === 1) nueva.value.warehouseId = b[0].id
 
     // Con un contratista solo, se elige: es el caso de hoy y evita un reporte vacío.
     if (c.length === 1) filtro.value.contractorId = c[0].id
@@ -223,6 +232,99 @@ async function borrar(moto: AssemblyRow) {
     await assemblyAdminApi.remove(moto.id)
     await buscar()
   })
+}
+
+/*
+ * Registrar una moto desde el panel.
+ *
+ * Existe por dos motivos: el dueño carga la que el técnico le reportó por teléfono, y se
+ * puede probar el módulo entero sin saltar al celular. Lo que se registra aquí queda a
+ * nombre del técnico que se elija, no de quien lo teclea.
+ */
+const registrando = ref(false)
+const personal = ref<{ id: string; fullName: string }[]>([])
+
+const nueva = ref({
+  serial: '',
+  modelId: '',
+  warehouseId: '',
+  technicianUserId: '',
+  assembledOn: iso(hoy),
+  notes: '',
+})
+
+const propuesta = ref<{ modelName: string | null; seenBefore: number } | null>(null)
+
+const serieLimpia = computed(() =>
+  nueva.value.serial.replace(/[^A-Za-z0-9]/g, '').toUpperCase(),
+)
+
+/** El estándar son 17 caracteres y no usa I, O ni Q. Aviso, no bloqueo. */
+const avisoDeLaSerie = computed(() => {
+  const v = serieLimpia.value
+  if (!v) return ''
+  if (v.length !== 17) return `Son ${v.length} caracteres; una serie estándar lleva 17.`
+  return /[IOQ]/.test(v) ? 'Una serie no lleva I, O ni Q: revise si son 1, 0 o 9.' : ''
+})
+
+let reboteDeLaSerie: ReturnType<typeof setTimeout> | undefined
+
+/** Pregunta qué modelo suele llevar una serie así, con rebote: se teclea carácter a carácter. */
+watch(serieLimpia, (v) => {
+  clearTimeout(reboteDeLaSerie)
+
+  if (v.length < 8) {
+    propuesta.value = null
+    return
+  }
+
+  reboteDeLaSerie = setTimeout(async () => {
+    try {
+      const r = await assemblyAdminApi.guessModel(v)
+      propuesta.value = r.modelId ? { modelName: r.modelName, seenBefore: r.seenBefore } : null
+      if (r.modelId && !nueva.value.modelId) nueva.value.modelId = r.modelId
+    } catch {
+      // Que la propuesta no se pueda calcular no detiene nada.
+    }
+  }, 400)
+})
+
+async function registrar() {
+  if (!filtro.value.contractorId) {
+    error.value = 'Elija arriba el contratista al que se le arma.'
+    return
+  }
+
+  registrando.value = true
+  error.value = ''
+  aviso.value = ''
+
+  try {
+    const moto = await assemblyAdminApi.register({
+      serial: serieLimpia.value,
+      modelId: nueva.value.modelId,
+      contractorId: filtro.value.contractorId,
+      warehouseId: nueva.value.warehouseId,
+      technicianUserId: nueva.value.technicianUserId || undefined,
+      assembledOn: nueva.value.assembledOn || undefined,
+      branchId: auth.activeBranchId ?? undefined,
+      notes: nueva.value.notes.trim() || undefined,
+    })
+
+    aviso.value = `Registrada la ${moto.serial}.`
+
+    // Se limpia lo que cambia de una moto a otra; el resto se queda, que es lo mismo toda
+    // la tarde.
+    nueva.value.serial = ''
+    nueva.value.notes = ''
+    propuesta.value = null
+
+    await buscar()
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    registrando.value = false
+  }
 }
 
 /* La importación del Excel de antes. Se enseña primero y se guarda después. */
@@ -379,6 +481,13 @@ function dia(valor: string) {
       </div>
 
       <nav class="pestanas">
+        <button
+          type="button"
+          :class="{ activa: pestana === 'registrar' }"
+          @click="pestana = 'registrar'"
+        >
+          Registrar una moto
+        </button>
         <button type="button" :class="{ activa: pestana === 'motos' }" @click="pestana = 'motos'">
           El detalle
         </button>
@@ -397,7 +506,75 @@ function dia(valor: string) {
         </button>
       </nav>
 
-      <template v-if="pestana === 'motos'">
+      <template v-if="pestana === 'registrar'">
+        <p class="muted small">
+          La moto que el técnico le reportó por teléfono. Se le apunta al técnico que elija,
+          no a usted, y se le cobra al contratista que esté puesto arriba en el filtro.
+        </p>
+
+        <fieldset class="alta">
+          <legend>Moto armada</legend>
+          <div class="campos">
+            <label>
+              Serie del chasis
+              <input v-model="nueva.serial" maxlength="25" class="serie" placeholder="17 caracteres" />
+            </label>
+            <label>
+              Modelo
+              <select v-model="nueva.modelId">
+                <option value="">Elija…</option>
+                <option v-for="m in modelos.filter((x) => x.isActive)" :key="m.id" :value="m.id">
+                  {{ m.name }}
+                </option>
+              </select>
+            </label>
+            <label>
+              Bodega
+              <select v-model="nueva.warehouseId">
+                <option value="">Elija…</option>
+                <option v-for="b in bodegas.filter((x) => x.isActive)" :key="b.id" :value="b.id">
+                  {{ b.name }}
+                </option>
+              </select>
+            </label>
+            <label>
+              Quién la armó
+              <select v-model="nueva.technicianUserId">
+                <option value="">Yo</option>
+                <option v-for="u in personal" :key="u.id" :value="u.id">{{ u.fullName }}</option>
+              </select>
+            </label>
+            <label>
+              Día en que se armó
+              <input v-model="nueva.assembledOn" type="date" />
+            </label>
+            <label class="ancho">
+              Nota (opcional)
+              <input v-model="nueva.notes" maxlength="500" placeholder="Algo que convenga dejar escrito" />
+            </label>
+          </div>
+
+          <p v-if="avisoDeLaSerie" class="muted small">{{ avisoDeLaSerie }}</p>
+          <p v-if="propuesta" class="muted small">
+            Series como esta han sido <strong>{{ propuesta.modelName }}</strong>
+            {{ propuesta.seenBefore === 1 ? 'una vez' : `${propuesta.seenBefore} veces` }}.
+            Confírmelo con la moto.
+          </p>
+
+          <div class="acciones">
+            <button
+              type="button"
+              class="primario"
+              :disabled="registrando || !serieLimpia || !nueva.modelId || !nueva.warehouseId"
+              @click="registrar"
+            >
+              {{ registrando ? 'Registrando…' : 'Registrar la moto' }}
+            </button>
+          </div>
+        </fieldset>
+      </template>
+
+      <template v-else-if="pestana === 'motos'">
         <div class="acciones">
           <button type="button" :disabled="busy" @click="bajar('billing', 'xlsx')">
             Bajar en Excel
@@ -718,6 +895,30 @@ header h1 {
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.alta {
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.alta legend {
+  padding: 0 0.375rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.alta .ancho {
+  grid-column: 1 / -1;
+}
+
+.alta p {
+  margin: 0;
 }
 
 .tabla {
