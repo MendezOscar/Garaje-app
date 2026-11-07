@@ -428,4 +428,44 @@ public class ProponerLosPasosTests
         // Y nada que identifique al cliente: ni nombre, ni teléfono, ni placa.
         Assert.DoesNotContain("placa", modelo.Prompt.Question.ToLower());
     }
+
+    /// <summary>
+    /// El segundo clic sobre el mismo diagnóstico tiene que saber qué se aceptó en el primero.
+    /// </summary>
+    /// <remarks>
+    /// Sin esto el modelo volvía a proponer los mismos pasos, y como al aceptar se anexan, la
+    /// orden quedaba con el trabajo duplicado: seis pasos se volvían doce y las horas el doble.
+    /// Pasó en producción la primera vez que alguien tocó el botón dos veces.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task Los_pasos_que_la_orden_ya_tiene_viajan_para_que_no_se_repitan()
+    {
+        var (taller, orden) = await EscenarioAsync();
+
+        await using var db = Contexto(taller);
+
+        db.WorkOrderTasks.Add(new WorkOrderTask
+        {
+            TenantId = taller,
+            WorkOrderId = orden,
+            Title = "Cambiar pastillas delanteras",
+            Sequence = 1
+        });
+
+        await db.SaveChangesAsync();
+
+        var modelo = new AsistenteDeMentira(Respuesta(new
+        {
+            pasos = Array.Empty<object>(), repuestos = Array.Empty<object>(), nota = (string?)null
+        }));
+
+        await Servicio(db, modelo).ProposeAsync(orden);
+
+        Assert.NotNull(modelo.Prompt);
+        Assert.Contains("Cambiar pastillas delanteras", modelo.Prompt!.Question);
+
+        // En la pregunta, no en el contexto: el contexto es el prefijo cacheado y esto cambia
+        // cada vez que se aceptan pasos. Meterlo ahí tiraría el caché en cada llamada.
+        Assert.DoesNotContain("Cambiar pastillas delanteras", modelo.Prompt.Context);
+    }
 }
