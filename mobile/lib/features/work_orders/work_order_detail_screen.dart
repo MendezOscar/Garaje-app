@@ -867,6 +867,36 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
   /// Abre la propuesta del asistente. Al volver se recarga la orden: los pasos los creó el
   /// servidor al aceptar, no esta pantalla.
   Future<void> _proponerPasos(WorkOrderDetail order) async {
+    // Lo que se acepta se anexa a los pasos que ya hay. Quien ya aceptó una propuesta y
+    // vuelve a tocar el botón espera «lo mismo otra vez», no «el doble»: así fue como una
+    // orden terminó con el trabajo duplicado.
+    final cargados = order.tasks.length;
+
+    if (cargados > 0) {
+      final seguir = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('La orden ya tiene pasos'),
+          content: Text(
+            'Esta orden ya tiene $cargados ${cargados == 1 ? 'paso' : 'pasos'}. '
+            'Lo que acepte se les suma, no los reemplaza.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Pedir la propuesta'),
+            ),
+          ],
+        ),
+      );
+
+      if (seguir != true || !mounted) return;
+    }
+
     final aceptada = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ProposeStepsScreen(

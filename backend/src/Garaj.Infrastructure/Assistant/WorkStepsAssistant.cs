@@ -68,10 +68,25 @@ public class WorkStepsAssistant(
 
         var material = await catalog.ForWorkOrderAsync(workOrderId, ct);
 
+        // Los pasos que la orden ya tiene. Sin esto, el segundo clic sobre el mismo
+        // diagnóstico vuelve a proponer lo mismo, y como al aceptar se anexa, la orden queda
+        // con el trabajo duplicado.
+        var yaCargados = await db.WorkOrderTasks
+            .AsNoTracking()
+            .Where(t => t.WorkOrderId == workOrderId)
+            .OrderBy(t => t.Sequence)
+            .Select(t => t.Title)
+            .Take(MaximoPasos)
+            .ToListAsync(ct);
+
         var prompt = new AssistantPrompt(
             WorkStepsPrompt.Instructions(material.Kind),
             WorkStepsPrompt.Context(material),
-            WorkStepsPrompt.Question(material.Subject, orden.Diagnosis, await CodigosAsync(workOrderId, ct)),
+            WorkStepsPrompt.Question(
+                material.Subject,
+                orden.Diagnosis,
+                await CodigosAsync(workOrderId, ct),
+                yaCargados),
             WorkStepsPrompt.Schema,
             MaxTokens: 8000);
 

@@ -1452,6 +1452,7 @@ onMounted(async () => {
                 :enabled="auth.hasAssistant && auth.isManagement"
                 :can-edit="canEdit"
                 :has-diagnosis="!!order?.diagnosis"
+                :loaded-steps="order?.tasks?.length ?? 0"
                 @accepted="recibirPropuesta"
               />
             </div>

@@ -84,6 +84,11 @@ public static class WorkStepsPrompt
         13. **La nota es de una o dos líneas.** Solo lo que el dueño necesita saber para
             decidir: qué falta averiguar, o qué repuesto hizo falta y no estaba. Nada de
             resumir lo que ya está en los pasos.
+
+        14. **Si la orden ya trae pasos cargados, se te dan al final.** Lo que proponés se
+            **suma** a esos, no los reemplaza: no vuelvas a proponer un trabajo que ya está en
+            la lista, aunque el diagnóstico lo mencione. Si todo lo del diagnóstico ya está
+            cargado, devolvé la lista de pasos vacía y decilo en `nota` en una línea.
         """;
     }
 
@@ -116,7 +121,11 @@ public static class WorkStepsPrompt
         """;
 
     /// <summary>El caso. Es lo único que cambia entre una llamada y la siguiente.</summary>
-    public static string Question(AssistantSubjectDto sujeto, string diagnostico, string? codigos)
+    public static string Question(
+        AssistantSubjectDto sujeto,
+        string diagnostico,
+        string? codigos,
+        IReadOnlyList<string> yaCargados)
     {
         var descripcion = string.Join(' ', new[]
         {
@@ -130,7 +139,18 @@ public static class WorkStepsPrompt
         if (!string.IsNullOrWhiteSpace(codigos))
             texto += $"Códigos de la última lectura del escáner: {codigos}\n";
 
-        return $"{texto}\nDiagnóstico del técnico:\n{diagnostico}";
+        texto += $"\nDiagnóstico del técnico:\n{diagnostico}";
+
+        // Va al final y no en el contexto: el contexto es el prefijo cacheado y tiene que
+        // quedar igual entre una llamada y la siguiente. Esto cambia cada vez que se aceptan
+        // pasos, así que va aquí.
+        if (yaCargados.Count > 0)
+        {
+            texto += "\n\nPasos que la orden ya tiene cargados (no los repitás):\n" +
+                string.Join("\n", yaCargados.Select(t => $"- {t}"));
+        }
+
+        return texto;
     }
 
     /// <summary>

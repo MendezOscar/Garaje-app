@@ -20,6 +20,8 @@ const props = defineProps<{
   canEdit: boolean
   /** Sin diagnóstico no hay de dónde sacar los pasos, y el servidor ni llama al modelo. */
   hasDiagnosis: boolean
+  /** Cuántos pasos tiene ya la orden: lo que se acepte se les suma, no los reemplaza. */
+  loadedSteps: number
 }>()
 
 const emit = defineEmits<{ accepted: [AcceptWorkStepsResult] }>()
@@ -39,6 +41,17 @@ const repuestos = computed(() => {
 })
 
 async function proponer() {
+  // Lo que se acepta se anexa. Quien ya aceptó una propuesta y vuelve a tocar el botón
+  // espera «lo mismo otra vez», no «el doble», y así fue como se duplicó la primera orden.
+  if (
+    props.loadedSteps > 0 &&
+    !confirm(
+      `Esta orden ya tiene ${props.loadedSteps} ${props.loadedSteps === 1 ? 'paso' : 'pasos'}. ` +
+        'Lo que acepte se les suma, no los reemplaza. ¿Pedir la propuesta?'
+    )
+  )
+    return
+
   pensando.value = true
   error.value = ''
 
