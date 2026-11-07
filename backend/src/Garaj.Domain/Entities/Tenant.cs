@@ -155,6 +155,17 @@ public class Tenant : AuditableEntity
     public bool AssistantEnabled { get; set; }
 
     /// <summary>
+    /// Si tiene el módulo de armado de motos: registrar cada moto armada en la bodega, y los
+    /// reportes de facturación al contratista y de pago a los técnicos.
+    /// </summary>
+    /// <remarks>
+    /// No sale de ningún plan y nace apagado para todos: es un módulo de un contrato, no una
+    /// función que se venda en la lista de precios. Se enciende taller por taller desde el
+    /// panel de plataforma.
+    /// </remarks>
+    public bool AssemblyEnabled { get; set; }
+
+    /// <summary>
     /// Créditos del asistente al mes. Una propuesta de pasos vale 1 y una consulta del técnico
     /// 5; la lectura del negocio no gasta.
     /// </summary>

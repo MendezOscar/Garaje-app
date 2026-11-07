@@ -2,6 +2,9 @@ import axios from 'axios'
 import { api, download } from './client'
 import type {
   AcceptWorkStepsResult,
+  AssemblyContractor,
+  AssemblyModel,
+  AssemblyWarehouse,
   BusinessReading,
   BusinessReadingListItem,
   Conversation,
@@ -1718,6 +1721,8 @@ export const platformApi = {
       assistantCreditsPerDay?: number
       /** Tope de gasto en lempiras al mes. El taller no lo ve. */
       assistantMonthlyCapHnl?: number
+      /** El armado de motos. No se reescribe al cambiar de plan: no sale de ninguno. */
+      assemblyEnabled?: boolean
     },
   ) {
     const { data } = await api.put<PlatformTenant>(
@@ -1741,6 +1746,66 @@ export const platformApi = {
   },
   async reactivate(id: string) {
     const { data } = await api.post<PlatformTenant>(`/api/platform/tenants/${id}/reactivate`)
+    return data
+  },
+}
+
+/**
+ * El catálogo del contrato de armado de motos. Responde 404 entero en el taller que no lo
+ * tiene contratado, que es la mayoría.
+ */
+export const assemblyApi = {
+  async contractors() {
+    const { data } = await api.get<AssemblyContractor[]>('/api/assembly/contractors')
+    return data
+  },
+  async createContractor(body: { name: string; notes: string | null }) {
+    const { data } = await api.post<AssemblyContractor>('/api/assembly/contractors', body)
+    return data
+  },
+  async updateContractor(
+    id: string,
+    body: { name: string; notes: string | null; isActive: boolean },
+  ) {
+    const { data } = await api.put<AssemblyContractor>(`/api/assembly/contractors/${id}`, body)
+    return data
+  },
+  /** La tabla entera de un contratista: reemplaza lo que había. */
+  async saveRates(
+    id: string,
+    rates: { modelId: string; charge: number; technicianPay: number }[],
+  ) {
+    const { data } = await api.put<AssemblyContractor>(
+      `/api/assembly/contractors/${id}/rates`,
+      { rates },
+    )
+    return data
+  },
+  async models() {
+    const { data } = await api.get<AssemblyModel[]>('/api/assembly/models')
+    return data
+  },
+  async createModel(name: string) {
+    const { data } = await api.post<AssemblyModel>('/api/assembly/models', { name })
+    return data
+  },
+  async updateModel(id: string, name: string, isActive: boolean) {
+    const { data } = await api.put<AssemblyModel>(`/api/assembly/models/${id}`, { name, isActive })
+    return data
+  },
+  async warehouses() {
+    const { data } = await api.get<AssemblyWarehouse[]>('/api/assembly/warehouses')
+    return data
+  },
+  async createWarehouse(name: string) {
+    const { data } = await api.post<AssemblyWarehouse>('/api/assembly/warehouses', { name })
+    return data
+  },
+  async updateWarehouse(id: string, name: string, isActive: boolean) {
+    const { data } = await api.put<AssemblyWarehouse>(`/api/assembly/warehouses/${id}`, {
+      name,
+      isActive,
+    })
     return data
   },
 }

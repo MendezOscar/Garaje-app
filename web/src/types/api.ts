@@ -51,6 +51,12 @@ export interface CurrentUser {
    * false siempre.
    */
   assistantEnabled: boolean
+  /**
+   * Si el taller tiene el armado de motos. El técnico también lo lleva: es él quien registra
+   * la moto en la bodega. Lo que no ve es lo que el taller cobra, y eso no depende de este
+   * interruptor sino de que ese número no salga del servidor cuando pregunta un técnico.
+   */
+  assemblyEnabled: boolean
 }
 
 export type SubscriptionState = 'Active' | 'DueSoon' | 'Grace' | 'ReadOnly' | 'Suspended'

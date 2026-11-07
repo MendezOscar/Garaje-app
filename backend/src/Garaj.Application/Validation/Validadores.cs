@@ -1,5 +1,6 @@
 using FluentValidation;
 using Garaj.Application.Appointments;
+using Garaj.Application.Assembly;
 using Garaj.Application.Assistant;
 using Garaj.Application.Auth;
 using Garaj.Application.Customers;
@@ -113,6 +114,51 @@ public class SaveCustomerValidator : AbstractValidator<SaveCustomerRequest>
         RuleFor(x => x.BillingName).MaximumLength(200);
         RuleFor(x => x.Address).MaximumLength(300);
         RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+public class SaveAssemblyContractorValidator : AbstractValidator<SaveAssemblyContractorRequest>
+{
+    public SaveAssemblyContractorValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+public class SaveAssemblyModelValidator : AbstractValidator<SaveAssemblyModelRequest>
+{
+    public SaveAssemblyModelValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(80);
+    }
+}
+
+public class SaveAssemblyWarehouseValidator : AbstractValidator<SaveAssemblyWarehouseRequest>
+{
+    public SaveAssemblyWarehouseValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+    }
+}
+
+/// <summary>
+/// La tabla de precios de un contratista. El tope de filas es lo que cuida la puerta: quién
+/// decide si un número es razonable es el servicio, que es el que sabe cuál es cuál.
+/// </summary>
+public class SaveAssemblyRatesValidator : AbstractValidator<SaveAssemblyRatesRequest>
+{
+    public SaveAssemblyRatesValidator()
+    {
+        RuleFor(x => x.Rates).NotNull();
+        RuleFor(x => x.Rates.Count).LessThanOrEqualTo(500);
+
+        RuleForEach(x => x.Rates).ChildRules(r =>
+        {
+            r.RuleFor(x => x.ModelId).NotEmpty();
+            r.RuleFor(x => x.Charge).InclusiveBetween(0m, 100_000m);
+            r.RuleFor(x => x.TechnicianPay).InclusiveBetween(0m, 100_000m);
+        });
     }
 }
 

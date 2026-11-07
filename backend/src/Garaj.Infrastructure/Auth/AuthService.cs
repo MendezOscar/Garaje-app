@@ -295,6 +295,11 @@ public class AuthService(
             // que no puede es proponer los pasos, y eso lo decide la pantalla por el rol, no
             // este interruptor. Al cliente no le llega nunca.
             tenant.AssistantEnabled
+                && role is AppRoles.Owner or AppRoles.Manager or AppRoles.Technician,
+            // El técnico es el que registra la moto parado en la bodega, así que lo lleva.
+            // Lo que no ve es lo que el taller cobra, y eso no lo decide este interruptor:
+            // ese número no sale del servidor cuando pregunta un técnico.
+            tenant.AssemblyEnabled
                 && role is AppRoles.Owner or AppRoles.Manager or AppRoles.Technician);
     }
 

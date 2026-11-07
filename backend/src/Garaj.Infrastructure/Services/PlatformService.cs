@@ -323,6 +323,10 @@ public class PlatformService(
             tenant.AssistantCreditsPerDay = Math.Clamp(request.AssistantCreditsPerDay, 0, 2_000);
             tenant.AssistantMonthlyCapHnl = Math.Clamp(request.AssistantMonthlyCapHnl, 0m, 50_000m);
         }
+        // Fuera del if del plan a propósito: el armado no nace de ningún plan, así que mover
+        // al taller de Básico a Pro no se lo enciende, y volverlo a Básico no se lo apaga.
+        tenant.AssemblyEnabled = request.AssemblyEnabled;
+
         tenant.MonthlyFee = request.MonthlyFee;
         tenant.PaidThrough = request.PaidThrough;
         tenant.GraceDays = NormalizeGraceDays(request.GraceDays);
@@ -707,7 +711,8 @@ public class PlatformService(
             assistantSpentHnl,
             tenant.WorksWith,
             tenant.TaxId,
-            tenant.Address);
+            tenant.Address,
+            tenant.AssemblyEnabled);
     }
 
     /// <summary>Sin tope los días de gracia se vuelven «gratis para siempre» por un cero de más.</summary>

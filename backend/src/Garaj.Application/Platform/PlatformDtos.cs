@@ -53,7 +53,12 @@ public record PlatformTenantDto(
     WorkshopKind WorksWith = WorkshopKind.Vehicles,
     /// <summary>Su RTN, que es lo que lleva impreso la factura que le emitimos.</summary>
     string? TaxId = null,
-    string? Address = null);
+    string? Address = null,
+    /// <summary>
+    /// El armado de motos. No sale de ningún plan: es un módulo de contrato, y por eso ni se
+    /// enciende ni se apaga al mover al taller de plan.
+    /// </summary>
+    bool AssemblyEnabled = false);
 
 public record PlatformTenantDetailDto(
     PlatformTenantDto Tenant,
@@ -192,7 +197,8 @@ public record UpdateSubscriptionRequest(
     bool AssistantEnabled = false,
     int AssistantCreditsPerMonth = 0,
     int AssistantCreditsPerDay = 0,
-    decimal AssistantMonthlyCapHnl = 0m);
+    decimal AssistantMonthlyCapHnl = 0m,
+    bool AssemblyEnabled = false);
 
 /// <summary>
 /// Lo que hacemos nosotros con nuestros clientes: darlos de alta, cobrarles y, si hace falta,
