@@ -1,5 +1,6 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Appointments;
+using Garaj.Application.Assembly;
 using Garaj.Application.Assistant;
 using Garaj.Application.Auth;
 using Garaj.Application.Branches;
@@ -15,6 +16,7 @@ using Garaj.Application.Tenants;
 using Garaj.Application.Users;
 using Garaj.Application.VehicleScans;
 using Garaj.Application.WorkOrders;
+using Garaj.Infrastructure.Assembly;
 using Garaj.Infrastructure.Assistant;
 using Garaj.Infrastructure.Auth;
 using Garaj.Infrastructure.Identity;
@@ -139,6 +141,9 @@ public static class DependencyInjection
         services.AddScoped<IWorkStepsAssistant, WorkStepsAssistant>();
         services.AddScoped<IBusinessReadingService, BusinessReadingService>();
         services.AddScoped<ITechnicianQueryService, TechnicianQueryService>();
+
+        // Armado de motos. Va apagado en todos los talleres salvo donde se contrate.
+        services.AddScoped<IAssemblyCatalogService, AssemblyCatalogService>();
 
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.

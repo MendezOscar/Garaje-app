@@ -63,6 +63,7 @@ class CurrentUser {
     this.seesPrices = true,
     this.worksWith = WorkshopKind.vehiculos,
     this.assistantEnabled = false,
+    this.assemblyEnabled = false,
   });
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) => CurrentUser(
@@ -80,6 +81,7 @@ class CurrentUser {
         seesPrices: json['seesPrices'] as bool? ?? true,
         worksWith: WorkshopKind.fromValue(json['worksWith'] as int?),
         assistantEnabled: json['assistantEnabled'] as bool? ?? false,
+        assemblyEnabled: json['assemblyEnabled'] as bool? ?? false,
         subscription: json['subscription'] == null
             ? null
             : SubscriptionInfo.fromJson(json['subscription'] as Map<String, dynamic>),
@@ -109,6 +111,10 @@ class CurrentUser {
   /// Si este usuario tiene el asistente. Llega en false a quien no puede usarlo —el técnico y
   /// el cliente—, así que su pantalla no ofrece un botón que el servidor le va a negar.
   final bool assistantEnabled;
+
+  /// Si el taller tiene el armado de motos. El técnico también lo lleva: es él quien
+  /// registra la moto parado en la bodega.
+  final bool assemblyEnabled;
 
   /// Cómo va el taller con su mensualidad. **Null salvo para el Dueño**: el backend no se lo
   /// manda al Técnico ni al Cliente, así que aquí no hay que acordarse de esconderlo.

@@ -152,7 +152,13 @@ public enum MediaOwnerType
     /// venía?»— y porque son las que tienen que salir en la ficha de recepción, no las que
     /// se tomaron tres días después con el motor abierto.
     /// </summary>
-    Reception = 6
+    Reception = 6,
+
+    /// <summary>
+    /// La foto de la serie de una moto armada. Es la prueba de que esa moto existió y de que
+    /// la serie que se cobró es la que estaba en el chasis.
+    /// </summary>
+    MotorcycleAssembly = 7
 }
 
 public enum StockMovementType

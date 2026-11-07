@@ -50,7 +50,11 @@ public record CurrentUserDto(
     // taller solo la lee el Dueño, y el Encargado también arma órdenes. Dice que el taller lo
     // tiene, no qué puede hacer cada quien con él: proponer los pasos es de quien manda y
     // preguntar es también del técnico. Al cliente le llega en false siempre.
-    bool AssistantEnabled = false);
+    bool AssistantEnabled = false,
+    // Si el taller tiene el armado de motos. Va aquí por lo mismo que los otros dos: el
+    // técnico lo necesita —es él quien registra la moto en la bodega— y la ficha del taller
+    // solo la lee el Dueño. Al cliente le llega en false siempre.
+    bool AssemblyEnabled = false);
 
 public record BranchSummaryDto(Guid Id, string Name, string? Code);
 

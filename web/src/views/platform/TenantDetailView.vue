@@ -117,6 +117,7 @@ const plan = ref({
   diagnosticsEnabled: false,
   /** El asistente va aparte del diagnóstico: aquel es el del escáner. */
   assistantEnabled: false,
+  assemblyEnabled: false,
   assistantCreditsPerMonth: 450,
   assistantCreditsPerDay: 80,
   /** Tope de gasto en lempiras al mes. Este número no lo ve el taller. */
@@ -193,6 +194,7 @@ async function load() {
       technicianLimit: t.technicianLimit ?? '',
       diagnosticsEnabled: t.diagnosticsEnabled,
       assistantEnabled: t.assistantEnabled,
+      assemblyEnabled: t.assemblyEnabled,
       assistantCreditsPerMonth: t.assistantCreditsPerMonth,
       assistantCreditsPerDay: t.assistantCreditsPerDay,
       assistantMonthlyCapHnl: t.assistantMonthlyCapHnl,
@@ -330,6 +332,7 @@ function guardarPlan() {
         technicianLimit: plan.value.technicianLimit === '' ? null : Number(plan.value.technicianLimit),
         diagnosticsEnabled: plan.value.diagnosticsEnabled,
         assistantEnabled: plan.value.assistantEnabled,
+        assemblyEnabled: plan.value.assemblyEnabled,
         assistantCreditsPerMonth: Number(plan.value.assistantCreditsPerMonth) || 0,
         assistantCreditsPerDay: Number(plan.value.assistantCreditsPerDay) || 0,
         assistantMonthlyCapHnl: Number(plan.value.assistantMonthlyCapHnl) || 0,
@@ -684,6 +687,24 @@ onMounted(async () => {
                 El tope de gasto corta aunque le queden créditos, y el taller no lo ve.
               </p>
             </div>
+          </fieldset>
+
+          <!-- Fuera del fieldset de arriba a propósito: ese se deshabilita al cambiar de plan
+               porque los módulos se reescriben desde el plan. Este no sale de ningún plan, así
+               que ni se enciende al subir a Pro ni se apaga al bajar a Básico. -->
+          <fieldset class="modulos">
+            <legend>Por contrato</legend>
+
+            <label class="checkbox">
+              <input v-model="plan.assemblyEnabled" type="checkbox" />
+              <span>
+                Armado de motos
+                <em>
+                  Registrar cada moto armada en la bodega, y los reportes de facturación al
+                  contratista y de pago a los técnicos. No va con ningún plan.
+                </em>
+              </span>
+            </label>
           </fieldset>
 
           <p v-if="avisoDelPlan" class="aviso-plan">{{ avisoDelPlan }}</p>

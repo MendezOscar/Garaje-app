@@ -157,6 +157,10 @@ const navGroups = computed<
                   items: [
                     { to: { name: 'users' }, label: 'Usuarios' },
                     { to: { name: 'workshop' }, label: 'Datos del taller' },
+                    // Solo donde se contrató. No sale de ningún plan.
+                    ...(auth.hasAssembly
+                      ? [{ to: { name: 'assembly-catalog' }, label: 'Armado de motos' }]
+                      : []),
                   ],
                 },
               ]

@@ -52,6 +52,13 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
     public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
 
+    /// <summary>Armado de motos: el catálogo del contrato y la fila por moto armada.</summary>
+    public DbSet<AssemblyContractor> AssemblyContractors => Set<AssemblyContractor>();
+    public DbSet<AssemblyModel> AssemblyModels => Set<AssemblyModel>();
+    public DbSet<AssemblyRate> AssemblyRates => Set<AssemblyRate>();
+    public DbSet<AssemblyWarehouse> AssemblyWarehouses => Set<AssemblyWarehouse>();
+    public DbSet<MotorcycleAssembly> MotorcycleAssemblies => Set<MotorcycleAssembly>();
+
     /// <summary>Trabajos frecuentes: los pasos y repuestos de lo que el taller repite.</summary>
     public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();
     public DbSet<JobTemplateTask> JobTemplateTasks => Set<JobTemplateTask>();

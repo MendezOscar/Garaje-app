@@ -1468,6 +1468,8 @@ export interface PlatformTenant {
   /** Su RTN: es lo que lleva impreso la factura que le emitimos. */
   taxId: string | null
   address: string | null
+  /** El armado de motos. No sale de ningún plan: es un módulo de contrato. */
+  assemblyEnabled: boolean
 }
 
 /**
@@ -1922,4 +1924,34 @@ export interface VehicleScanHit {
   plate: string | null
   vehicleLabel: string
   customerName: string
+}
+
+/** Un contratista del armado de motos, con su tabla de precios por modelo. */
+export interface AssemblyContractor {
+  id: string
+  name: string
+  notes: string | null
+  isActive: boolean
+  rates: AssemblyRate[]
+}
+
+export interface AssemblyRate {
+  modelId: string
+  modelName: string
+  /** Lo que el contratista paga por armar una. El técnico no lo ve. */
+  charge: number
+  /** Lo que el taller le paga al técnico que la arma. */
+  technicianPay: number
+}
+
+export interface AssemblyModel {
+  id: string
+  name: string
+  isActive: boolean
+}
+
+export interface AssemblyWarehouse {
+  id: string
+  name: string
+  isActive: boolean
 }

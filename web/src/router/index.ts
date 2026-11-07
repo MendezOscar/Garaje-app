@@ -177,6 +177,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Owner] },
       },
       {
+        // El catálogo del contrato de armado de motos. Solo el Dueño: de aquí salen los dos
+        // precios, y uno de ellos es el que el técnico no puede ver.
+        path: 'armado',
+        name: 'assembly-catalog',
+        component: () => import('@/views/owner/AssemblyCatalogView.vue'),
+        meta: { roles: [Roles.Owner] },
+      },
+      {
         // La agenda: lo que el cliente apartó por el enlace o desde la app. El Encargado ve
         // la de sus sucursales.
         path: 'citas',
