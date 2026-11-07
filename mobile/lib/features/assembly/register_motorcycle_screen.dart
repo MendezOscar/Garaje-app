@@ -224,9 +224,6 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              _Foto(foto: _foto, onTomar: _tomarFoto, onQuitar: () => setState(() => _foto = null)),
-              const SizedBox(height: 16),
-
               // Escanear primero: el VIN viene en código de barras en la etiqueta de la
               // caja, y leerlo de ahí no se equivoca como se equivoca alguien tecleando
               // diecisiete caracteres. Teclear sigue estando, para la etiqueta rota.
@@ -313,6 +310,9 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
                 ),
               ),
 
+              const SizedBox(height: 4),
+              _Foto(foto: _foto, onTomar: _tomarFoto, onQuitar: () => setState(() => _foto = null)),
+
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -341,23 +341,8 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
                   minimumSize: const Size.fromHeight(52),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                label: Text(
-                  _guardando
-                      ? 'Registrando…'
-                      : _foto == null
-                          ? 'Registrar sin foto'
-                          : 'Registrar la moto',
-                ),
+                label: Text(_guardando ? 'Registrando…' : 'Registrar la moto'),
               ),
-
-              if (_foto == null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'La foto de la serie es lo que respalda el cobro. Tómela si puede.',
-                  style: theme.textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ],
 
               if (_registradas.isNotEmpty) ...[
                 const SizedBox(height: 24),
@@ -394,7 +379,15 @@ class UpperCaseTextFormatter extends TextInputFormatter {
       nuevo.copyWith(text: nuevo.text.toUpperCase());
 }
 
-/// La foto de la serie, grande: es el primer paso y lo que respalda el cobro.
+/// La foto de la etiqueta: opcional y callada.
+///
+/// Antes era el primer paso y la pantalla la pedía, porque la foto hacía dos trabajos:
+/// llevarle la serie al dueño —que la leía del grupo de WhatsApp y la tecleaba— y servir de
+/// constancia. El código de barras se quedó con el primero, que era el pesado.
+///
+/// Queda el segundo, que importa el día que el contratista discuta una factura: es lo único
+/// que acredita que alguien estuvo frente a esa caja. Así que sigue aquí, un renglón, sin
+/// pedirla y sin reprochar que falte.
 class _Foto extends StatelessWidget {
   const _Foto({required this.foto, required this.onTomar, required this.onQuitar});
 
@@ -404,40 +397,26 @@ class _Foto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (foto == null) {
-      return OutlinedButton.icon(
-        onPressed: onTomar,
-        icon: const Icon(Icons.photo_camera_outlined),
-        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(96)),
-        label: const Text('Tomar la foto de la serie'),
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onTomar,
+          icon: const Icon(Icons.photo_camera_outlined, size: 18),
+          label: const Text('Agregar una foto de la etiqueta'),
+        ),
       );
     }
 
-    return Stack(
-      alignment: Alignment.topRight,
+    return Row(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            foto!,
-            height: 180,
-            width: double.infinity,
-            fit: BoxFit.cover,
-          ),
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(foto!, height: 56, width: 56, fit: BoxFit.cover),
         ),
-        Padding(
-          padding: const EdgeInsets.all(6),
-          child: IconButton.filledTonal(
-            onPressed: onQuitar,
-            icon: const Icon(Icons.close),
-            tooltip: 'Quitar la foto',
-            style: IconButton.styleFrom(
-              backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.85),
-            ),
-          ),
-        ),
+        const SizedBox(width: 12),
+        const Expanded(child: Text('Foto de la etiqueta')),
+        TextButton(onPressed: onQuitar, child: const Text('Quitar')),
       ],
     );
   }
