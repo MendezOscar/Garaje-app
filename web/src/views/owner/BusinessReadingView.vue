@@ -102,9 +102,32 @@ const titulo = computed(() => {
   return `${que} del ${formatDate(l.periodFrom)} al ${formatDate(l.periodTo)}`
 })
 
-const pdfUrl = computed(() =>
-  abierta.value?.id ? businessReadingsApi.pdfUrl(abierta.value.id) : null,
-)
+const bajando = ref(false)
+
+async function bajarPdf() {
+  // Sin id no hay PDF: es la lectura que no se armó por falta de volumen, que solo trae el
+  // motivo.
+  const lectura = abierta.value
+  if (!lectura?.id) return
+
+  bajando.value = true
+  error.value = ''
+
+  try {
+    // El nombre se arma con las fechas como vienen del servidor y no con `titulo`: ese lleva
+    // la fecha con barras, y una barra en el nombre de un archivo no es un nombre.
+    const que = lectura.kind === 1 ? 'Semana' : 'Mes'
+
+    await businessReadingsApi.downloadPdf(
+      lectura.id,
+      `Lectura ${que} ${lectura.periodFrom} a ${lectura.periodTo}`,
+    )
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    bajando.value = false
+  }
+}
 </script>
 
 <template>
@@ -156,7 +179,15 @@ const pdfUrl = computed(() =>
         <template v-if="abierta">
           <div class="cabecera">
             <h2>{{ titulo }}</h2>
-            <a v-if="pdfUrl" :href="pdfUrl" target="_blank" rel="noopener">Bajar en PDF</a>
+            <button
+              v-if="abierta.id"
+              type="button"
+              class="link"
+              :disabled="bajando"
+              @click="bajarPdf"
+            >
+              {{ bajando ? 'Armando el PDF…' : 'Bajar en PDF' }}
+            </button>
           </div>
 
           <!-- Sin volumen no se genera, y se dice por qué: inventar una tendencia con cuatro
