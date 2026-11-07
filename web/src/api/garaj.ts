@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { api, apiUrl, download } from './client'
+import { api, download } from './client'
 import type {
   AcceptWorkStepsResult,
   BusinessReading,
@@ -1449,8 +1449,12 @@ export const businessReadingsApi = {
     )
     return data
   },
-  pdfUrl(id: string) {
-    return apiUrl(`/api/assistant/business-readings/${id}/pdf`)
+  /**
+   * Pasa por `download` y no por un enlace suelto: la ruta pide sesión, y un `<a href>` la
+   * abre en una pestaña nueva que no manda la cabecera Authorization. Eso daba un 401.
+   */
+  async downloadPdf(id: string, nombre: string) {
+    await download(`/api/assistant/business-readings/${id}/pdf`, `${nombre}.pdf`)
   },
 }
 
