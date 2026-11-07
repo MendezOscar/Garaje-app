@@ -1,0 +1,29 @@
+{
+  // Al abrir un .md, VS Code enseña la vista previa en vez del código fuente. Estos
+  // documentos se leen mucho más de lo que se editan, y leer markdown en crudo —con los
+  // asteriscos y las barras de las tablas— es lo que los volvía ilegibles.
+  //
+  // Para editar uno: clic derecho sobre el archivo → Open With… → Text Editor.
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+  },
+
+  // La vista previa, cómoda de leer: línea que no se estira de lado a lado del monitor.
+  "markdown.preview.fontSize": 15,
+  "markdown.preview.lineHeight": 1.6,
+
+  // El corrector ortográfico subrayaba cada palabra en español como desconocida, que es la
+  // mitad del ruido de la pantalla. Este proyecto está escrito en español.
+  "cSpell.language": "es,en",
+
+  // El markdown se escribe con saltos a los 95 caracteres; sin esto, cada párrafo es una
+  // línea larguísima que hay que desplazar de lado.
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    }
+  }
+}
