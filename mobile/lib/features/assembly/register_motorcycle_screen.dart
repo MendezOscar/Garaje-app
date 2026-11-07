@@ -12,6 +12,7 @@ import '../../core/models/assembly.dart';
 import '../../core/models/media.dart';
 import '../../core/sync/upload_queue.dart';
 import '../work_orders/photo_capture.dart';
+import 'escanear_etiqueta_screen.dart';
 
 /// «Armé una moto»: el registro en la bodega, con la moto delante.
 ///
@@ -100,6 +101,19 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
         // Que la propuesta no se pueda calcular no es un error que detenga nada.
       }
     });
+  }
+
+  Future<void> _escanear() async {
+    final serie = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const EscanearEtiquetaScreen()),
+    );
+
+    if (serie == null || !mounted) return;
+
+    // Cae en el campo, no se guarda: la confirma quien tiene la caja delante. Y al escribirla
+    // se dispara la propuesta de modelo, igual que si la hubiera tecleado.
+    _serie.text = serie;
+    _alTeclearLaSerie();
   }
 
   Future<void> _tomarFoto() async {
@@ -212,6 +226,17 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
             children: [
               _Foto(foto: _foto, onTomar: _tomarFoto, onQuitar: () => setState(() => _foto = null)),
               const SizedBox(height: 16),
+
+              // Escanear primero: el VIN viene en código de barras en la etiqueta de la
+              // caja, y leerlo de ahí no se equivoca como se equivoca alguien tecleando
+              // diecisiete caracteres. Teclear sigue estando, para la etiqueta rota.
+              OutlinedButton.icon(
+                onPressed: _escanear,
+                icon: const Icon(Icons.qr_code_scanner),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                label: const Text('Escanear la etiqueta de la caja'),
+              ),
+              const SizedBox(height: 12),
 
               TextField(
                 controller: _serie,
