@@ -1,0 +1,1051 @@
+<title>Probar el armado de motos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* Guion de campo: una columna de pasos marcables, cada sección con su responsable.
+     Colores, tipografías y espacios salen del sistema de diseño de GarajApp. */
+  :root {
+    --brand: #1f6feb;
+    --brand-deep: #124293;
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-alt: #eef0f4;
+    --border: #d9dde4;
+    --text: #14171c;
+    --text-muted: #646e7a;
+    --danger: #c0392b;
+    --warning-text: #8a5a00;
+    --success-text: #137551;
+    --warning-fill: #fdf5e4;
+    --danger-fill: #fcefed;
+
+    --display: 'Space Grotesk', system-ui, sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand: #5c9dff;
+      --brand-deep: #5c9dff;
+      --bg: #14161a;
+      --surface: #1c1f26;
+      --surface-alt: #262a33;
+      --border: #333944;
+      --text: #e8eaed;
+      --text-muted: #9aa3ae;
+      --danger: #ff6b5b;
+      --warning-text: #ffc14d;
+      --success-text: #46c892;
+      --warning-fill: #2a2416;
+      --danger-fill: #2c1b19;
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --brand: #5c9dff;
+    --brand-deep: #5c9dff;
+    --bg: #14161a;
+    --surface: #1c1f26;
+    --surface-alt: #262a33;
+    --border: #333944;
+    --text: #e8eaed;
+    --text-muted: #9aa3ae;
+    --danger: #ff6b5b;
+    --warning-text: #ffc14d;
+    --success-text: #46c892;
+    --warning-fill: #2a2416;
+    --danger-fill: #2c1b19;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* La banda bajo la barra del sistema, para que nada suba por detrás del encabezado. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top, 0px);
+    background: var(--surface);
+    z-index: 10;
+  }
+
+  .hoja {
+    max-width: 50rem;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 48px;
+  }
+
+  /* Encabezado pegajoso: el avance se mira sin volver arriba. */
+  .barra {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-block: 12px;
+    margin-bottom: 24px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .barra h1 {
+    font-family: var(--display);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    margin: 0;
+    flex: 1 1 14rem;
+    min-width: 0;
+    text-wrap: balance;
+  }
+
+  .avance {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .avance .cuenta {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .riel {
+    width: 5rem;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    overflow: hidden;
+  }
+
+  .riel span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--brand);
+    transition: width 0.2s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .riel span { transition: none; }
+  }
+
+  .limpiar {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 14px;
+    padding: 4px 10px;
+    min-height: 32px;
+    cursor: pointer;
+  }
+
+  .limpiar:hover { background: var(--surface-alt); }
+
+  .entrada {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    margin-bottom: 24px;
+  }
+
+  .entrada p { margin: 0 0 8px; }
+  .entrada p:last-child { margin-bottom: 0; }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .seccion { margin-bottom: 32px; }
+
+  .titulo-seccion {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .numero {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brand);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .quien {
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .donde {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+  }
+
+  .donde b { color: var(--text); font-weight: 600; }
+
+  .pasos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Cada paso es una tarjeta con su casilla. Se separan con borde, no con sombra. */
+  .paso {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    cursor: pointer;
+    align-items: start;
+  }
+
+  .paso input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 2px 0 0;
+    accent-color: var(--brand);
+    cursor: pointer;
+    flex: none;
+  }
+
+  .paso input:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+  }
+
+  .paso .que { margin: 0; }
+  .paso .que b { font-weight: 600; }
+
+  .paso .espera {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .paso .espera b { color: var(--success-text); font-weight: 600; }
+
+  .paso:has(input:checked) { background: var(--surface-alt); }
+  .paso:has(input:checked) .que { color: var(--text-muted); }
+
+  /* Lo que, si falla, para la prueba. Franja roja a la izquierda y nada más. */
+  .paso.critico {
+    border-left: 3px solid var(--danger);
+    background: var(--danger-fill);
+  }
+
+  .paso.critico:has(input:checked) { background: var(--surface-alt); }
+
+  .marca {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--danger);
+    margin-right: 6px;
+  }
+
+  .nota {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warning-text);
+    border-radius: 6px;
+    background: var(--warning-fill);
+    font-size: 14px;
+    margin: 8px 0 0;
+  }
+
+  .nota p { margin: 0; }
+
+  .cerrada {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+
+  .cerrada h2 { margin-bottom: 12px; }
+
+  .lista {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .lista b { font-weight: 600; }
+
+  .tabla-caja { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 28rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  th {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  td b { color: var(--danger); font-weight: 600; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .pie {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 30rem) {
+    .barra h1 { font-size: 18px; }
+    .paso { padding: 12px; }
+  }
+</style>
+
+<div class="hoja">
+  <header class="barra">
+    <h1>Probar el armado de motos</h1>
+    <div class="avance">
+      <div class="riel"><span id="riel"></span></div>
+      <span class="cuenta"><span id="hechos">0</span>/<span id="total">0</span></span>
+      <button type="button" class="limpiar" id="limpiar">Empezar de nuevo</button>
+    </div>
+  </header>
+
+  <div class="entrada">
+    <p>
+      Del catálogo al corte. Cada paso dice qué hacer y qué tiene que pasar; lo marcado se
+      guarda en este teléfono o computadora, así que puede dejarlo a medias y volver.
+    </p>
+    <p>
+      Hacen falta <b>tres sesiones</b>: el Dueño en el panel, un Técnico en un teléfono, y un
+      segundo Técnico para una sola comprobación.
+    </p>
+  </div>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <h2>Antes de empezar</h2>
+    </div>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que"><b>El taller del contrato</b>, no Taller Demo.</p>
+          <p class="espera">Aquí se registran series reales.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            En el panel de plataforma, <b>Armado de motos</b> encendido, en el bloque
+            «Por contrato».
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            La app en <b class="mono">1.9.0 (21)</b> o mayor en cada teléfono. El panel se
+            actualiza solo.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Salir y volver a entrar</b> en el panel y en la app después de encender el
+            módulo.
+          </p>
+          <p class="espera">El interruptor viaja en la sesión: una sesión vieja no lo ve.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Tres o cuatro <b>motos de verdad</b> a mano, o las fotos de sus chasis con la
+            serie legible.
+          </p>
+        </div>
+      </label>
+    </div>
+    <div class="nota">
+      <p>
+        El orden importa. Sin contratista, modelos con precio y bodega, la pantalla del
+        técnico no deja registrar nada, y es correcto que así sea.
+      </p>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">1</span>
+      <h2>El contrato</h2>
+      <span class="quien">Dueño</span>
+    </div>
+    <p class="donde">En el panel: <b>Ajustes → Armado de motos</b>.</p>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Pestaña <b>Modelos</b>: los que el taller de verdad arma, escritos como los
+            nombra el contratista.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Pestaña <b>Bodegas</b>: los lugares a los que va el técnico.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Pestaña <b>Contratistas</b>: el contratista, y después <b>Precios</b>. Por cada
+            modelo, lo que se cobra y lo que se le paga al técnico.
+          </p>
+          <p class="espera">La tercera columna, <b>Queda</b>, se calcula sola.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Ponga el <b>pago más alto que el cobro</b> a propósito y guarde.
+          </p>
+          <p class="espera">
+            <b>Tiene que rechazarlo</b> y decir que revise si los números están cambiados de
+            columna.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Llene <b>un solo número</b> de un modelo y guarde.</p>
+          <p class="espera">
+            <b>Esa fila no se guarda</b>: queda como modelo todavía no negociado.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Guarde, vuelva a abrir, cambie un precio y guarde otra vez.
+          </p>
+          <p class="espera"><b>Las mismas filas</b>, con el precio nuevo. Si se duplican, pare.</p>
+        </div>
+      </label>
+    </div>
+    <div class="nota">
+      <p>
+        Si un modelo no deja algo razonable en la columna <b>Queda</b>, ese es el dato que el
+        taller nunca tuvo en el Excel. Vale la pena pararse ahí un minuto con el dueño.
+      </p>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">2</span>
+      <h2>El registro en la bodega</h2>
+      <span class="quien">Técnico</span>
+    </div>
+    <p class="donde">En el teléfono: <b>Mi trabajo → Armé una moto</b>.</p>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>El camino bueno.</b> Foto de la serie, teclee la serie, elija modelo y bodega,
+            Registrar la moto.
+          </p>
+          <p class="espera">
+            Guarda <b>sin salir de la pantalla</b>, limpia la serie y la foto, <b>deja puestos
+            el modelo y la bodega</b> —son los mismos toda la tarde— y aparece abajo con lo
+            que le toca a él.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>El modelo se propone solo.</b> Registre una segunda moto del mismo lote: los
+            primeros ocho caracteres iguales, el final distinto.
+          </p>
+          <p class="espera">
+            Sale <b>«Series como esta han sido FT150 una vez. Confírmelo con la moto»</b> y el
+            modelo queda elegido. Cámbielo a otro: tiene que dejarse.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Teclee una serie de un lote <b>que nunca se ha registrado</b>.</p>
+          <p class="espera">
+            <b>No propone nada.</b> Que se calle cuando no sabe es parte de la prueba.
+          </p>
+        </div>
+      </label>
+      <label class="paso critico">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <span class="marca">No puede fallar</span>
+            <b>La serie repetida.</b> Registre una serie que ya está, y después la misma
+            <span class="mono">con guiones y espacios</span>.
+          </p>
+          <p class="espera">
+            Las dos rebotan con «ya está registrada». Es la regla que el Excel nunca pudo
+            imponer: una serie repetida es una moto cobrada dos veces.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>El modelo sin precio.</b> Que el dueño agregue un modelo nuevo sin ponerle
+            precio, e intente registrarlo.
+          </p>
+          <p class="espera">
+            <b>No se registra.</b> Dice que ese modelo no tiene precio con ese contratista. En
+            cero, esa moto se armaría gratis y nadie lo notaría hasta cuadrar el mes.
+          </p>
+        </div>
+      </label>
+      <label class="paso critico">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <span class="marca">No puede fallar</span>
+            <b>Que no se pierda lo tecleado.</b> Ponga el teléfono en modo avión con la serie
+            ya escrita y toque Registrar.
+          </p>
+          <p class="espera">
+            Sale el error <b>y se queda todo en pantalla</b>: serie, modelo, bodega y foto.
+            Quite el modo avión y reintente: tiene que entrar.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que"><b>La foto.</b> Registre una sin tomar foto.</p>
+          <p class="espera">
+            El botón dice <b>«Registrar sin foto»</b>, a la vista, y deja guardar igual. Con
+            foto, sube sola; sin señal, sube después.
+          </p>
+        </div>
+      </label>
+    </div>
+    <div class="nota">
+      <p>
+        El modo avión es la prueba que decide si la función sobrevive la primera semana.
+        Perder una serie ya escrita es lo que manda a cualquiera de vuelta al grupo de
+        WhatsApp esa misma tarde.
+      </p>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">3</span>
+      <h2>Lo que el técnico no puede ver</h2>
+      <span class="quien">Dos técnicos</span>
+    </div>
+    <p class="donde">La comprobación más corta y la que más importa.</p>
+    <div class="pasos">
+      <label class="paso critico">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <span class="marca">No puede fallar</span>
+            En <b>Mis motos armadas</b>: sale cuántas lleva y lo que le corresponde a él.
+          </p>
+          <p class="espera">
+            <b>En ninguna parte sale lo que el taller le cobra al contratista.</b>
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Entre con el <b>segundo técnico</b>.</p>
+          <p class="espera">Ve <b>solo las suyas</b>.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Busque los menús del dueño con la sesión del técnico.</p>
+          <p class="espera">
+            <b>No tiene</b> Ajustes → Armado de motos ni Dinero → Motos armadas.
+          </p>
+        </div>
+      </label>
+    </div>
+    <div class="nota">
+      <p>
+        No está escondido en la pantalla: ese número no sale del servidor cuando pregunta un
+        técnico. Si alguna vez lo ve, pare y avise.
+      </p>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">4</span>
+      <h2>El mes del dueño</h2>
+      <span class="quien">Dueño</span>
+    </div>
+    <p class="donde">En el panel: <b>Dinero → Motos armadas</b>.</p>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Los cuatro números.</b> Con el mes puesto, arriba salen: cuántas motos, lo que
+            se cobra, lo que se paga y lo que queda para el taller.
+          </p>
+          <p class="espera">
+            Compruebe a mano que <b>el tercero más el cuarto dan el segundo</b>.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Ponga el filtro en <b>un solo técnico</b>.</p>
+          <p class="espera">
+            <b>Los cuatro números cambian.</b> Son del filtro entero, no de lo que se ve en
+            pantalla.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Filtre por bodega, por modelo y <b>por parte de la serie</b> —los últimos dígitos,
+            como se copian del chasis—.
+          </p>
+          <p class="espera">La lista y los cuatro números se mueven juntos.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Corregir y borrar.</b> Borre una registrada por error. A otra, cámbiele el
+            modelo.
+          </p>
+          <p class="espera"><b>Los importes se recalculan</b> con la tarifa de ese modelo.</p>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">5</span>
+      <h2>Los dos reportes</h2>
+      <span class="quien">Dueño</span>
+    </div>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Facturación.</b> Elija contratista y periodo, y baje el Excel.
+          </p>
+          <p class="espera">
+            Las columnas son <b>fecha, serie, modelo, técnico, bodega, cobro</b> —las mismas
+            de la hoja que el contratista ya recibe hoy—.
+          </p>
+        </div>
+      </label>
+      <label class="paso critico">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <span class="marca">No puede fallar</span>
+            Abra el Excel y mire la columna de la serie.
+          </p>
+          <p class="espera">
+            <b>Es texto, no número.</b> Una serie que empieza con ceros los pierde si Excel la
+            lee como número, y una serie sin sus ceros no es la serie.
+          </p>
+        </div>
+      </label>
+      <label class="paso critico">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <span class="marca">No puede fallar</span>
+            El total del pie del Excel contra el número de la pantalla.
+          </p>
+          <p class="espera">
+            <b>Cuadran.</b> Un reporte que no cuadra con la pantalla de la que salió es peor
+            que no tener reporte.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Baje también el <b>PDF</b> y compárelo con el Excel.</p>
+          <p class="espera">Dicen lo mismo.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Intente bajar el de facturación <b>sin elegir contratista</b>.</p>
+          <p class="espera">
+            <b>No deja.</b> Mezclar dos contratos en una hoja es el error que nadie detecta
+            hasta que se la rechazan.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Pago a técnicos.</b> Una línea por técnico con cuántas y cuánto. Baje el PDF.
+          </p>
+          <p class="espera">
+            Trae <b>dos líneas de firma</b> al pie y <b>ninguna columna con lo que el taller
+            cobra</b>. Esa hoja termina en manos del técnico.
+          </p>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">6</span>
+      <h2>El corte</h2>
+      <span class="quien">Dueño</span>
+    </div>
+    <p class="donde">Es el corazón de esto: lo que contesta «¿esto ya lo cobré?».</p>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Cerrar la facturación del periodo.</b> Le pide el número de factura —puede
+            dejarlo vacío— y le avisa de que esas motos quedan congeladas.
+          </p>
+          <p class="espera">Las motos salen marcadas <b>«facturada»</b> en la lista.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Ponga el filtro en <b>«Solo lo que falta facturar»</b>.</p>
+          <p class="espera">La lista queda <b>vacía</b>.</p>
+        </div>
+      </label>
+      <label class="paso critico">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <span class="marca">No puede fallar</span>
+            <b>Vuelva a cerrar el mismo periodo.</b>
+          </p>
+          <p class="espera">
+            Dice que <b>no hay nada pendiente</b>. Es lo que impide cobrar dos veces el mismo
+            mes.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Intente <b>corregir</b> una moto facturada, y después <b>borrarla</b>.</p>
+          <p class="espera">
+            Las dos rebotan diciendo que reabra el corte. Del otro lado hay una factura
+            emitida.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Pestaña <b>Cortes → Reabrir</b>.</p>
+          <p class="espera">
+            El aviso advierte de que del otro lado hay una factura o un pago ya entregado. Al
+            reabrir, <b>esas motos vuelven a estar pendientes</b> y se pueden corregir.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            <b>Facturar no es pagar.</b> Con el periodo ya facturado, filtre por «Solo lo que
+            falta pagar».
+          </p>
+          <p class="espera">
+            Esas motos están <b>facturadas pero no pagadas</b>. Cierre el pago de un técnico y
+            compruebe que después salen con los dos sellos.
+          </p>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <span class="numero">7</span>
+      <h2>El Excel de antes</h2>
+      <span class="quien">Dueño</span>
+    </div>
+    <p class="donde">
+      Pestaña <b>Traer el Excel</b>. Columnas, en orden:
+      <b>fecha, serie, modelo, técnico, cobro, bodega</b>.
+    </p>
+    <div class="pasos">
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">
+            Elija el contratista arriba, suba el archivo y use <b>«Ver qué entraría»</b>.
+          </p>
+          <p class="espera">Sale la lista <b>fila por fila con el motivo</b> de cada rechazo.</p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Pruebe a propósito con una hoja que traiga cosas que no calzan.</p>
+          <p class="espera">
+            Se rechazan, con el nombre escrito: un <b>modelo</b> que no está en el catálogo,
+            una <b>bodega</b> que no está, un <b>técnico</b> que no es usuario, una
+            <b>serie</b> ya registrada, y <b>la misma serie dos veces</b> en la hoja.
+          </p>
+        </div>
+      </label>
+      <label class="paso">
+        <input type="checkbox">
+        <div>
+          <p class="que">Con la vista previa limpia, <b>Guardar</b>.</p>
+          <p class="espera">
+            En la lista, esas motos entraron con <b>su fecha vieja</b> y su cobro de la hoja.
+          </p>
+        </div>
+      </label>
+    </div>
+    <div class="nota">
+      <p>
+        No crea catálogo a propósito. Si lo creara, una hoja con «FT150», «Ft 150» y «ft-150»
+        dejaría tres modelos y el precio colgando de uno solo.
+      </p>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="cerrada">
+      <h2>Lo que este módulo no hace</h2>
+      <p class="donde">Dígalo antes de que lo pregunten, que es mejor que descubrirlo.</p>
+      <ul class="lista">
+        <li>
+          <b>No lee la serie de la foto.</b> El técnico la teclea. Es lo siguiente que se puede
+          evaluar, con el costo medido; hoy no va.
+        </li>
+        <li>
+          <b>No saca el modelo del número de serie</b> por sí solo. Lo aprende de lo que este
+          taller registra, y por eso la primera moto de cada lote se teclea completa.
+        </li>
+        <li>
+          <b>No factura.</b> Saca el reporte con el que se factura; la factura la emite el
+          taller donde siempre.
+        </li>
+        <li>
+          <b>No hay modo sin conexión.</b> El registro necesita señal. Lo que aguanta sin ella
+          es la foto, que sube después.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="titulo-seccion">
+      <h2>Qué hacer si algo falla</h2>
+    </div>
+    <div class="tabla-caja">
+      <table>
+        <thead>
+          <tr><th>Lo que se ve</th><th>Qué es</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>No sale el menú ni el botón</td>
+            <td>La sesión es vieja: salir y volver a entrar. O falta encender el módulo</td>
+          </tr>
+          <tr>
+            <td>«Falta el contrato» en el teléfono</td>
+            <td>No hay contratista, modelos o bodegas cargados</td>
+          </tr>
+          <tr>
+            <td>«Ese modelo no tiene precio con ese contratista»</td>
+            <td>Funcionó: falta ponerle precio en la ficha del contratista</td>
+          </tr>
+          <tr>
+            <td>«La serie ya está registrada»</td>
+            <td>Funcionó. Compruebe que de verdad sea la misma moto</td>
+          </tr>
+          <tr>
+            <td>Un técnico ve lo que el taller cobra</td>
+            <td><b>Pare y avise.</b> Es lo único de esta lista que no puede esperar</td>
+          </tr>
+          <tr>
+            <td>El total del reporte no cuadra con la pantalla</td>
+            <td><b>Pare.</b> Un reporte que no cuadra con la pantalla de la que salió es peor que no tener reporte</td>
+          </tr>
+          <tr>
+            <td>Una serie sale sin sus ceros en el Excel</td>
+            <td><b>Pare.</b> Es la celda leída como número</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="pie">
+    GarajApp · Armado de motos. Antes de que el taller dependa de esto, enséñele el reporte de
+    facturación al contratista: el único que puede decir si sirve es el que lo tiene que
+    aceptar y pagar.
+  </p>
+</div>
+
+<script>
+  (function () {
+    var CLAVE = 'garajapp.pruebas-armado.v1';
+    var casillas = Array.prototype.slice.call(
+      document.querySelectorAll('.paso input[type="checkbox"]')
+    );
+
+    casillas.forEach(function (c, i) { c.id = 'paso-' + i; });
+    document.getElementById('total').textContent = String(casillas.length);
+
+    function leer() {
+      try {
+        var guardado = window.localStorage.getItem(CLAVE);
+        return guardado ? JSON.parse(guardado) : [];
+      } catch (e) {
+        // Ventana privada, datos bloqueados o vista previa: la hoja sirve igual, sin memoria.
+        return [];
+      }
+    }
+
+    function escribir(marcados) {
+      try {
+        window.localStorage.setItem(CLAVE, JSON.stringify(marcados));
+      } catch (e) {
+        // Lo mismo: no poder guardar no puede romper la hoja.
+      }
+    }
+
+    function pintar() {
+      var hechos = casillas.filter(function (c) { return c.checked; }).length;
+      document.getElementById('hechos').textContent = String(hechos);
+      document.getElementById('riel').style.width =
+        casillas.length ? (hechos / casillas.length) * 100 + '%' : '0%';
+    }
+
+    var marcados = leer();
+
+    casillas.forEach(function (c) {
+      if (marcados.indexOf(c.id) !== -1) c.checked = true;
+
+      c.addEventListener('change', function () {
+        var ahora = casillas
+          .filter(function (x) { return x.checked; })
+          .map(function (x) { return x.id; });
+
+        escribir(ahora);
+        pintar();
+      });
+    });
+
+    document.getElementById('limpiar').addEventListener('click', function () {
+      casillas.forEach(function (c) { c.checked = false; });
+      escribir([]);
+      pintar();
+    });
+
+    pintar();
+  })();
+</script>
