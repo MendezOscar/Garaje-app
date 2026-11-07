@@ -147,6 +147,11 @@ const rutasDelTaller = {
   '/inventario',
   '/requerimientos',
   '/historial',
+
+  // El armado de motos. Lo abre el Técnico —es quien registra en la bodega— y también quien
+  // manda; el backend responde 404 al taller que no tiene el módulo contratado.
+  '/armar-moto',
+  '/motos-armadas',
 };
 
 /// El árbol de rutas, aparte del router.

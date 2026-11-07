@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garaj_app/core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
@@ -33,40 +35,63 @@ void main() {
     expect(repetidos, isEmpty, reason: 'estas rutas están declaradas dos veces');
   });
 
-  test('todas las rutas del menú existen en el router', () {
-    final declaradas = garajRoutes().whereType<GoRoute>().map((r) => r.path).toSet();
+  // Las rutas a las que de verdad navega la aplicación, leídas del código y no escritas a
+  // mano aquí.
+  //
+  // La versión anterior llevaba la lista a mano, y por eso no sirvió: se agregaron
+  // «/armar-moto» y «/motos-armadas» al menú, nadie tocó esta lista, la prueba siguió en
+  // verde y los tres botones del armado abrían la pantalla de inicio. Una lista que hay que
+  // acordarse de actualizar no protege de olvidarse de actualizar una lista.
+  Set<String> rutasQueLaAppAbre() {
+    final destinos = <String>{};
 
-    // Las que el menú «Más» usa. Si alguien renombra una ruta y olvida el menú, el toque
-    // termina en el inicio del perfil sin decir por qué.
-    const delMenu = [
-      '/requerimientos',
-      '/recordatorios',
-      '/reclamos',
-      '/por-cobrar',
-      '/ventas',
-      '/reportes',
-      '/resultados',
-      '/clientes',
-      '/historial',
-      '/mano-de-obra',
-      '/trabajos-frecuentes',
-      '/inventario',
-      '/usuarios',
-      '/ajustes',
-      '/avisos',
-      '/ordenes',
-      '/nueva-cita',
+    // `route: '/x'` en las filas del menú, y `context.push('/x')` o `.go('/x')` en el resto.
+    final patrones = [
+      RegExp(r"""route:\s*'(/[a-z0-9\-/]+)'"""),
+      RegExp(r"""\.(?:push|go|replace)\(\s*'(/[a-z0-9\-/]+)'"""),
     ];
 
-    for (final ruta in delMenu) {
+    for (final archivo in Directory('lib').listSync(recursive: true)) {
+      if (archivo is! File || !archivo.path.endsWith('.dart')) continue;
+
+      final codigo = archivo.readAsStringSync();
+
+      for (final patron in patrones) {
+        for (final hallazgo in patron.allMatches(codigo)) {
+          destinos.add(hallazgo.group(1)!);
+        }
+      }
+    }
+
+    return destinos;
+  }
+
+  test('todas las rutas a las que navega la app existen en el router', () {
+    final declaradas = garajRoutes().whereType<GoRoute>().map((r) => r.path).toSet();
+
+    for (final ruta in rutasQueLaAppAbre()) {
       expect(declaradas, contains(ruta), reason: '$ruta no está declarada en el router');
     }
   });
 
-  test('el redirect deja pasar todas las rutas del menú', () {
-    // Lo que el redirect deja pasar: lo del Dueño, lo del taller, y las que valen para
-    // cualquier perfil porque la pantalla decide adentro qué enseña.
-    const deCualquiera = {'/avisos', '/nueva-cita', '/ordenes'};
+  test('el redirect deja pasar todas las rutas a las que navega la app', () {
+    // Las que valen para cualquier perfil porque la pantalla decide adentro qué enseña, más
+    // los inicios de cada perfil y las pantallas sin sesión, que el redirect trata aparte.
+    const deCualquiera = {
+      '/avisos',
+      '/nueva-cita',
+      '/ordenes',
+      '/adjuntar-informe',
+      '/pedir-cita',
+      '/',
+      '/login',
+      '/bienvenida',
+      '/taller',
+      '/mis-asignaciones',
+      '/mis-vehiculos',
+      '/plataforma',
+    };
+
     final permitidas = {
       ...rutasDelDueno,
       ...rutasDelMando,
@@ -74,31 +99,11 @@ void main() {
       ...deCualquiera,
     };
 
-    const delMenu = [
-      '/requerimientos',
-      '/recordatorios',
-      '/reclamos',
-      '/por-cobrar',
-      '/ventas',
-      '/reportes',
-      '/resultados',
-      '/clientes',
-      '/historial',
-      '/mano-de-obra',
-      '/trabajos-frecuentes',
-      '/inventario',
-      '/usuarios',
-      '/ajustes',
-      '/avisos',
-      '/ordenes',
-      '/nueva-cita',
-    ];
-
-    for (final ruta in delMenu) {
+    for (final ruta in rutasQueLaAppAbre()) {
       expect(
         permitidas,
         contains(ruta),
-        reason: '$ruta no está en las listas del redirect: el menú la abre y cae en el inicio',
+        reason: '$ruta no está en las listas del redirect: la app la abre y cae en el inicio',
       );
     }
   });
