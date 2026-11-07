@@ -93,5 +93,25 @@ public class MotorcycleAssemblyConfiguration : IEntityTypeConfiguration<Motorcyc
         // técnico para pagarle.
         b.HasIndex(x => new { x.TenantId, x.AssembledOn });
         b.HasIndex(x => new { x.TenantId, x.TechnicianUserId, x.AssembledOn });
+
+        // Lo que falta por facturar y lo que falta por pagar: las dos preguntas con las que
+        // se abre el mes.
+        b.HasIndex(x => new { x.TenantId, x.BillingSettlementId });
+        b.HasIndex(x => new { x.TenantId, x.PaySettlementId });
+    }
+}
+
+public class AssemblySettlementConfiguration : IEntityTypeConfiguration<AssemblySettlement>
+{
+    public void Configure(EntityTypeBuilder<AssemblySettlement> b)
+    {
+        b.Property(x => x.Reference).HasMaxLength(60);
+
+        b.HasOne(x => x.Contractor)
+            .WithMany()
+            .HasForeignKey(x => x.ContractorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(x => new { x.TenantId, x.Kind, x.PeriodTo });
     }
 }

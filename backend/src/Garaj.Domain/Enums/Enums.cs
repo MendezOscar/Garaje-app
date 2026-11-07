@@ -161,6 +161,16 @@ public enum MediaOwnerType
     MotorcycleAssembly = 7
 }
 
+/// <summary>De qué es un corte del armado: de lo que se factura o de lo que se paga.</summary>
+public enum AssemblySettlementKind
+{
+    /// <summary>Lo que se le cobró al contratista por un periodo.</summary>
+    Billing = 1,
+
+    /// <summary>Lo que se le pagó a un técnico por un periodo.</summary>
+    TechnicianPay = 2
+}
+
 public enum StockMovementType
 {
     In = 1,

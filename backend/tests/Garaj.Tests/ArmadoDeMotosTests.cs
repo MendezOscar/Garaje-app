@@ -345,6 +345,126 @@ public class ArmadoDeMotosTests
         Assert.Null(ajeno.ModelId);
     }
 
+    private static AssemblyAdminService Panel(GarajDbContext db) =>
+        new(db, db.TenantContext, new DateTimeProvider());
+
+    /// <summary>
+    /// Cerrar un corte es lo que contesta «¿esto ya lo cobré?», que es la pregunta que la
+    /// hoja de cálculo nunca pudo contestar. Lo que entra en el corte deja de estar
+    /// pendiente, y cerrar dos veces el mismo periodo no vuelve a cobrarlo.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task Lo_facturado_deja_de_estar_pendiente_y_no_se_cobra_dos_veces()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var registro = Registro(db);
+        var panel = Panel(db);
+
+        foreach (var serie in new[] { "3C1JA1234RT000001", "3C1JA1234RT000002" })
+        {
+            await registro.RegisterAsync(new RegisterMotorcycleRequest(
+                serie, modelo, contratista, bodega, BranchId: sucursal));
+        }
+
+        var hoy = new DateTimeProvider().Today();
+        var mes = new DateOnly(hoy.Year, hoy.Month, 1);
+
+        var corte = await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista,
+            Reference: "FAC-001"));
+
+        Assert.Equal(2, corte.Count);
+        Assert.Equal(500m, corte.Total);
+
+        // Lo facturado ya no aparece como pendiente.
+        var pendiente = await panel.ListAsync(new AssemblyQuery { OnlyUnbilled = true });
+        Assert.Equal(0, pendiente.Total);
+
+        // Y cerrar otra vez el mismo periodo no encuentra nada que cobrar.
+        await Assert.ThrowsAsync<AppException>(() => panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista)));
+    }
+
+    /// <summary>
+    /// Una moto ya facturada no se corrige ni se borra: del otro lado hay una factura
+    /// emitida. Reabrir el corte es la única manera honesta de arreglarlo.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task Una_moto_ya_facturada_se_congela_hasta_que_se_reabra_el_corte()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var panel = Panel(db);
+
+        var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT000001", modelo, contratista, bodega, BranchId: sucursal));
+
+        var hoy = new DateTimeProvider().Today();
+        var mes = new DateOnly(hoy.Year, hoy.Month, 1);
+
+        var corte = await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista));
+
+        var correccion = new CorrectMotorcycleRequest(
+            "3C1JA1234RT000009", modelo, contratista, bodega,
+            moto.TechnicianUserId, hoy);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => panel.CorrectAsync(moto.Id, correccion));
+
+        await Assert.ThrowsAsync<ConflictException>(() => panel.DeleteAsync(moto.Id));
+
+        // Reabrir suelta la moto y vuelve a estar pendiente.
+        await panel.ReopenAsync(corte.Id);
+
+        var corregida = await panel.CorrectAsync(moto.Id, correccion);
+        Assert.Equal("3C1JA1234RT000009", corregida.Serial);
+
+        var pendiente = await panel.ListAsync(new AssemblyQuery { OnlyUnbilled = true });
+        Assert.Equal(1, pendiente.Total);
+    }
+
+    /// <summary>
+    /// Facturar y pagar son dos cortes distintos sobre las mismas motos: facturarle al
+    /// contratista no le paga al técnico, y al revés tampoco.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task Facturar_no_paga_y_pagar_no_factura()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+        var tecnico = Guid.NewGuid();
+
+        await using (var deElla = Contexto(taller, AppRoles.Technician, tecnico, sucursal))
+        {
+            await Registro(deElla).RegisterAsync(new RegisterMotorcycleRequest(
+                "3C1JA1234RT000001", modelo, contratista, bodega));
+        }
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var panel = Panel(db);
+
+        var hoy = new DateTimeProvider().Today();
+        var mes = new DateOnly(hoy.Year, hoy.Month, 1);
+
+        await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista));
+
+        // Facturada, pero todavía sin pagar.
+        var porPagar = await panel.ListAsync(new AssemblyQuery { OnlyUnpaid = true });
+        Assert.Equal(1, porPagar.Total);
+
+        var pago = await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.TechnicianPay, mes, hoy, TechnicianUserId: tecnico));
+
+        Assert.Equal(90m, pago.Total);
+
+        var yaNo = await panel.ListAsync(new AssemblyQuery { OnlyUnpaid = true });
+        Assert.Equal(0, yaNo.Total);
+    }
+
     /// <summary>
     /// Una serie, una moto. Es la regla que la hoja de cálculo nunca pudo imponer y la razón
     /// principal por la que esto deja de vivir en una hoja: repetida es una moto cobrada dos

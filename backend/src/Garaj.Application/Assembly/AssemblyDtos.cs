@@ -1,3 +1,6 @@
+using Garaj.Application.Common;
+using Garaj.Domain.Enums;
+
 namespace Garaj.Application.Assembly;
 
 /// <summary>Un contratista con su tabla de modelos: lo que paga y lo que se le paga al técnico.</summary>
@@ -140,4 +143,184 @@ public interface IMotorcycleAssemblyService
         DateOnly? from, DateOnly? to, CancellationToken ct = default);
 
     Task<ModelGuessDto> GuessModelAsync(string serial, CancellationToken ct = default);
+}
+
+/// <summary>Lo que el dueño filtra cuando va a facturar o a pagar.</summary>
+public record AssemblyQuery : PageQuery
+{
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+    public Guid? ContractorId { get; init; }
+    public Guid? TechnicianUserId { get; init; }
+    public Guid? WarehouseId { get; init; }
+    public Guid? ModelId { get; init; }
+
+    /// <summary>Solo lo que todavía no entra en un corte de facturación.</summary>
+    public bool OnlyUnbilled { get; init; }
+
+    /// <summary>Solo lo que todavía no entra en un corte de pago.</summary>
+    public bool OnlyUnpaid { get; init; }
+
+    /// <summary>Parte de la serie, como se teclea de la calcomanía.</summary>
+    public string? Serial { get; init; }
+}
+
+/// <summary>Una fila de la lista del dueño: la moto con su estado de corte.</summary>
+public record AssemblyRowDto(
+    Guid Id,
+    DateOnly AssembledOn,
+    string Serial,
+    string ModelName,
+    string ContractorName,
+    string WarehouseName,
+    string TechnicianName,
+    decimal Charge,
+    decimal TechnicianPay,
+    string? Notes,
+    bool Billed,
+    bool Paid);
+
+/// <summary>La página, con lo que suma el filtro completo y no solo la página.</summary>
+public record AssemblyPageDto(
+    IReadOnlyList<AssemblyRowDto> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    decimal TotalCharge,
+    decimal TotalPay);
+
+public record CorrectMotorcycleRequest(
+    string Serial,
+    Guid ModelId,
+    Guid ContractorId,
+    Guid WarehouseId,
+    Guid TechnicianUserId,
+    DateOnly AssembledOn,
+    string? Notes = null,
+    /// <summary>
+    /// Importes a mano. Vacíos, se recalculan de la tarifa de hoy: es lo que se quiere cuando
+    /// la moto se registró con el modelo equivocado.
+    /// </summary>
+    decimal? Charge = null,
+    decimal? TechnicianPay = null);
+
+/// <summary>Un corte ya cerrado.</summary>
+public record AssemblySettlementDto(
+    Guid Id,
+    AssemblySettlementKind Kind,
+    DateOnly PeriodFrom,
+    DateOnly PeriodTo,
+    Guid? ContractorId,
+    string? ContractorName,
+    Guid? TechnicianUserId,
+    string? TechnicianName,
+    int Count,
+    decimal Total,
+    string? Reference,
+    DateTimeOffset ClosedAt,
+    string? ClosedByName);
+
+/// <param name="Reference">El número de factura o de la nota de pago.</param>
+public record CloseSettlementRequest(
+    AssemblySettlementKind Kind,
+    DateOnly From,
+    DateOnly To,
+    Guid? ContractorId = null,
+    Guid? TechnicianUserId = null,
+    string? Reference = null);
+
+/// <summary>Una fila del Excel histórico, ya leída y con su veredicto.</summary>
+/// <param name="Problem">Por qué no entra, o null si entra.</param>
+public record AssemblyImportRowDto(
+    int Row,
+    string Serial,
+    string Model,
+    string Technician,
+    string Warehouse,
+    DateOnly? AssembledOn,
+    decimal? Charge,
+    string? Problem);
+
+/// <param name="WillImport">Cuántas entrarían. El resto queda enumerado con su motivo.</param>
+public record AssemblyImportPreviewDto(
+    int WillImport,
+    int Rejected,
+    IReadOnlyList<AssemblyImportRowDto> Rows);
+
+public interface IAssemblyAdminService
+{
+    Task<AssemblyPageDto> ListAsync(AssemblyQuery query, CancellationToken ct = default);
+
+    Task<AssemblyRowDto> CorrectAsync(
+        Guid id, CorrectMotorcycleRequest request, CancellationToken ct = default);
+
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
+
+    Task<IReadOnlyList<AssemblySettlementDto>> SettlementsAsync(CancellationToken ct = default);
+
+    Task<AssemblySettlementDto> CloseAsync(
+        CloseSettlementRequest request, CancellationToken ct = default);
+
+    Task ReopenAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Quiénes han armado motos, para el filtro y para el reporte de pago.</summary>
+    Task<IReadOnlyList<AssemblyNameDto>> TechniciansAsync(CancellationToken ct = default);
+}
+
+/// <summary>
+/// El reporte de facturación: lo que se le cobra a un contratista por un periodo.
+/// </summary>
+/// <remarks>
+/// Las columnas son las de la hoja que el contratista ya recibe hoy —fecha, serie, modelo,
+/// técnico, cobro, bodega—, a propósito: el que lo tiene que aceptar es el que paga, y un
+/// formato nuevo abre una conversación que nadie pidió.
+/// </remarks>
+public record AssemblyBillingReportDto(
+    string TenantName,
+    string ContractorName,
+    DateOnly From,
+    DateOnly To,
+    int Count,
+    decimal Total,
+    IReadOnlyList<AssemblyRowDto> Rows);
+
+/// <summary>Lo que se le debe a cada técnico por un periodo.</summary>
+public record AssemblyPayReportDto(
+    string TenantName,
+    DateOnly From,
+    DateOnly To,
+    int Count,
+    decimal Total,
+    IReadOnlyList<AssemblyPayLineDto> Lines);
+
+public record AssemblyPayLineDto(
+    Guid TechnicianUserId,
+    string TechnicianName,
+    int Count,
+    decimal Pay);
+
+public interface IAssemblyReportService
+{
+    Task<AssemblyBillingReportDto> BillingAsync(
+        AssemblyQuery query, CancellationToken ct = default);
+
+    Task<AssemblyPayReportDto> PayAsync(AssemblyQuery query, CancellationToken ct = default);
+
+    Task<byte[]> BillingExcelAsync(AssemblyQuery query, CancellationToken ct = default);
+    Task<byte[]> BillingPdfAsync(AssemblyQuery query, CancellationToken ct = default);
+    Task<byte[]> PayExcelAsync(AssemblyQuery query, CancellationToken ct = default);
+    Task<byte[]> PayPdfAsync(AssemblyQuery query, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Traerse el Excel que el taller llevaba antes. De una sola vez y deliberadamente
+/// conservador: no crea catálogo, y lo que no calza se rechaza con el motivo escrito.
+/// </summary>
+public interface IAssemblyImportService
+{
+    Task<AssemblyImportPreviewDto> PreviewAsync(
+        Stream excel, Guid contractorId, CancellationToken ct = default);
+
+    Task<AssemblyImportPreviewDto> CommitAsync(
+        Stream excel, Guid contractorId, CancellationToken ct = default);
 }

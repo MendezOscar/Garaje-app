@@ -1955,3 +1955,88 @@ export interface AssemblyWarehouse {
   name: string
   isActive: boolean
 }
+
+/** Una moto armada, como la ve el dueño en el panel. */
+export interface AssemblyRow {
+  id: string
+  assembledOn: string
+  serial: string
+  modelName: string
+  contractorName: string
+  warehouseName: string
+  technicianName: string
+  /** Lo que se le cobra al contratista. Solo llega a quien manda. */
+  charge: number
+  technicianPay: number
+  notes: string | null
+  /** Ya entró en un corte de facturación: congelada. */
+  billed: boolean
+  /** Ya entró en un corte de pago. */
+  paid: boolean
+}
+
+/** La página, con lo que suma el filtro entero y no solo lo que se ve. */
+export interface AssemblyPage {
+  items: AssemblyRow[]
+  total: number
+  page: number
+  pageSize: number
+  totalCharge: number
+  totalPay: number
+}
+
+export const AssemblySettlementKind = { Billing: 1, TechnicianPay: 2 } as const
+export type AssemblySettlementKind =
+  (typeof AssemblySettlementKind)[keyof typeof AssemblySettlementKind]
+
+/** Un corte cerrado: el periodo que ya se facturó, o el que ya se pagó. */
+export interface AssemblySettlement {
+  id: string
+  kind: AssemblySettlementKind
+  periodFrom: string
+  periodTo: string
+  contractorId: string | null
+  contractorName: string | null
+  technicianUserId: string | null
+  technicianName: string | null
+  count: number
+  total: number
+  reference: string | null
+  closedAt: string
+  closedByName: string | null
+}
+
+export interface AssemblyPayLine {
+  technicianUserId: string
+  technicianName: string
+  count: number
+  pay: number
+}
+
+export interface AssemblyPayReport {
+  tenantName: string
+  from: string
+  to: string
+  count: number
+  total: number
+  lines: AssemblyPayLine[]
+}
+
+/** Una fila del Excel histórico, ya leída y con su veredicto. */
+export interface AssemblyImportRow {
+  row: number
+  serial: string
+  model: string
+  technician: string
+  warehouse: string
+  assembledOn: string | null
+  charge: number | null
+  /** Por qué no entra, o null si entra. */
+  problem: string | null
+}
+
+export interface AssemblyImportPreview {
+  willImport: number
+  rejected: number
+  rows: AssemblyImportRow[]
+}

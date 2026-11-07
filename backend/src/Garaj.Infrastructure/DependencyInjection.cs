@@ -146,6 +146,14 @@ public static class DependencyInjection
         services.AddScoped<IAssemblyCatalogService, AssemblyCatalogService>();
         services.AddScoped<IMotorcycleAssemblyService, MotorcycleAssemblyService>();
 
+        // El de reportes reutiliza el filtro del de administración, así que lo recibe como
+        // clase y no como interfaz: es el mismo filtro que ve el dueño en pantalla, y que
+        // dos consultas distintas se desincronicen es exactamente lo que no puede pasar.
+        services.AddScoped<AssemblyAdminService>();
+        services.AddScoped<IAssemblyAdminService>(sp => sp.GetRequiredService<AssemblyAdminService>());
+        services.AddScoped<IAssemblyReportService, AssemblyReportService>();
+        services.AddScoped<IAssemblyImportService, AssemblyImportService>();
+
         // Una sola instancia por petición para las dos caras: la que lee la campana y la que
         // emite los avisos comparten el mismo DbContext y la misma transacción implícita.
         services.AddScoped<NotificationService>();
