@@ -549,7 +549,7 @@ onMounted(async () => {
               <input v-model="newVehicle.brand" placeholder="Marca" />
               <input v-model="newVehicle.model" placeholder="Modelo" />
               <input v-model="newVehicle.year" type="number" placeholder="Año" />
-              <input v-model="newVehicle.plate" placeholder="Placa" class="placa" />
+              <input v-model="newVehicle.plate" placeholder="Placa" class="campo-placa" />
               <input
                 v-model="newVehicle.vin"
                 placeholder="VIN / Serie del chasis"
@@ -718,7 +718,7 @@ onMounted(async () => {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .alta-vehiculo .placa,
+  .alta-vehiculo .campo-placa,
   .alta-vehiculo button {
     grid-column: span 2;
   }
@@ -729,7 +729,7 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
-  .alta-vehiculo .placa,
+  .alta-vehiculo .campo-placa,
   .alta-vehiculo .vin,
   .alta-vehiculo button {
     grid-column: span 1;
