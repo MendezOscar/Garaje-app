@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<!--
+  El armado de motos, explicado al taller. Hermano de asistente-garajapp.html,
+  escaner-garajapp.html y mejoras-garajapp.html: mismo estilo, mismo ancho, misma impresión.
+  Va solo al taller que tiene el módulo por contrato; no sale de ningún plan.
+
+  Se manda por WhatsApp o correo, o se imprime a PDF (Cmd+P → Guardar como PDF).
+
+  Tres cosas están escritas a propósito aunque no las pregunten: que el técnico nunca ve lo
+  que el taller cobra, que los importes se copian a cada moto y por eso un mes cerrado no
+  cambia de margen, y que el reporte con el gasto es el único de los tres que no se le manda
+  a nadie. Las tres son decisiones que el taller tiene que conocer antes de depender de esto.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>El armado de motos — GarajApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root { --brand:#1f6feb; --brand-dark:#124293; --brand-light:#e8f0fe; --ink:#161b22; --muted:#5b6472; --border:#dfe3e8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--ink); line-height:1.6; background:#f3f5f7; }
+  h1, h2, h3, .mejora .n { font-family: 'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif; }
+  .page { max-width: 820px; margin: 24px auto; background:#fff; padding: 48px 54px; box-shadow: 0 10px 40px -18px rgba(0,0,0,.25); }
+  h1 { font-size: 26px; letter-spacing:-0.02em; }
+  h2 { font-size: 17px; color:var(--brand-dark); margin: 28px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--brand-light); }
+  h3 { font-size:15px; margin:18px 0 4px; color:var(--brand-dark); }
+  p, li, td, th { font-size: 14.5px; }
+  .muted { color: var(--muted); }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--brand); padding-bottom:18px; }
+  .meta { text-align:right; font-size:13px; color:var(--muted); }
+  ul, ol { margin: 6px 0 6px 20px; }
+  ul li, ol li { margin: 3px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; font-size:14px; }
+  th, td { text-align:left; padding: 9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background: var(--brand-light); color:var(--brand-dark); }
+  /* Cada apartado va numerado y grande a la izquierda, como los otros informes: el taller lo
+     busca por su número cuando pregunta «¿y la 3?». */
+  .mejora { display:flex; gap:14px; align-items:flex-start; margin-top:16px; }
+  .mejora .n { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; }
+  .hl { background:var(--brand-light); border-radius:10px; padding:14px 16px; margin-top:12px; font-size:14px; }
+  .aviso { border-left:4px solid var(--brand); background:#fbfcfe; padding:10px 14px; margin-top:10px; font-size:14px; }
+  .ejemplo { border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-top:10px; font-size:14px; background:#fbfcfe; }
+  .mejora table { margin-top:8px; }
+  .mejora table td { font-size:14px; }
+  .mejora ol { margin: 6px 0 6px 20px; }
+  .mejora ol li { margin: 4px 0; }
+  /* Cómo probarlo: verde apagado, para que se distinga de un aviso y se encuentre rápido
+     cuando alguien va buscando qué validar. */
+  .probar { border:1px solid #cfe3d4; background:#f3f9f5; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:14px; }
+  .probar .t { display:block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#2f6b45; margin-bottom:6px; }
+  .probar ol { margin:6px 0 0 20px; }
+  .probar ol li { margin:4px 0; }
+  .ejemplo .t { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px; }
+  code { font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; background:#f3f5f7; padding:1px 5px; border-radius:4px; }
+  .num { text-align:right; font-variant-numeric: tabular-nums; }
+  .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+  @media print {
+    body { background:#fff; }
+    .page { box-shadow:none; margin:0; max-width:none; padding:28px 32px; }
+    @page { margin: 14mm; }
+    h2 { break-after: avoid; }
+    .mejora, .ejemplo, .probar, .hl, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="246" height="77" role="img" aria-label="GarajApp">
+      <title>GarajApp — logotipo horizontal</title>
+      <path fill-rule="evenodd" d="M50,0 L93,25 L93,75 L50,100 L7,75 L7,25 Z M50,17.75 L77.7,33.88 L77.7,66.12 L50,82.25 L22.3,66.12 L22.3,33.88 Z" fill="#1F6FEB"></path>
+      <text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="40" letter-spacing="-1.6" fill="#14171C">G</text>
+      <g transform="translate(122,0)"><text x="0" y="52" dominant-baseline="middle" font-family="&#39;Space Grotesk&#39;,&#39;Space Grotesk Bold&#39;,Arial,Helvetica,sans-serif" font-weight="700" font-size="46" letter-spacing="-1.61" fill="#14171C">GarajApp</text></g>
+      </svg>
+      <p class="muted" style="margin-top:2px">El taller ordenado, desde el teléfono</p>
+    </div>
+    <div class="meta">
+      <strong>El armado de motos</strong><br />
+      Preparado para: <strong>su taller</strong><br />
+      Fecha: 7 de noviembre de 2026<br />
+      Incluido en: <strong>su contrato</strong><br />
+      En la app desde la <strong>1.9.0</strong>
+    </div>
+  </div>
+
+  <h1 style="margin-top:22px">El grupo de WhatsApp y el Excel, en una sola pantalla</h1>
+  <p class="muted" style="margin-top:6px">Hoy el técnico le toma la foto a la caja y la sube al grupo; usted la lee, teclea la serie en el Excel y de ahí saca el reporte del periodo. Eso son tres pasos y dos personas para guardar un número. <strong>Ahora el técnico registra la moto parado en la bodega</strong> —escanea la etiqueta y toca Registrar—, y usted abre el reporte cuando le toque facturar.</p>
+
+  <table style="margin-top:10px">
+    <tr><th>Qué</th><th>Para quién</th><th>Dónde está</th></tr>
+    <tr><td><strong>Armé una moto</strong></td><td>Técnico</td><td>En el teléfono, en el inicio</td></tr>
+    <tr><td><strong>Mis motos armadas</strong></td><td>Técnico</td><td>En el teléfono, en el inicio</td></tr>
+    <tr><td><strong>Motos armadas</strong></td><td>Dueño y Encargado</td><td>En el menú del panel</td></tr>
+    <tr><td><strong>Armado de motos</strong></td><td>Dueño</td><td>Ajustes → Armado de motos</td></tr>
+  </table>
+
+  <div class="hl">
+    <strong>Lo primero, porque es lo que importa:</strong> la <strong>serie del chasis es la
+    llave</strong>. Una serie repetida es una moto cobrada dos veces; una que falta es una moto
+    regalada. Ninguna hoja de cálculo avisa de eso, y es la razón principal por la que esto deja
+    de vivir en una hoja. Aquí la serie repetida <strong>se rechaza en el momento</strong>, con la
+    moto todavía delante.
+  </div>
+
+  <h2>1 · Cómo registra el técnico, en la bodega</h2>
+
+  <div class="mejora">
+    <div class="n">1</div>
+    <div>
+      <h3 style="margin-top:0">Escanear, confirmar, registrar</h3>
+      <ol>
+        <li>En el teléfono, <strong>Armé una moto</strong>.</li>
+        <li><strong>Escanear la etiqueta de la caja.</strong> La serie cae sola en el campo.</li>
+        <li>El <strong>modelo se propone</strong> por el inicio de la serie. La <strong>bodega</strong> ya viene puesta si solo hay una.</li>
+        <li><strong>Registrar la moto.</strong></li>
+      </ol>
+      <p style="margin-top:6px"><strong>No se sale de la pantalla.</strong> Al guardar se limpia lo que cambia —la serie— y se queda lo que no —contratista, modelo y bodega—, que es lo mismo toda la tarde. Abajo va quedando la lista de lo registrado ahorita: ese es el acuse que vale, el técnico quiere ver que la anterior entró antes de empezar la siguiente.</p>
+
+      <div class="aviso">
+        <strong>Si el envío falla, no se borra nada.</strong> Lo escrito se queda en pantalla y
+        se reintenta. Perder una serie ya tecleada es lo que manda a cualquiera de vuelta al
+        WhatsApp.
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · El lector de la etiqueta</h2>
+
+  <div class="mejora">
+    <div class="n">2</div>
+    <div>
+      <h3 style="margin-top:0">La serie sale del código de barras, no de los dedos</h3>
+      <p>La caja trae la serie impresa en código de barras. Leer un código hecho para máquinas no se equivoca como se equivoca alguien tecleando diecisiete caracteres en una bodega. Se lee <strong>en el propio teléfono</strong>: sin servidor, sin señal y sin costo por moto.</p>
+
+      <div class="ejemplo">
+        <span class="t">Una etiqueta real trae cuatro códigos</span>
+        El del envío (<code>34007101</code>), el del SKU (<code>L063955215</code>), el del motor
+        (<code>ZS175YMN</code>) y el del chasis (<code>LZSJDPL06V1000081</code>). El lector
+        <strong>escoge el del chasis y descarta los otros tres</strong>, sin preguntar: son los
+        únicos diecisiete caracteres, y la numeración del chasis no usa las letras I, O ni Q
+        justamente para que no se confundan con el 1 y el 0.
+      </div>
+
+      <div class="aviso">
+        <strong>El recuadro de la pantalla lee de verdad: fuera de él no se lee.</strong> En una
+        bodega las cajas están pegadas, y agarrar la etiqueta de la de al lado no da error —queda
+        registrada la moto equivocada y nadie se entera hasta que el contratista reclame—. Si
+        dentro del recuadro entran dos series distintas, <strong>el borde se pone ámbar y no
+        escoge ninguna</strong>: hay que acercarse hasta que solo entre una.
+      </div>
+
+      <h3>«Leer de una foto», para usted</h3>
+      <p>A usted las cajas le llegan por WhatsApp, no las tiene delante. En la misma pantalla del lector hay <strong>Leer de una foto</strong>: abre la galería, usted elige la foto que le mandaron y sale la misma serie que saldría apuntándole con la cámara.</p>
+
+      <h3>La foto de la etiqueta sigue estando, pero callada</h3>
+      <p>Antes la foto hacía dos trabajos: llevarle la serie a usted y servir de constancia. El código de barras se quedó con el primero, que era el pesado. El segundo importa el día que el contratista discuta una factura —es lo único que acredita que alguien estuvo frente a esa caja—, así que la foto sigue ahí, <strong>un renglón, opcional, sin pedirla y sin reprochar que falte</strong>.</p>
+
+      <p class="muted" style="margin-top:6px">Y si la etiqueta viene rota o borrada, la serie se teclea a mano como siempre. El lector es el camino rápido, no el único.</p>
+    </div>
+  </div>
+
+  <h2>3 · Lo que hay que dejar puesto una vez</h2>
+
+  <div class="mejora">
+    <div class="n">3</div>
+    <div>
+      <h3 style="margin-top:0">Ajustes → Armado de motos</h3>
+      <table>
+        <tr><th>Qué</th><th>Para qué sirve</th></tr>
+        <tr><td><strong>Contratistas</strong></td><td>Con quién se trabaja. De aquí cuelgan los precios, y cada contrato lleva su sucursal del taller.</td></tr>
+        <tr><td><strong>Modelos</strong></td><td>Los que usted arma. Es una lista y no texto libre porque de él cuelga la tarifa: con el modelo tecleado, «FT150» y «Ft 150» serían dos cosas y el cobro saldría distinto según quién lo escribió.</td></tr>
+        <tr><td><strong>Bodegas</strong></td><td>Los locales del contratista a los que va el técnico. Es el «lugar» de su hoja.</td></tr>
+        <tr><td><strong>Los precios</strong></td><td>En la ficha de cada contratista: lo que se le cobra por armar cada modelo y lo que se le paga al técnico.</td></tr>
+        <tr><td><strong>El gasto por moto</strong></td><td>Lo que armar una le cuesta al taller aparte del pago al técnico. Un número para todas.</td></tr>
+      </table>
+
+      <h3>El inicio de la serie, para que el modelo salga solo</h3>
+      <p>En cada modelo hay un campo <strong>Inicio del VIN</strong>: los primeros ocho caracteres de la serie de ese modelo. Con eso puesto, <strong>el técnico escanea y el modelo sale elegido desde la primera moto</strong>.</p>
+
+      <div class="ejemplo">
+        <span class="t">De sus propias cajas</span>
+        <table style="margin-top:0">
+          <tr><th>Modelo</th><th>Inicio del VIN</th></tr>
+          <tr><td>200Z</td><td><code>LLCLPLPC</code></td></tr>
+          <tr><td>FT125</td><td><code>LLCLPP20</code></td></tr>
+          <tr><td>250Z</td><td><code>LRPRPMV0</code></td></tr>
+          <tr><td>DM300</td><td><code>LZSJDPL0</code></td></tr>
+        </table>
+      </div>
+
+      <div class="aviso">
+        <strong>No lo acorte.</strong> Esos ocho caracteres son el fabricante y la descripción del
+        vehículo; del noveno en adelante ya es el año, la planta y el correlativo, que cambian de
+        moto a moto. Dos de sus modelos comparten los cinco primeros, así que con cinco caería el
+        modelo equivocado. Si alguna vez dos modelos suyos coinciden en los ocho, el campo aguanta
+        hasta diez y la app siempre se queda con el más largo que calce.
+      </div>
+
+      <p style="margin-top:10px"><strong>Si no pone el inicio, no se rompe nada:</strong> la app lo aprende sola de lo ya registrado, solo que a partir de la segunda moto de cada modelo. El aviso le dice de dónde salió la propuesta —«por el inicio de la serie» si lo dijo usted, «series como esta han sido FT125 tres veces» si lo aprendió—, y en los dos casos el modelo <strong>se propone, no se impone</strong>: queda seleccionado y se puede cambiar.</p>
+    </div>
+  </div>
+
+  <h2>4 · Los dos precios, el gasto y lo que queda</h2>
+
+  <div class="mejora">
+    <div class="n">4</div>
+    <div>
+      <h3 style="margin-top:0">Tres números por moto, y el cuarto sale solo</h3>
+      <table>
+        <tr><th>Número</th><th>Dónde se pone</th><th>Quién lo ve</th></tr>
+        <tr><td><strong>El cobro</strong> al contratista</td><td>Ficha del contratista, por modelo</td><td>Usted y el Encargado</td></tr>
+        <tr><td><strong>El pago</strong> al técnico</td><td>Ficha del contratista, por modelo</td><td>Usted y el técnico (el suyo)</td></tr>
+        <tr><td><strong>El gasto</strong> del taller</td><td>Ajustes → Armado de motos</td><td>Solo usted</td></tr>
+        <tr><td><strong>Lo que queda</strong></td><td>Se calcula: cobro − pago − gasto</td><td>Solo usted</td></tr>
+      </table>
+
+      <div class="aviso">
+        <strong>Los tres se copian a cada moto al registrarla, y de ahí en adelante manda lo que
+        quedó copiado.</strong> Subir la tarifa en marzo <strong>no reescribe lo de enero</strong>,
+        que ya se facturó. Es la diferencia entre un historial y una hoja que cambia debajo de uno.
+      </div>
+
+      <h3>El gasto</h3>
+      <p>Es lo que armar una moto se lleva aparte del pago al técnico: transporte a la bodega, herramienta, lo que no depende del modelo. Hoy es el mismo para todas, así que es <strong>un solo número</strong>. Sin él, «lo que queda para el taller» era cobro menos pago, y ese número estaba de más.</p>
+    </div>
+  </div>
+
+  <h2>5 · Lo que el técnico no ve</h2>
+
+  <div class="mejora">
+    <div class="n">5</div>
+    <div>
+      <h3 style="margin-top:0">Lo que usted le cobra al contratista no sale del servidor</h3>
+      <p>El técnico ve <strong>su pago</strong> y nada más: ni el cobro, ni el gasto, ni lo que queda. <strong>No es que la pantalla lo esconda: no viaja.</strong> Un dato que no sale del servidor no se filtra por una actualización ni por una pantalla nueva.</p>
+      <p style="margin-top:6px">Tampoco puede apuntarle una moto a otro: lo que mande en ese campo se ignora y la moto queda a su nombre. Y en <strong>Mis motos armadas</strong> ve lo suyo del periodo con lo que suma para él, que es la pregunta que de verdad tiene.</p>
+
+      <h3>Usted sí registra a nombre de quien la armó</h3>
+      <p>Si prefiere seguir recibiendo las fotos y registrar usted —desde el panel o desde el teléfono—, hay un campo <strong>La armó</strong> con sus técnicos. Usted no sale en esa lista, porque usted no arma motos, y <strong>sin elegir a alguien no se registra</strong>: una moto apuntada a quien no la armó le desaparece el pago al que sí, y nada avisaría.</p>
+    </div>
+  </div>
+
+  <h2>6 · El panel: Motos armadas</h2>
+
+  <div class="mejora">
+    <div class="n">6</div>
+    <div>
+      <h3 style="margin-top:0">Un periodo, cuatro números y el detalle</h3>
+      <p>Arriba, el filtro: <strong>desde y hasta</strong>, contratista, técnico, bodega, modelo, y una casilla para buscar por parte de la serie. Debajo, lo que suma <strong>todo el filtro</strong> —no la página—: cuántas motos, lo que se le cobra al contratista, lo que se les paga a los técnicos, lo que le cuesta al taller armarlas y <strong>lo que queda</strong>.</p>
+      <p style="margin-top:6px">En <strong>El detalle</strong>, una fila por moto con fecha, serie, modelo, técnico, bodega y las cuatro columnas de plata, con sus totales al pie. Las que ya entraron en un corte salen marcadas como <em>facturada</em> o <em>pagada</em>.</p>
+
+      <div class="aviso">
+        <strong>Los totales son los del periodo entero, no los de lo que se ve en pantalla.</strong>
+        Cuando la página no las trae todas, lo dice: «200 motos (en pantalla, 25)». Un total que
+        sumara solo lo visible es justo el número que uno copia a una factura sin darse cuenta.
+      </div>
+    </div>
+  </div>
+
+  <h2>7 · Los tres reportes</h2>
+
+  <div class="mejora">
+    <div class="n">7</div>
+    <div>
+      <h3 style="margin-top:0">Cada uno para quien lo tiene que leer</h3>
+      <table>
+        <tr><th>Reporte</th><th>Qué lleva</th><th>Para quién</th></tr>
+        <tr><td><strong>Motos armadas</strong></td><td>Fecha, serie, modelo, técnico, bodega y cobro</td><td>Se le manda al <strong>contratista</strong></td></tr>
+        <tr><td><strong>Pago a técnicos</strong></td><td>Técnico, cuántas motos y lo que se le debe</td><td>Se imprime y se <strong>firma</strong></td></tr>
+        <tr><td><strong>Lo del taller</strong></td><td>Lo anterior <strong>más gasto y lo que queda</strong></td><td><strong>Solo usted</strong></td></tr>
+      </table>
+      <p style="margin-top:8px">Los tres bajan en <strong>Excel y en PDF</strong>, y los tres salen del mismo filtro que la pantalla de la que los pidió: lo que ve y lo que baja son la misma cosa.</p>
+
+      <div class="hl">
+        <strong>El de «Lo del taller» no sale de la oficina.</strong> Es el único con el gasto y el
+        margen. En la hoja del contratista eso le enseñaría exactamente cuánto gana usted con él, y
+        en la del técnico, lo mismo. Por eso en la hoja de facturación <strong>el gasto ni siquiera
+        viaja</strong> — no está escondido en el documento: no se manda.
+      </div>
+
+      <p style="margin-top:10px">Las columnas del reporte de facturación son <strong>las de la hoja que el contratista ya recibe hoy</strong>, en ese orden y con esos nombres. No es nostalgia: el que tiene que aceptar el reporte es el que paga, y estrenarle un formato abre una conversación que nadie pidió.</p>
+
+      <p class="muted" style="margin-top:6px">La serie va escrita como texto en el Excel, a propósito: una serie que empieza con ceros los pierde si Excel la lee como número, y una serie sin sus ceros no es la serie.</p>
+    </div>
+  </div>
+
+  <h2>8 · Los cortes: «¿esto ya lo cobré?»</h2>
+
+  <div class="mejora">
+    <div class="n">8</div>
+    <div>
+      <h3 style="margin-top:0">La pregunta que la hoja de cálculo nunca pudo contestar</h3>
+      <p>Cuando le factura a un contratista, cierra el <strong>corte de facturación</strong> del periodo. Cuando le paga a un técnico, cierra su <strong>corte de pago</strong>. Son dos cosas distintas y van por separado: facturarle al contratista no le paga al técnico, y al revés tampoco.</p>
+      <p style="margin-top:6px">Al cerrarlo, esas motos <strong>quedan marcadas y dejan de aparecer en lo que falta</strong> por facturar o por pagar. Puede anotarle el número de factura o de la nota de pago.</p>
+
+      <div class="aviso">
+        <strong>Lo cerrado se congela: no se corrige ni se borra.</strong> Del otro lado hay una
+        factura emitida o una plata entregada, y cambiar una fila después sería cambiar el pasado.
+      </div>
+
+      <p style="margin-top:10px"><strong>Un corte mal hecho se reabre</strong>, que es la única manera honesta de arreglarlo: reabrir suelta las motos, vuelven a estar pendientes y queda constancia de quién lo hizo.</p>
+    </div>
+  </div>
+
+  <h2>9 · Traerse el Excel de antes</h2>
+
+  <div class="mejora">
+    <div class="n">9</div>
+    <div>
+      <h3 style="margin-top:0">Para no arrancar en blanco</h3>
+      <p>En la pestaña <strong>Traer el Excel</strong> se sube la hoja que ya lleva. Las columnas, en este orden: <strong>fecha, serie, modelo, técnico, cobro, bodega</strong>; la primera fila se toma como encabezado.</p>
+      <p style="margin-top:6px">Primero <strong>«Ver qué entraría»</strong>: le enseña qué filas pasan y cuáles no <em>antes</em> de guardar nada. Es deliberadamente desconfiado — <strong>no crea catálogo</strong>: la fila que nombre un modelo, una bodega o un técnico que no esté cargado se rechaza con el motivo escrito. Un modelo creado por un dedazo en una hoja vieja es un modelo sin precio al que después nadie le encuentra el origen.</p>
+    </div>
+  </div>
+
+  <h2>10 · Lo que el sistema no le va a dejar hacer</h2>
+  <table>
+    <tr><th>Si pasa esto…</th><th>…el sistema</th></tr>
+    <tr><td>La serie ya está registrada</td><td>La rechaza en el momento y dice cuál es. Es una moto cobrada dos veces.</td></tr>
+    <tr><td>El modelo no tiene precio con ese contratista</td><td>No registra. Guardarla en cero la armaría gratis y nadie lo notaría hasta cuadrar el mes.</td></tr>
+    <tr><td>La fecha es de mañana</td><td>No la acepta.</td></tr>
+    <tr><td>La moto ya entró en un corte</td><td>No se corrige ni se borra hasta reabrir el corte.</td></tr>
+    <tr><td>El técnico intenta apuntarle una moto a otro</td><td>Se ignora: queda a su nombre.</td></tr>
+  </table>
+  <p class="muted" style="margin-top:8px">El día lo pone el servidor con el calendario de Honduras, no el teléfono: una moto registrada a las siete de la noche del 31 sigue siendo de ese mes.</p>
+
+  <div class="probar">
+    <span class="t">Cómo probarlo</span>
+    <ol>
+      <li>Deje puesto el catálogo completo: contratista con sus precios, los modelos con su <strong>inicio del VIN</strong>, las bodegas y el gasto por moto.</li>
+      <li>En el teléfono, entre como técnico y registre una moto escaneando una caja. El <strong>modelo tiene que salir elegido solo</strong>.</li>
+      <li>Ponga <strong>dos cajas juntas</strong> dentro del recuadro: el borde tiene que ponerse ámbar y no debe escoger ninguna.</li>
+      <li>Intente registrar <strong>la misma serie dos veces</strong>: la segunda tiene que rebotar.</li>
+      <li>Como técnico, revise que en ninguna pantalla aparezca lo que el taller cobra. Solo su pago.</li>
+      <li>En el panel, compruebe que los cuatro totales cuadran: <strong>cobro − pago − gasto = lo que queda</strong>.</li>
+      <li>Baje los tres reportes. En el de <strong>facturación no puede aparecer el gasto</strong> por ningún lado; en el de <strong>Lo del taller</strong> sí.</li>
+      <li>Cierre un corte de facturación de un periodo chico e intente corregir una de esas motos: tiene que negarse. Reábralo y vuelva a intentar: ahora sí.</li>
+      <li>Antes de que el taller dependa de esto, <strong>enséñele el reporte de facturación al contratista</strong> y que lo acepte.</li>
+    </ol>
+  </div>
+
+  <div class="foot">
+    <strong>Óscar Méndez</strong> · GarajApp<br />
+    ✉️ soporte@garajeapp.com &nbsp;·&nbsp; 📱 WhatsApp +504 9824 2108 &nbsp;·&nbsp; 🌐 www.garajeapp.com
+  </div>
+</div>
+</body>
+</html>
