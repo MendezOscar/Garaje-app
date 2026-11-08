@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/assembly_repository.dart';
-import '../../core/auth/auth_controller.dart';
 import '../../core/models/assembly.dart';
 import '../../core/models/media.dart';
 import '../../core/sync/upload_queue.dart';
@@ -226,12 +225,10 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
           _contratista ??= datos.contractors.length == 1 ? datos.contractors.first.id : null;
           _bodega ??= datos.warehouses.length == 1 ? datos.warehouses.first.id : null;
 
-          // Quien manda arranca apuntándose a sí mismo: lo normal es que registre lo que
-          // armó otro, pero cambiarlo es un toque y equivocarse de técnico cuesta un pago.
-          final yo = ref.read(authControllerProvider);
-          if (datos.technicians.isNotEmpty && _tecnico == null && yo is AuthSignedIn) {
-            _tecnico = datos.technicians.any((t) => t.id == yo.user.id) ? yo.user.id : null;
-          }
+          // Con un solo técnico no se pregunta. Con varios se elige a mano y no hay
+          // preseleccionado: el dueño no arma motos, así que no hay un «yo» razonable, y
+          // equivocarse de técnico es un pago que se le va al que no la armó.
+          if (datos.technicians.length == 1) _tecnico ??= datos.technicians.first.id;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -307,7 +304,7 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
               // A quién se le apunta. Solo lo ve quien manda: al técnico le llega vacía y
               // el servidor le apunta lo suyo pase lo que pase. Es el caso del dueño que
               // sigue recibiendo las fotos por WhatsApp y registra él lo que armó otro.
-              if (datos.technicians.length > 1) ...[
+              if (datos.technicians.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _Elegir(
                   etiqueta: 'La armó',
@@ -362,7 +359,13 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
 
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: _guardando || _limpia.isEmpty || _modelo == null || _bodega == null
+                onPressed: _guardando ||
+                        _limpia.isEmpty ||
+                        _modelo == null ||
+                        _bodega == null ||
+                        // Lista llena quiere decir que quien está dentro no arma motos: hasta
+                        // que diga quién la armó, no hay a quién pagarle.
+                        (datos.technicians.isNotEmpty && _tecnico == null)
                     ? null
                     : _registrar,
                 icon: _guardando

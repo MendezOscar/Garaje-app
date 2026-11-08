@@ -8,6 +8,7 @@ using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Garaj.Infrastructure.Persistence.Interceptors;
 using Garaj.Infrastructure.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garaj.Tests;
@@ -194,6 +195,46 @@ public class ArmadoDeMotosTests
         new(db, db.TenantContext, new DateTimeProvider());
 
     /// <summary>
+    /// Un técnico de verdad: con su fila de usuario y con el rol puesto.
+    /// </summary>
+    /// <remarks>
+    /// El rol importa: a quien manda se le exige decir quién armó la moto, y lo que mande
+    /// tiene que ser un técnico de su taller. Sin el rol, una moto se le podía apuntar al
+    /// dueño, que no arma ninguna, y el reporte de pago salía mal sin que nada avisara.
+    /// </remarks>
+    private static async Task<Guid> TecnicoAsync(GarajDbContext db, Guid taller, string nombre)
+    {
+        var id = Guid.NewGuid();
+
+        db.Users.Add(new AppUser
+        {
+            Id = id, TenantId = taller, FullName = nombre,
+            UserName = $"t{id:N}@prueba.hn", Email = $"t{id:N}@prueba.hn",
+            IsActive = true
+        });
+
+        var rol = await db.Roles.FirstOrDefaultAsync(r => r.Name == AppRoles.Technician);
+
+        if (rol is null)
+        {
+            rol = new AppRole
+            {
+                Id = Guid.NewGuid(),
+                Name = AppRoles.Technician,
+                NormalizedName = AppRoles.Technician.ToUpperInvariant()
+            };
+
+            db.Roles.Add(rol);
+        }
+
+        db.UserRoles.Add(new IdentityUserRole<Guid> { UserId = id, RoleId = rol.Id });
+
+        await db.SaveChangesAsync();
+
+        return id;
+    }
+
+    /// <summary>
     /// El técnico necesita las tres listas para registrar, y el catálogo del dueño no se las
     /// puede dar: de ahí cuelgan los precios. Por eso van por su propia puerta, sin un solo
     /// número.
@@ -292,9 +333,11 @@ public class ArmadoDeMotosTests
         var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
 
         await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
 
         var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
-            "3C1JA1234RT567890", modelo, contratista, bodega, BranchId: sucursal));
+            "3C1JA1234RT567890", modelo, contratista, bodega,
+            BranchId: sucursal, TechnicianUserId: tecnico));
 
         Assert.Equal(250m, moto.Charge);
     }
@@ -309,12 +352,14 @@ public class ArmadoDeMotosTests
 
         // Un modelo nuevo que todavía no se negoció con nadie.
         var sinPrecio = await servicio.SaveModelAsync(null, new SaveAssemblyModelRequest("DT125"));
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
 
         // Registrarlo en cero haría que esa moto se armara gratis y nadie lo notaría hasta
         // cuadrar el mes.
         await Assert.ThrowsAsync<AppException>(() => Registro(db).RegisterAsync(
             new RegisterMotorcycleRequest(
-                "3C1JA1234RT567891", sinPrecio.Id, contratista, bodega, BranchId: sucursal)));
+                "3C1JA1234RT567891", sinPrecio.Id, contratista, bodega,
+                BranchId: sucursal, TechnicianUserId: tecnico)));
     }
 
     [RequiereBaseLocal]
@@ -324,13 +369,16 @@ public class ArmadoDeMotosTests
 
         await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
         var registro = Registro(db);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
 
         await registro.RegisterAsync(new RegisterMotorcycleRequest(
-            "3C1JA1234RT567890", modelo, contratista, bodega, BranchId: sucursal));
+            "3C1JA1234RT567890", modelo, contratista, bodega,
+            BranchId: sucursal, TechnicianUserId: tecnico));
 
         await Assert.ThrowsAsync<ConflictException>(() => registro.RegisterAsync(
             new RegisterMotorcycleRequest(
-                "3c1 ja1234 rt 567890", modelo, contratista, bodega, BranchId: sucursal)));
+                "3c1 ja1234 rt 567890", modelo, contratista, bodega,
+                BranchId: sucursal, TechnicianUserId: tecnico)));
     }
 
     [RequiereBaseLocal]
@@ -419,7 +467,9 @@ public class ArmadoDeMotosTests
         Assert.Null(antes.ModelId);
 
         await registro.RegisterAsync(new RegisterMotorcycleRequest(
-            "3C1JA1234RT000001", modelo, contratista, bodega, BranchId: sucursal));
+            "3C1JA1234RT000001", modelo, contratista, bodega,
+            BranchId: sucursal,
+            TechnicianUserId: await TecnicoAsync(db, taller, "Kevin Discua")));
 
         // Otro chasis del mismo prefijo: mismos ocho primeros caracteres, distinto correlativo.
         var despues = await registro.GuessModelAsync("3C1JA1234RT000002");
@@ -443,19 +493,12 @@ public class ArmadoDeMotosTests
     {
         var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
 
-        var tecnico = Guid.NewGuid();
         var otro = Guid.NewGuid();
+        Guid tecnico;
 
         await using (var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal))
         {
-            db.Users.Add(new AppUser
-            {
-                Id = tecnico, TenantId = taller, FullName = "Kevin Discua",
-                UserName = $"k{tecnico:N}@prueba.hn", Email = $"k{tecnico:N}@prueba.hn",
-                IsActive = true
-            });
-
-            await db.SaveChangesAsync();
+            tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
 
             var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
                 "3C1JA1234RT000001", modelo, contratista, bodega,
@@ -475,6 +518,42 @@ public class ArmadoDeMotosTests
         }
     }
 
+    /// <summary>
+    /// El dueño no arma motos: tiene que decir cuál de sus técnicos la armó, y él mismo no
+    /// está en la lista.
+    /// </summary>
+    /// <remarks>
+    /// Callarlo se la apuntaba a él. No fallaba nada: la moto quedaba registrada, y el pago
+    /// del técnico que de verdad la armó desaparecía del reporte del mes. De los errores que
+    /// no avisan, este es de los caros.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task El_dueno_no_sale_en_la_lista_y_tiene_que_decir_quien_armo()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+        var dueno = Guid.NewGuid();
+
+        await using var db = Contexto(taller, AppRoles.Owner, dueno, sucursal);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
+
+        var listas = await Registro(db).PickListsAsync();
+
+        // Están sus técnicos, y él no.
+        Assert.Contains(listas.Technicians, t => t.Id == tecnico);
+        Assert.DoesNotContain(listas.Technicians, t => t.Id == dueno);
+
+        // Sin decir quién la armó, no se registra.
+        await Assert.ThrowsAsync<AppException>(() => Registro(db).RegisterAsync(
+            new RegisterMotorcycleRequest(
+                "3C1JA1234RT222222", modelo, contratista, bodega, BranchId: sucursal)));
+
+        var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT222222", modelo, contratista, bodega,
+            BranchId: sucursal, TechnicianUserId: tecnico));
+
+        Assert.Equal(tecnico, moto.TechnicianUserId);
+    }
+
     private static AssemblyAdminService Panel(GarajDbContext db) =>
         new(db, db.TenantContext, new DateTimeProvider());
 
@@ -491,11 +570,13 @@ public class ArmadoDeMotosTests
         await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
         var registro = Registro(db);
         var panel = Panel(db);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
 
         foreach (var serie in new[] { "3C1JA1234RT000001", "3C1JA1234RT000002" })
         {
             await registro.RegisterAsync(new RegisterMotorcycleRequest(
-                serie, modelo, contratista, bodega, BranchId: sucursal));
+                serie, modelo, contratista, bodega,
+                BranchId: sucursal, TechnicianUserId: tecnico));
         }
 
         var hoy = new DateTimeProvider().Today();
@@ -530,7 +611,9 @@ public class ArmadoDeMotosTests
         var panel = Panel(db);
 
         var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
-            "3C1JA1234RT000001", modelo, contratista, bodega, BranchId: sucursal));
+            "3C1JA1234RT000001", modelo, contratista, bodega,
+            BranchId: sucursal,
+            TechnicianUserId: await TecnicoAsync(db, taller, "Kevin Discua")));
 
         var hoy = new DateTimeProvider().Today();
         var mes = new DateOnly(hoy.Year, hoy.Month, 1);
