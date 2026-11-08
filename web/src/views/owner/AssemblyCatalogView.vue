@@ -66,18 +66,21 @@ const nuevaBodega = ref('')
  * Se copia a cada moto al registrarla, así que cambiarlo aquí no toca lo ya armado: un mes
  * cerrado no puede cambiar de margen porque hoy suba el transporte.
  */
-const gasto = ref('')
+// Número y no texto: `v-model` sobre un `type="number"` ya devuelve número, y vacío lo
+// devuelve como cadena. Tratarlo como texto reventaba al teclear —`.trim()` no existe en un
+// número— y el campo quedaba inservible.
+const gasto = ref<number | string>('')
 const gastoGuardado = ref(0)
 
 const gastoCambio = computed(
-  () => (Number(gasto.value) || 0) !== gastoGuardado.value && gasto.value.trim() !== '',
+  () => gasto.value !== '' && Number(gasto.value) !== gastoGuardado.value,
 )
 
 async function guardarGasto() {
   await correr(async () => {
     const r = await assemblyApi.saveSettings(Number(gasto.value) || 0)
     gastoGuardado.value = r.expensePerMotorcycle
-    gasto.value = String(r.expensePerMotorcycle)
+    gasto.value = r.expensePerMotorcycle
   })
 }
 
@@ -101,7 +104,7 @@ async function cargar() {
     modelos.value = m
     bodegas.value = b
     gastoGuardado.value = ajustes.expensePerMotorcycle
-    gasto.value = String(ajustes.expensePerMotorcycle)
+    gasto.value = ajustes.expensePerMotorcycle
   } catch (e) {
     error.value = errorMessage(e)
   } finally {
