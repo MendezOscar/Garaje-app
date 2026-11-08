@@ -1933,6 +1933,11 @@ export interface AssemblyContractor {
   notes: string | null
   isActive: boolean
   rates: AssemblyRate[]
+  /**
+   * La sucursal del taller que lleva el contrato. De aquí sale la de cada moto armada: al
+   * técnico no se le pregunta, porque está en la bodega del contratista y no la sabe.
+   */
+  branchId: string | null
 }
 
 export interface AssemblyRate {

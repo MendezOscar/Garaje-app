@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/assembly/serie_de_la_etiqueta.dart';
@@ -38,6 +39,9 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
 
   bool _devuelto = false;
 
+  /// Lo que pasó al leer una foto de la galería, para decirlo abajo.
+  String? _deLaFoto;
+
   /// El tamaño del recuadro de la guía. Es también el área que de verdad se lee.
   static const _guia = Size(280, 140);
 
@@ -75,6 +79,39 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
       // Se vio algo, pero no el VIN: en una caja hay cuatro códigos y tres no sirven. Se
       // sigue leyendo sin decir nada, que es lo que pasa mientras uno mueve el teléfono.
       if (mounted) setState(() => _hayDosCajas = false);
+      return;
+    }
+
+    _devuelto = true;
+    Navigator.of(context).pop(serie);
+  }
+
+  /// Leer el código de una foto que ya está en el teléfono.
+  ///
+  /// Es para el dueño: a él las cajas le llegan por WhatsApp, no las tiene delante. Antes
+  /// tenía que leer la serie de la imagen y teclear diecisiete caracteres; ahora la abre y
+  /// sale lo mismo que saldría apuntándole con la cámara.
+  Future<void> _deUnaFoto() async {
+    final elegida = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (elegida == null || !mounted) return;
+
+    setState(() => _deLaFoto = 'Leyendo la foto…');
+
+    final leido = await _controlador.analyzeImage(elegida.path);
+    if (!mounted) return;
+
+    final codigos = leido?.barcodes
+            .map((b) => b.rawValue)
+            .whereType<String>()
+            .toList() ??
+        const <String>[];
+
+    final serie = serieDeLaEtiqueta(codigos);
+
+    if (serie == null) {
+      setState(() => _deLaFoto = codigos.isEmpty
+          ? 'En esa foto no se ve ningún código. Pruebe con una más cerca de la etiqueta.'
+          : 'En esa foto se leyeron ${codigos.length} códigos y ninguno es el VIN.');
       return;
     }
 
@@ -165,21 +202,32 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _hayDosCajas
+                      _deLaFoto ??
+                          (_hayDosCajas
                           ? 'Se ven dos cajas distintas en el recuadro. Acérquese hasta que '
                                 'solo entre la etiqueta de la que acaba de armar.'
                           : _vistos.isEmpty
                           ? 'Es el de diecisiete caracteres. Los otros de la caja '
                                 '—envío, SKU, número de motor— no sirven.'
                           : 'Ya se leyeron ${_vistos.length} códigos de la caja, pero '
-                                'ninguno es el VIN. Acérquese al que dice VIN.',
+                                'ninguno es el VIN. Acérquese al que dice VIN.'),
                       style: theme.textTheme.bodySmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Mejor la tecleo'),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _deUnaFoto,
+                          icon: const Icon(Icons.photo_library_outlined, size: 18),
+                          label: const Text('Leer de una foto'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Mejor la tecleo'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

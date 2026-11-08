@@ -72,6 +72,24 @@ public class AssemblyCatalogService(GarajDbContext db, ITenantContext tenantCont
         contratista.Notes = request.Notes?.Trim();
         contratista.IsActive = request.IsActive;
 
+        // La sucursal del contrato. Con una sola en el taller no se pregunta: queda puesta
+        // sola y el técnico nunca ve el tema.
+        if (request.BranchId is { } pedida)
+        {
+            contratista.BranchId = pedida;
+        }
+        else if (contratista.BranchId is null)
+        {
+            var sucursales = await db.Branches.AsNoTracking()
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Name)
+                .Select(b => b.Id)
+                .Take(2)
+                .ToListAsync(ct);
+
+            if (sucursales.Count == 1) contratista.BranchId = sucursales[0];
+        }
+
         await db.SaveChangesAsync(ct);
 
         return await ContractorAsync(contratista.Id, ct);
@@ -251,7 +269,8 @@ public class AssemblyCatalogService(GarajDbContext db, ITenantContext tenantCont
                 .OrderBy(r => r.Model.Name)
                 .Select(r => new AssemblyRateDto(
                     r.ModelId, r.Model.Name, r.Charge, r.TechnicianPay))
-                .ToList());
+                .ToList(),
+            c.BranchId);
 
     /// <summary>404 y no 403: al taller que no lo tiene contratado no se le dice que existe.</summary>
     private async Task EnsureEnabledAsync(CancellationToken ct)

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { assemblyApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
+import { useAuthStore } from '@/stores/auth'
 import type {
   AssemblyContractor,
   AssemblyModel,
@@ -22,6 +23,14 @@ import { formatMoney } from '@/utils/format'
  * Nada se borra: un contratista o un modelo con motos armadas colgando es historia ya
  * facturada. Se desactivan.
  */
+const auth = useAuthStore()
+
+/**
+ * Las sucursales del taller. Solo salen a la vista con más de una: con una sola, el contrato
+ * queda apuntado a ella sin preguntar nada.
+ */
+const sucursales = computed(() => auth.user?.branches ?? [])
+
 const contratistas = ref<AssemblyContractor[]>([])
 const modelos = ref<AssemblyModel[]>([])
 const bodegas = ref<AssemblyWarehouse[]>([])
@@ -194,6 +203,24 @@ async function alternarContratista(c: AssemblyContractor) {
       name: c.name,
       notes: c.notes,
       isActive: !c.isActive,
+      branchId: c.branchId,
+    })
+    contratistas.value = contratistas.value.map((x) => (x.id === guardado.id ? guardado : x))
+  })
+}
+
+/**
+ * La sucursal que lleva el contrato. De aquí sale la de cada moto que se registre: antes se
+ * le preguntaba a quien registraba, y al técnico con dos sucursales le quedaba un callejón
+ * sin salida —está en la bodega del contratista y no tiene cómo contestar—.
+ */
+async function cambiarSucursal(c: AssemblyContractor, branchId: string) {
+  await correr(async () => {
+    const guardado = await assemblyApi.updateContractor(c.id, {
+      name: c.name,
+      notes: c.notes,
+      isActive: c.isActive,
+      branchId,
     })
     contratistas.value = contratistas.value.map((x) => (x.id === guardado.id ? guardado : x))
   })
@@ -288,6 +315,17 @@ async function correr(accion: () => Promise<void>) {
               {{ c.rates.length }}
               {{ c.rates.length === 1 ? 'modelo con precio' : 'modelos con precio' }}
             </p>
+            <label v-if="sucursales.length > 1" class="sucursal-contrato">
+              <span class="muted small">Lo lleva</span>
+              <select
+                :value="c.branchId ?? ''"
+                :disabled="busy"
+                @change="cambiarSucursal(c, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="" disabled>Elija la sucursal</option>
+                <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </label>
           </div>
           <div class="acciones">
             <button type="button" class="chico" :disabled="busy" @click="abrir(c)">
@@ -495,6 +533,18 @@ header h1 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.sucursal-contrato {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.sucursal-contrato select {
+  padding: 0.25rem 0.4rem;
+  font-size: 0.85rem;
 }
 
 .tabla {

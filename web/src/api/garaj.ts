@@ -1765,13 +1765,13 @@ export const assemblyApi = {
     const { data } = await api.get<AssemblyContractor[]>('/api/assembly/contractors')
     return data
   },
-  async createContractor(body: { name: string; notes: string | null }) {
+  async createContractor(body: { name: string; notes: string | null; branchId?: string | null }) {
     const { data } = await api.post<AssemblyContractor>('/api/assembly/contractors', body)
     return data
   },
   async updateContractor(
     id: string,
-    body: { name: string; notes: string | null; isActive: boolean },
+    body: { name: string; notes: string | null; isActive: boolean; branchId?: string | null },
   ) {
     const { data } = await api.put<AssemblyContractor>(`/api/assembly/contractors/${id}`, body)
     return data
