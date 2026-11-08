@@ -71,18 +71,20 @@ class AssemblyName {
   final String name;
 }
 
-/// Las tres listas con que se llena el registro sin teclear.
+/// Las listas con que se llena el registro sin teclear.
 class AssemblyPickLists {
   const AssemblyPickLists({
     required this.contractors,
     required this.models,
     required this.warehouses,
+    this.technicians = const [],
   });
 
   factory AssemblyPickLists.fromJson(Map<String, dynamic> json) => AssemblyPickLists(
         contractors: _lista(json['contractors']),
         models: _lista(json['models']),
         warehouses: _lista(json['warehouses']),
+        technicians: _lista(json['technicians'] ?? const []),
       );
 
   static List<AssemblyName> _lista(dynamic v) => (v as List<dynamic>)
@@ -92,6 +94,11 @@ class AssemblyPickLists {
   final List<AssemblyName> contractors;
   final List<AssemblyName> models;
   final List<AssemblyName> warehouses;
+
+  /// A quién se le puede apuntar la moto. **Vacía para el técnico**: él solo registra lo
+  /// suyo, y el servidor ignora lo que venga. Llena para quien manda, que sigue recibiendo
+  /// fotos por WhatsApp y registra él lo que armó otro.
+  final List<AssemblyName> technicians;
 
   bool get listo => models.isNotEmpty && warehouses.isNotEmpty && contractors.isNotEmpty;
 }

@@ -18,6 +18,19 @@ public class AssemblyContractor : TenantEntity
     /// <summary>Con quién se habla y cómo se factura. Texto libre: cada contrato es distinto.</summary>
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// La sucursal del taller que lleva este contrato. De aquí sale la de cada moto armada.
+    /// </summary>
+    /// <remarks>
+    /// Vive aquí y no en el registro de la moto porque es un dato del contrato, no del día:
+    /// el técnico está parado en la bodega del contratista —que no es una sucursal del
+    /// taller— y no tiene cómo contestar en cuál de las del taller va. Preguntárselo fue un
+    /// callejón sin salida para el que tenía dos.
+    ///
+    /// Nulo mientras el dueño no lo diga: entonces se cae a la única sucursal del taller.
+    /// </remarks>
+    public Guid? BranchId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public ICollection<AssemblyRate> Rates { get; set; } = new List<AssemblyRate>();

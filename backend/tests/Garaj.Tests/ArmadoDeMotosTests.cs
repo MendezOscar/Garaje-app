@@ -236,6 +236,56 @@ public class ArmadoDeMotosTests
         Assert.Null(moto.Charge);
     }
 
+    /// <summary>
+    /// La sucursal sale del contrato, no de quien registra.
+    /// </summary>
+    /// <remarks>
+    /// Antes se le preguntaba a quien registraba y, al técnico asignado a dos sucursales, el
+    /// registro se le caía con «Diga en qué sucursal se armó». No tenía cómo contestar: está
+    /// parado en la bodega del contratista, que no es una sucursal del taller. Una moto que
+    /// no se puede registrar vuelve al WhatsApp, y de ahí ya no sale.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task El_tecnico_con_dos_sucursales_registra_y_la_moto_cae_en_la_del_contrato()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+        var otra = Guid.NewGuid();
+
+        await using (var dueno = Contexto(taller, AppRoles.Owner))
+        {
+            dueno.Branches.Add(new Branch
+            {
+                Id = otra, TenantId = taller, Name = "Zona Sur",
+                Code = $"{otra:N}"[..3].ToUpperInvariant(), IsActive = true
+            });
+
+            await dueno.SaveChangesAsync();
+        }
+
+        var contexto = new TenantContext();
+        contexto.Initialize(taller, Guid.NewGuid(), AppRoles.Technician, [sucursal, otra], null);
+
+        var cadena = Environment.GetEnvironmentVariable("ConnectionStrings__Default") ?? CadenaLocal;
+
+        await using var db = new GarajDbContext(
+            new DbContextOptionsBuilder<GarajDbContext>()
+                .UseNpgsql(cadena)
+                .AddInterceptors(new AuditableEntityInterceptor(contexto, new DateTimeProvider()))
+                .UseSnakeCaseNamingConvention()
+                .Options,
+            contexto);
+
+        // Sin decir en cuál: el técnico no manda BranchId, igual que desde el teléfono.
+        var moto = await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT111111", modelo, contratista, bodega));
+
+        var guardada = await db.MotorcycleAssemblies.AsNoTracking()
+            .FirstAsync(m => m.Id == moto.Id);
+
+        // La del contrato, que es la que el dueño puso al darlo de alta.
+        Assert.Equal(sucursal, guardada.BranchId);
+    }
+
     [RequiereBaseLocal]
     public async Task El_dueno_si_ve_lo_que_se_cobra()
     {

@@ -41,14 +41,17 @@ public class AssemblyImportService(
 
         var scope = AccessScope.From(tenantContext);
 
-        // La sucursal del histórico: la del dueño si tiene una sola, y si no, la primera
-        // activa. No se pregunta porque una hoja vieja no la trae.
-        var sucursal = scope.BranchIds.Count == 1
+        // La sucursal del histórico: la del contrato, si no la del dueño cuando tiene una
+        // sola, y si no la primera activa. No se pregunta porque una hoja vieja no la trae.
+        var sucursal = await db.AssemblyContractors.AsNoTracking()
+                .Where(c => c.Id == contractorId).Select(c => c.BranchId)
+                .FirstOrDefaultAsync(ct)
+            ?? (scope.BranchIds.Count == 1
             ? scope.BranchIds.First()
             : await db.Branches.AsNoTracking()
                 .Where(b => b.IsActive).OrderBy(b => b.Code)
                 .Select(b => (Guid?)b.Id).FirstOrDefaultAsync(ct)
-                ?? throw new AppException("El taller no tiene sucursales.");
+                ?? throw new AppException("El taller no tiene sucursales."));
 
         foreach (var fila in buenas)
         {

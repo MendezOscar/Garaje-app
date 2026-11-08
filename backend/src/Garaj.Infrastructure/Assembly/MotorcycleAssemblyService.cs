@@ -39,7 +39,7 @@ public class MotorcycleAssemblyService(
     public async Task<AssemblyPickListsDto> PickListsAsync(CancellationToken ct = default)
     {
         await EnsureEnabledAsync(ct);
-        EnsureDelTaller();
+        var scope = EnsureDelTaller();
 
         // Sin un solo precio: estas listas las lee el técnico.
         var contratistas = await db.AssemblyContractors.AsNoTracking()
@@ -57,7 +57,22 @@ public class MotorcycleAssemblyService(
             .Select(w => new AssemblyNameDto(w.Id, w.Name))
             .ToListAsync(ct);
 
-        return new AssemblyPickListsDto(contratistas, modelos, bodegas);
+        // A quién apuntarle la moto. Al técnico le va vacía: solo registra lo suyo, y en su
+        // pantalla no aparece ni la pregunta. El dueño la necesita porque sigue recibiendo
+        // fotos por WhatsApp y registra él lo que armó otro.
+        // UsersInTenant y no db.Users: AppUser no lleva filtro de taller, así que preguntar
+        // por db.Users aquí listaría empleados de otro taller.
+        var tecnicos = scope.IsManagement
+            ? await (
+                from u in db.UsersInTenant.AsNoTracking()
+                join ur in db.UserRoles on u.Id equals ur.UserId
+                join r in db.Roles on ur.RoleId equals r.Id
+                where u.IsActive && (r.Name == AppRoles.Technician || u.Id == scope.UserId)
+                orderby u.FullName
+                select new AssemblyNameDto(u.Id, u.FullName)).ToListAsync(ct)
+            : [];
+
+        return new AssemblyPickListsDto(contratistas, modelos, bodegas, tecnicos);
     }
 
     public async Task<MotorcycleAssemblyDto> RegisterAsync(
@@ -71,8 +86,7 @@ public class MotorcycleAssemblyService(
         if (serie.Length < 6)
             throw new AppException("La serie está muy corta. Cópiela completa del chasis.");
 
-        var sucursal = ResolverSucursal(scope, request.BranchId);
-        scope.EnsureBranchAllowed(sucursal);
+        var sucursal = await ResolverSucursalAsync(scope, request, ct);
 
         var tarifa = await db.AssemblyRates.AsNoTracking()
             .FirstOrDefaultAsync(
@@ -283,7 +297,10 @@ public class MotorcycleAssemblyService(
         if (!scope.IsManagement || pedido is not { } id || id == scope.UserId)
             return scope.UserId;
 
-        var existe = await db.Users.AsNoTracking().AnyAsync(u => u.Id == id, ct);
+        // UsersInTenant: db.Users no lleva filtro de taller, y por ahí se le podía apuntar
+        // una moto —y su pago— a un empleado de otro taller.
+        var existe = await db.UsersInTenant.AsNoTracking()
+            .AnyAsync(u => u.Id == id && u.IsActive, ct);
 
         if (!existe) throw new NotFoundException("Ese usuario no existe en el taller.");
 
@@ -291,16 +308,40 @@ public class MotorcycleAssemblyService(
     }
 
     /// <summary>
-    /// En qué sucursal se registra. El técnico tiene la suya y no se le pregunta; a quien
-    /// manda sobre varias se le pide, porque el reporte se corta por sucursal.
+    /// En qué sucursal del taller queda la moto.
     /// </summary>
-    private static Guid ResolverSucursal(AccessScope scope, Guid? pedida)
+    /// <remarks>
+    /// <b>No se le pregunta a nadie.</b> El armado es un contrato y el contrato lo lleva una
+    /// sucursal, así que sale del contratista. Antes se le pedía a quien registraba, y al
+    /// técnico con dos sucursales le quedaba un callejón sin salida: está parado en la bodega
+    /// del contratista —que no es una sucursal del taller— y no tiene cómo contestar.
+    ///
+    /// Si el contrato todavía no la tiene puesta se cae a lo que mande quien registra —el
+    /// panel manda la suya—, de ahí a su única sucursal, y de ahí a la primera del taller.
+    /// Nunca falla: una moto sin registrar por una pregunta de papeleo es una moto regalada.
+    /// </remarks>
+    private async Task<Guid> ResolverSucursalAsync(
+        AccessScope scope, RegisterMotorcycleRequest request, CancellationToken ct)
     {
-        if (pedida is { } id) return id;
+        var delContrato = await db.AssemblyContractors.AsNoTracking()
+            .Where(c => c.Id == request.ContractorId)
+            .Select(c => c.BranchId)
+            .FirstOrDefaultAsync(ct);
 
-        if (scope.BranchIds.Count == 1) return scope.BranchIds.First();
+        if (delContrato is { } suya) return suya;
 
-        throw new AppException("Diga en qué sucursal se armó.");
+        if (request.BranchId is { } pedida)
+        {
+            scope.EnsureBranchAllowed(pedida);
+            return pedida;
+        }
+
+        if (scope.BranchIds.Count >= 1) return scope.BranchIds.First();
+
+        return await db.Branches.AsNoTracking()
+            .OrderBy(b => b.Name)
+            .Select(b => b.Id)
+            .FirstOrDefaultAsync(ct);
     }
 
     /// <summary>El cliente no entra aquí: esto es trabajo del taller.</summary>

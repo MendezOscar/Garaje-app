@@ -39,6 +39,7 @@ class AssemblyRepository {
     required String contractorId,
     required String warehouseId,
     String? notes,
+    String? technicianUserId,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/assembly/motorcycles',
@@ -48,6 +49,9 @@ class AssemblyRepository {
         'contractorId': contractorId,
         'warehouseId': warehouseId,
         'notes': notes,
+        // Vacío desde el técnico: el servidor se la apunta a quien está dentro. Lo manda
+        // quien registra la moto que armó otro.
+        if (technicianUserId != null) 'technicianUserId': technicianUserId,
       },
     );
 

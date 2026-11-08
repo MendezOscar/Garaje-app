@@ -156,6 +156,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -193,6 +197,9 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_assembly_contractors");
+
+                    b.HasIndex("BranchId")
+                        .HasDatabaseName("ix_assembly_contractors_branch_id");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
@@ -4851,6 +4858,15 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Navigation("Equipment");
 
                     b.Navigation("Vehicle");
+                });
+
+            modelBuilder.Entity("Garaj.Domain.Entities.AssemblyContractor", b =>
+                {
+                    b.HasOne("Garaj.Domain.Entities.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_assembly_contractors_branches_branch_id");
                 });
 
             modelBuilder.Entity("Garaj.Domain.Entities.AssemblyRate", b =>

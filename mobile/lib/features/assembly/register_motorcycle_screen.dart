@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/assembly_repository.dart';
+import '../../core/auth/auth_controller.dart';
 import '../../core/models/assembly.dart';
 import '../../core/models/media.dart';
 import '../../core/sync/upload_queue.dart';
@@ -39,6 +40,9 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
   String? _contratista;
   String? _modelo;
   String? _bodega;
+
+  /// A quién se le apunta. Null es «a mí», que es lo único que puede el técnico.
+  String? _tecnico;
 
   File? _foto;
   bool _guardando = false;
@@ -151,6 +155,7 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
             contractorId: _contratista!,
             warehouseId: _bodega!,
             notes: _notas.text.trim().isEmpty ? null : _notas.text.trim(),
+            technicianUserId: _tecnico,
           );
 
       // La foto se encola después, cuando la moto ya tiene id. La cola aguanta sin señal:
@@ -220,6 +225,13 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
           // una moto que termina anotada en el WhatsApp.
           _contratista ??= datos.contractors.length == 1 ? datos.contractors.first.id : null;
           _bodega ??= datos.warehouses.length == 1 ? datos.warehouses.first.id : null;
+
+          // Quien manda arranca apuntándose a sí mismo: lo normal es que registre lo que
+          // armó otro, pero cambiarlo es un toque y equivocarse de técnico cuesta un pago.
+          final yo = ref.read(authControllerProvider);
+          if (datos.technicians.isNotEmpty && _tecnico == null && yo is AuthSignedIn) {
+            _tecnico = datos.technicians.any((t) => t.id == yo.user.id) ? yo.user.id : null;
+          }
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -291,6 +303,20 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
                 opciones: datos.warehouses,
                 onChanged: (v) => setState(() => _bodega = v),
               ),
+
+              // A quién se le apunta. Solo lo ve quien manda: al técnico le llega vacía y
+              // el servidor le apunta lo suyo pase lo que pase. Es el caso del dueño que
+              // sigue recibiendo las fotos por WhatsApp y registra él lo que armó otro.
+              if (datos.technicians.length > 1) ...[
+                const SizedBox(height: 12),
+                _Elegir(
+                  etiqueta: 'La armó',
+                  icono: Icons.person_outline,
+                  valor: _tecnico,
+                  opciones: datos.technicians,
+                  onChanged: (v) => setState(() => _tecnico = v),
+                ),
+              ],
 
               // Con uno solo no se enseña: ya quedó elegido y preguntarlo sería ruido.
               if (datos.contractors.length > 1) ...[

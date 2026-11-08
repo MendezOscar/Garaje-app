@@ -14,6 +14,13 @@ public class AssemblyContractorConfiguration : IEntityTypeConfiguration<Assembly
         // Dos contratistas con el mismo nombre en el mismo taller no son dos contratistas:
         // es uno cargado dos veces, y la tarifa quedaría partida entre los dos.
         b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+
+        // Restrict: una sucursal con un contrato colgando no se borra sin decidir qué pasa
+        // con lo ya facturado.
+        b.HasOne<Branch>()
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

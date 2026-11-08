@@ -4,12 +4,17 @@ using Garaj.Domain.Enums;
 namespace Garaj.Application.Assembly;
 
 /// <summary>Un contratista con su tabla de modelos: lo que paga y lo que se le paga al técnico.</summary>
+/// <param name="BranchId">
+/// La sucursal del taller que lleva el contrato. De aquí sale la de cada moto armada, para
+/// no preguntársela al técnico, que está en la bodega del contratista y no la sabe.
+/// </param>
 public record AssemblyContractorDto(
     Guid Id,
     string Name,
     string? Notes,
     bool IsActive,
-    IReadOnlyList<AssemblyRateDto> Rates);
+    IReadOnlyList<AssemblyRateDto> Rates,
+    Guid? BranchId = null);
 
 /// <param name="Charge">Lo que el contratista paga por armar una. No lo ve el técnico.</param>
 /// <param name="TechnicianPay">Lo que el taller le paga al técnico que la arma.</param>
@@ -19,7 +24,8 @@ public record AssemblyRateDto(
     decimal Charge,
     decimal TechnicianPay);
 
-public record SaveAssemblyContractorRequest(string Name, string? Notes, bool IsActive = true);
+public record SaveAssemblyContractorRequest(
+    string Name, string? Notes, bool IsActive = true, Guid? BranchId = null);
 
 /// <summary>
 /// La tabla entera de un contratista, de una vez.
@@ -114,10 +120,16 @@ public record RegisterMotorcycleRequest(
 /// Lo que el técnico necesita a mano para registrar sin teclear: con quién se trabaja, qué
 /// modelos y en qué bodegas. Sin un solo precio.
 /// </summary>
+/// <param name="Technicians">
+/// A quién se le puede apuntar la moto. <b>Vacía para el técnico</b>: él solo registra lo
+/// suyo. Al dueño le llega la lista porque sigue recibiendo fotos por WhatsApp y registra él
+/// mismo lo que armó otro.
+/// </param>
 public record AssemblyPickListsDto(
     IReadOnlyList<AssemblyNameDto> Contractors,
     IReadOnlyList<AssemblyNameDto> Models,
-    IReadOnlyList<AssemblyNameDto> Warehouses);
+    IReadOnlyList<AssemblyNameDto> Warehouses,
+    IReadOnlyList<AssemblyNameDto> Technicians);
 
 public record AssemblyNameDto(Guid Id, string Name);
 
