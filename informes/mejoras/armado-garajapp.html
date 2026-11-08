@@ -270,6 +270,7 @@
       <table>
         <tr><th>Reporte</th><th>Qué lleva</th><th>Para quién</th></tr>
         <tr><td><strong>Motos armadas</strong></td><td>Fecha, serie, modelo, técnico, bodega y cobro</td><td>Se le manda al <strong>contratista</strong></td></tr>
+        <tr><td><strong>La hoja de un corte</strong></td><td>Lo mismo, pero las motos de ese corte y con el número de factura</td><td>Se le manda al <strong>contratista</strong>, y se vuelve a sacar si la discute</td></tr>
         <tr><td><strong>Pago a técnicos</strong></td><td>Técnico, cuántas motos y lo que se le debe</td><td>Se imprime y se <strong>firma</strong></td></tr>
         <tr><td><strong>Lo del taller</strong></td><td>Lo anterior <strong>más gasto y lo que queda</strong></td><td><strong>Solo usted</strong></td></tr>
       </table>
@@ -288,21 +289,48 @@
     </div>
   </div>
 
-  <h2>8 · Los cortes: «¿esto ya lo cobré?»</h2>
+  <h2>8 · Los cortes: facturar el periodo</h2>
 
   <div class="mejora">
     <div class="n">8</div>
     <div>
-      <h3 style="margin-top:0">La pregunta que la hoja de cálculo nunca pudo contestar</h3>
-      <p>Cuando le factura a un contratista, cierra el <strong>corte de facturación</strong> del periodo. Cuando le paga a un técnico, cierra su <strong>corte de pago</strong>. Son dos cosas distintas y van por separado: facturarle al contratista no le paga al técnico, y al revés tampoco.</p>
-      <p style="margin-top:6px">Al cerrarlo, esas motos <strong>quedan marcadas y dejan de aparecer en lo que falta</strong> por facturar o por pagar. Puede anotarle el número de factura o de la nota de pago.</p>
+      <h3 style="margin-top:0">Cerrar el corte es facturar</h3>
+      <p>El corte es la línea que usted traza: <em>de aquí para atrás, esto ya lo facturé</em>. Y el orden del mes es este:</p>
+      <ol>
+        <li>Ponga el <strong>periodo</strong> arriba y elija el <strong>contratista</strong>.</li>
+        <li>En <strong>El detalle</strong>, <strong>Cerrar la facturación del periodo</strong>, y escriba el <strong>número de factura</strong>.</li>
+        <li>En <strong>Cortes</strong>, baje ese corte en <strong>Excel o PDF</strong> y <strong>eso</strong> es lo que le manda al contratista.</li>
+      </ol>
 
-      <div class="aviso">
-        <strong>Lo cerrado se congela: no se corrige ni se borra.</strong> Del otro lado hay una
-        factura emitida o una plata entregada, y cambiar una fila después sería cambiar el pasado.
+      <div class="hl">
+        <strong>La hoja sale del corte, no del filtro.</strong> Es la diferencia que importa: un
+        filtro vuelve a consultar lo que hay hoy, y en marzo puede dar otra cosa que en enero
+        —una moto que entró tarde, otra que se corrigió—. El corte ya congeló <strong>qué motos
+        lo componen</strong>, así que la hoja que se vuelve a sacar el día que el contratista
+        discuta la factura dice <strong>exactamente lo mismo</strong> que la que se mandó. Lleva
+        el número de factura impreso.
       </div>
 
-      <p style="margin-top:10px"><strong>Un corte mal hecho se reabre</strong>, que es la única manera honesta de arreglarlo: reabrir suelta las motos, vuelven a estar pendientes y queda constancia de quién lo hizo.</p>
+      <h3>El pago al técnico es otro corte</h3>
+      <p>En <strong>Pago a técnicos</strong>, un botón por cada uno. Mismo mecanismo, pero con lo que se le paga a él. Son dos sellos independientes: una moto puede estar <em>facturada y sin pagar</em>, o al revés. Facturarle al contratista no le paga al técnico.</p>
+
+      <h3>Lo que cambia después de cerrar</h3>
+      <ul>
+        <li>Esas motos <strong>dejan de aparecer en lo pendiente</strong> —el filtro «sin facturar» o «sin pagar»—. Ahí está lo que impide cobrar dos veces.</li>
+        <li>Quedan <strong>congeladas</strong>: no se corrigen ni se borran. Del otro lado hay una factura emitida o una plata entregada.</li>
+      </ul>
+
+      <div class="aviso">
+        <strong>El corte va por la fecha en que se armó la moto, no por cuándo se registró.</strong>
+        Una moto del 5 de enero que el técnico registró en febrero sigue siendo de enero. Por eso
+        <strong>puede cerrar el mismo periodo otra vez</strong>: el segundo corte se lleva
+        <strong>solo lo que quedó pendiente</strong>, sin tocar el primero, y sale su propia hoja
+        con su propio número de factura. Si no quedó nada, se lo dice.
+      </div>
+
+      <p style="margin-top:10px"><strong>Un corte mal hecho se reabre</strong>, que es la única manera honesta de arreglarlo: reabrir suelta las motos y vuelven a estar pendientes. <strong>El corte desaparece con su número de factura</strong>, así que si lo vuelve a cerrar hay que escribirlo de nuevo. No es «deshacer sin consecuencias».</p>
+
+      <p class="muted" style="margin-top:6px">Cerrar y reabrir es solo del Dueño. El Encargado ve y baja reportes, pero no traza la línea.</p>
     </div>
   </div>
 
@@ -338,7 +366,9 @@
       <li>Como técnico, revise que en ninguna pantalla aparezca lo que el taller cobra. Solo su pago.</li>
       <li>En el panel, compruebe que los cuatro totales cuadran: <strong>cobro − pago − gasto = lo que queda</strong>.</li>
       <li>Baje los tres reportes. En el de <strong>facturación no puede aparecer el gasto</strong> por ningún lado; en el de <strong>Lo del taller</strong> sí.</li>
-      <li>Cierre un corte de facturación de un periodo chico e intente corregir una de esas motos: tiene que negarse. Reábralo y vuelva a intentar: ahora sí.</li>
+      <li>Cierre un corte de facturación de un periodo chico con un número de factura, y baje su hoja desde <strong>Cortes</strong>: tiene que traer esas motos y el número impreso.</li>
+      <li>Registre otra moto de ese mismo periodo y vuelva a bajar la hoja del corte: <strong>no debe aparecer</strong>. Cierre otra vez el periodo y compruebe que el segundo corte se lleva solo esa.</li>
+      <li>Intente corregir una moto ya facturada: tiene que negarse. Reabra el corte y vuelva a intentar: ahora sí.</li>
       <li>Antes de que el taller dependa de esto, <strong>enséñele el reporte de facturación al contratista</strong> y que lo acepte.</li>
     </ol>
   </div>

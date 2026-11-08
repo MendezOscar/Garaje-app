@@ -199,6 +199,27 @@ public class AssemblyAdminController(
         => File(await reports.BillingPdfAsync(query, ct), "application/pdf", "Motos armadas.pdf");
 
     /// <summary>
+    /// La hoja de un corte ya cerrado: exactamente las motos que entraron en él.
+    /// </summary>
+    /// <remarks>
+    /// Es la que se le manda al contratista para que pague, y la que se vuelve a sacar el día
+    /// que discuta la factura: sale del corte, que ya congeló qué motos lo componen, no de un
+    /// filtro que hoy puede dar otra cosa.
+    /// </remarks>
+    [HttpGet("settlements/{id:guid}/report.xlsx")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> SettlementExcel(Guid id, CancellationToken ct)
+        => File(
+            await reports.SettlementExcelAsync(id, ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Corte.xlsx");
+
+    [HttpGet("settlements/{id:guid}/report.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> SettlementPdf(Guid id, CancellationToken ct)
+        => File(await reports.SettlementPdfAsync(id, ct), "application/pdf", "Corte.pdf");
+
+    /// <summary>
     /// El del taller: cobro, pago, gasto y lo que queda. <b>No sale de la oficina</b>: ni al
     /// contratista ni al técnico les toca ver lo que el taller gana con ellos.
     /// </summary>

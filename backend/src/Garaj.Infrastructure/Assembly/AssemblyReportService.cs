@@ -1,6 +1,8 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Assembly;
 using Garaj.Application.Common;
+using Garaj.Domain.Entities;
+using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -99,6 +101,85 @@ public class AssemblyReportService(
             taller, desde, hasta, pagina.Total,
             pagina.TotalCharge, pagina.TotalPay, pagina.TotalExpense,
             pagina.Items);
+    }
+
+    public async Task<byte[]> SettlementExcelAsync(
+        Guid settlementId, CancellationToken ct = default)
+    {
+        var corte = await CorteAsync(settlementId, ct);
+
+        return corte.Kind == AssemblySettlementKind.Billing
+            ? AssemblyReports.BillingExcel(await DeFacturacionAsync(corte, ct))
+            : AssemblyReports.PayExcel(await DePagoAsync(corte, ct));
+    }
+
+    public async Task<byte[]> SettlementPdfAsync(
+        Guid settlementId, CancellationToken ct = default)
+    {
+        var corte = await CorteAsync(settlementId, ct);
+
+        return corte.Kind == AssemblySettlementKind.Billing
+            ? AssemblyReports.BillingPdf(await DeFacturacionAsync(corte, ct))
+            : AssemblyReports.PayPdf(await DePagoAsync(corte, ct));
+    }
+
+    private async Task<AssemblySettlement> CorteAsync(Guid id, CancellationToken ct)
+    {
+        AccessScope.From(tenantContext).EnsureManagement();
+
+        return await db.AssemblySettlements.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id, ct)
+            ?? throw new NotFoundException("El corte no existe.");
+    }
+
+    /// <summary>
+    /// La hoja del contratista, sacada del corte y no de un filtro.
+    /// </summary>
+    /// <remarks>
+    /// Las filas son las que el corte congeló, así que esta hoja sale igual hoy que dentro de
+    /// seis meses: es la que respalda la factura, y el día que la discutan tiene que decir
+    /// exactamente lo mismo que dijo cuando se mandó.
+    /// </remarks>
+    private async Task<AssemblyBillingReportDto> DeFacturacionAsync(
+        AssemblySettlement corte, CancellationToken ct)
+    {
+        var (taller, _, _) = await CabeceraAsync(new AssemblyQuery(), ct);
+
+        var contratista = await db.AssemblyContractors.AsNoTracking()
+            .Where(c => c.Id == corte.ContractorId)
+            .Select(c => c.Name)
+            .FirstOrDefaultAsync(ct) ?? "—";
+
+        var pagina = await admin.ListAsync(
+            new AssemblyQuery
+            {
+                SettlementId = corte.Id,
+                Page = 1,
+                PageSize = MaximoDeFilas
+            }, ct);
+
+        // Sin el gasto: esta hoja es la que recibe el contratista.
+        var filas = pagina.Items.Select(r => r with { Expense = 0m }).ToList();
+
+        return new AssemblyBillingReportDto(
+            taller, contratista, corte.PeriodFrom, corte.PeriodTo,
+            corte.Count, corte.Total, filas, corte.Reference);
+    }
+
+    private async Task<AssemblyPayReportDto> DePagoAsync(
+        AssemblySettlement corte, CancellationToken ct)
+    {
+        var (taller, _, _) = await CabeceraAsync(new AssemblyQuery(), ct);
+
+        var nombre = corte.TechnicianUserId is { } id
+            ? (await admin.NombresAsync([id], ct)).GetValueOrDefault(id, "—")
+            : "—";
+
+        return new AssemblyPayReportDto(
+            taller, corte.PeriodFrom, corte.PeriodTo, corte.Count, corte.Total,
+            [new AssemblyPayLineDto(
+                corte.TechnicianUserId ?? Guid.Empty, nombre, corte.Count, corte.Total)],
+            corte.Reference);
     }
 
     public async Task<byte[]> ShopExcelAsync(AssemblyQuery query, CancellationToken ct = default)

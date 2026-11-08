@@ -320,6 +320,10 @@ public class AssemblyAdminService(
         if (query.TechnicianUserId is { } t) q = q.Where(m => m.TechnicianUserId == t);
         if (query.WarehouseId is { } w) q = q.Where(m => m.WarehouseId == w);
         if (query.ModelId is { } mo) q = q.Where(m => m.ModelId == mo);
+        // Las de un corte: el id es único, así que da igual de qué tipo sea el corte.
+        if (query.SettlementId is { } corte)
+            q = q.Where(m => m.BillingSettlementId == corte || m.PaySettlementId == corte);
+
         if (query.OnlyUnbilled) q = q.Where(m => m.BillingSettlementId == null);
         if (query.OnlyUnpaid) q = q.Where(m => m.PaySettlementId == null);
 

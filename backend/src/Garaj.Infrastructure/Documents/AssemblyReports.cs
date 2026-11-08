@@ -38,6 +38,9 @@ public static class AssemblyReports
         hoja.Cell(2, 1).Value = $"Motos armadas para {reporte.ContractorName}";
         hoja.Cell(3, 1).Value = $"Del {Dia(reporte.From)} al {Dia(reporte.To)}";
 
+        if (!string.IsNullOrWhiteSpace(reporte.Reference))
+            hoja.Cell(4, 1).Value = $"Factura: {reporte.Reference}";
+
         var fila = 5;
         string[] encabezados = ["Fecha", "Serie", "Modelo", "Técnico", "Bodega", "Cobro"];
 
@@ -157,6 +160,9 @@ public static class AssemblyReports
         hoja.Cell(2, 1).Value = "Pago por motos armadas";
         hoja.Cell(3, 1).Value = $"Del {Dia(reporte.From)} al {Dia(reporte.To)}";
 
+        if (!string.IsNullOrWhiteSpace(reporte.Reference))
+            hoja.Cell(4, 1).Value = $"Nota de pago: {reporte.Reference}";
+
         var fila = 5;
         string[] encabezados = ["Técnico", "Motos", "A pagar"];
 
@@ -201,7 +207,10 @@ public static class AssemblyReports
             page.Header().Element(h => Encabezado(
                 h, reporte.TenantName,
                 $"Motos armadas para {reporte.ContractorName}",
-                reporte.From, reporte.To));
+                reporte.From, reporte.To,
+                string.IsNullOrWhiteSpace(reporte.Reference)
+                    ? null
+                    : $"Factura: {reporte.Reference}"));
 
             page.Content().PaddingVertical(12).Element(c => c.Table(tabla =>
             {
@@ -293,7 +302,10 @@ public static class AssemblyReports
             Pagina(page);
 
             page.Header().Element(h => Encabezado(
-                h, reporte.TenantName, "Pago por motos armadas", reporte.From, reporte.To));
+                h, reporte.TenantName, "Pago por motos armadas", reporte.From, reporte.To,
+                string.IsNullOrWhiteSpace(reporte.Reference)
+                    ? null
+                    : $"Nota de pago: {reporte.Reference}"));
 
             page.Content().PaddingVertical(12).Column(columna =>
             {
@@ -345,13 +357,19 @@ public static class AssemblyReports
     }
 
     private static void Encabezado(
-        IContainer container, string taller, string titulo, DateOnly desde, DateOnly hasta) =>
+        IContainer container, string taller, string titulo, DateOnly desde, DateOnly hasta,
+        string? referencia = null) =>
         container.Column(columna =>
         {
             columna.Item().Text(taller).FontSize(13).Bold();
             columna.Item().Text(titulo).FontSize(11);
             columna.Item().Text($"Del {Dia(desde)} al {Dia(hasta)}")
                 .FontSize(9).FontColor(Colors.Grey.Darken1);
+
+            // La referencia solo aparece cuando la hoja sale de un corte ya cerrado: es lo que
+            // amarra este papel con la factura que se emitió.
+            if (!string.IsNullOrWhiteSpace(referencia))
+                columna.Item().PaddingTop(2).Text(referencia).FontSize(9).Bold();
         });
 
     private static void Cabecera(TableDescriptor tabla, params string[] rotulos)
