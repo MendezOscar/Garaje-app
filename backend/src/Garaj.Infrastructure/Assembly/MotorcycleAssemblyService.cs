@@ -57,9 +57,11 @@ public class MotorcycleAssemblyService(
             .Select(w => new AssemblyNameDto(w.Id, w.Name))
             .ToListAsync(ct);
 
-        // A quién apuntarle la moto. Al técnico le va vacía: solo registra lo suyo, y en su
-        // pantalla no aparece ni la pregunta. El dueño la necesita porque sigue recibiendo
-        // fotos por WhatsApp y registra él lo que armó otro.
+        // A quién apuntarle la moto: los técnicos y nadie más. El dueño no arma motos —él
+        // registra lo que le reportan—, así que su propio nombre no está en la lista: que
+        // pudiera elegirse a sí mismo era un pago mal apuntado a un toque de distancia.
+        //
+        // Al técnico le va vacía: solo registra lo suyo, y en su pantalla ni se pregunta.
         // UsersInTenant y no db.Users: AppUser no lleva filtro de taller, así que preguntar
         // por db.Users aquí listaría empleados de otro taller.
         var tecnicos = scope.IsManagement
@@ -67,7 +69,7 @@ public class MotorcycleAssemblyService(
                 from u in db.UsersInTenant.AsNoTracking()
                 join ur in db.UserRoles on u.Id equals ur.UserId
                 join r in db.Roles on ur.RoleId equals r.Id
-                where u.IsActive && (r.Name == AppRoles.Technician || u.Id == scope.UserId)
+                where u.IsActive && r.Name == AppRoles.Technician
                 orderby u.FullName
                 select new AssemblyNameDto(u.Id, u.FullName)).ToListAsync(ct)
             : [];
@@ -294,15 +296,25 @@ public class MotorcycleAssemblyService(
     private async Task<Guid> ResolverTecnicoAsync(
         AccessScope scope, Guid? pedido, CancellationToken ct)
     {
-        if (!scope.IsManagement || pedido is not { } id || id == scope.UserId)
-            return scope.UserId;
+        if (!scope.IsManagement) return scope.UserId;
+
+        // Quien manda tiene que decirlo. Antes, callarlo se la apuntaba a él mismo, y el
+        // dueño no arma motos: el pago le quedaba al que no la armó y el reporte de pago
+        // salía mal sin que nada avisara.
+        if (pedido is not { } id)
+            throw new AppException("Diga quién armó la moto.");
 
         // UsersInTenant: db.Users no lleva filtro de taller, y por ahí se le podía apuntar
         // una moto —y su pago— a un empleado de otro taller.
-        var existe = await db.UsersInTenant.AsNoTracking()
-            .AnyAsync(u => u.Id == id && u.IsActive, ct);
+        var esTecnico = await (
+            from u in db.UsersInTenant.AsNoTracking()
+            join ur in db.UserRoles on u.Id equals ur.UserId
+            join r in db.Roles on ur.RoleId equals r.Id
+            where u.Id == id && u.IsActive && r.Name == AppRoles.Technician
+            select u.Id).AnyAsync(ct);
 
-        if (!existe) throw new NotFoundException("Ese usuario no existe en el taller.");
+        if (!esTecnico)
+            throw new NotFoundException("Ese técnico no existe en el taller.");
 
         return id;
     }

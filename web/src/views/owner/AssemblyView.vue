@@ -97,11 +97,15 @@ onMounted(async () => {
     bodegas.value = b
     tecnicos.value = t
 
-    // Para el desplegable de «quién la armó» hacen falta todos, no solo los que ya armaron
-    // alguna: la primera moto de cada técnico no tendría a quién apuntarse.
-    personal.value = (await usersApi.list()).filter((u) => u.isActive)
+    // Para el desplegable de «quién la armó» hacen falta todos los técnicos, no solo los
+    // que ya armaron alguna: la primera moto de cada uno no tendría a quién apuntarse. Y
+    // solo técnicos: el dueño no arma motos, registra lo que le reportan.
+    personal.value = (await usersApi.list()).filter(
+      (u) => u.isActive && u.role === 'Technician',
+    )
 
     if (b.length === 1) nueva.value.warehouseId = b[0].id
+    if (personal.value.length === 1) nueva.value.technicianUserId = personal.value[0].id
 
     // Con un contratista solo, se elige: es el caso de hoy y evita un reporte vacío.
     if (c.length === 1) filtro.value.contractorId = c[0].id
@@ -292,6 +296,13 @@ watch(serieLimpia, (v) => {
 async function registrar() {
   if (!filtro.value.contractorId) {
     error.value = 'Elija arriba el contratista al que se le arma.'
+    return
+  }
+
+  // Sin esto la moto se le apuntaba a quien la teclea, y el pago del que de verdad la armó
+  // desaparecía del reporte del mes sin que nada avisara.
+  if (!nueva.value.technicianUserId) {
+    error.value = 'Diga quién armó la moto.'
     return
   }
 
@@ -540,7 +551,7 @@ function dia(valor: string) {
             <label>
               Quién la armó
               <select v-model="nueva.technicianUserId">
-                <option value="">Yo</option>
+                <option value="" disabled>Elija al técnico</option>
                 <option v-for="u in personal" :key="u.id" :value="u.id">{{ u.fullName }}</option>
               </select>
             </label>
