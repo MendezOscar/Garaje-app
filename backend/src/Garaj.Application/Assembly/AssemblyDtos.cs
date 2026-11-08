@@ -203,6 +203,12 @@ public record AssemblyQuery : PageQuery
 
     /// <summary>Parte de la serie, como se teclea de la calcomanía.</summary>
     public string? Serial { get; init; }
+
+    /// <summary>
+    /// Solo las motos que entraron en ese corte. Es lo que hace que el reporte de una factura
+    /// se pueda volver a sacar tal cual meses después, sin depender de un filtro.
+    /// </summary>
+    public Guid? SettlementId { get; init; }
 }
 
 /// <summary>Una fila de la lista del dueño: la moto con su estado de corte.</summary>
@@ -325,7 +331,9 @@ public record AssemblyBillingReportDto(
     DateOnly To,
     int Count,
     decimal Total,
-    IReadOnlyList<AssemblyRowDto> Rows);
+    IReadOnlyList<AssemblyRowDto> Rows,
+    /// <summary>El número de factura, cuando la hoja sale de un corte ya cerrado.</summary>
+    string? Reference = null);
 
 /// <summary>Lo que se le debe a cada técnico por un periodo.</summary>
 public record AssemblyPayReportDto(
@@ -334,7 +342,9 @@ public record AssemblyPayReportDto(
     DateOnly To,
     int Count,
     decimal Total,
-    IReadOnlyList<AssemblyPayLineDto> Lines);
+    IReadOnlyList<AssemblyPayLineDto> Lines,
+    /// <summary>La nota de pago, cuando la hoja sale de un corte ya cerrado.</summary>
+    string? Reference = null);
 
 public record AssemblyPayLineDto(
     Guid TechnicianUserId,
@@ -370,6 +380,17 @@ public interface IAssemblyReportService
 
     Task<byte[]> ShopExcelAsync(AssemblyQuery query, CancellationToken ct = default);
     Task<byte[]> ShopPdfAsync(AssemblyQuery query, CancellationToken ct = default);
+
+    /// <summary>
+    /// La hoja de un corte ya cerrado: exactamente las motos que entraron en él.
+    /// </summary>
+    /// <remarks>
+    /// Es la que se le manda al contratista para que pague, y la que se vuelve a sacar el día
+    /// que discuta la factura. No sale de un filtro —un filtro de hoy puede dar otra cosa que
+    /// el de aquel día— sino del corte mismo, que ya congeló qué motos lo componen.
+    /// </remarks>
+    Task<byte[]> SettlementExcelAsync(Guid settlementId, CancellationToken ct = default);
+    Task<byte[]> SettlementPdfAsync(Guid settlementId, CancellationToken ct = default);
 
     Task<AssemblyBillingReportDto> BillingAsync(
         AssemblyQuery query, CancellationToken ct = default);

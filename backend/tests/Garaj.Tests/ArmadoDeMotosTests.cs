@@ -598,6 +598,71 @@ public class ArmadoDeMotosTests
         Assert.Equal(0m, factura.Rows[0].Expense);
     }
 
+    /// <summary>
+    /// La hoja de un corte sale del corte, no del filtro de hoy.
+    /// </summary>
+    /// <remarks>
+    /// Es la que respalda una factura emitida. Si saliera de un filtro, bastaría con que
+    /// entrara una moto tarde —o que se corrigiera otra— para que el papel que se vuelve a
+    /// sacar en marzo no dijera lo mismo que el que se mandó en enero. Con una factura de por
+    /// medio, eso es una discusión que se pierde.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task La_hoja_de_un_corte_enseña_las_motos_de_ese_corte_y_no_las_de_despues()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var registro = Registro(db);
+        var panel = Panel(db);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
+
+        var hoy = new DateTimeProvider().Today();
+        var mes = new DateOnly(hoy.Year, hoy.Month, 1);
+
+        foreach (var serie in new[] { "3C1JA1234RT440001", "3C1JA1234RT440002" })
+        {
+            await registro.RegisterAsync(new RegisterMotorcycleRequest(
+                serie, modelo, contratista, bodega,
+                BranchId: sucursal, TechnicianUserId: tecnico));
+        }
+
+        var corte = await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista,
+            Reference: "F-001-0042"));
+
+        Assert.Equal(2, corte.Count);
+
+        // Una moto del mismo periodo que entra DESPUÉS de cerrar: el corte ya pasó.
+        await registro.RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT440003", modelo, contratista, bodega,
+            BranchId: sucursal, TechnicianUserId: tecnico));
+
+        // El filtro del periodo ya trae tres…
+        var filtro = await panel.ListAsync(new AssemblyQuery
+        {
+            From = mes, To = hoy, ContractorId = contratista
+        });
+
+        Assert.Equal(3, filtro.Total);
+
+        // …y la hoja del corte sigue trayendo las dos que se facturaron, con su referencia.
+        var hoja = await Reportes(db).SettlementExcelAsync(corte.Id);
+        Assert.NotEmpty(hoja);
+
+        var delCorte = await panel.ListAsync(new AssemblyQuery { SettlementId = corte.Id });
+
+        Assert.Equal(2, delCorte.Total);
+        Assert.DoesNotContain(delCorte.Items, m => m.Serial == "3C1JA1234RT440003");
+
+        // Y la que quedó fuera se recoge cerrando otra vez el mismo periodo.
+        var segundo = await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista,
+            Reference: "F-001-0043"));
+
+        Assert.Equal(1, segundo.Count);
+    }
+
     private static AssemblyReportService Reportes(GarajDbContext db) =>
         new(db, db.TenantContext, Panel(db), new DateTimeProvider());
 

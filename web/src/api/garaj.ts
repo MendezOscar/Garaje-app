@@ -1928,6 +1928,13 @@ export const assemblyAdminApi = {
     const { data } = await api.post<AssemblySettlement>('/api/assembly/admin/settlements', body)
     return data
   },
+  /**
+   * La hoja de un corte ya cerrado: exactamente las motos que entraron en el. Es la que se le
+   * manda al contratista, y la que se vuelve a sacar el dia que discuta la factura.
+   */
+  async downloadSettlement(id: string, formato: 'xlsx' | 'pdf', nombre: string) {
+    await download(`/api/assembly/admin/settlements/${id}/report.${formato}`, `${nombre}.${formato}`)
+  },
   /** Reabrirlo suelta las motos. Es la única manera honesta de corregir un corte. */
   async reopen(id: string) {
     await api.delete(`/api/assembly/admin/settlements/${id}`)

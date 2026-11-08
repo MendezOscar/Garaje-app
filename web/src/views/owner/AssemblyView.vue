@@ -168,6 +168,26 @@ async function bajar(que: 'billing' | 'pay' | 'shop', formato: 'xlsx' | 'pdf') {
   })
 }
 
+/**
+ * La hoja de un corte ya cerrado: las motos que entraron en él y nada más.
+ *
+ * Es la que se le manda al contratista para que pague, y la que se vuelve a sacar el día que
+ * discuta la factura. Sale del corte y no del filtro de arriba, que meses después puede dar
+ * otra cosa —una moto corregida, otra que entró tarde— sin que nadie se dé cuenta.
+ */
+async function bajarCorte(c: AssemblySettlement, formato: 'xlsx' | 'pdf') {
+  const quien = c.contractorName ?? c.technicianName ?? ''
+  const que = c.kind === 1 ? 'Motos armadas' : 'Pago a tecnicos'
+
+  await correr(async () => {
+    await assemblyAdminApi.downloadSettlement(
+      c.id,
+      formato,
+      `${que} ${quien} ${dia(c.periodFrom)} a ${dia(c.periodTo)}`.replace(/\//g, '-').trim(),
+    )
+  })
+}
+
 async function cerrarCorte(kind: 1 | 2, technicianUserId?: string) {
   const esFacturacion = kind === 1
 
@@ -769,6 +789,12 @@ function dia(valor: string) {
               <td class="num">{{ formatMoney(c.total) }}</td>
               <td>{{ c.reference ?? '—' }}</td>
               <td class="estado">
+                <button type="button" class="chico" :disabled="busy" @click="bajarCorte(c, 'xlsx')">
+                  Excel
+                </button>
+                <button type="button" class="chico" :disabled="busy" @click="bajarCorte(c, 'pdf')">
+                  PDF
+                </button>
                 <button type="button" class="link" :disabled="busy" @click="reabrir(c)">
                   Reabrir
                 </button>
@@ -1040,6 +1066,12 @@ header h1 {
 .tabla .estado {
   text-align: right;
   white-space: nowrap;
+}
+
+.tabla .estado .chico {
+  padding: 0.2rem 0.55rem;
+  margin-left: 0.3rem;
+  font-size: 0.8rem;
 }
 
 /* Lo congelado se marca sin esconderlo: sigue contando para el total del periodo. */
