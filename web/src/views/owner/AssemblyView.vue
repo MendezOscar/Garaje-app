@@ -145,7 +145,7 @@ watch(pestana, async (v) => {
   })
 })
 
-async function bajar(que: 'billing' | 'pay', formato: 'xlsx' | 'pdf') {
+async function bajar(que: 'billing' | 'pay' | 'shop', formato: 'xlsx' | 'pdf') {
   // El de facturación se le manda a alguien: mezclar dos contratos en una hoja es el error
   // que nadie detecta hasta que se la rechazan.
   if (que === 'billing' && !filtro.value.contractorId) {
@@ -160,6 +160,8 @@ async function bajar(que: 'billing' | 'pay', formato: 'xlsx' | 'pdf') {
         formato,
         `Motos armadas ${contratistaElegido.value?.name ?? ''} ${periodo.value}`.trim(),
       )
+    } else if (que === 'shop') {
+      await assemblyAdminApi.downloadShop(consulta.value, formato, `Lo del taller ${periodo.value}`)
     } else {
       await assemblyAdminApi.downloadPay(consulta.value, formato, `Pago a tecnicos ${periodo.value}`)
     }
@@ -471,7 +473,7 @@ function dia(valor: string) {
     <p v-if="cargando" class="muted">Cargando…</p>
 
     <template v-else>
-      <!-- Los dos totales juntos: la diferencia entre ellos es lo que el taller gana. -->
+      <!-- Los números del periodo juntos: lo que queda es el cobro menos el pago y el gasto. -->
       <div v-if="pagina" class="totales">
         <div class="total">
           <strong>{{ pagina.total }}</strong>
@@ -485,8 +487,14 @@ function dia(valor: string) {
           <strong>{{ formatMoney(pagina.totalPay) }}</strong>
           <span class="muted small">se les paga a los técnicos</span>
         </div>
+        <div v-if="pagina.totalExpense" class="total">
+          <strong>{{ formatMoney(pagina.totalExpense) }}</strong>
+          <span class="muted small">le cuesta al taller armarlas</span>
+        </div>
         <div class="total queda">
-          <strong>{{ formatMoney(pagina.totalCharge - pagina.totalPay) }}</strong>
+          <strong>
+            {{ formatMoney(pagina.totalCharge - pagina.totalPay - pagina.totalExpense) }}
+          </strong>
           <span class="muted small">queda para el taller</span>
         </div>
       </div>
@@ -602,6 +610,18 @@ function dia(valor: string) {
           </button>
           <button type="button" class="primario" :disabled="busy" @click="cerrarCorte(1)">
             Cerrar la facturación del periodo
+          </button>
+        </div>
+
+        <!-- Aparte, y dicho con todas sus letras: esta hoja lleva el gasto y el margen, así
+             que es la única de las tres que no se le manda a nadie. -->
+        <div class="acciones del-taller">
+          <span class="muted small">Para usted, con el gasto y lo que queda:</span>
+          <button type="button" class="chico" :disabled="busy" @click="bajar('shop', 'xlsx')">
+            Excel
+          </button>
+          <button type="button" class="chico" :disabled="busy" @click="bajar('shop', 'pdf')">
+            PDF
           </button>
         </div>
 
@@ -859,10 +879,11 @@ header h1 {
   text-transform: uppercase;
 }
 
-/* Los cuatro números del periodo, juntos: lo que queda es la diferencia de los dos de enmedio. */
+/* Los números del periodo, juntos: lo que queda es el cobro menos los dos de enmedio. El
+   gasto solo aparece si el taller lo tiene puesto, así que son cuatro o cinco. */
 .totales {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.625rem;
 }
 
@@ -913,6 +934,17 @@ header h1 {
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* Separada de la fila de arriba a propósito: lo de arriba se manda, esto no. */
+.del-taller {
+  margin-top: -0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.del-taller .chico {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 .alta {

@@ -40,7 +40,8 @@ public class AssemblyAdminService(
             {
                 Cuantas = g.Count(),
                 Cobro = g.Sum(m => m.Charge),
-                Pago = g.Sum(m => m.TechnicianPay)
+                Pago = g.Sum(m => m.TechnicianPay),
+                Gasto = g.Sum(m => m.Expense)
             })
             .FirstOrDefaultAsync(ct);
 
@@ -59,6 +60,7 @@ public class AssemblyAdminService(
                 m.TechnicianUserId,
                 m.Charge,
                 m.TechnicianPay,
+                m.Expense,
                 m.Notes,
                 Billed = m.BillingSettlementId != null,
                 Paid = m.PaySettlementId != null
@@ -70,7 +72,7 @@ public class AssemblyAdminService(
         var items = filas.Select(f => new AssemblyRowDto(
             f.Id, f.AssembledOn, f.Serial, f.ModelName, f.ContractorName, f.WarehouseName,
             nombres.GetValueOrDefault(f.TechnicianUserId, "—"),
-            f.Charge, f.TechnicianPay, f.Notes, f.Billed, f.Paid)).ToList();
+            f.Charge, f.TechnicianPay, f.Notes, f.Billed, f.Paid, f.Expense)).ToList();
 
         return new AssemblyPageDto(
             items,
@@ -78,7 +80,8 @@ public class AssemblyAdminService(
             query.Page,
             query.PageSize,
             totales?.Cobro ?? 0m,
-            totales?.Pago ?? 0m);
+            totales?.Pago ?? 0m,
+            totales?.Gasto ?? 0m);
     }
 
     public async Task<AssemblyRowDto> CorrectAsync(

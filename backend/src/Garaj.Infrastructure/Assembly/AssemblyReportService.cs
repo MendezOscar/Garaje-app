@@ -8,10 +8,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Garaj.Infrastructure.Assembly;
 
 /// <summary>
-/// Los dos reportes: el que se le manda al contratista y el que usa el dueño para pagar.
+/// Los tres reportes: el que se le manda al contratista, el que usa el dueño para pagarles a
+/// los técnicos, y el del taller, que es el único que lleva el gasto y lo que queda.
 /// </summary>
 /// <remarks>
-/// Los dos salen del mismo filtro que la lista del panel, a propósito: lo que el dueño ve en
+/// Los tres salen del mismo filtro que la lista del panel, a propósito: lo que el dueño ve en
 /// pantalla y lo que baja tienen que ser la misma cosa. Un reporte que no cuadra con la
 /// pantalla de la que salió es peor que no tener reporte.
 ///
@@ -42,9 +43,13 @@ public class AssemblyReportService(
         var pagina = await admin.ListAsync(
             query with { Page = 1, PageSize = MaximoDeFilas }, ct);
 
+        // Sin el gasto: esta hoja es la que recibe el contratista, y lo que al taller le
+        // cuesta armar no es asunto suyo. No se esconde en el documento, no viaja.
+        var filas = pagina.Items.Select(r => r with { Expense = 0m }).ToList();
+
         return new AssemblyBillingReportDto(
             taller, contratista, desde, hasta,
-            pagina.Total, pagina.TotalCharge, pagina.Items);
+            pagina.Total, pagina.TotalCharge, filas);
     }
 
     public async Task<AssemblyPayReportDto> PayAsync(
@@ -81,6 +86,26 @@ public class AssemblyReportService(
             taller, desde, hasta,
             lineas.Sum(l => l.Count), lineas.Sum(l => l.Pay), lineas);
     }
+
+    public async Task<AssemblyShopReportDto> ShopAsync(
+        AssemblyQuery query, CancellationToken ct = default)
+    {
+        var (taller, desde, hasta) = await CabeceraAsync(query, ct);
+
+        var pagina = await admin.ListAsync(
+            query with { Page = 1, PageSize = MaximoDeFilas }, ct);
+
+        return new AssemblyShopReportDto(
+            taller, desde, hasta, pagina.Total,
+            pagina.TotalCharge, pagina.TotalPay, pagina.TotalExpense,
+            pagina.Items);
+    }
+
+    public async Task<byte[]> ShopExcelAsync(AssemblyQuery query, CancellationToken ct = default)
+        => AssemblyReports.ShopExcel(await ShopAsync(query, ct));
+
+    public async Task<byte[]> ShopPdfAsync(AssemblyQuery query, CancellationToken ct = default)
+        => AssemblyReports.ShopPdf(await ShopAsync(query, ct));
 
     public async Task<byte[]> BillingExcelAsync(AssemblyQuery query, CancellationToken ct = default)
         => AssemblyReports.BillingExcel(await BillingAsync(query, ct));

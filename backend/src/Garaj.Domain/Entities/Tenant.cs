@@ -166,6 +166,19 @@ public class Tenant : AuditableEntity
     public bool AssemblyEnabled { get; set; }
 
     /// <summary>
+    /// Lo que al taller le cuesta armar una moto, aparte de lo que le paga al técnico.
+    /// </summary>
+    /// <remarks>
+    /// Es un número por moto y es el mismo para todas: transporte a la bodega, herramienta,
+    /// lo que sea que el armado se lleve y no dependa del modelo. Existe porque sin él «lo
+    /// que queda para el taller» era cobro menos pago, y ese número estaba de más.
+    ///
+    /// Se copia a cada moto al registrarla, igual que el cobro y el pago: subirlo en marzo no
+    /// puede cambiar lo que ya se cerró en enero.
+    /// </remarks>
+    public decimal AssemblyExpense { get; set; }
+
+    /// <summary>
     /// Créditos del asistente al mes. Una propuesta de pasos vale 1 y una consulta del técnico
     /// 5; la lectura del negocio no gasta.
     /// </summary>

@@ -1980,6 +1980,8 @@ export interface AssemblyRow {
   billed: boolean
   /** Ya entró en un corte de pago. */
   paid: boolean
+  /** Lo que le costó al taller, aparte del pago al técnico. Nunca viaja al contratista. */
+  expense: number
 }
 
 /** La página, con lo que suma el filtro entero y no solo lo que se ve. */
@@ -1990,6 +1992,7 @@ export interface AssemblyPage {
   pageSize: number
   totalCharge: number
   totalPay: number
+  totalExpense: number
 }
 
 export const AssemblySettlementKind = { Billing: 1, TechnicianPay: 2 } as const

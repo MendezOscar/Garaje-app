@@ -59,6 +59,28 @@ const nuevoModelo = ref('')
 const nuevoPrefijo = ref('')
 const nuevaBodega = ref('')
 
+/**
+ * El gasto del taller por cada moto armada: lo que el armado se lleva aparte del pago al
+ * técnico —transporte a la bodega, herramienta—. Uno solo para todas, porque hoy lo es.
+ *
+ * Se copia a cada moto al registrarla, así que cambiarlo aquí no toca lo ya armado: un mes
+ * cerrado no puede cambiar de margen porque hoy suba el transporte.
+ */
+const gasto = ref('')
+const gastoGuardado = ref(0)
+
+const gastoCambio = computed(
+  () => (Number(gasto.value) || 0) !== gastoGuardado.value && gasto.value.trim() !== '',
+)
+
+async function guardarGasto() {
+  await correr(async () => {
+    const r = await assemblyApi.saveSettings(Number(gasto.value) || 0)
+    gastoGuardado.value = r.expensePerMotorcycle
+    gasto.value = String(r.expensePerMotorcycle)
+  })
+}
+
 const modelosActivos = computed(() => modelos.value.filter((m) => m.isActive))
 
 onMounted(cargar)
@@ -68,15 +90,18 @@ async function cargar() {
   error.value = ''
 
   try {
-    const [c, m, b] = await Promise.all([
+    const [c, m, b, ajustes] = await Promise.all([
       assemblyApi.contractors(),
       assemblyApi.models(),
       assemblyApi.warehouses(),
+      assemblyApi.settings(),
     ])
 
     contratistas.value = c
     modelos.value = m
     bodegas.value = b
+    gastoGuardado.value = ajustes.expensePerMotorcycle
+    gasto.value = String(ajustes.expensePerMotorcycle)
   } catch (e) {
     error.value = errorMessage(e)
   } finally {
@@ -268,6 +293,31 @@ async function correr(accion: () => Promise<void>) {
     </header>
 
     <ErrorNote v-if="error" :message="error" />
+
+    <!-- Fuera de las pestañas a propósito: no es catálogo, es un número del taller y vale
+         para todos los contratos. -->
+    <fieldset class="gasto">
+      <legend>El gasto del taller por cada moto</legend>
+      <div class="gasto-fila">
+        <input
+          v-model="gasto"
+          type="number"
+          min="0"
+          step="1"
+          inputmode="decimal"
+          placeholder="0.00"
+        />
+        <button type="button" :disabled="busy || !gastoCambio" @click="guardarGasto">
+          {{ busy ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+      <p class="muted small">
+        Lo que armar una moto le cuesta al taller aparte del pago al técnico: transporte a la
+        bodega, herramienta, lo que no depende del modelo. Se copia a cada moto al
+        registrarla, así que cambiarlo no toca lo ya armado. Sale en el reporte suyo —el de
+        «Lo del taller»— y nunca en el que recibe el contratista ni en el del técnico.
+      </p>
+    </fieldset>
 
     <nav class="pestanas">
       <button
@@ -475,6 +525,35 @@ header h1 {
   border-bottom-color: var(--primary);
   color: var(--text);
   font-weight: 600;
+}
+
+.gasto {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem 0.5rem;
+  background: var(--surface);
+}
+
+.gasto legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.gasto-fila {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.gasto-fila input {
+  width: 10rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gasto p {
+  margin: 0.4rem 0 0;
+  max-width: 62ch;
 }
 
 .alta {

@@ -59,8 +59,25 @@ public record SaveAssemblyWarehouseRequest(string Name, bool IsActive = true);
 /// Es del Dueño entero. De aquí salen los dos precios, y uno de ellos —lo que se le cobra al
 /// contratista— es justo lo que no puede ver el técnico.
 /// </remarks>
+/// <summary>
+/// Los ajustes del armado que no son catálogo.
+/// </summary>
+/// <param name="ExpensePerMotorcycle">
+/// Lo que al taller le cuesta armar una moto aparte del pago al técnico: transporte a la
+/// bodega, herramienta, lo que el armado se lleve y no dependa del modelo. Un número para
+/// todas, porque hoy lo es. Se copia a cada moto al registrarla.
+/// </param>
+public record AssemblySettingsDto(decimal ExpensePerMotorcycle);
+
+public record SaveAssemblySettingsRequest(decimal ExpensePerMotorcycle);
+
 public interface IAssemblyCatalogService
 {
+    Task<AssemblySettingsDto> SettingsAsync(CancellationToken ct = default);
+
+    Task<AssemblySettingsDto> SaveSettingsAsync(
+        SaveAssemblySettingsRequest request, CancellationToken ct = default);
+
     Task<IReadOnlyList<AssemblyContractorDto>> ContractorsAsync(CancellationToken ct = default);
 
     Task<AssemblyContractorDto> SaveContractorAsync(
@@ -201,7 +218,9 @@ public record AssemblyRowDto(
     decimal TechnicianPay,
     string? Notes,
     bool Billed,
-    bool Paid);
+    bool Paid,
+    /// <summary>Lo que le costó al taller, aparte del pago. Nunca viaja al contratista.</summary>
+    decimal Expense = 0m);
 
 /// <summary>La página, con lo que suma el filtro completo y no solo la página.</summary>
 public record AssemblyPageDto(
@@ -210,7 +229,8 @@ public record AssemblyPageDto(
     int Page,
     int PageSize,
     decimal TotalCharge,
-    decimal TotalPay);
+    decimal TotalPay,
+    decimal TotalExpense = 0m);
 
 public record CorrectMotorcycleRequest(
     string Serial,
@@ -322,8 +342,35 @@ public record AssemblyPayLineDto(
     int Count,
     decimal Pay);
 
+/// <summary>
+/// El reporte del taller: las cuatro columnas de plata de cada moto.
+/// </summary>
+/// <remarks>
+/// Es el único de los tres que lleva el gasto y el margen, y por eso <b>no sale del taller</b>:
+/// la hoja del contratista enseñaría lo que el taller gana con él, y la del técnico, lo mismo.
+/// Esto se queda del lado de adentro, que es donde sirve.
+/// </remarks>
+public record AssemblyShopReportDto(
+    string TenantName,
+    DateOnly From,
+    DateOnly To,
+    int Count,
+    decimal TotalCharge,
+    decimal TotalPay,
+    decimal TotalExpense,
+    IReadOnlyList<AssemblyRowDto> Rows)
+{
+    /// <summary>Lo que de verdad le queda al taller en el periodo.</summary>
+    public decimal TotalMargin => TotalCharge - TotalPay - TotalExpense;
+}
+
 public interface IAssemblyReportService
 {
+    Task<AssemblyShopReportDto> ShopAsync(AssemblyQuery query, CancellationToken ct = default);
+
+    Task<byte[]> ShopExcelAsync(AssemblyQuery query, CancellationToken ct = default);
+    Task<byte[]> ShopPdfAsync(AssemblyQuery query, CancellationToken ct = default);
+
     Task<AssemblyBillingReportDto> BillingAsync(
         AssemblyQuery query, CancellationToken ct = default);
 

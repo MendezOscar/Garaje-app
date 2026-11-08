@@ -1849,6 +1849,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
 
+                    b.Property<decimal>("Expense")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("expense");
+
                     b.Property<Guid>("ModelId")
                         .HasColumnType("uuid")
                         .HasColumnName("model_id");
@@ -3480,6 +3485,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.Property<bool>("AssemblyEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("assembly_enabled");
+
+                    b.Property<decimal>("AssemblyExpense")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("assembly_expense");
 
                     b.Property<int>("AssistantCreditsPerDay")
                         .HasColumnType("integer")

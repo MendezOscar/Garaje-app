@@ -8,8 +8,8 @@ using QuestPDF.Infrastructure;
 namespace Garaj.Infrastructure.Documents;
 
 /// <summary>
-/// Los dos reportes del armado: el que se le manda al contratista para que pague, y el que
-/// usa el dueño para pagarles a los técnicos.
+/// Los tres reportes del armado: el que se le manda al contratista para que pague, el que usa
+/// el dueño para pagarles a los técnicos, y el del taller.
 /// </summary>
 /// <remarks>
 /// Las columnas del de facturación son las de la hoja de cálculo que el contratista ya recibe
@@ -19,6 +19,10 @@ namespace Garaj.Infrastructure.Documents;
 ///
 /// En el de pago no aparece por ningún lado lo que el taller cobra. Se imprime, se firma y
 /// queda en manos del técnico.
+///
+/// El del taller es el único con las cuatro columnas de plata —cobro, pago, gasto y lo que
+/// queda— y por eso es el único que no sale de la oficina: los otros dos van a manos de
+/// alguien a quien no le toca ver lo que el taller gana con él.
 /// </remarks>
 public static class AssemblyReports
 {
@@ -68,6 +72,73 @@ public static class AssemblyReports
         hoja.Cell(fila, 6).Value = reporte.Total;
         hoja.Cell(fila, 6).Style.Font.Bold = true;
         hoja.Cell(fila, 6).Style.NumberFormat.Format = "#,##0.00";
+
+        hoja.Columns().AdjustToContents();
+
+        using var memoria = new MemoryStream();
+        libro.SaveAs(memoria);
+        return memoria.ToArray();
+    }
+
+    public static byte[] ShopExcel(AssemblyShopReportDto reporte)
+    {
+        using var libro = new XLWorkbook();
+        var hoja = libro.Worksheets.Add("Lo del taller");
+
+        hoja.Cell(1, 1).Value = reporte.TenantName;
+        hoja.Cell(1, 1).Style.Font.Bold = true;
+        hoja.Cell(2, 1).Value = "Motos armadas: lo que deja cada una";
+        hoja.Cell(3, 1).Value = $"Del {Dia(reporte.From)} al {Dia(reporte.To)}";
+
+        var fila = 5;
+        string[] encabezados =
+            ["Fecha", "Serie", "Modelo", "Técnico", "Bodega", "Cobro", "Pago", "Gasto", "Queda"];
+
+        for (var i = 0; i < encabezados.Length; i++)
+        {
+            var celda = hoja.Cell(fila, i + 1);
+            celda.Value = encabezados[i];
+            celda.Style.Font.Bold = true;
+            celda.Style.Fill.BackgroundColor = XLColor.FromHtml("#EEF2F7");
+        }
+
+        foreach (var r in reporte.Rows)
+        {
+            fila++;
+            hoja.Cell(fila, 1).Value = r.AssembledOn.ToDateTime(TimeOnly.MinValue);
+            hoja.Cell(fila, 1).Style.DateFormat.Format = "dd/MM/yyyy";
+
+            // Como texto: una serie que empieza con ceros los pierde si Excel la lee como
+            // número, y una serie sin sus ceros no es la serie.
+            hoja.Cell(fila, 2).SetValue(r.Serial).Style.NumberFormat.Format = "@";
+
+            hoja.Cell(fila, 3).Value = r.ModelName;
+            hoja.Cell(fila, 4).Value = r.TechnicianName;
+            hoja.Cell(fila, 5).Value = r.WarehouseName;
+
+            decimal[] plata = [r.Charge, r.TechnicianPay, r.Expense,
+                r.Charge - r.TechnicianPay - r.Expense];
+
+            for (var i = 0; i < plata.Length; i++)
+            {
+                hoja.Cell(fila, 6 + i).Value = plata[i];
+                hoja.Cell(fila, 6 + i).Style.NumberFormat.Format = "#,##0.00";
+            }
+        }
+
+        fila++;
+        hoja.Cell(fila, 5).Value = $"{reporte.Count} motos";
+        hoja.Cell(fila, 5).Style.Font.Bold = true;
+
+        decimal[] totales =
+            [reporte.TotalCharge, reporte.TotalPay, reporte.TotalExpense, reporte.TotalMargin];
+
+        for (var i = 0; i < totales.Length; i++)
+        {
+            hoja.Cell(fila, 6 + i).Value = totales[i];
+            hoja.Cell(fila, 6 + i).Style.Font.Bold = true;
+            hoja.Cell(fila, 6 + i).Style.NumberFormat.Format = "#,##0.00";
+        }
 
         hoja.Columns().AdjustToContents();
 
@@ -159,6 +230,58 @@ public static class AssemblyReports
                 tabla.Cell().ColumnSpan(4).Element(Pie).Text($"{reporte.Count} motos").Bold();
                 tabla.Cell().Element(Pie).Text(string.Empty);
                 tabla.Cell().Element(Pie).AlignRight().Text(Plata(reporte.Total)).Bold();
+            }));
+
+            page.Footer().Element(PiePagina);
+        })).GeneratePdf();
+
+    public static byte[] ShopPdf(AssemblyShopReportDto reporte) =>
+        Document.Create(container => container.Page(page =>
+        {
+            Pagina(page);
+            page.Size(PageSizes.Letter.Landscape());
+
+            page.Header().Element(h => Encabezado(
+                h, reporte.TenantName, "Motos armadas: lo que deja cada una",
+                reporte.From, reporte.To));
+
+            page.Content().PaddingVertical(12).Element(c => c.Table(tabla =>
+            {
+                tabla.ColumnsDefinition(col =>
+                {
+                    col.ConstantColumn(58);
+                    col.RelativeColumn(2.4f);
+                    col.RelativeColumn(1.2f);
+                    col.RelativeColumn(1.6f);
+                    col.RelativeColumn(1.4f);
+                    col.ConstantColumn(62);
+                    col.ConstantColumn(62);
+                    col.ConstantColumn(62);
+                    col.ConstantColumn(62);
+                });
+
+                Cabecera(tabla, "Fecha", "Serie", "Modelo", "Técnico", "Bodega",
+                    "Cobro", "Pago", "Gasto", "Queda");
+
+                foreach (var r in reporte.Rows)
+                {
+                    tabla.Cell().Element(Celda).Text(Dia(r.AssembledOn));
+                    tabla.Cell().Element(Celda).Text(r.Serial).FontFamily(Fonts.Consolas).FontSize(8);
+                    tabla.Cell().Element(Celda).Text(r.ModelName);
+                    tabla.Cell().Element(Celda).Text(r.TechnicianName);
+                    tabla.Cell().Element(Celda).Text(r.WarehouseName);
+                    tabla.Cell().Element(Celda).AlignRight().Text(Plata(r.Charge));
+                    tabla.Cell().Element(Celda).AlignRight().Text(Plata(r.TechnicianPay));
+                    tabla.Cell().Element(Celda).AlignRight().Text(Plata(r.Expense));
+                    tabla.Cell().Element(Celda).AlignRight()
+                        .Text(Plata(r.Charge - r.TechnicianPay - r.Expense)).Bold();
+                }
+
+                tabla.Cell().ColumnSpan(5).Element(Pie).Text($"{reporte.Count} motos").Bold();
+                tabla.Cell().Element(Pie).AlignRight().Text(Plata(reporte.TotalCharge)).Bold();
+                tabla.Cell().Element(Pie).AlignRight().Text(Plata(reporte.TotalPay)).Bold();
+                tabla.Cell().Element(Pie).AlignRight().Text(Plata(reporte.TotalExpense)).Bold();
+                tabla.Cell().Element(Pie).AlignRight().Text(Plata(reporte.TotalMargin)).Bold();
             }));
 
             page.Footer().Element(PiePagina);
