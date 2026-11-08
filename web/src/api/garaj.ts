@@ -1765,6 +1765,16 @@ export const assemblyApi = {
     const { data } = await api.get<AssemblyContractor[]>('/api/assembly/contractors')
     return data
   },
+  async settings() {
+    const { data } = await api.get<{ expensePerMotorcycle: number }>('/api/assembly/settings')
+    return data
+  },
+  async saveSettings(expensePerMotorcycle: number) {
+    const { data } = await api.put<{ expensePerMotorcycle: number }>('/api/assembly/settings', {
+      expensePerMotorcycle,
+    })
+    return data
+  },
   async createContractor(body: { name: string; notes: string | null; branchId?: string | null }) {
     const { data } = await api.post<AssemblyContractor>('/api/assembly/contractors', body)
     return data
@@ -1930,6 +1940,13 @@ export const assemblyAdminApi = {
   },
   async downloadBilling(filtro: AssemblyFilter, formato: 'xlsx' | 'pdf', nombre: string) {
     await download(`/api/assembly/admin/reports/billing.${formato}`, `${nombre}.${formato}`, params(filtro))
+  },
+  /**
+   * El reporte del taller: cobro, pago, gasto y lo que queda. No sale de la oficina —ni el
+   * contratista ni el técnico tienen por qué ver lo que el taller gana con ellos—.
+   */
+  async downloadShop(filtro: AssemblyFilter, formato: 'xlsx' | 'pdf', nombre: string) {
+    await download(`/api/assembly/admin/reports/shop.${formato}`, `${nombre}.${formato}`, params(filtro))
   },
   async downloadPay(filtro: AssemblyFilter, formato: 'xlsx' | 'pdf', nombre: string) {
     await download(`/api/assembly/admin/reports/pay.${formato}`, `${nombre}.${formato}`, params(filtro))

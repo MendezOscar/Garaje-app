@@ -23,6 +23,16 @@ namespace Garaj.Api.Controllers;
 [Route("api/assembly")]
 public class AssemblyController(IAssemblyCatalogService service) : ControllerBase
 {
+    /// <summary>El gasto del taller por cada moto armada. Solo el Dueño.</summary>
+    [HttpGet("settings")]
+    public async Task<ActionResult<AssemblySettingsDto>> Settings(CancellationToken ct)
+        => Ok(await service.SettingsAsync(ct));
+
+    [HttpPut("settings")]
+    public async Task<ActionResult<AssemblySettingsDto>> SaveSettings(
+        SaveAssemblySettingsRequest request, CancellationToken ct)
+        => Ok(await service.SaveSettingsAsync(request, ct));
+
     [HttpGet("contractors")]
     public async Task<ActionResult<IReadOnlyList<AssemblyContractorDto>>> Contractors(
         CancellationToken ct)
@@ -187,6 +197,30 @@ public class AssemblyAdminController(
     public async Task<IActionResult> BillingPdf(
         [FromQuery] AssemblyQuery query, CancellationToken ct)
         => File(await reports.BillingPdfAsync(query, ct), "application/pdf", "Motos armadas.pdf");
+
+    /// <summary>
+    /// El del taller: cobro, pago, gasto y lo que queda. <b>No sale de la oficina</b>: ni al
+    /// contratista ni al técnico les toca ver lo que el taller gana con ellos.
+    /// </summary>
+    [HttpGet("reports/shop")]
+    public async Task<ActionResult<AssemblyShopReportDto>> Shop(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => Ok(await reports.ShopAsync(query, ct));
+
+    [HttpGet("reports/shop.xlsx")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> ShopExcel(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => File(
+            await reports.ShopExcelAsync(query, ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Lo del taller.xlsx");
+
+    [HttpGet("reports/shop.pdf")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> ShopPdf(
+        [FromQuery] AssemblyQuery query, CancellationToken ct)
+        => File(await reports.ShopPdfAsync(query, ct), "application/pdf", "Lo del taller.pdf");
 
     [HttpGet("reports/pay")]
     public async Task<ActionResult<AssemblyPayReportDto>> Pay(

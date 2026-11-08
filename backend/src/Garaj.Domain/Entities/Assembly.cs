@@ -148,6 +148,19 @@ public class MotorcycleAssembly : TenantEntity
     /// <summary>Lo que se le paga al técnico. Copiado de la tarifa.</summary>
     public decimal TechnicianPay { get; set; }
 
+    /// <summary>
+    /// Lo que le costó al taller armarla, aparte del pago al técnico. Copiado de los ajustes.
+    /// </summary>
+    /// <remarks>
+    /// Copiado y no leído: el gasto de hoy no puede cambiar el margen de un mes ya cerrado.
+    /// Nunca sale hacia el contratista —es lo que el taller gasta, no lo que él paga— ni
+    /// hacia el técnico.
+    /// </remarks>
+    public decimal Expense { get; set; }
+
+    /// <summary>Lo que de verdad le queda al taller por esta moto.</summary>
+    public decimal Margin => Charge - TechnicianPay - Expense;
+
     public string? Notes { get; set; }
 
     /// <summary>

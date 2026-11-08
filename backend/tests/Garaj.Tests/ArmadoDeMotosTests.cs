@@ -554,6 +554,53 @@ public class ArmadoDeMotosTests
         Assert.Equal(tecnico, moto.TechnicianUserId);
     }
 
+    /// <summary>
+    /// El gasto del taller se copia a cada moto y no se vuelve a leer, igual que el cobro y
+    /// el pago. Y no sale en la hoja del contratista.
+    /// </summary>
+    /// <remarks>
+    /// Si se leyera en vez de copiarse, subir el transporte en marzo cambiaría el margen de
+    /// enero, que ya está cerrado y facturado. Y si saliera en la hoja de facturación, el
+    /// contratista vería exactamente cuánto gana el taller con él.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task El_gasto_se_congela_en_cada_moto_y_no_viaja_al_contratista()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var catalogo = Servicio(db);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
+
+        await catalogo.SaveSettingsAsync(new SaveAssemblySettingsRequest(40m));
+
+        await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT333333", modelo, contratista, bodega,
+            BranchId: sucursal, TechnicianUserId: tecnico));
+
+        // Sube el gasto después de armarla.
+        await catalogo.SaveSettingsAsync(new SaveAssemblySettingsRequest(95m));
+
+        var pagina = await Panel(db).ListAsync(new AssemblyQuery { Serial = "3C1JA1234RT333333" });
+
+        // La moto se quedó con el gasto del día en que se armó.
+        Assert.Equal(40m, pagina.Items[0].Expense);
+        Assert.Equal(40m, pagina.TotalExpense);
+
+        // Cobro 250, pago 90, gasto 40: al taller le quedan 120, no 160.
+        var reporte = await Reportes(db).ShopAsync(new AssemblyQuery { Serial = "3C1JA1234RT333333" });
+        Assert.Equal(120m, reporte.TotalMargin);
+
+        // Y en la hoja del contratista el gasto no aparece.
+        var factura = await Reportes(db).BillingAsync(
+            new AssemblyQuery { Serial = "3C1JA1234RT333333", ContractorId = contratista });
+
+        Assert.Equal(0m, factura.Rows[0].Expense);
+    }
+
+    private static AssemblyReportService Reportes(GarajDbContext db) =>
+        new(db, db.TenantContext, Panel(db), new DateTimeProvider());
+
     private static AssemblyAdminService Panel(GarajDbContext db) =>
         new(db, db.TenantContext, new DateTimeProvider());
 

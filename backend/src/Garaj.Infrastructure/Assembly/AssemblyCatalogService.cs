@@ -25,6 +25,40 @@ namespace Garaj.Infrastructure.Assembly;
 public class AssemblyCatalogService(GarajDbContext db, ITenantContext tenantContext)
     : IAssemblyCatalogService
 {
+    public async Task<AssemblySettingsDto> SettingsAsync(CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        var gasto = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => t.AssemblyExpense)
+            .FirstOrDefaultAsync(ct);
+
+        return new AssemblySettingsDto(gasto);
+    }
+
+    public async Task<AssemblySettingsDto> SaveSettingsAsync(
+        SaveAssemblySettingsRequest request, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        if (request.ExpensePerMotorcycle < 0)
+            throw new AppException("El gasto no puede ser negativo.");
+
+        var taller = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct)
+            ?? throw new NotFoundException();
+
+        // Cambiarlo no toca lo ya registrado: cada moto se llevó el gasto del día en que se
+        // armó. Un mes cerrado no puede cambiar de margen porque hoy suba el transporte.
+        taller.AssemblyExpense = request.ExpensePerMotorcycle;
+
+        await db.SaveChangesAsync(ct);
+
+        return new AssemblySettingsDto(taller.AssemblyExpense);
+    }
+
     public async Task<IReadOnlyList<AssemblyContractorDto>> ContractorsAsync(
         CancellationToken ct = default)
     {

@@ -112,6 +112,13 @@ public class MotorcycleAssemblyService(
         // registrada a las siete de la noche del 31 sigue siendo de ese mes.
         var dia = request.AssembledOn ?? clock.Today();
 
+        // El gasto del taller, copiado como el cobro y el pago: el de hoy, no el que esté
+        // puesto el día que se mire el reporte.
+        var gasto = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => t.AssemblyExpense)
+            .FirstOrDefaultAsync(ct);
+
         if (dia > clock.Today())
             throw new AppException("No se puede registrar una moto con fecha de mañana.");
 
@@ -133,6 +140,7 @@ public class MotorcycleAssemblyService(
             Serial = serie,
             Charge = tarifa.Charge,
             TechnicianPay = tarifa.TechnicianPay,
+            Expense = gasto,
             Notes = request.Notes?.Trim()
         };
 
