@@ -311,8 +311,20 @@
         el número de factura impreso.
       </div>
 
+      <h3>Facturado no es cobrado</h3>
+      <p>Cerrar el corte es <strong>facturar</strong>. El contratista se toma su tiempo en pagar, y hasta que pague eso es una cuenta por cobrar, no plata entrada.</p>
+      <p style="margin-top:6px">Por eso, arriba de la lista de cortes sale lo primero que uno viene a ver: <strong>cuánto está facturado y todavía sin cobrar, y en cuántas facturas</strong>. Cada factura pendiente dice <strong>cuántos días lleva esperando</strong> — que es lo que convierte una lista en una alarma.</p>
+      <p style="margin-top:6px">El día que entre el pago, <strong>Ya pagó</strong>: se le anota la fecha y con qué pagó —el recibo, la transferencia, el cheque— y deja de contar en lo pendiente. Si se anotó por error o el cheque rebotó, <strong>Quitar</strong> la devuelve a por cobrar.</p>
+
+      <div class="aviso">
+        <strong>Una factura ya cobrada no se reabre de un clic.</strong> Del otro lado entró
+        plata contra ese papel. Si de verdad hay que corregirla, primero se le quita el cobro
+        —lo cual obliga a mirar qué se está deshaciendo— y después se reabre.
+      </div>
+
       <h3>El pago al técnico es otro corte</h3>
       <p>En <strong>Pago a técnicos</strong>, un botón por cada uno. Mismo mecanismo, pero con lo que se le paga a él. Son dos sellos independientes: una moto puede estar <em>facturada y sin pagar</em>, o al revés. Facturarle al contratista no le paga al técnico.</p>
+      <p style="margin-top:6px">Ese sí no tiene estado de cobro: <strong>cerrarlo ya es entregar la plata</strong>, y la hoja se firma en el momento.</p>
 
       <h3>Lo que cambia después de cerrar</h3>
       <ul>
@@ -352,6 +364,7 @@
     <tr><td>El modelo no tiene precio con ese contratista</td><td>No registra. Guardarla en cero la armaría gratis y nadie lo notaría hasta cuadrar el mes.</td></tr>
     <tr><td>La fecha es de mañana</td><td>No la acepta.</td></tr>
     <tr><td>La moto ya entró en un corte</td><td>No se corrige ni se borra hasta reabrir el corte.</td></tr>
+    <tr><td>La factura ya está cobrada y quiere reabrir el corte</td><td>No lo deja hasta que le quite el cobro. Del otro lado entró plata contra ese papel.</td></tr>
     <tr><td>El técnico intenta apuntarle una moto a otro</td><td>Se ignora: queda a su nombre.</td></tr>
   </table>
   <p class="muted" style="margin-top:8px">El día lo pone el servidor con el calendario de Honduras, no el teléfono: una moto registrada a las siete de la noche del 31 sigue siendo de ese mes.</p>
@@ -368,6 +381,8 @@
       <li>Baje los tres reportes. En el de <strong>facturación no puede aparecer el gasto</strong> por ningún lado; en el de <strong>Lo del taller</strong> sí.</li>
       <li>Cierre un corte de facturación de un periodo chico con un número de factura, y baje su hoja desde <strong>Cortes</strong>: tiene que traer esas motos y el número impreso.</li>
       <li>Registre otra moto de ese mismo periodo y vuelva a bajar la hoja del corte: <strong>no debe aparecer</strong>. Cierre otra vez el periodo y compruebe que el segundo corte se lleva solo esa.</li>
+      <li>Mire arriba de <strong>Cortes</strong>: ese corte tiene que aparecer <strong>por cobrar</strong>, sumando en el total de arriba. Toque <strong>Ya pagó</strong> y compruebe que sale del pendiente.</li>
+      <li>Intente reabrir una factura ya cobrada: tiene que negarse hasta que le quite el cobro.</li>
       <li>Intente corregir una moto ya facturada: tiene que negarse. Reabra el corte y vuelva a intentar: ahora sí.</li>
       <li>Antes de que el taller dependa de esto, <strong>enséñele el reporte de facturación al contratista</strong> y que lo acepte.</li>
     </ol>
