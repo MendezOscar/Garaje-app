@@ -637,6 +637,8 @@ function dia(valor: string) {
               <th>Bodega</th>
               <th class="num">Cobro</th>
               <th class="num">Pago</th>
+              <th class="num">Gasto</th>
+              <th class="num">Queda</th>
               <th></th>
             </tr>
           </thead>
@@ -649,6 +651,10 @@ function dia(valor: string) {
               <td>{{ m.warehouseName }}</td>
               <td class="num">{{ formatMoney(m.charge) }}</td>
               <td class="num">{{ formatMoney(m.technicianPay) }}</td>
+              <td class="num">{{ formatMoney(m.expense) }}</td>
+              <td class="num queda">
+                {{ formatMoney(m.charge - m.technicianPay - m.expense) }}
+              </td>
               <td class="estado">
                 <span v-if="m.billed" class="sello">facturada</span>
                 <span v-if="m.paid" class="sello">pagada</span>
@@ -664,6 +670,26 @@ function dia(valor: string) {
               </td>
             </tr>
           </tbody>
+
+          <!-- Los totales son los del filtro entero, no los de esta página: quien va a
+               facturar necesita el total del periodo, no el de las primeras veinticinco. -->
+          <tfoot>
+            <tr>
+              <td colspan="5">
+                {{ pagina.total }} {{ pagina.total === 1 ? 'moto' : 'motos' }}
+                <span v-if="pagina.total > pagina.items.length" class="muted small">
+                  (en pantalla, {{ pagina.items.length }})
+                </span>
+              </td>
+              <td class="num">{{ formatMoney(pagina.totalCharge) }}</td>
+              <td class="num">{{ formatMoney(pagina.totalPay) }}</td>
+              <td class="num">{{ formatMoney(pagina.totalExpense) }}</td>
+              <td class="num queda">
+                {{ formatMoney(pagina.totalCharge - pagina.totalPay - pagina.totalExpense) }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       </template>
 
@@ -994,6 +1020,17 @@ header h1 {
 .tabla .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* Lo que queda es la columna que se mira: el resto son los sumandos. */
+.tabla td.queda {
+  font-weight: 600;
+}
+
+.tabla tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: 0;
+  font-weight: 600;
 }
 
 .tabla .mono {
