@@ -33,9 +33,14 @@ public record SaveAssemblyRatesRequest(IReadOnlyList<SaveAssemblyRateLine> Rates
 
 public record SaveAssemblyRateLine(Guid ModelId, decimal Charge, decimal TechnicianPay);
 
-public record AssemblyModelDto(Guid Id, string Name, bool IsActive);
+public record AssemblyModelDto(Guid Id, string Name, bool IsActive, string? VinPrefix = null);
 
-public record SaveAssemblyModelRequest(string Name, bool IsActive = true);
+/// <param name="VinPrefix">
+/// Los primeros caracteres del VIN de este modelo. Vacío se admite: entonces el modelo se
+/// propone solo a partir de la segunda moto de cada lote, aprendido de lo ya registrado.
+/// </param>
+public record SaveAssemblyModelRequest(
+    string Name, bool IsActive = true, string? VinPrefix = null);
 
 public record AssemblyWarehouseDto(Guid Id, string Name, bool IsActive);
 

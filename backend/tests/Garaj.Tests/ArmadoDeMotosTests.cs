@@ -314,6 +314,43 @@ public class ArmadoDeMotosTests
     }
 
     /// <summary>
+    /// El prefijo que el dueño escribe en el catálogo hace que el modelo se proponga desde
+    /// la <b>primera</b> moto, sin esperar a que haya historia.
+    /// </summary>
+    /// <remarks>
+    /// Los prefijos de la prueba salen de etiquetas de Italika de verdad: la 200Z lleva
+    /// <c>LLCLPLPC</c> y la FT125 <c>LLCLPP20</c>.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task El_prefijo_del_catalogo_propone_el_modelo_desde_la_primera_moto()
+    {
+        var taller = await TallerAsync(conArmado: true);
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid());
+        var catalogo = Servicio(db);
+
+        await catalogo.SaveModelAsync(
+            null, new SaveAssemblyModelRequest("200Z", VinPrefix: "LLCLPLPC"));
+
+        var ft125 = await catalogo.SaveModelAsync(
+            null, new SaveAssemblyModelRequest("FT125", VinPrefix: "llclpp20"));
+
+        // Sin haber registrado ninguna moto todavía.
+        var propuesta = await Registro(db).GuessModelAsync("LLCLPP200VE100410");
+
+        Assert.Equal(ft125.Id, propuesta.ModelId);
+        Assert.Equal("FT125", propuesta.ModelName);
+
+        // El prefijo se guarda normalizado, como la serie: se escribió en minúsculas.
+        var modelos = await catalogo.ModelsAsync();
+        Assert.Equal("LLCLPP20", modelos.First(m => m.Name == "FT125").VinPrefix);
+
+        // Y una serie de un prefijo que nadie declaró sigue sin propuesta.
+        var ajena = await Registro(db).GuessModelAsync("9XYKK9999ZZ000001");
+        Assert.Null(ajena.ModelId);
+    }
+
+    /// <summary>
     /// La tabla de prefijos que se aprende sola. Es lo que hace que registrar una moto sean
     /// tres toques: la primera de cada prefijo se teclea, de la segunda en adelante se
     /// propone. No hay tabla que comprar, y la que sale es la de los modelos que este taller

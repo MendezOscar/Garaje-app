@@ -259,9 +259,15 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Series como esta han sido ${p.modelName} '
-                        '${p.seenBefore == 1 ? 'una vez' : '${p.seenBefore} veces'}. '
-                        'Confírmelo con la moto.',
+                        // Sin veces es porque el prefijo lo dejó escrito el dueño en el
+                        // catálogo; con veces, porque se aprendió de lo ya registrado. Son
+                        // dos cosas distintas y conviene que se note cuál es.
+                        p.seenBefore == 0
+                            ? 'Por el inicio de la serie, es una ${p.modelName}. '
+                                'Confírmelo con la moto.'
+                            : 'Series como esta han sido ${p.modelName} '
+                                '${p.seenBefore == 1 ? 'una vez' : '${p.seenBefore} veces'}. '
+                                'Confírmelo con la moto.',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),

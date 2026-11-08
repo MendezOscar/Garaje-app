@@ -1948,6 +1948,8 @@ export interface AssemblyModel {
   id: string
   name: string
   isActive: boolean
+  /** Los primeros caracteres del VIN de este modelo, para proponerlo desde la primera moto. */
+  vinPrefix: string | null
 }
 
 export interface AssemblyWarehouse {

@@ -3,6 +3,7 @@ using Garaj.Application.Assembly;
 using Garaj.Application.Common;
 using Garaj.Domain.Entities;
 using Garaj.Infrastructure.Persistence;
+using Garaj.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garaj.Infrastructure.Assembly;
@@ -144,7 +145,7 @@ public class AssemblyCatalogService(GarajDbContext db, ITenantContext tenantCont
 
         return await db.AssemblyModels.AsNoTracking()
             .OrderBy(m => m.Name)
-            .Select(m => new AssemblyModelDto(m.Id, m.Name, m.IsActive))
+            .Select(m => new AssemblyModelDto(m.Id, m.Name, m.IsActive, m.VinPrefix))
             .ToListAsync(ct);
     }
 
@@ -177,9 +178,14 @@ public class AssemblyCatalogService(GarajDbContext db, ITenantContext tenantCont
         modelo.Name = nombre;
         modelo.IsActive = request.IsActive;
 
+        // Se guarda normalizado como la serie: mayúsculas y sin separadores, porque es un
+        // trozo de serie y se compara contra series ya normalizadas.
+        var prefijo = VinFormatter.Normalize(request.VinPrefix);
+        modelo.VinPrefix = string.IsNullOrEmpty(prefijo) ? null : prefijo;
+
         await db.SaveChangesAsync(ct);
 
-        return new AssemblyModelDto(modelo.Id, modelo.Name, modelo.IsActive);
+        return new AssemblyModelDto(modelo.Id, modelo.Name, modelo.IsActive, modelo.VinPrefix);
     }
 
     public async Task<IReadOnlyList<AssemblyWarehouseDto>> WarehousesAsync(

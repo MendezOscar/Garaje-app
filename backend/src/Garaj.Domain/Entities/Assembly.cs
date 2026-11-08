@@ -35,6 +35,20 @@ public class AssemblyModel : TenantEntity
 {
     public string Name { get; set; } = null!;
 
+    /// <summary>
+    /// Los primeros caracteres del VIN de este modelo, para proponerlo desde la primera moto.
+    /// </summary>
+    /// <remarks>
+    /// Lo que significan esas letras es la tabla interna del fabricante y no hay decodificador
+    /// público que valga, así que lo escribe el dueño una vez, con una caja delante: de las
+    /// etiquetas de Italika salen <c>LLCLPLPC</c> para la 200Z, <c>LLCLPP20</c> para la FT125
+    /// y <c>LRPRPMV0</c> para la 250Z.
+    ///
+    /// Vacío no rompe nada: el modelo se sigue aprendiendo de lo ya registrado, solo que a
+    /// partir de la segunda moto de cada lote.
+    /// </remarks>
+    public string? VinPrefix { get; set; }
+
     public bool IsActive { get; set; } = true;
 }
 
