@@ -555,9 +555,16 @@ function dia(valor: string) {
           </div>
 
           <p v-if="avisoDeLaSerie" class="muted small">{{ avisoDeLaSerie }}</p>
+          <!-- Sin veces es porque el prefijo lo dejó escrito el dueño en el catálogo; con
+               veces, porque se aprendió de lo ya registrado. Conviene que se note cuál. -->
           <p v-if="propuesta" class="muted small">
-            Series como esta han sido <strong>{{ propuesta.modelName }}</strong>
-            {{ propuesta.seenBefore === 1 ? 'una vez' : `${propuesta.seenBefore} veces` }}.
+            <template v-if="propuesta.seenBefore === 0">
+              Por el inicio de la serie, es una <strong>{{ propuesta.modelName }}</strong>.
+            </template>
+            <template v-else>
+              Series como esta han sido <strong>{{ propuesta.modelName }}</strong>
+              {{ propuesta.seenBefore === 1 ? 'una vez' : `${propuesta.seenBefore} veces` }}.
+            </template>
             Confírmelo con la moto.
           </p>
 

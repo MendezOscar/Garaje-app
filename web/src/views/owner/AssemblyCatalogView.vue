@@ -38,6 +38,16 @@ const tarifas = ref<Record<string, { charge: string; pay: string }>>({})
 
 const nuevoContratista = ref('')
 const nuevoModelo = ref('')
+
+/**
+ * Los primeros caracteres del VIN de este modelo.
+ *
+ * Lo que significan esas letras es la tabla interna del fabricante —no hay decodificador
+ * público que sirva—, así que lo escribe el dueño una vez con una caja delante. Con él, la
+ * app propone el modelo desde la primera moto; sin él, lo aprende sola a partir de la
+ * segunda de cada lote.
+ */
+const nuevoPrefijo = ref('')
 const nuevaBodega = ref('')
 
 const modelosActivos = computed(() => modelos.value.filter((m) => m.isActive))
@@ -140,10 +150,30 @@ async function agregarContratista() {
 async function agregarModelo() {
   if (!nuevoModelo.value.trim()) return
   await correr(async () => {
-    modelos.value = [...modelos.value, await assemblyApi.createModel(nuevoModelo.value.trim())].sort(
-      (a, b) => a.name.localeCompare(b.name),
+    const creado = await assemblyApi.createModel(
+      nuevoModelo.value.trim(),
+      nuevoPrefijo.value.trim() || undefined,
     )
+
+    modelos.value = [...modelos.value, creado].sort((a, b) => a.name.localeCompare(b.name))
     nuevoModelo.value = ''
+    nuevoPrefijo.value = ''
+  })
+}
+
+/** Ponerle o corregirle el prefijo a un modelo que ya está. */
+async function editarPrefijo(m: AssemblyModel) {
+  const escrito = window.prompt(
+    `Primeros caracteres del VIN de ${m.name}. Cópielos de la etiqueta de una caja: son los ` +
+      'que comparten todas las motos de ese modelo, unos ocho. Vacío lo quita.',
+    m.vinPrefix ?? '',
+  )
+
+  if (escrito === null) return
+
+  await correr(async () => {
+    const guardado = await assemblyApi.updateModel(m.id, m.name, m.isActive, escrito.trim())
+    modelos.value = modelos.value.map((x) => (x.id === guardado.id ? guardado : x))
   })
 }
 
@@ -171,7 +201,7 @@ async function alternarContratista(c: AssemblyContractor) {
 
 async function alternarModelo(m: AssemblyModel) {
   await correr(async () => {
-    const guardado = await assemblyApi.updateModel(m.id, m.name, !m.isActive)
+    const guardado = await assemblyApi.updateModel(m.id, m.name, !m.isActive, m.vinPrefix)
     modelos.value = modelos.value.map((x) => (x.id === guardado.id ? guardado : x))
   })
 }
@@ -308,19 +338,43 @@ async function correr(accion: () => Promise<void>) {
           maxlength="80"
           @keyup.enter="agregarModelo"
         />
+        <input
+          v-model="nuevoPrefijo"
+          placeholder="Inicio del VIN (opcional)"
+          maxlength="10"
+          class="prefijo"
+          @keyup.enter="agregarModelo"
+        />
         <button type="button" :disabled="busy || !nuevoModelo.trim()" @click="agregarModelo">
           Agregar
         </button>
       </div>
 
+      <p class="muted small">
+        El inicio del VIN son los primeros caracteres que comparten todas las motos de ese
+        modelo —unos ocho, cópielos de la etiqueta de una caja—. Con él, el técnico escanea y
+        el modelo sale puesto desde la primera moto. Sin él también funciona, pero lo aprende
+        a partir de la segunda de cada lote.
+      </p>
+
       <p v-if="!modelos.length" class="muted">Todavía no hay modelos.</p>
 
       <ul class="lista">
         <li v-for="m in modelos" :key="m.id" :class="{ inactivo: !m.isActive }">
-          <span>{{ m.name }}<span v-if="!m.isActive" class="muted small"> · inactivo</span></span>
-          <button type="button" class="link" :disabled="busy" @click="alternarModelo(m)">
-            {{ m.isActive ? 'Desactivar' : 'Reactivar' }}
-          </button>
+          <span>
+            {{ m.name }}
+            <span v-if="m.vinPrefix" class="prefijo-sello">{{ m.vinPrefix }}</span>
+            <span v-else class="muted small"> · sin inicio de VIN</span>
+            <span v-if="!m.isActive" class="muted small"> · inactivo</span>
+          </span>
+          <span class="acciones">
+            <button type="button" class="link" :disabled="busy" @click="editarPrefijo(m)">
+              {{ m.vinPrefix ? 'Cambiar el VIN' : 'Poner el inicio del VIN' }}
+            </button>
+            <button type="button" class="link" :disabled="busy" @click="alternarModelo(m)">
+              {{ m.isActive ? 'Desactivar' : 'Reactivar' }}
+            </button>
+          </span>
         </li>
       </ul>
     </template>
@@ -393,6 +447,25 @@ header h1 {
 .alta input {
   flex: 1;
   max-width: 28rem;
+}
+
+/* Un trozo de VIN: se compara carácter a carácter contra la etiqueta. */
+.alta input.prefijo {
+  flex: 0 1 14rem;
+  font-family: ui-monospace, monospace;
+}
+
+.alta input.prefijo:not(:placeholder-shown) {
+  text-transform: uppercase;
+}
+
+.prefijo-sello {
+  margin-left: 0.375rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
 }
 
 .ficha {

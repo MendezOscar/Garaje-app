@@ -178,8 +178,20 @@ public class MotorcycleAssemblyService(
 
         var prefijo = serie[..LargoDelPrefijo];
 
-        // El modelo con el que más veces se registró ese prefijo. Más veces y no la última:
-        // un error de tecleo aislado no debe arrastrar a las siguientes.
+        // Primero, lo que el dueño dejó escrito en el catálogo. Así la propuesta funciona
+        // desde la primera moto de un modelo, sin esperar a que haya historia que aprender.
+        var delCatalogo = await db.AssemblyModels.AsNoTracking()
+            .Where(m => m.IsActive && m.VinPrefix != null && m.VinPrefix != ""
+                && serie.StartsWith(m.VinPrefix))
+            .OrderByDescending(m => m.VinPrefix!.Length)
+            .Select(m => new { m.Id, m.Name })
+            .FirstOrDefaultAsync(ct);
+
+        if (delCatalogo is not null)
+            return new ModelGuessDto(delCatalogo.Id, delCatalogo.Name, 0);
+
+        // Y si no, lo aprendido: el modelo con el que más veces se registró ese prefijo. Más
+        // veces y no la última: un error de tecleo aislado no debe arrastrar a las siguientes.
         var conteo = await db.MotorcycleAssemblies.AsNoTracking()
             .Where(m => m.Serial.StartsWith(prefijo))
             .GroupBy(m => m.ModelId)

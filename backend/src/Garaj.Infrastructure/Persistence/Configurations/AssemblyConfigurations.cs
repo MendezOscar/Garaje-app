@@ -22,8 +22,12 @@ public class AssemblyModelConfiguration : IEntityTypeConfiguration<AssemblyModel
     public void Configure(EntityTypeBuilder<AssemblyModel> b)
     {
         b.Property(x => x.Name).HasMaxLength(80).IsRequired();
+        b.Property(x => x.VinPrefix).HasMaxLength(10);
 
         b.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+
+        // Por aquí se busca el modelo de una serie recién escaneada, antes de cada registro.
+        b.HasIndex(x => new { x.TenantId, x.VinPrefix });
     }
 }
 

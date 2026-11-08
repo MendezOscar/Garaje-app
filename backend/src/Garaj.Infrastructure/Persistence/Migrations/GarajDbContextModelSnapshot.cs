@@ -238,12 +238,20 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
 
+                    b.Property<string>("VinPrefix")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("vin_prefix");
+
                     b.HasKey("Id")
                         .HasName("pk_assembly_models");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
                         .HasDatabaseName("ix_assembly_models_tenant_id_name");
+
+                    b.HasIndex("TenantId", "VinPrefix")
+                        .HasDatabaseName("ix_assembly_models_tenant_id_vin_prefix");
 
                     b.ToTable("assembly_models", (string)null);
                 });

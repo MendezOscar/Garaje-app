@@ -1791,12 +1791,16 @@ export const assemblyApi = {
     const { data } = await api.get<AssemblyModel[]>('/api/assembly/models')
     return data
   },
-  async createModel(name: string) {
-    const { data } = await api.post<AssemblyModel>('/api/assembly/models', { name })
+  async createModel(name: string, vinPrefix?: string) {
+    const { data } = await api.post<AssemblyModel>('/api/assembly/models', { name, vinPrefix })
     return data
   },
-  async updateModel(id: string, name: string, isActive: boolean) {
-    const { data } = await api.put<AssemblyModel>(`/api/assembly/models/${id}`, { name, isActive })
+  async updateModel(id: string, name: string, isActive: boolean, vinPrefix?: string | null) {
+    const { data } = await api.put<AssemblyModel>(`/api/assembly/models/${id}`, {
+      name,
+      isActive,
+      vinPrefix,
+    })
     return data
   },
   async warehouses() {
