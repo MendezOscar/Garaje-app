@@ -218,5 +218,24 @@ public class AssemblySettlement : TenantEntity
 
     public Guid? ClosedByUserId { get; set; }
 
+    /// <summary>
+    /// El día en que el contratista pagó esta factura, o null mientras siga por cobrar.
+    /// </summary>
+    /// <remarks>
+    /// Cerrar el corte es facturar, no cobrar: la hoja se le manda al contratista y él se
+    /// toma su tiempo. Sin esta fecha, un corte cerrado parecía plata entrada y no lo era, y
+    /// la pregunta «¿cuáles facturas están pendientes?» volvía a no tener respuesta — que es
+    /// justo el problema que este módulo vino a resolver, una vuelta más adelante.
+    ///
+    /// Solo tiene sentido en un corte de facturación. En uno de pago, cerrar ya es entregar
+    /// la plata: la hoja se firma en el momento.
+    /// </remarks>
+    public DateOnly? CollectedOn { get; set; }
+
+    /// <summary>El recibo, la transferencia o el cheque con que pagó. Lo escribe el dueño.</summary>
+    public string? CollectedReference { get; set; }
+
+    public bool Cobrado => CollectedOn is not null;
+
     public AssemblyContractor? Contractor { get; set; }
 }

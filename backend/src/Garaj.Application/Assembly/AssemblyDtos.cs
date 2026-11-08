@@ -267,7 +267,17 @@ public record AssemblySettlementDto(
     decimal Total,
     string? Reference,
     DateTimeOffset ClosedAt,
-    string? ClosedByName);
+    string? ClosedByName,
+    /// <summary>
+    /// El día en que el contratista pagó esta factura, o null mientras siga por cobrar.
+    /// Siempre null en un corte de pago: ahí cerrar ya es entregar la plata.
+    /// </summary>
+    DateOnly? CollectedOn = null,
+    string? CollectedReference = null);
+
+/// <param name="On">El día del pago. Vacío, el de hoy.</param>
+/// <param name="Reference">El recibo, la transferencia o el cheque.</param>
+public record CollectSettlementRequest(DateOnly? On = null, string? Reference = null);
 
 /// <param name="Reference">El número de factura o de la nota de pago.</param>
 public record CloseSettlementRequest(
@@ -311,6 +321,15 @@ public interface IAssemblyAdminService
         CloseSettlementRequest request, CancellationToken ct = default);
 
     Task ReopenAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Anotar que el contratista pagó esa factura. Solo en un corte de facturación.
+    /// </summary>
+    Task<AssemblySettlementDto> CollectAsync(
+        Guid id, CollectSettlementRequest request, CancellationToken ct = default);
+
+    /// <summary>Quitarle el cobro: se anotó por error, o el cheque rebotó.</summary>
+    Task<AssemblySettlementDto> UncollectAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Quiénes han armado motos, para el filtro y para el reporte de pago.</summary>
     Task<IReadOnlyList<AssemblyNameDto>> TechniciansAsync(CancellationToken ct = default);

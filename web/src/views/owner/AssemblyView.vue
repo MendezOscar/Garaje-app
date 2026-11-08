@@ -234,6 +234,51 @@ async function cerrarCorte(kind: 1 | 2, technicianUserId?: string) {
   })
 }
 
+/**
+ * Lo que está facturado y todavía no ha entrado.
+ *
+ * Cerrar el corte es facturar: la hoja se le manda al contratista y él se toma su tiempo en
+ * pagarla. Sin este número, un corte cerrado parecía plata entrada y no lo era.
+ */
+const porCobrar = computed(() =>
+  cortes.value.filter((c) => c.kind === 1 && !c.collectedOn),
+)
+
+const totalPorCobrar = computed(() => porCobrar.value.reduce((t, c) => t + c.total, 0))
+
+/** Cuántos días lleva una factura esperando. Es lo que convierte una lista en una alarma. */
+function diasEsperando(c: AssemblySettlement) {
+  const desde = new Date(c.closedAt).getTime()
+  return Math.max(0, Math.floor((Date.now() - desde) / 86_400_000))
+}
+
+async function cobrar(c: AssemblySettlement) {
+  const referencia = prompt(
+    `¿Con qué pagó ${c.contractorName ?? 'el contratista'} la factura ${c.reference ?? ''}? ` +
+      'Escriba el recibo, la transferencia o el cheque (puede dejarlo vacío).',
+    '',
+  )
+
+  // Cancelar el cuadro devuelve null; dejarlo vacío devuelve cadena y sí es un cobro.
+  if (referencia === null) return
+
+  await correr(async () => {
+    await assemblyAdminApi.collect(c.id, { reference: referencia.trim() || undefined })
+    aviso.value = 'Anotado el cobro de esa factura.'
+    await cargarCortes()
+  })
+}
+
+async function quitarCobro(c: AssemblySettlement) {
+  if (!confirm('¿Quitarle el cobro a esa factura? Vuelve a quedar por cobrar.')) return
+
+  await correr(async () => {
+    await assemblyAdminApi.uncollect(c.id)
+    aviso.value = 'Esa factura vuelve a estar por cobrar.'
+    await cargarCortes()
+  })
+}
+
 async function reabrir(corte: AssemblySettlement) {
   if (
     !confirm(
@@ -766,6 +811,17 @@ function dia(valor: string) {
       </template>
 
       <template v-else-if="pestana === 'cortes'">
+        <!-- Lo primero de esta pestaña, porque es la pregunta que trae a alguien aquí:
+             cerrar el corte es facturar, y la plata entra semanas después. -->
+        <div v-if="porCobrar.length" class="por-cobrar">
+          <strong>{{ formatMoney(totalPorCobrar) }}</strong>
+          <span>
+            facturados y todavía por cobrar, en
+            {{ porCobrar.length }}
+            {{ porCobrar.length === 1 ? 'factura' : 'facturas' }}
+          </span>
+        </div>
+
         <p v-if="!cortes.length" class="muted">Todavía no se ha cerrado ningún corte.</p>
 
         <table v-else class="tabla">
@@ -777,6 +833,7 @@ function dia(valor: string) {
               <th class="num">Motos</th>
               <th class="num">Total</th>
               <th>Referencia</th>
+              <th>Cobro</th>
               <th></th>
             </tr>
           </thead>
@@ -788,6 +845,27 @@ function dia(valor: string) {
               <td class="num">{{ c.count }}</td>
               <td class="num">{{ formatMoney(c.total) }}</td>
               <td>{{ c.reference ?? '—' }}</td>
+              <td>
+                <template v-if="c.kind !== 1">
+                  <span class="muted small">pagado al cerrar</span>
+                </template>
+                <template v-else-if="c.collectedOn">
+                  <span class="cobrada">cobrada {{ dia(c.collectedOn) }}</span>
+                  <span v-if="c.collectedReference" class="muted small">
+                    · {{ c.collectedReference }}
+                  </span>
+                  <button type="button" class="link" :disabled="busy" @click="quitarCobro(c)">
+                    Quitar
+                  </button>
+                </template>
+                <template v-else>
+                  <span class="pendiente">por cobrar</span>
+                  <span class="muted small"> · {{ diasEsperando(c) }} d</span>
+                  <button type="button" class="link" :disabled="busy" @click="cobrar(c)">
+                    Ya pagó
+                  </button>
+                </template>
+              </td>
               <td class="estado">
                 <button type="button" class="chico" :disabled="busy" @click="bajarCorte(c, 'xlsx')">
                   Excel
@@ -1066,6 +1144,34 @@ header h1 {
 .tabla .estado {
   text-align: right;
   white-space: nowrap;
+}
+
+/* Lo facturado y no cobrado, arriba de la lista de cortes: es lo que se viene a ver. */
+.por-cobrar {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warning);
+  border-radius: 8px;
+  background: var(--surface);
+  margin-bottom: 0.75rem;
+}
+
+.por-cobrar strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pendiente {
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.cobrada {
+  font-weight: 600;
 }
 
 .tabla .estado .chico {

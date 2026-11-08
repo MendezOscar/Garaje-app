@@ -663,6 +663,59 @@ public class ArmadoDeMotosTests
         Assert.Equal(1, segundo.Count);
     }
 
+    /// <summary>
+    /// Facturado y cobrado son dos cosas, y entre ellas pasan semanas.
+    /// </summary>
+    /// <remarks>
+    /// La hoja se le manda al contratista y él paga cuando paga. Mientras el corte cerrado no
+    /// supiera distinguirlo, un periodo facturado parecía plata entrada y la pregunta «¿cuáles
+    /// facturas están pendientes?» seguía sin respuesta.
+    ///
+    /// Y una factura ya cobrada no se reabre de un clic: del otro lado entró plata contra ese
+    /// papel.
+    /// </remarks>
+    [RequiereBaseLocal]
+    public async Task Cerrar_el_corte_factura_pero_no_cobra()
+    {
+        var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
+
+        await using var db = Contexto(taller, AppRoles.Owner, Guid.NewGuid(), sucursal);
+        var panel = Panel(db);
+        var tecnico = await TecnicoAsync(db, taller, "Kevin Discua");
+
+        var hoy = new DateTimeProvider().Today();
+        var mes = new DateOnly(hoy.Year, hoy.Month, 1);
+
+        await Registro(db).RegisterAsync(new RegisterMotorcycleRequest(
+            "3C1JA1234RT550001", modelo, contratista, bodega,
+            BranchId: sucursal, TechnicianUserId: tecnico));
+
+        var corte = await panel.CloseAsync(new CloseSettlementRequest(
+            AssemblySettlementKind.Billing, mes, hoy, ContractorId: contratista,
+            Reference: "F-001-0050"));
+
+        // Recién cerrado: facturado y por cobrar.
+        Assert.Null(corte.CollectedOn);
+
+        // Y por eso no se reabre como si nada… hasta aquí sí, que todavía no entró plata.
+        var cobrado = await panel.CollectAsync(
+            corte.Id, new CollectSettlementRequest(Reference: "Transferencia 998877"));
+
+        Assert.Equal(hoy, cobrado.CollectedOn);
+        Assert.Equal("Transferencia 998877", cobrado.CollectedReference);
+
+        // Cobrada, ya no se reabre de un clic.
+        await Assert.ThrowsAsync<ConflictException>(() => panel.ReopenAsync(corte.Id));
+
+        // Quitarle el cobro la devuelve a pendiente, y entonces sí.
+        var sinCobro = await panel.UncollectAsync(corte.Id);
+        Assert.Null(sinCobro.CollectedOn);
+
+        await panel.ReopenAsync(corte.Id);
+
+        Assert.DoesNotContain(await panel.SettlementsAsync(), c => c.Id == corte.Id);
+    }
+
     private static AssemblyReportService Reportes(GarajDbContext db) =>
         new(db, db.TenantContext, Panel(db), new DateTimeProvider());
 
