@@ -117,6 +117,7 @@ public class AssemblySettlementConfiguration : IEntityTypeConfiguration<Assembly
     public void Configure(EntityTypeBuilder<AssemblySettlement> b)
     {
         b.Property(x => x.Reference).HasMaxLength(60);
+        b.Property(x => x.CollectedReference).HasMaxLength(60);
 
         b.HasOne(x => x.Contractor)
             .WithMany()

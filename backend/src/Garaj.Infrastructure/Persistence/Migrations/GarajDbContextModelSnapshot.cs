@@ -339,6 +339,15 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("closed_by_user_id");
 
+                    b.Property<DateOnly?>("CollectedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("collected_on");
+
+                    b.Property<string>("CollectedReference")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("collected_reference");
+
                     b.Property<Guid?>("ContractorId")
                         .HasColumnType("uuid")
                         .HasColumnName("contractor_id");

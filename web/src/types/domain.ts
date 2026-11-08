@@ -2014,6 +2014,12 @@ export interface AssemblySettlement {
   reference: string | null
   closedAt: string
   closedByName: string | null
+  /**
+   * El día en que el contratista pagó esa factura, o null mientras siga por cobrar. Cerrar
+   * el corte es facturar; cobrar es otra cosa y pasa semanas después.
+   */
+  collectedOn: string | null
+  collectedReference: string | null
 }
 
 export interface AssemblyPayLine {

@@ -1935,6 +1935,21 @@ export const assemblyAdminApi = {
   async downloadSettlement(id: string, formato: 'xlsx' | 'pdf', nombre: string) {
     await download(`/api/assembly/admin/settlements/${id}/report.${formato}`, `${nombre}.${formato}`)
   },
+  /** Anotar que el contratista pago esa factura. Cerrar el corte era facturar, no cobrar. */
+  async collect(id: string, body: { on?: string; reference?: string }) {
+    const { data } = await api.post<AssemblySettlement>(
+      `/api/assembly/admin/settlements/${id}/collect`,
+      body,
+    )
+    return data
+  },
+  /** Quitarle el cobro: se anoto por error, o el cheque reboto. */
+  async uncollect(id: string) {
+    const { data } = await api.delete<AssemblySettlement>(
+      `/api/assembly/admin/settlements/${id}/collect`,
+    )
+    return data
+  },
   /** Reabrirlo suelta las motos. Es la única manera honesta de corregir un corte. */
   async reopen(id: string) {
     await api.delete(`/api/assembly/admin/settlements/${id}`)

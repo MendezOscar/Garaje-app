@@ -183,7 +183,8 @@ public class AssemblyAdminService(
             {
                 s.Id, s.Kind, s.PeriodFrom, s.PeriodTo,
                 s.ContractorId, ContractorName = s.Contractor!.Name,
-                s.TechnicianUserId, s.Count, s.Total, s.Reference, s.CreatedAt, s.ClosedByUserId
+                s.TechnicianUserId, s.Count, s.Total, s.Reference, s.CreatedAt,
+                s.ClosedByUserId, s.CollectedOn, s.CollectedReference
             })
             .ToListAsync(ct);
 
@@ -198,7 +199,8 @@ public class AssemblyAdminService(
             c.TechnicianUserId,
             c.TechnicianUserId is { } t ? nombres.GetValueOrDefault(t, "—") : null,
             c.Count, c.Total, c.Reference, c.CreatedAt,
-            c.ClosedByUserId is { } u ? nombres.GetValueOrDefault(u) : null)).ToList();
+            c.ClosedByUserId is { } u ? nombres.GetValueOrDefault(u) : null,
+            c.CollectedOn, c.CollectedReference)).ToList();
     }
 
     public async Task<AssemblySettlementDto> CloseAsync(
@@ -261,6 +263,63 @@ public class AssemblyAdminService(
         return cortes.First(c => c.Id == corte.Id);
     }
 
+    /// <summary>
+    /// Anotar que el contratista pagó esa factura.
+    /// </summary>
+    /// <remarks>
+    /// Cerrar el corte es facturar; esto es cobrar, y entre las dos cosas pasan semanas. Sin
+    /// separarlas, un corte cerrado parecía plata entrada y no lo era.
+    /// </remarks>
+    public async Task<AssemblySettlementDto> CollectAsync(
+        Guid id, CollectSettlementRequest request, CancellationToken ct = default)
+    {
+        var corte = await ParaCobrarAsync(id, ct);
+
+        var dia = request.On ?? clock.Today();
+
+        if (dia > clock.Today())
+            throw new AppException("No se puede anotar un pago con fecha de mañana.");
+
+        if (dia < corte.PeriodFrom)
+            throw new AppException("El pago no puede ser anterior a las motos que paga.");
+
+        corte.CollectedOn = dia;
+        corte.CollectedReference = request.Reference?.Trim();
+
+        await db.SaveChangesAsync(ct);
+
+        return (await SettlementsAsync(ct)).First(c => c.Id == id);
+    }
+
+    public async Task<AssemblySettlementDto> UncollectAsync(
+        Guid id, CancellationToken ct = default)
+    {
+        var corte = await ParaCobrarAsync(id, ct);
+
+        corte.CollectedOn = null;
+        corte.CollectedReference = null;
+
+        await db.SaveChangesAsync(ct);
+
+        return (await SettlementsAsync(ct)).First(c => c.Id == id);
+    }
+
+    private async Task<AssemblySettlement> ParaCobrarAsync(Guid id, CancellationToken ct)
+    {
+        await EnsureEnabledAsync(ct);
+        EnsureManda().EnsureOwner();
+
+        var corte = await db.AssemblySettlements.FirstOrDefaultAsync(s => s.Id == id, ct)
+            ?? throw new NotFoundException("El corte no existe.");
+
+        // En un corte de pago, cerrar ya es entregar la plata: la hoja se firma en el momento
+        // y no hay nada que quedarse esperando.
+        if (corte.Kind != AssemblySettlementKind.Billing)
+            throw new AppException("Un corte de pago no se cobra: al cerrarlo ya se pagó.");
+
+        return corte;
+    }
+
     public async Task ReopenAsync(Guid id, CancellationToken ct = default)
     {
         await EnsureEnabledAsync(ct);
@@ -269,6 +328,13 @@ public class AssemblyAdminService(
 
         var corte = await db.AssemblySettlements.FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("El corte no existe.");
+
+        // Una factura ya cobrada no se reabre de un clic: del otro lado entró plata contra
+        // ese papel. Si de verdad hay que corregirla, primero se quita el cobro, que obliga a
+        // mirar lo que se está deshaciendo.
+        if (corte.Cobrado)
+            throw new ConflictException(
+                "Ese corte ya está cobrado. Quítele el cobro antes de reabrirlo.");
 
         var motos = corte.Kind == AssemblySettlementKind.Billing
             ? await db.MotorcycleAssemblies.Where(m => m.BillingSettlementId == id).ToListAsync(ct)

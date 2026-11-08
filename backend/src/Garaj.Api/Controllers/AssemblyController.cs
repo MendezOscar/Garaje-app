@@ -170,6 +170,22 @@ public class AssemblyAdminController(
         CloseSettlementRequest request, CancellationToken ct)
         => Ok(await service.CloseAsync(request, ct));
 
+    /// <summary>
+    /// Anotar que el contratista pagó esa factura.
+    /// </summary>
+    /// <remarks>
+    /// Cerrar el corte es facturar; esto es cobrar, y entre las dos cosas pasan semanas.
+    /// </remarks>
+    [HttpPost("settlements/{id:guid}/collect")]
+    public async Task<ActionResult<AssemblySettlementDto>> Collect(
+        Guid id, CollectSettlementRequest request, CancellationToken ct)
+        => Ok(await service.CollectAsync(id, request, ct));
+
+    /// <summary>Quitarle el cobro: se anotó por error, o el cheque rebotó.</summary>
+    [HttpDelete("settlements/{id:guid}/collect")]
+    public async Task<ActionResult<AssemblySettlementDto>> Uncollect(Guid id, CancellationToken ct)
+        => Ok(await service.UncollectAsync(id, ct));
+
     /// <summary>Reabrirlo suelta las motos. Es la única manera honesta de corregir un corte.</summary>
     [HttpDelete("settlements/{id:guid}")]
     public async Task<IActionResult> Reopen(Guid id, CancellationToken ct)
