@@ -1069,11 +1069,16 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
 
     final aMano = order.isCatalogLabor && task.laborServiceId == null;
 
+    // La hoja se desplaza y Guardar va de ancho completo arriba de Quitar, no a la derecha en
+    // la misma fila: con el teclado numérico abierto —que es más alto que el de letras— la
+    // fila quedaba fuera de la pantalla, y el que corregía el precio de un paso veía Quitar
+    // como única salida. Un botón que no se ve es un botón que no existe.
     final accion = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
+      useSafeArea: true,
+      builder: (context) => SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 16,
           right: 16,
@@ -1081,9 +1086,12 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Corregir el paso', style: Theme.of(context).textTheme.titleMedium),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Corregir el paso', style: Theme.of(context).textTheme.titleMedium),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: titulo,
@@ -1102,28 +1110,40 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   helperText: 'Vacío o cero: el paso se hace pero no se cobra.',
                   helperMaxLines: 2,
                 ),
+              )
+            // Con servicio del catálogo el precio no se escribe aquí: sale del servicio. Sin
+            // decirlo, un paso que dice «Sin cobro» y no deja ponerle precio parece una falla.
+            else if (order.isCatalogLabor)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Este paso se cobra con su servicio del catálogo. Para cambiar lo que cobra, '
+                  'cámbiele el precio al servicio.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
               ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                if (_isOwner)
-                  TextButton.icon(
-                    onPressed: () => Navigator.pop(context, 'quitar'),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Quitar'),
-                  ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, 'guardar'),
-                  child: const Text('Guardar'),
-                ),
-              ],
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'guardar'),
+              child: const Text('Guardar'),
             ),
+            if (_isOwner)
+              TextButton.icon(
+                onPressed: () => Navigator.pop(context, 'quitar'),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Quitar'),
+              ),
             const SizedBox(height: 8),
           ],
         ),
       ),
     );
+
+    // El teclado se queda arriba cuando la hoja se cierra con un campo enfocado: se baja a
+    // mano. Sin esto, al salir de la orden el teclado se quedaba pegado sobre la lista.
+    if (mounted) FocusScope.of(context).unfocus();
 
     if (accion == 'quitar') {
       if (!mounted) return;
