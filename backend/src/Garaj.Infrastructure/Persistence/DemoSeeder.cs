@@ -793,7 +793,11 @@ public class DemoSeeder(
                 UnitPrice = part.SalePrice,
                 UnitCost = part.CostPrice,
                 CreatedAt = closedAt,
-                CreatedByUserId = technician.Id
+                CreatedByUserId = technician.Id,
+                // Confirmados: el Consume de arriba ya los sacó de bodega. Sin esto quedarían
+                // «por confirmar» y las órdenes del demo no se podrían entregar.
+                ConfirmedOn = closedAt,
+                ConfirmedByUserId = technician.Id
             });
 
             partLines.Add((part, quantity));
