@@ -8,14 +8,13 @@ import { MediaOwnerType, type MediaAttachment, type QuotePhotoCandidate } from '
 import { formatDateTime } from '@/utils/format'
 
 /**
- * Si el panel deja adjuntar PDF. En falso hasta que la 1.8.0 esté publicada en App Store y
- * Google Play: la versión que hoy tienen los talleres instalada pinta cualquier adjunto como
- * foto, así que un informe subido desde el panel se le vería como una imagen rota dentro de
- * la orden. El servidor sí los acepta ya; lo único cerrado es esta puerta.
+ * Si el panel deja adjuntar PDF.
  *
- * Para abrirlo: poner `true` y desplegar. No hace falta tocar nada más.
+ * Estuvo en falso mientras los talleres tenían instalada una versión que pintaba cualquier
+ * adjunto como foto: un informe subido desde el panel se les veía como una imagen rota dentro
+ * de la orden. Se abre con la 1.9.0 publicada, que es la que sabe enseñar un PDF.
  */
-const PDF_DESDE_EL_PANEL: boolean = false
+const PDF_DESDE_EL_PANEL: boolean = true
 
 const props = defineProps<{
   /** Fotos de una orden: las suyas y las de sus pasos, agrupadas por paso. */
