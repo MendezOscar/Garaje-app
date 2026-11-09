@@ -363,6 +363,22 @@ public class WorkOrderService(
                 $"No se puede pasar de {Describe(order.Status)} a {Describe(request.Status)}. " +
                 $"La orden está en {Describe(order.Status)}.");
 
+        // Un repuesto puesto en la orden, entregado y nunca descontado desfasa el inventario
+        // en silencio, y nadie se entera hasta que cuenten la bodega. Se corta aquí y no al
+        // facturar: aquí todavía se puede confirmar o quitar la línea.
+        if (request.Status == WorkOrderStatus.Delivered)
+        {
+            var porConfirmar = await db.WorkOrderParts.AsNoTracking()
+                .CountAsync(p => p.WorkOrderId == id && p.ConfirmedOn == null, ct);
+
+            if (porConfirmar > 0)
+                throw new ConflictException(
+                    porConfirmar == 1
+                        ? "Hay un repuesto por confirmar. Confírmelo o quítelo antes de entregar."
+                        : $"Hay {porConfirmar} repuestos por confirmar. Confírmelos o quítelos " +
+                          "antes de entregar.");
+        }
+
         var previous = order.Status;
         order.Status = request.Status;
 
@@ -1141,8 +1157,10 @@ public class WorkOrderService(
 
         var parts = await PartsOfAsync(workOrderId, ct);
 
+        // La existencia en bodega no es asunto del cliente: le diría cuánto tiene el taller de
+        // cada cosa, que es información del negocio y no de su carro.
         if (scope.IsCustomer)
-            return parts.Select(p => p with { UnitCost = 0 }).ToList();
+            return parts.Select(p => p with { UnitCost = 0, Available = null }).ToList();
 
         return await TechnicianWithoutPricesAsync(scope, ct)
             ? parts.Select(p => p with { UnitPrice = 0, UnitCost = 0, Total = 0 }).ToList()
@@ -1171,7 +1189,7 @@ public class WorkOrderService(
 
         var line = request.PartId is { } partId
             ? await FromCatalogAsync(order, partId, request, scope, ct)
-            : Manual(order, request, sinPrecios);
+            : Manual(order, request, sinPrecios, clock.UtcNow, scope.UserId);
 
         db.WorkOrderParts.Add(line);
         await db.SaveChangesAsync(ct);
@@ -1195,7 +1213,11 @@ public class WorkOrderService(
         if (!part.IsActive)
             throw new AppException($"{part.Name} está desactivado en el catálogo.");
 
-        await stock.ConsumeAsync(order.BranchId, part.Id, request.Quantity, order.Id, scope.UserId, ct);
+        // Por confirmar no toca la bodega: la existencia se revisa al confirmar, con la de
+        // ese momento, que es la que de verdad importa.
+        if (!request.Pending)
+            await stock.ConsumeAsync(
+                order.BranchId, part.Id, request.Quantity, order.Id, scope.UserId, ct);
 
         return new WorkOrderPart
         {
@@ -1206,7 +1228,9 @@ public class WorkOrderService(
             // Congelados a propósito: cambiar el precio del catálogo mañana no debe alterar
             // lo que ya se le cobró a un cliente ni el margen de una orden cerrada.
             UnitPrice = request.UnitPrice ?? part.SalePrice,
-            UnitCost = part.CostPrice
+            UnitCost = part.CostPrice,
+            ConfirmedOn = request.Pending ? null : clock.UtcNow,
+            ConfirmedByUserId = request.Pending ? null : scope.UserId
         };
     }
 
@@ -1216,7 +1240,8 @@ public class WorkOrderService(
     /// es obligatorio porque no hay catálogo del que sacarlo.
     /// </summary>
     private static WorkOrderPart Manual(
-        WorkOrder order, AddWorkOrderPartRequest request, bool sinPrecios)
+        WorkOrder order, AddWorkOrderPartRequest request, bool sinPrecios,
+        DateTimeOffset ahora, Guid porQuien)
     {
         var concepto = request.Description?.Trim();
 
@@ -1225,8 +1250,11 @@ public class WorkOrderService(
 
         // El técnico que no ve precios tampoco los pone: la línea se crea en cero y queda
         // esperando que el Dueño la valore antes de poder facturar la orden.
-        var precio = sinPrecios
-            ? 0m
+        // Por confirmar también se permite sin precio: así entra lo que el asistente dijo que
+        // hace falta y no está en el catálogo, con su nombre, para cotizarlo después. El
+        // precio se exige al confirmar, que es cuando ya se compró y se sabe.
+        var precio = sinPrecios || request.Pending
+            ? request.UnitPrice is { } puesto && puesto >= 0 ? puesto : 0m
             : request.UnitPrice is { } pedido && pedido >= 0
                 ? pedido
                 : throw new AppException("Un repuesto cargado a mano necesita su precio.");
@@ -1243,7 +1271,9 @@ public class WorkOrderService(
             BoughtOutside = request.BoughtOutside,
             SupplierName = request.BoughtOutside
                 ? request.SupplierName?.Trim() is { Length: > 0 } casa ? casa : null
-                : null
+                : null,
+            ConfirmedOn = request.Pending ? null : ahora,
+            ConfirmedByUserId = request.Pending ? null : porQuien
         };
     }
 
@@ -1282,14 +1312,62 @@ public class WorkOrderService(
             .FirstOrDefaultAsync(p => p.Id == partLineId && p.WorkOrderId == workOrderId, ct)
             ?? throw new NotFoundException("El repuesto no está cargado en esta orden.");
 
-        // Solo se devuelve a bodega lo que salió de ella: una línea manual nunca descontó nada.
-        if (line.PartId is { } partId)
+        // Solo se devuelve a bodega lo que salió de ella: una línea manual nunca descontó nada,
+        // y una por confirmar tampoco.
+        if (line.PartId is { } partId && !line.PorConfirmar)
             await stock.ReturnAsync(
                 order.BranchId, partId, line.Quantity, order.Id, scope.UserId,
                 $"Devolución de {order.Number}", ct);
 
         db.WorkOrderParts.Remove(line);
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Confirma un repuesto que estaba puesto en la orden sin haber salido de bodega. Es aquí
+    /// —y solo aquí— donde se descuenta.
+    /// </summary>
+    /// <remarks>
+    /// La existencia se revisa con la de <b>ahora</b>, no con la de cuando se propuso: entre
+    /// una cosa y la otra ese repuesto pudo irse en otra orden, y confirmarlo igual dejaría la
+    /// bodega en negativo. Si no alcanza, ConsumeAsync corta con 409 y la línea sigue por
+    /// confirmar, que es lo correcto: hay que comprar antes.
+    /// </remarks>
+    public async Task<WorkOrderPartDto> ConfirmPartAsync(
+        Guid workOrderId, Guid partLineId, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+
+        if (scope.IsCustomer)
+            throw new ForbiddenException("Un cliente no puede confirmar repuestos.");
+
+        var line = await db.WorkOrderParts
+            .FirstOrDefaultAsync(p => p.Id == partLineId && p.WorkOrderId == workOrderId, ct)
+            ?? throw new NotFoundException("El repuesto no está cargado en esta orden.");
+
+        if (!line.PorConfirmar)
+            throw new ConflictException("Ese repuesto ya está confirmado.");
+
+        if (line.PartId is { } partId)
+        {
+            await stock.ConsumeAsync(
+                order.BranchId, partId, line.Quantity, order.Id, scope.UserId, ct);
+        }
+        else if (line.UnitPrice <= 0 && !await TechnicianWithoutPricesAsync(scope, ct))
+        {
+            // Lo que no está en el catálogo entró sin precio, para cotizarlo. Confirmarlo en
+            // cero lo metería en la factura regalado.
+            throw new AppException($"Póngale precio a {line.Description} antes de confirmarlo.");
+        }
+
+        line.ConfirmedOn = clock.UtcNow;
+        line.ConfirmedByUserId = scope.UserId;
+        await db.SaveChangesAsync(ct);
+
+        await AvisarDeLoQueCambioAsync(order, scope, ct);
+
+        return (await PartsOfAsync(order.Id, ct)).First(p => p.Id == line.Id);
     }
 
     // ---------- Seguimiento por enlace ----------
@@ -1819,7 +1897,16 @@ public class WorkOrderService(
                 p.WorkOrderTaskId,
                 db.WorkOrderTasks.Where(t => t.Id == p.WorkOrderTaskId).Select(t => t.Title).FirstOrDefault(),
                 p.BoughtOutside,
-                p.SupplierName))
+                p.SupplierName,
+                p.ConfirmedOn == null,
+                // Solo en las líneas por confirmar: es lo que dice si al confirmar va a
+                // alcanzar o hay que comprar primero.
+                p.ConfirmedOn == null && p.PartId != null
+                    ? db.StockItems
+                        .Where(e => e.PartId == p.PartId && e.BranchId == p.WorkOrder.BranchId)
+                        .Select(e => (decimal?)e.Quantity)
+                        .FirstOrDefault()
+                    : null))
             .ToListAsync(ct);
 
     /// <summary>

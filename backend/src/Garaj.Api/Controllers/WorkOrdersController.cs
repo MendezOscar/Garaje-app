@@ -256,6 +256,16 @@ public class WorkOrdersController(
         => Ok(await service.AddPartAsync(id, request, ct));
 
     /// <summary>
+    /// Confirma un repuesto que estaba puesto en la orden sin haber salido de bodega. Es aquí
+    /// donde se descuenta, y con la existencia de ahora: si ya no alcanza, corta con 409.
+    /// </summary>
+    [HttpPost("{id:guid}/parts/{partLineId:guid}/confirm")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<WorkOrderPartDto>> ConfirmPart(
+        Guid id, Guid partLineId, CancellationToken ct)
+        => Ok(await service.ConfirmPartAsync(id, partLineId, ct));
+
+    /// <summary>
     /// Le pone precio a una línea ya cargada. Es lo que hace el Dueño con lo que el técnico
     /// cargó sin poder valorarlo.
     /// </summary>

@@ -143,7 +143,7 @@ function cerrar() {
     <template v-else>
       <p class="muted small">
         Es una propuesta. Tache lo que no, corrija las horas y acepte: hasta entonces la orden
-        no cambia.
+        no cambia. Los repuestos entran por confirmar y no descuentan la bodega.
       </p>
 
       <p v-if="propuesta.note" class="nota">{{ propuesta.note }}</p>
@@ -173,10 +173,13 @@ function cerrar() {
         </li>
       </ul>
 
-      <!-- Los repuestos no se cargan al aceptar: cargarlos descuenta la bodega y el trabajo
-           todavía no se ha hecho. Se enseñan para que se vea qué va a hacer falta. -->
+      <!-- Al aceptar quedan puestos en la orden, pero por confirmar: la bodega no se mueve
+           hasta que alguien diga que ese repuesto de verdad se usó. -->
       <div v-if="repuestos.length" class="repuestos">
-        <p class="muted small">Repuestos que llevaría, para cargarlos cuando se usen:</p>
+        <p class="muted small">
+          Repuestos que llevaría. Quedan puestos en la orden por confirmar: la bodega no se
+          descuenta hasta que los confirme.
+        </p>
         <ul>
           <li v-for="(r, i) in repuestos" :key="i">
             {{ r.quantity }} {{ r.unit }} · {{ r.name }}
@@ -190,7 +193,10 @@ function cerrar() {
       <!-- Lo que el trabajo lleva y no está en el catálogo. Separado de lo de arriba a
            propósito: de esto no hay existencia, hay que comprarlo o darlo de alta. -->
       <div v-if="propuesta.missing?.length" class="faltantes">
-        <p class="muted small">Esto haría falta y no está en su catálogo:</p>
+        <p class="muted small">
+          Esto haría falta y no está en su catálogo. Queda en la orden sin precio, para
+          cotizarlo:
+        </p>
         <ul>
           <li v-for="(f, i) in propuesta.missing" :key="i">
             {{ f.quantity }} · {{ f.name }}
@@ -205,6 +211,10 @@ function cerrar() {
           @click="aceptar"
         >
           Aceptar {{ incluidos.length }} {{ incluidos.length === 1 ? 'paso' : 'pasos' }}
+          <template v-if="repuestos.length">
+            y {{ repuestos.length }}
+            {{ repuestos.length === 1 ? 'repuesto' : 'repuestos' }}
+          </template>
         </button>
         <button type="button" class="link" :disabled="guardando" @click="cerrar">Descartar</button>
         <span class="muted small">

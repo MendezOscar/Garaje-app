@@ -319,8 +319,12 @@ public class SaleService(
         // Salvo que al cerrar se pida incluirlos: cuando la casa de repuestos le facturó al
         // taller, ese repuesto es un gasto suyo y tiene que volver a salir como venta, o
         // queda un gasto sin ingreso que lo respalde.
+        // Lo que está por confirmar no se factura: nunca salió de bodega, y cobrarlo sería
+        // cobrar un repuesto que el taller todavía tiene. Entregar la orden ya lo exige
+        // confirmado, así que esto es el segundo candado, no el primero.
         var parts = await db.WorkOrderParts.AsNoTracking()
             .Where(p => p.WorkOrderId == order.Id
+                && p.ConfirmedOn != null
                 && (request.IncludeOutsideParts || !p.BoughtOutside))
             .Select(p => new
             {

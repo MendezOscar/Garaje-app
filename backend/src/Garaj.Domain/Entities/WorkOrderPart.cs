@@ -47,6 +47,27 @@ public class WorkOrderPart : TenantEntity
     public bool BoughtOutside { get; set; }
 
     /// <summary>
+    /// Cuándo se confirmó que este repuesto de verdad se usa. Nulo = <b>por confirmar</b>.
+    /// </summary>
+    /// <remarks>
+    /// Una línea por confirmar está en la orden y cuenta en la cotización, pero <b>no ha
+    /// tocado la bodega</b>: el descuento corre al confirmarla. Existe porque el asistente
+    /// propone los repuestos antes de que el trabajo se haga, y había que elegir entre
+    /// perderlos al recargar la pantalla o descontar de bodega algo que todavía no se usó.
+    /// Ninguna de las dos servía.
+    ///
+    /// Quitar una línea por confirmar no devuelve nada a bodega, porque nunca salió. Y una
+    /// orden no se entrega con líneas así: un repuesto cotizado, entregado y nunca descontado
+    /// desfasa el inventario en silencio, que es peor que no tener esto.
+    /// </remarks>
+    public DateTimeOffset? ConfirmedOn { get; set; }
+
+    public Guid? ConfirmedByUserId { get; set; }
+
+    /// <summary>En la orden pero todavía no salió de bodega.</summary>
+    public bool PorConfirmar => ConfirmedOn is null;
+
+    /// <summary>
     /// En qué casa de repuestos se compró. Opcional: puede marcarse la línea sin recordar el
     /// nombre. Solo tiene sentido con <see cref="BoughtOutside"/>.
     /// </summary>

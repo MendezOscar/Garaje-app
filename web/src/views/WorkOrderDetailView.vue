@@ -1000,12 +1000,13 @@ function aplicarPlantilla() {
 }
 
 /**
- * Los pasos que el asistente propuso y el dueño aceptó ya están creados en el servidor: aquí
- * solo hay que volver a leer la orden y dejar los repuestos propuestos donde ya se enseñan los
- * del trabajo frecuente, que es el mismo sitio y la misma regla —no se cargan solos—.
+ * Los pasos y los repuestos que el asistente propuso y el dueño aceptó ya están en el servidor:
+ * los repuestos quedaron puestos en la orden **por confirmar**, así que basta con volver a leer
+ * la orden y salen en la lista de repuestos, con su botón de confirmar. No se dejan aquí abajo
+ * como los del trabajo frecuente: esos se pierden al recargar, y la razón de esto era
+ * justamente que no se perdieran.
  */
-function recibirPropuesta(resultado: AcceptWorkStepsResult) {
-  repuestosSugeridos.value = resultado.suggestedParts
+function recibirPropuesta(_resultado: AcceptWorkStepsResult) {
   return run(load)
 }
 

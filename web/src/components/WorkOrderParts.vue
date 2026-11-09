@@ -149,9 +149,75 @@ async function ponerPrecio(line: WorkOrderPart) {
   }
 }
 
+/** Los que están puestos en la orden pero todavía no salieron de bodega. */
+const porConfirmar = computed(() => props.parts.filter((p) => p.porConfirmar))
+
+/** Sin existencia no se puede confirmar: hay que comprarlo primero. */
+function alcanza(line: WorkOrderPart): boolean {
+  return line.partId === null || (line.available ?? 0) >= line.quantity
+}
+
+/** Confirmar es lo que descuenta la bodega. Por eso se pregunta, y se dice qué sale. */
+async function confirmar(line: WorkOrderPart) {
+  const pregunta = line.partId
+    ? `¿Confirmar ${formatQuantity(line.quantity)} ${line.unit} de ${line.partName}? ` +
+      'Sale de la bodega ahora.'
+    : `¿Confirmar ${line.partName}?`
+  if (!confirm(pregunta)) return
+
+  await correr(() => workOrdersApi.confirmPart(props.workOrderId, line.id))
+}
+
+/**
+ * Confirma de un golpe lo que se pueda. Va uno por uno a propósito: si a uno no le alcanza la
+ * existencia, los demás entran igual y queda a la vista cuál falta comprar.
+ */
+async function confirmarTodos() {
+  const listos = porConfirmar.value.filter(alcanza)
+  if (listos.length === 0) return
+
+  if (
+    !confirm(
+      `¿Confirmar ${listos.length} ${listos.length === 1 ? 'repuesto' : 'repuestos'}? ` +
+        'Salen de la bodega ahora.'
+    )
+  )
+    return
+
+  busy.value = true
+  error.value = ''
+  try {
+    for (const line of listos) {
+      try {
+        await workOrdersApi.confirmPart(props.workOrderId, line.id)
+      } catch (e) {
+        error.value = errorMessage(e)
+      }
+    }
+    emit('changed')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function correr(accion: () => Promise<unknown>) {
+  busy.value = true
+  error.value = ''
+  try {
+    await accion()
+    emit('changed')
+  } catch (e) {
+    error.value = errorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
 async function remove(line: WorkOrderPart) {
   const pregunta = line.partId
-    ? `¿Quitar ${line.partName} y devolverlo a la bodega?`
+    ? line.porConfirmar
+      ? `¿Quitar ${line.partName}? No devuelve nada a bodega: todavía no había salido.`
+      : `¿Quitar ${line.partName} y devolverlo a la bodega?`
     : `¿Quitar ${line.partName}?`
   if (!confirm(pregunta)) return
 
@@ -204,6 +270,13 @@ watch(soloLoQueAplica, () => loadCatalog())
               </template>
               <template v-else>{{ line.sku || 'Cargado a mano' }}</template>
               <template v-if="line.taskTitle"> · {{ line.taskTitle }}</template>
+              <template v-if="line.porConfirmar">
+                ·
+                <em class="por-confirmar">
+                  por confirmar<template v-if="line.partId">
+                    · quedan {{ formatQuantity(line.available ?? 0) }} en bodega</template>
+                </em>
+              </template>
               <template v-if="showCost && line.unitCost">
                 · costo {{ formatMoney(line.unitCost) }}
               </template>
@@ -214,6 +287,17 @@ watch(soloLoQueAplica, () => loadCatalog())
           </td>
           <td class="num">{{ formatMoney(line.total) }}</td>
           <td v-if="canEdit" class="num">
+            <!-- Aquí y en ningún otro lado es donde el repuesto sale de bodega. -->
+            <button
+              v-if="line.porConfirmar && alcanza(line)"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="confirmar(line)"
+            >
+              Confirmar
+            </button>
+            <em v-else-if="line.porConfirmar" class="muted small">hay que comprarlo</em>
             <button
               v-if="showCost && line.unitPrice === 0"
               type="button"
@@ -230,6 +314,25 @@ watch(soloLoQueAplica, () => loadCatalog())
         </tr>
       </tbody>
       <tfoot>
+        <!-- Lo que está por confirmar cuenta en la cotización pero no ha salido de bodega, y
+             la orden no se entrega así. Decirlo aquí evita descubrirlo al intentar entregar. -->
+        <tr v-if="porConfirmar.length">
+          <td colspan="4" class="falta small">
+            {{ porConfirmar.length }}
+            {{ porConfirmar.length === 1 ? 'repuesto está' : 'repuestos están' }}
+            por confirmar: están en la orden y en la cotización, pero todavía no salieron de la
+            bodega. La orden no se entrega hasta confirmarlos o quitarlos.
+            <button
+              v-if="canEdit && porConfirmar.some(alcanza)"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="confirmarTodos"
+            >
+              Confirmar los que hay
+            </button>
+          </td>
+        </tr>
         <tr v-if="showCost && parts.some((p) => p.unitPrice === 0)">
           <td colspan="4" class="falta small">
             Hay repuestos sin precio: el técnico los cargó pero no los valoró. Póngaselo antes
@@ -336,6 +439,11 @@ watch(soloLoQueAplica, () => loadCatalog())
 </template>
 
 <style scoped>
+.por-confirmar {
+  color: var(--warning, #b45309);
+  font-style: normal;
+}
+
 .card {
   padding: 1rem;
   border: 1px solid var(--border);

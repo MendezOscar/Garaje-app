@@ -2,6 +2,7 @@ using System.Text.Json;
 using Garaj.Application.Abstractions;
 using Garaj.Application.Assistant;
 using Garaj.Application.Common;
+using Garaj.Application.Inventory;
 using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
@@ -179,12 +180,73 @@ public class WorkStepsAssistant(
         // Los repuestos se vuelven a resolver contra el catálogo de ahora, no contra el de
         // cuando se propuso: entre una cosa y la otra pudieron darse de baja.
         var cruda = Leer(propuesta.Response);
-        var sugeridos = cruda is null
-            ? []
-            : await SugerirAsync(cruda.Repuestos, branchId, ct);
+
+        if (cruda is null) return new AcceptWorkStepsResultDto(creados, []);
+
+        var sugeridos = await SugerirAsync(cruda.Repuestos, branchId, ct);
+
+        // Los repuestos quedan puestos en la orden, pero **por confirmar**: ahí están para
+        // cotizar y no se pierden al recargar la pantalla, y la bodega no se mueve hasta que
+        // alguien diga que ese repuesto de verdad se usó. Antes se devolvían solo a la
+        // pantalla, y al recargar había que volver a consultar —y volver a pagar la consulta—
+        // para saber qué llevaba el trabajo.
+        var porTitulo = creados.ToDictionary(t => t.Title, t => t.Id, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var repuesto in sugeridos)
+        {
+            await PonerPorConfirmarAsync(
+                workOrderId,
+                new AddWorkOrderPartRequest(
+                    PartId: repuesto.PartId,
+                    Quantity: repuesto.Quantity,
+                    UnitPrice: null,
+                    WorkOrderTaskId: DelPaso(porTitulo, repuesto.Description),
+                    Pending: true),
+                ct);
+        }
+
+        // Y lo que no está en el catálogo entra como línea a mano, sin precio, con el nombre
+        // con el que se pide en una casa de repuestos: es la lista de compras del trabajo, y
+        // tampoco tiene por qué perderse al recargar.
+        foreach (var falta in Faltantes(cruda.Faltantes, await catalog.ForWorkOrderAsync(workOrderId, ct)))
+        {
+            await PonerPorConfirmarAsync(
+                workOrderId,
+                new AddWorkOrderPartRequest(
+                    PartId: null,
+                    Quantity: falta.Quantity,
+                    UnitPrice: null,
+                    WorkOrderTaskId: DelPaso(porTitulo, falta.ForTask),
+                    Description: falta.Name,
+                    Pending: true),
+                ct);
+        }
 
         return new AcceptWorkStepsResultDto(creados, sugeridos);
     }
+
+    /// <summary>
+    /// Deja la línea puesta en la orden sin tocar la bodega. Una que falle no bota las demás:
+    /// perder la lista entera porque un repuesto se dio de baja hace cinco minutos sería
+    /// cambiar un problema chico por el que esto vino a resolver.
+    /// </summary>
+    private async Task PonerPorConfirmarAsync(
+        Guid workOrderId, AddWorkOrderPartRequest linea, CancellationToken ct)
+    {
+        try
+        {
+            await workOrders.AddPartAsync(workOrderId, linea, ct);
+        }
+        catch (AppException)
+        {
+            // AppException cubre también NotFound y Conflict: un repuesto dado de baja, una
+            // cantidad que ya no cuadra. Se salta esa línea y se siguen poniendo las demás.
+        }
+    }
+
+    /// <summary>A qué paso de los que se acabaron de crear pertenece este repuesto.</summary>
+    private static Guid? DelPaso(IReadOnlyDictionary<string, Guid> porTitulo, string? titulo) =>
+        titulo is not null && porTitulo.TryGetValue(titulo.Trim(), out var id) ? id : null;
 
     /// <summary>
     /// El taller sin asistente no sabe que esto existe: <b>404, no 403</b>. Un 403 confirmaría

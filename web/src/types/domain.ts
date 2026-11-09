@@ -622,6 +622,13 @@ export interface WorkOrderPart {
   boughtOutside: boolean
   /** En cuál casa se compró, si se anotó. */
   supplierName: string | null
+  /**
+   * Está puesto en la orden y cuenta en la cotización, pero todavía no salió de bodega. El
+   * descuento corre al confirmarlo.
+   */
+  porConfirmar: boolean
+  /** Existencia de hoy en la bodega de la sucursal. Solo llega en los que están por confirmar. */
+  available: number | null
 }
 
 export interface LaborService {
