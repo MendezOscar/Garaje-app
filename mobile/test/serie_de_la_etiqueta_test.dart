@@ -47,6 +47,19 @@ void main() {
     expect(pareceSerie('QLCLPP200VE100410'), isFalse);
   });
 
+  test('la etiqueta chica de dos códigos: chasis sí, motor no', () {
+    // Caja con la etiqueta pegada en VERTICAL y solo dos códigos: el del chasis y el del
+    // motor en dos partes. No leía, y no era por el filtro —esta prueba lo demuestra— sino
+    // porque el recuadro del lector era acostado y el código vertical no le cabía.
+    expect(
+      serieDeLaEtiqueta(['LZL15P108THE49720', 'HJ162FMJ', '26054920']),
+      'LZL15P108THE49720',
+    );
+
+    expect(pareceSerie('HJ162FMJ'), isFalse);
+    expect(pareceSerie('26054920'), isFalse);
+  });
+
   test('lo que no mide diecisiete tampoco', () {
     expect(pareceSerie('LLCLPP200VE10041'), isFalse);
     expect(pareceSerie('LLCLPP200VE1004100'), isFalse);
