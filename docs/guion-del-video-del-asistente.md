@@ -136,9 +136,14 @@ Con el nombre con el que se piden en una casa de repuestos, que es para lo únic
 7. **Corrija algo a mano.** Súbale las horas al empaque de tapa de válvulas de 2 a 3. Es lo que
    demuestra que lo que se guarda es lo que la persona revisó, no lo que el modelo dijo.
 8. **Aceptar.** Los pasos entran en la orden.
-9. **Y lo que sigue a Aceptar, que es lo importante:** los repuestos quedan como
-   **sugerencia**, no cargados. La bodega no se descontó, porque el trabajo todavía no se ha
-   hecho. El que los carga es el técnico cuando de verdad los usa.
+9. **Y lo que sigue a Aceptar, que es lo importante:** los repuestos **quedan puestos en la
+   orden, marcados «por confirmar»**. Cuentan en la cotización, pero **la bodega no se movió**:
+   el trabajo todavía no se ha hecho. Recargue la pantalla delante de la cámara — siguen ahí,
+   sin volver a consultar.
+10. **Confirme uno.** Ahí sí sale de bodega, y la existencia baja. El disco con 0 no deja
+    confirmarse: dice **«hay que comprarlo»**, que es la verdad.
+11. **Intente entregar la orden.** No deja: *hay repuestos por confirmar*. Es el candado que
+    impide cobrar un repuesto que nunca salió de la bodega.
 
 ---
 
@@ -174,6 +179,8 @@ mandamos nosotros, no se le descuenta nada.*
 - Los repuestos salen **del catálogo del taller y de ninguna otra parte**. Lo que no está, no
   se inventa: se pide.
 - **Nada se guarda hasta que el dueño acepta.** Proponer no escribe en la orden.
+- Al aceptar, los repuestos **quedan puestos pero sin tocar la bodega**. Se descuentan cuando
+  alguien confirma que de verdad se usaron, y no antes.
 - **No pone precios.** Ni de repuestos ni de mano de obra: esos son del taller.
 - Al asistente **no se le manda el cliente**: ni nombre, ni teléfono, ni placa.
 
