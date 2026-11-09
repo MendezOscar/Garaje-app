@@ -271,8 +271,10 @@ public class DbSeeder(
             new WorkOrderTask { WorkOrderId = workOrder.Id, Sequence = 3, Title = "Cambio de pastillas delanteras", IsDone = false, AssignedTechnicianId = tech1Id, LaborServiceId = frenos.Id, EstimatedHours = 2m, StartedAt = now.AddHours(-2), TechnicianNotes = "Esperando rectificado de discos." });
 
         db.WorkOrderParts.AddRange(
-            new WorkOrderPart { WorkOrderId = workOrder.Id, PartId = parts[0].Id, Quantity = 4m, UnitPrice = parts[0].SalePrice, UnitCost = parts[0].CostPrice },
-            new WorkOrderPart { WorkOrderId = workOrder.Id, PartId = parts[1].Id, Quantity = 1m, UnitPrice = parts[1].SalePrice, UnitCost = parts[1].CostPrice });
+            // ConfirmedOn puesto: estos ya salieron de bodega. Nulo los dejaría «por
+            // confirmar» y la orden de ejemplo no se podría entregar.
+            new WorkOrderPart { WorkOrderId = workOrder.Id, PartId = parts[0].Id, Quantity = 4m, UnitPrice = parts[0].SalePrice, UnitCost = parts[0].CostPrice, ConfirmedOn = now },
+            new WorkOrderPart { WorkOrderId = workOrder.Id, PartId = parts[1].Id, Quantity = 1m, UnitPrice = parts[1].SalePrice, UnitCost = parts[1].CostPrice, ConfirmedOn = now });
 
         db.WorkOrderStatusHistory.AddRange(
             new WorkOrderStatusHistory { WorkOrderId = workOrder.Id, FromStatus = null, ToStatus = WorkOrderStatus.Received, ChangedAt = now.AddDays(-1), ChangedByUserId = ownerId, Note = "Vehículo recibido en Matriz." },

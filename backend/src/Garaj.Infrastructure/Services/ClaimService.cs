@@ -295,7 +295,9 @@ public class ClaimService(
         // garantía, así que van costos y no precios: al cliente no se le cobró.
         var repairCost = claim.RepairWorkOrderId is { } costId
             ? await db.WorkOrderParts.AsNoTracking()
-                .Where(p => p.WorkOrderId == costId)
+                // Lo que está por confirmar todavía no salió de bodega: no le ha costado nada
+                // al taller, y contarlo inflaría lo que la garantía aparenta costar.
+                .Where(p => p.WorkOrderId == costId && p.ConfirmedOn != null)
                 .SumAsync(p => (decimal?)(p.Quantity * p.UnitCost), ct) ?? 0
             : 0;
 
