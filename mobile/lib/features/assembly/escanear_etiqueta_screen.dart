@@ -42,8 +42,24 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
   /// Lo que pasó al leer una foto de la galería, para decirlo abajo.
   String? _deLaFoto;
 
-  /// El tamaño del recuadro de la guía. Es también el área que de verdad se lee.
-  static const _guia = Size(280, 140);
+  /// El recuadro de la guía, que es también el área que de verdad se lee.
+  ///
+  /// Cuadrado y no acostado. Era 280×140, pensado para una etiqueta horizontal, y **las hay
+  /// pegadas en vertical**: el código quedaba más alto que el recuadro, no cabía entero y se
+  /// descartaba sin decir nada. Cuadrado entra en las dos posiciones, y así no hay que
+  /// pedirle a nadie que gire el teléfono parado en una bodega.
+  ///
+  /// Grande, pero no la pantalla entera: que esté acotado es lo que impide agarrar la
+  /// etiqueta de la caja de al lado.
+  static Size _guiaPara(BoxConstraints medidas) {
+    final lado = [
+      medidas.maxWidth * 0.88,
+      medidas.maxHeight * 0.52,
+      360.0,
+    ].reduce((a, b) => a < b ? a : b);
+
+    return Size(lado, lado);
+  }
 
   @override
   void dispose() {
@@ -137,8 +153,8 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
               // cámara agarraría la etiqueta de la caja de al lado sin avisar.
               scanWindow: Rect.fromCenter(
                 center: Offset(medidas.maxWidth / 2, medidas.maxHeight / 2),
-                width: _guia.width,
-                height: _guia.height,
+                width: _guiaPara(medidas).width,
+                height: _guiaPara(medidas).height,
               ),
               errorBuilder: (context, error) => Center(
                 child: Padding(
@@ -163,22 +179,29 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
             ),
           ),
 
-          // La guía: una caja lleva cuatro códigos, y hay que decir a cuál apuntar.
+          // La guía: una caja lleva cuatro códigos, y hay que decir a cuál apuntar. Dibuja
+          // exactamente el área que se lee, así que se calcula igual que el scanWindow.
           IgnorePointer(
-            child: Center(
-              child: Container(
-                width: _guia.width,
-                height: _guia.height,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _hayDosCajas
-                        ? Colors.amber
-                        : Colors.white.withValues(alpha: 0.9),
-                    width: _hayDosCajas ? 3 : 2,
+            child: LayoutBuilder(
+              builder: (context, medidas) {
+                final guia = _guiaPara(medidas);
+
+                return Center(
+                  child: Container(
+                    width: guia.width,
+                    height: guia.height,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _hayDosCajas
+                            ? Colors.amber
+                            : Colors.white.withValues(alpha: 0.9),
+                        width: _hayDosCajas ? 3 : 2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+                );
+              },
             ),
           ),
 
@@ -208,7 +231,8 @@ class _EscanearEtiquetaScreenState extends State<EscanearEtiquetaScreen> {
                                 'solo entre la etiqueta de la que acaba de armar.'
                           : _vistos.isEmpty
                           ? 'Es el de diecisiete caracteres. Los otros de la caja '
-                                '—envío, SKU, número de motor— no sirven.'
+                                '—envío, SKU, número de motor— no sirven. La etiqueta puede '
+                                'estar de lado: se lee igual.'
                           : 'Ya se leyeron ${_vistos.length} códigos de la caja, pero '
                                 'ninguno es el VIN. Acérquese al que dice VIN.'),
                       style: theme.textTheme.bodySmall,
