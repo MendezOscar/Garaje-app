@@ -521,9 +521,18 @@ public interface IWorkOrderService
 
     Task<IReadOnlyList<WorkOrderPartDto>> ListPartsAsync(Guid workOrderId, CancellationToken ct = default);
 
-    /// <summary>Carga el repuesto a la orden y lo descuenta de la bodega de su sucursal.</summary>
+    /// <summary>
+    /// Carga el repuesto a la orden y lo descuenta de la bodega de su sucursal. Con
+    /// <c>Pending</c> queda puesto en la orden <b>sin</b> tocar la bodega.
+    /// </summary>
     Task<WorkOrderPartDto> AddPartAsync(
         Guid workOrderId, AddWorkOrderPartRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Confirma una línea que estaba por confirmar: es aquí donde el repuesto sale de bodega.
+    /// </summary>
+    Task<WorkOrderPartDto> ConfirmPartAsync(
+        Guid workOrderId, Guid partLineId, CancellationToken ct = default);
 
     /// <summary>Lo quita de la orden y lo devuelve a la bodega con un movimiento de entrada.</summary>
     /// <summary>

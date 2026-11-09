@@ -4188,6 +4188,14 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("bought_outside");
 
+                    b.Property<Guid?>("ConfirmedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmed_by_user_id");
+
+                    b.Property<DateTimeOffset?>("ConfirmedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_on");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");

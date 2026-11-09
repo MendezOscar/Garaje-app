@@ -522,9 +522,21 @@ export const workOrdersApi = {
       /** Comprado en una casa de repuestos: se cobra, pero no entra en la factura. */
       boughtOutside?: boolean
       supplierName?: string
+      /** Queda puesto en la orden sin tocar la bodega: se descuenta al confirmarlo. */
+      pending?: boolean
     },
   ) {
     const { data } = await api.post<WorkOrderPart>(`/api/work-orders/${id}/parts`, body)
+    return data
+  },
+  /**
+   * Confirma un repuesto que estaba puesto sin haber salido de bodega. Es aquí donde se
+   * descuenta, con la existencia de ahora: si ya no alcanza, el servidor corta.
+   */
+  async confirmPart(id: string, partLineId: string) {
+    const { data } = await api.post<WorkOrderPart>(
+      `/api/work-orders/${id}/parts/${partLineId}/confirm`,
+    )
     return data
   },
   /**

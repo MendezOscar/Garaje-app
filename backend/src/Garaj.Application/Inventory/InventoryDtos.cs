@@ -176,8 +176,19 @@ public record WorkOrderPartDto(
     // Comprado en una casa de repuestos: se le cobra al cliente igual, pero no entra en la
     // factura del taller.
     bool BoughtOutside,
-    string? SupplierName);
+    string? SupplierName,
+    // Está en la orden y cuenta en la cotización, pero todavía no salió de bodega. El
+    // descuento corre al confirmarla.
+    bool PorConfirmar = false,
+    // Existencia de hoy en la bodega de la sucursal. Solo se llena en las líneas por
+    // confirmar: es lo que dice si se va a poder confirmar o hay que comprar.
+    decimal? Available = null);
 
+/// <param name="Pending">
+/// La línea entra <b>por confirmar</b>: queda en la orden y en la cotización, pero no toca el
+/// inventario hasta que alguien la confirme. Es lo que permite dejar puestos los repuestos que
+/// el asistente propuso sin descontar de bodega un trabajo que todavía no se hizo.
+/// </param>
 /// <param name="PartId">
 /// Del catálogo: descuenta de la bodega de la sucursal. Null carga el repuesto **a mano**,
 /// que es lo que se compró de encargo y nunca estuvo en bodega: entonces hacen falta
@@ -203,7 +214,8 @@ public record AddWorkOrderPartRequest(
     string? Description = null,
     decimal? UnitCost = null,
     bool BoughtOutside = false,
-    string? SupplierName = null);
+    string? SupplierName = null,
+    bool Pending = false);
 
 public interface IPartService
 {
