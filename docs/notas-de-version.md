@@ -11,6 +11,58 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.9.0 (21)
+
+### Google Play — «Novedades» (es-419)
+
+```
+El asistente le arma la reparación.
+
+Escriba la falla y toque Proponer: salen los pasos con su precio y los repuestos que lleva, puestos en la orden como «por confirmar». Se le cotizan al cliente, pero no salen de bodega hasta que usted confirme cada uno. Y dice lo que hace falta y no tiene.
+
+El técnico también puede preguntar cómo se hace un trabajo.
+
+Si arma motos: regístrelas desde la bodega, con la serie leída del código de barras de la caja.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+El asistente le arma la reparación, y usted decide.
+
+ARMAR LA REPARACIÓN
+· Entre a la orden, escriba la falla como se la contó el cliente y toque Proponer.
+· El asistente devuelve los pasos del trabajo con su precio, sacados del catálogo de mano de
+  obra del taller, no de una lista inventada.
+· Usted tacha lo que no va, corrige lo que quiera y acepta. Lo que acepta entra como pasos de
+  la orden, igual que si los hubiera escrito a mano.
+
+LOS REPUESTOS, PUESTOS PERO POR CONFIRMAR
+· Los repuestos del trabajo quedan puestos en la orden y se le cotizan al cliente, pero no
+  salen de la bodega: cada uno dice «por confirmar» y cuánto queda de él en existencia.
+· Confirmar un repuesto es lo que lo descuenta, con la existencia de ese momento. Mientras
+  tanto la lista sigue ahí aunque cierre la pantalla, así que no hay que volver a consultar.
+· Lo que el taller no tiene entra igual, como línea escrita a mano y sin precio: es la lista
+  de compras del trabajo, y no se pierde.
+· Una orden no se entrega con repuestos sin confirmar, y la factura no los incluye. El
+  inventario no se desfasa por un repuesto que se cobró y nunca salió.
+
+PREGUNTARLE CÓMO SE HACE
+· El técnico que no ha hecho ese trabajo puede preguntarle, con el vehículo de la orden a la
+  vista: qué revisar primero, el orden de los pasos, el par de apriete.
+
+ARMADO DE MOTOS
+· Para el taller que arma motos de caja: registre cada una desde la bodega, con el modelo, la
+  serie leída del código de barras de la caja, la foto si quiere y lo que le costó armarla.
+· El reporte dice cuántas se armaron, quién las armó y cuánto dejó cada una.
+
+TAMBIÉN
+· El VIN o número de serie del vehículo, que estaba en la ficha y no se podía escribir.
+· Al corregir un paso de la orden, el botón Guardar ya no se esconde debajo del teclado.
+```
+
+---
+
 ## 1.8.0 (20)
 
 ### Google Play — «Novedades» (es-419)

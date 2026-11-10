@@ -75,7 +75,7 @@ class PartsSection extends ConsumerWidget {
       builder: (context) => AlertDialog(
         title: Text('¿Quitar ${line.partName}?'),
         content: Text(
-          line.partId == null
+          line.partId == null || line.porConfirmar
               // Nunca salió de la bodega, así que tampoco vuelve a ella.
               ? 'Se quita de la orden.'
               : 'Vuelve a la bodega y queda registrado en el kardex.',
@@ -96,6 +96,22 @@ class PartsSection extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(apiErrorMessage(e))),
+        );
+      }
+    }
+  }
+
+  /// Confirmar es lo único que saca el repuesto de la bodega. Hasta entonces la línea está
+  /// en la orden y se le cotiza al cliente, pero el inventario no se tocó.
+  Future<void> _confirm(BuildContext context, WidgetRef ref, WorkOrderPart line) async {
+    try {
+      await ref.read(inventoryRepositoryProvider).confirmPart(order.id, line.id);
+      await onChanged();
+    } catch (e) {
+      if (context.mounted) {
+        // El 409 dice por qué: ya estaba confirmado, no alcanza, o le falta el precio.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo confirmar el repuesto.'))),
         );
       }
     }
@@ -141,15 +157,34 @@ class PartsSection extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               title: Text(line.partName),
-              subtitle: Text(
-                '${_quantity(line.quantity)} ${line.unit} × ${_money(line.unitPrice)}'
-                '${_origen(line)}'
-                '${line.taskTitle != null ? ' · ${line.taskTitle}' : ''}',
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_quantity(line.quantity)} ${line.unit} × ${_money(line.unitPrice)}'
+                    '${_origen(line)}'
+                    '${line.taskTitle != null ? ' · ${line.taskTitle}' : ''}',
+                  ),
+                  if (line.porConfirmar)
+                    Text(
+                      _pendiente(line),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.tertiary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_money(line.total), style: theme.textTheme.bodyMedium),
+                  if (canEdit && line.porConfirmar)
+                    IconButton(
+                      onPressed: busy ? null : () => _confirm(context, ref, line),
+                      icon: const Icon(Icons.check, size: 20),
+                      tooltip: 'Confirmar',
+                    ),
                   if (canEdit)
                     IconButton(
                       onPressed: busy ? null : () => _remove(context, ref, line),
@@ -157,6 +192,19 @@ class PartsSection extends ConsumerWidget {
                       tooltip: 'Quitar',
                     ),
                 ],
+              ),
+            ),
+
+          if (order.parts.any((p) => p.porConfirmar))
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Los repuestos por confirmar están en la orden y se le cotizan al cliente, '
+                'pero todavía no salieron de bodega. Toque ✓ en cada uno cuando de verdad lo '
+                'use: la orden no se entrega mientras quede alguno sin confirmar.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
 
@@ -511,6 +559,23 @@ String _origen(WorkOrderPart line) {
 
   final casa = line.supplierName;
   return casa != null && casa.isNotEmpty ? ' · $casa' : ' · casa de repuestos';
+}
+
+/// Lo que dice una línea que todavía no salió de bodega. Con la existencia a la vista se sabe
+/// de un vistazo si alcanza o si hay que comprarlo, sin abrir el inventario.
+String _pendiente(WorkOrderPart line) {
+  if (line.partId == null) {
+    return line.unitPrice <= 0
+        ? 'por confirmar · póngale precio en el panel'
+        : 'por confirmar · se compra fuera';
+  }
+
+  final quedan = line.available;
+  if (quedan == null) return 'por confirmar';
+
+  return quedan >= line.quantity
+      ? 'por confirmar · quedan ${_quantity(quedan)} en bodega'
+      : 'por confirmar · hay que comprarlo, quedan ${_quantity(quedan)}';
 }
 
 String _money(double value) => 'L ${value.toStringAsFixed(2)}';

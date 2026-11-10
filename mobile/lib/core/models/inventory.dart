@@ -243,6 +243,8 @@ class WorkOrderPart {
     this.taskTitle,
     this.boughtOutside = false,
     this.supplierName,
+    this.porConfirmar = false,
+    this.available,
   });
 
   factory WorkOrderPart.fromJson(Map<String, dynamic> json) => WorkOrderPart(
@@ -258,6 +260,8 @@ class WorkOrderPart {
         taskTitle: json['taskTitle'] as String?,
         boughtOutside: json['boughtOutside'] as bool? ?? false,
         supplierName: json['supplierName'] as String?,
+        porConfirmar: json['porConfirmar'] as bool? ?? false,
+        available: (json['available'] as num?)?.toDouble(),
       );
 
   final String id;
@@ -283,4 +287,12 @@ class WorkOrderPart {
 
   /// En qué casa se compró, si se anotó.
   final String? supplierName;
+
+  /// Está en la orden y cuenta en la cotización, pero **no ha salido de bodega**: lo propuso
+  /// el asistente y falta que alguien lo confirme. Confirmarlo es lo que descuenta.
+  final bool porConfirmar;
+
+  /// Lo que queda de este repuesto en la bodega de la sucursal, para saber si alcanza antes
+  /// de confirmarlo. Null en una línea ya confirmada, en una de a mano, y para el Cliente.
+  final double? available;
 }

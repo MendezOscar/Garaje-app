@@ -75,6 +75,17 @@ class InventoryRepository {
   Future<void> removePart(String workOrderId, String partLineId) =>
       _dio.delete<void>('/api/work-orders/$workOrderId/parts/$partLineId');
 
+  /// Confirma un repuesto que el asistente dejó puesto: es lo que lo saca de la bodega, con
+  /// la existencia de este momento. Devuelve 409 si ya está confirmado, si no alcanza, o si
+  /// es una línea de a mano todavía sin precio.
+  Future<WorkOrderPart> confirmPart(String workOrderId, String partLineId) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/parts/$partLineId/confirm',
+    );
+
+    return WorkOrderPart.fromJson(response.data!);
+  }
+
   /// Existencias por sucursal. Sin sucursal, las de todas las que el usuario ve.
   Future<List<StockItem>> stock({
     String? branchId,
