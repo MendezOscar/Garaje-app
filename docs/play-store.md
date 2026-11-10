@@ -234,9 +234,11 @@ Y las tres preguntas transversales:
 | Cosa que Play pregunta | Respuesta |
 | --- | --- |
 | Advertising ID | **No se usa.** No hay anuncios ni analítica de publicidad; los push de Firebase no lo necesitan |
-| Cámara y fotos | Sí: la evidencia fotográfica de la reparación, que es una función principal |
+| Cámara y fotos | Sí: la evidencia fotográfica de la reparación —función principal— y, desde la 1.9.0, leer el código de barras de la caja de una moto para sacarle la serie. Ninguna de las dos imágenes sale del teléfono sin que el taller la mande |
 | Notificaciones (`POST_NOTIFICATIONS`) | Sí: avisar al técnico de una orden asignada y al taller de una cotización respondida |
-| Ubicación, micrófono, contactos, SMS, llamadas | No se piden |
+| Ubicación | `ACCESS_FINE_LOCATION` y `ACCESS_COARSE_LOCATION`, **solo hasta Android 11** (`maxSdkVersion`): antes de Android 12 el sistema exigía permiso de ubicación para buscar aparatos Bluetooth LE, y es lo único para lo que se pide. No se recoge ni se guarda ninguna ubicación, por eso en Seguridad de los datos va en «No» |
+| Bluetooth | `BLUETOOTH_SCAN` con `neverForLocation` y `BLUETOOTH_CONNECT`: el adaptador OBD2 del vehículo |
+| Micrófono, contactos, SMS, llamadas | No se piden |
 | Acceso a todos los archivos, accesibilidad, uso en segundo plano | No se piden |
 | Apps de finanzas / salud / gobierno | No aplica: es una herramienta de trabajo interna del taller |
 
