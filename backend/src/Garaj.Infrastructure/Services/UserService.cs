@@ -246,7 +246,10 @@ public class UserService(
 
         if (tope is not { } maximo) return;
 
-        var activos = await db.Users
+        // UsersInTenant y no db.Users: AppUser no lleva filtro de taller, así que esto
+        // contaba los técnicos activos de **toda la plataforma**. Un taller con tres se
+        // quedaba sin poder dar de alta al cuarto porque el de al lado tenía diez.
+        var activos = await db.UsersInTenant
             .Where(u => u.IsActive)
             .Join(db.UserRoles, u => u.Id, ur => ur.UserId, (u, ur) => ur.RoleId)
             .Join(

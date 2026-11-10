@@ -92,7 +92,10 @@ public class AssemblyImportService(
         var bodegas = await db.AssemblyWarehouses.AsNoTracking()
             .ToDictionaryAsync(w => Clave(w.Name), w => w.Id, ct);
 
-        var tecnicos = await db.Users.AsNoTracking()
+        // Por el mismo motivo que en el resto del módulo: db.Users no lleva filtro de taller,
+        // y los nombres de esta lista son con los que se casa cada fila del Excel. Con la
+        // lista de toda la plataforma, un homónimo de otro taller se llevaba la moto.
+        var tecnicos = await db.UsersInTenant.AsNoTracking()
             .Where(u => u.IsActive)
             .Select(u => new { u.Id, u.FullName })
             .ToListAsync(ct);
