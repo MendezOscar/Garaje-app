@@ -211,7 +211,11 @@ public static class QuotePdf
                 // Dicho aquí, pegado al total, y no en letra chica al final: es donde el
                 // cliente mira el precio y donde no se puede alegar que no lo vio.
                 if (quote.TaxRate == 0)
-                    totals.Item().PaddingTop(4).Text("No incluye ISV.")
+                    // «No incluye ISV» se leía como que al facturar le iban a sumar el
+                    // impuesto encima. Se dice lo que de verdad pasa, y con las mismas
+                    // palabras que el enlace público: ese precio es el que se paga.
+                    totals.Item().PaddingTop(4)
+                        .Text("Sin ISV: el taller no factura este trabajo con impuesto.")
                         .FontSize(8).FontColor(Colors.Grey.Darken2);
                 else if (!quote.PricesIncludedTax)
                     // Con el impuesto aparte, el total de arriba ya lo lleva sumado: hay que
