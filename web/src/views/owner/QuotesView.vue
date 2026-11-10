@@ -512,8 +512,9 @@ onMounted(async () => {
         </p>
 
         <!-- Se decide por cotización porque no todo trabajo se factura. Lo que cambia al
-             prenderlo depende del taller: con el ISV dentro del precio el total es el mismo y
-             solo se dice cuánto de él es impuesto; con el ISV aparte, se le suma. -->
+             prenderlo depende de **esta** cotización, no del ajuste de hoy: la cotización
+             congela al nacer si los precios llevaban el ISV adentro, para que cambiar el
+             ajuste no le reescriba el total a un presupuesto que el cliente ya vio. -->
         <label v-if="selected.isEditable && tasaDelTaller > 0" class="check">
           <input
             type="checkbox"
@@ -522,7 +523,11 @@ onMounted(async () => {
             @change="toggleIsv(($event.target as HTMLInputElement).checked)"
           />
           Cotizar con ISV {{ tasaDelTaller }}%
-          {{ precioConIsv ? 'incluido (el total no cambia)' : 'agregado (sube el total)' }}
+          {{
+            selected.pricesIncludedTax
+              ? 'incluido (el total no cambia)'
+              : 'agregado (sube el total)'
+          }}
         </label>
 
         <form v-if="selected.isEditable" class="add" @submit.prevent="addLine">

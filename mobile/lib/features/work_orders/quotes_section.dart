@@ -523,7 +523,6 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
 
     // Y cómo tiene el taller sus precios, que es lo que decide si prenderlo sube el total o
     // solo dice cuánto de ese total es impuesto.
-    final conIsvAdentro = ref.watch(precioConIsvProvider).value ?? true;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -662,9 +661,10 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                 ),
               ),
 
-            // Se decide por cotización porque no todo trabajo se factura con CAI. Lo que
-            // cambia al prenderlo depende del taller: con el ISV dentro del precio el total
-            // es el mismo y solo se desglosa; con el ISV aparte, se le suma.
+            // Se decide por cotización porque no todo trabajo se factura con CAI. Y lo que
+            // cambia al prenderlo lo manda **esta** cotización, no el ajuste de hoy: al nacer
+            // congela si los precios del taller llevaban el ISV adentro, para que cambiar el
+            // ajuste no le reescriba el total a un presupuesto que el cliente ya vio.
             if (editable && tasaDelTaller > 0)
               SwitchListTile(
                 value: quote.taxRate > 0,
@@ -673,11 +673,11 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                 dense: true,
                 title: Text(
                   'Con ISV ${tasaDelTaller.toStringAsFixed(0)}% '
-                  '${conIsvAdentro ? 'incluido' : 'agregado'}',
+                  '${quote.pricesIncludedTax ? 'incluido' : 'agregado'}',
                   style: theme.textTheme.bodySmall,
                 ),
                 subtitle: Text(
-                  conIsvAdentro ? 'El total no cambia.' : 'Sube el total.',
+                  quote.pricesIncludedTax ? 'El total no cambia.' : 'Sube el total.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
