@@ -116,6 +116,7 @@ public class QuoteService(
             ?? throw new NotFoundException("El cliente no existe.");
 
         var branchId = await ResolveBranchAsync(request.BranchId, request.WorkOrderId, ct);
+        var taller = await CurrentTenantAsync(ct);
         var quote = new Quote
         {
             CustomerId = customer.Id,
@@ -127,8 +128,8 @@ public class QuoteService(
             Status = QuoteStatus.Draft,
             ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim(),
-            TaxRate = request.TaxRate ?? SinImpuesto,
-            PricesIncludedTax = (await CurrentTenantAsync(ct)).PricesIncludeTax
+            TaxRate = request.TaxRate ?? TasaAlNacer(taller),
+            PricesIncludedTax = taller.PricesIncludeTax
         };
 
         db.Quotes.Add(quote);
@@ -137,13 +138,23 @@ public class QuoteService(
         return await GetAsync(quote.Id, ct);
     }
 
-    /// <summary>
-    /// La cotización nace sin ISV. Con el impuesto dentro del precio la tasa ya no cambia el
-    /// total —solo cuánto de ese total es impuesto—, así que esto no es una decisión de
-    /// precio sino de qué dice el documento: sin tasa dice que no lleva ISV, con tasa dice
-    /// cuánto va incluido. Se cambia con <c>PUT /api/quotes/{id}</c>.
-    /// </summary>
     private const decimal SinImpuesto = 0m;
+
+    /// <summary>
+    /// Con qué tasa nace una cotización. Depende de cómo cobre el taller, y la diferencia no
+    /// es de estilo:
+    ///
+    /// - **Con el ISV dentro del precio**, prender la tasa no mueve el total: solo dice
+    ///   cuánto de ese total es impuesto. Entonces nace con la del taller, porque el
+    ///   documento sale más completo y nadie pagó un centavo más. Nacer sin ella obligaba a
+    ///   prenderla a mano en cada presupuesto de un taller que siempre factura con CAI.
+    /// - **Con el ISV aparte**, prenderla **sube** el total. Eso es una decisión de precio y
+    ///   no se toma sola: nace sin ISV y lo prende quien cotiza.
+    ///
+    /// En los dos casos se cambia después con <c>PUT /api/quotes/{id}</c>.
+    /// </summary>
+    private static decimal TasaAlNacer(Tenant taller) =>
+        taller.PricesIncludeTax ? taller.DefaultTaxRate : SinImpuesto;
 
     public async Task<QuoteDetailDto> CreateFromWorkOrderAsync(
         QuoteFromWorkOrderRequest request, CancellationToken ct = default)
@@ -158,6 +169,7 @@ public class QuoteService(
             .FirstOrDefaultAsync(w => w.Id == request.WorkOrderId, ct)
             ?? throw new NotFoundException("La orden de trabajo no existe.");
 
+        var tallerDeLaOrden = await CurrentTenantAsync(ct);
         var quote = new Quote
         {
             CustomerId = order.Vehicle?.CustomerId ?? order.Equipment!.CustomerId,
@@ -170,8 +182,8 @@ public class QuoteService(
             Status = QuoteStatus.Draft,
             ValidUntil = request.ValidUntil?.ToUniversalTime() ?? clock.UtcNow.AddDays(15),
             Notes = request.Notes?.Trim() ?? order.Description,
-            TaxRate = SinImpuesto,
-            PricesIncludedTax = (await CurrentTenantAsync(ct)).PricesIncludeTax
+            TaxRate = TasaAlNacer(tallerDeLaOrden),
+            PricesIncludedTax = tallerDeLaOrden.PricesIncludeTax
         };
 
         db.Quotes.Add(quote);
