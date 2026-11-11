@@ -67,6 +67,20 @@ public class Tenant : AuditableEntity
     /// </remarks>
     public bool TechniciansSeePrices { get; set; } = true;
 
+    /// <summary>
+    /// Los pasos opcionales que este taller usa en una orden. Nace con todos.
+    /// </summary>
+    /// <remarks>
+    /// Hay talleres que no diagnostican aparte ni prueban aparte: abren la orden, cargan los
+    /// pasos y los repuestos, y facturan al terminar. Enseñarles nueve estados es pedirles
+    /// que llenen un camino que no caminan.
+    ///
+    /// Apagar un paso no reescribe nada: las órdenes que estén paradas justo ahí siguen
+    /// avanzando, porque los estados siguientes se calculan saltando los pasos apagados, y el
+    /// historial de una orden vieja se sigue leyendo igual.
+    /// </remarks>
+    public WorkOrderSteps WorkOrderSteps { get; set; } = WorkOrderSteps.All;
+
     // ---------- Bodegaje ----------
     //
     // Lo que el taller cobra por el vehículo que nadie retira. Nace apagado: cobrarlo es una

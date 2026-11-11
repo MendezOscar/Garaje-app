@@ -358,7 +358,11 @@ public class WorkOrderService(
         // La app móvil puede enviar este cambio desde la cola offline sobre una orden que
         // mientras tanto avanzó. Se rechaza con un mensaje que dice el estado actual, para
         // que el técnico entienda por qué no se aplicó.
-        if (!WorkOrderStatusTransitions.CanTransition(order.Status, request.Status))
+        //
+        // Y se valida con los pasos que usa este taller: el que apagó el diagnóstico pasa de
+        // «Recibida» a «En proceso» de un tirón, y ese salto no está en el grafo canónico.
+        if (!WorkOrderStatusTransitions.CanTransition(
+                order.Status, request.Status, await PasosDelTallerAsync(ct)))
             throw new ConflictException(
                 $"No se puede pasar de {Describe(order.Status)} a {Describe(request.Status)}. " +
                 $"La orden está en {Describe(order.Status)}.");
@@ -1953,6 +1957,22 @@ public class WorkOrderService(
         return ve == false;
     }
 
+    /// <summary>
+    /// Los pasos de la orden que usa este taller. De aquí salen los estados que se le ofrecen
+    /// y los que se le aceptan.
+    /// </summary>
+    /// <remarks>
+    /// Se lee y no se cachea por lo mismo que el ajuste de precios: es una lectura por clave
+    /// primaria y cambia una vez en la vida del taller. Un valor viejo aquí sería ofrecer un
+    /// paso que el taller acaba de apagar.
+    /// </remarks>
+    private async Task<WorkOrderSteps> PasosDelTallerAsync(CancellationToken ct) =>
+        await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => (WorkOrderSteps?)t.WorkOrderSteps)
+            .FirstOrDefaultAsync(ct)
+        ?? WorkOrderSteps.All;
+
     private async Task<WorkOrder> FindEditableAsync(Guid id, AccessScope scope, CancellationToken ct) =>
         await Scoped(scope).AsTracking().FirstOrDefaultAsync(w => w.Id == id, ct)
         ?? throw new NotFoundException("La orden de trabajo no existe.");
@@ -2099,7 +2119,9 @@ public class WorkOrderService(
             order.Branch.Name,
             order.Status,
             // El cliente no cambia estados, así que no tiene sentido ofrecerle las opciones.
-            scope.IsCustomer ? [] : WorkOrderStatusTransitions.NextStatuses(order.Status),
+            scope.IsCustomer
+                ? []
+                : WorkOrderStatusTransitions.NextStatuses(order.Status, await PasosDelTallerAsync(ct)),
             order.VehicleId,
             // Con un equipo, los campos de vehículo llevan los del equipo: la versión de la
             // app que está publicada los pinta sin saber que los equipos existen.

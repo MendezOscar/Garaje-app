@@ -44,6 +44,15 @@ Testing → Ready → Delivered`, más `Cancelled`. Las transiciones válidas es
 [WorkOrderStatusTransitions](../backend/src/Garaj.Domain/Rules/WorkOrderStatusTransitions.cs),
 porque el móvil puede enviar un cambio desde la cola offline sobre una orden que ya avanzó.
 
+Ese grafo es el canónico; el flujo de cada taller sale de recorrerlo saltando los pasos que
+tenga apagados en `Tenant.WorkOrderSteps` (`WorkOrderSteps`, máscara de bits). Recibida, En
+proceso, Entregada y Cancelada son el esqueleto y no se apagan; los otros cinco sí, y un
+taller sin ninguno queda con `Received → InProgress → Delivered`. Apagar un paso no reescribe
+nada: la orden parada justo ahí sigue encontrando salida porque el cierre se calcula desde
+donde está. Dos candados en `TenantService`: «Lista para entrega» no se apaga si el taller
+cobra bodegaje —de ese aviso sale la fecha del cobro— y «Esperando aprobación» no se apaga si
+el técnico no ve precios, que es donde deja la orden para que el Dueño le ponga precio.
+
 `WorkOrder.LaborMode` decide **cómo se cobra la mano de obra**, y son dos caminos que no se
 cruzan:
 

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
+  usaElEstado,
   type CashClose,
   type Dashboard,
   type WorkOrderListItem,
@@ -87,14 +88,25 @@ const CARRILES: { titulo: string; tono: string; estados: WorkOrderStatus[] }[] =
 ]
 
 const patio = computed(() =>
-  CARRILES.map((carril) => ({
-    ...carril,
-    cantidad: carril.estados.reduce(
-      (suma, estado) =>
-        suma + (dashboard.value?.workOrdersByStatus.find((x) => x.status === estado)?.count ?? 0),
-      0,
-    ),
-  })),
+  CARRILES
+    // El carril cuyos estados el taller apagó no cuenta nada nunca: un cero fijo en la
+    // portada es ruido. Si todavía quedan órdenes ahí, el conteo lo deja ver.
+    .filter(
+      (carril) =>
+        carril.estados.some((e) => usaElEstado(e, auth.workOrderSteps)) ||
+        carril.estados.some(
+          (e) => (dashboard.value?.workOrdersByStatus.find((x) => x.status === e)?.count ?? 0) > 0,
+        ),
+    )
+    .map((carril) => ({
+      ...carril,
+      cantidad: carril.estados.reduce(
+        (suma, estado) =>
+          suma +
+          (dashboard.value?.workOrdersByStatus.find((x) => x.status === estado)?.count ?? 0),
+        0,
+      ),
+    })),
 )
 
 /** El patio como una sola barra: de un vistazo se ve si el taller está trabado atrás. */

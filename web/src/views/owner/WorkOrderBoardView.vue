@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   VEHICLE_TYPE_LABEL,
   WorkOrderStatus,
+  usaElEstado,
   type User,
   type WorkOrderListItem,
 } from '@/types/domain'
@@ -145,7 +146,16 @@ const carriles = computed(() =>
   CARRILES.map((carril) => ({
     ...carril,
     items: filtradas.value.filter((o) => carril.estados.includes(o.status)),
-  })).filter((carril) => carril.clave !== 'cerradas' || carril.items.length > 0),
+  }))
+    .filter((carril) => carril.clave !== 'cerradas' || carril.items.length > 0)
+    // El taller que apagó los dos estados de un carril no lo usa: dejarlo sería un carril
+    // vacío para siempre, prometiendo algo que en su taller no pasa. Si todavía tiene
+    // órdenes paradas ahí —acaba de apagar el paso— el carril se queda hasta vaciarse.
+    .filter(
+      (carril) =>
+        carril.items.length > 0 ||
+        carril.estados.some((e) => usaElEstado(e, auth.workOrderSteps)),
+    ),
 )
 
 /**

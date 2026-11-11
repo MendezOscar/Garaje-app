@@ -1517,6 +1517,8 @@ export const tenantApi = {
     storageDailyRate: number
     /** Si el enlace público de citas recibe solicitudes. */
     bookingEnabled: boolean
+    /** Los pasos opcionales que usa el taller, como máscara. Omitirlo deja los que había. */
+    workOrderSteps?: number
   }): Promise<TenantSettings> {
     const { data } = await api.put<TenantSettings>('/api/tenant', body)
     return data

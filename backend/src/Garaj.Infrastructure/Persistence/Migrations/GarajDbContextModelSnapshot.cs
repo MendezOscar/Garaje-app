@@ -3669,6 +3669,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by_user_id");
 
+                    b.Property<int>("WorkOrderSteps")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(31)
+                        .HasColumnName("work_order_steps");
+
                     b.Property<int>("WorksWith")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")

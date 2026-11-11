@@ -34,6 +34,12 @@ la cotización, el diagnóstico y, al final, la factura.
 Las dos de en medio —*Esperando aprobación* y *Esperando repuestos*— son las «detenidas»:
 el taller no puede avanzar hasta que conteste alguien de fuera.
 
+**No todos los talleres usan los nueve.** En *Taller → Pasos de la orden* se apagan los que
+no se usen: *En diagnóstico*, *Esperando aprobación*, *Esperando repuestos*, *En pruebas* y
+*Lista para entrega*. Recibida, En proceso y Entregada siempre están. El taller que apaga los
+cinco trabaja así: abre la orden, carga los pasos y los repuestos, y factura al terminar.
+Apagar uno no toca las órdenes que ya están abiertas: siguen avanzando hasta entregarse.
+
 ## El detalle, de arriba abajo
 
 ![El detalle de una orden](img/orden-detalle.png)

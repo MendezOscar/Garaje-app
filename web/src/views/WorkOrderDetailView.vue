@@ -25,6 +25,7 @@ import {
   VEHICLE_TYPE_LABEL,
   WORK_ORDER_STATUS_LABEL,
   WorkOrderStatus,
+  usaElEstado,
   type JobTemplate,
   type LaborService,
   type OrderMessageKind,
@@ -287,6 +288,19 @@ const CAMINO: { estado: WorkOrderStatus; titulo: string }[] = [
   { estado: WorkOrderStatus.Delivered, titulo: 'Entregada' },
 ]
 
+/**
+ * El camino de este taller: los hitos de arriba menos los pasos que tiene apagados. Un hito
+ * al que la orden nunca va a llegar no es un hito, es un pendiente eterno.
+ *
+ * La orden vieja que sí pasó por un paso que hoy está apagado lo sigue enseñando: su estado
+ * manda sobre el ajuste, y el historial completo está más abajo.
+ */
+const hitos = computed(() =>
+  CAMINO.filter(
+    (h) => usaElEstado(h.estado, auth.workOrderSteps) || h.estado === order.value?.status,
+  ),
+)
+
 const camino = computed(() => {
   const o = order.value
   if (!o || o.status === WorkOrderStatus.Cancelled) return []
@@ -297,7 +311,7 @@ const camino = computed(() => {
 
   const actual = detenida ? WorkOrderStatus.InProgress : o.status
 
-  return CAMINO.map((hito) => ({
+  return hitos.value.map((hito) => ({
     titulo:
       detenida && hito.estado === actual ? WORK_ORDER_STATUS_LABEL[o.status] : hito.titulo,
     estado:

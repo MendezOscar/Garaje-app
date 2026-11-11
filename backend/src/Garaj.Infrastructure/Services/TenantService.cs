@@ -107,6 +107,11 @@ public class TenantService(
         tenant.TechniciansSeePrices = request.TechniciansSeePrices;
         tenant.BookingEnabled = request.BookingEnabled;
 
+        // Nulo es que el cliente no está administrando el flujo —la app publicada manda la
+        // ficha sin este campo—, así que se queda el que había.
+        if (request.WorkOrderSteps is { } pasos)
+            tenant.WorkOrderSteps = Validar(pasos, tenant);
+
         // El código de país arma los links de WhatsApp: si llega vacío se queda el que había.
         if (Trim(request.DefaultPhoneCountryCode) is { } code)
             tenant.DefaultPhoneCountryCode = code;
@@ -421,5 +426,34 @@ public class TenantService(
         tenant.LogoStorageKey is null ? null : ITenantService.LogoPath(tenant.Id),
         tenant.AssistantEnabled,
         tenant.AssistantCreditsPerMonth,
-        tenant.AssistantCreditsPerDay);
+        tenant.AssistantCreditsPerDay,
+        tenant.WorkOrderSteps);
+
+    /// <summary>
+    /// Los dos pasos que no se pueden apagar según cómo esté configurado el taller.
+    /// </summary>
+    /// <remarks>
+    /// «Lista para entrega» es de donde salen el aviso al cliente y el día desde el que
+    /// corre el bodegaje: apagarlo en un taller que cobra bodegaje le dejaría el cobro sin
+    /// fecha de inicio, en silencio.
+    ///
+    /// «Esperando aprobación» es donde el técnico que no ve precios deja la orden para que el
+    /// Dueño le ponga precio. Sin ese paso, ese taller se queda sin flujo.
+    ///
+    /// No se corrige por lo callado: se le dice al Dueño qué tiene que apagar primero.
+    /// </remarks>
+    private static WorkOrderSteps Validar(WorkOrderSteps pasos, Tenant tenant)
+    {
+        if (tenant.ChargesStorage && !pasos.HasFlag(WorkOrderSteps.Ready))
+            throw new AppException(
+                "«Lista para entrega» no se puede apagar mientras el taller cobre bodegaje: " +
+                "los días de gracia se cuentan desde ese aviso.");
+
+        if (!tenant.TechniciansSeePrices && !pasos.HasFlag(WorkOrderSteps.WaitingApproval))
+            throw new AppException(
+                "«Esperando aprobación» no se puede apagar mientras el técnico no vea precios: " +
+                "es donde deja la orden para que usted le ponga precio.");
+
+        return pasos;
+    }
 }

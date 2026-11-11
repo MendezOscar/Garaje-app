@@ -57,6 +57,13 @@ export interface CurrentUser {
    * interruptor sino de que ese número no salga del servidor cuando pregunta un técnico.
    */
   assemblyEnabled: boolean
+  /**
+   * Los pasos opcionales que usa el taller, como máscara. Viene en la sesión por lo mismo que
+   * `worksWith`: la ficha del taller solo la lee el Dueño y el Encargado también mueve
+   * órdenes. Es la forma del camino que se pinta, no un permiso: lo que se puede hacer lo
+   * decide el servidor en cada cambio de estado.
+   */
+  workOrderSteps: number
 }
 
 export type SubscriptionState = 'Active' | 'DueSoon' | 'Grace' | 'ReadOnly' | 'Suspended'
