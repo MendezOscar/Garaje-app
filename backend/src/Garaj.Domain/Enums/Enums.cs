@@ -52,6 +52,32 @@ public enum WorkOrderStatus
 }
 
 /// <summary>
+/// Los pasos opcionales del flujo de una orden. Cada taller enciende los que usa.
+/// </summary>
+/// <remarks>
+/// Recibida, En proceso, Entregada y Cancelada no están aquí: son el esqueleto y no se
+/// apagan. En proceso tampoco, aunque se parezca a un paso: es a donde vuelve una orden
+/// reabierta y donde se para la que se detiene.
+///
+/// Es una máscara y no cinco columnas porque se lee siempre entera —calcular los estados
+/// siguientes necesita las cinco— y porque así el taller que mañana quiera otro paso no
+/// cuesta otra migración.
+/// </remarks>
+[Flags]
+public enum WorkOrderSteps
+{
+    None = 0,
+    Diagnosing = 1,
+    WaitingApproval = 2,
+    WaitingParts = 4,
+    Testing = 8,
+    Ready = 16,
+
+    /// <summary>Como nace un taller y como se quedan los que ya estaban: el flujo completo.</summary>
+    All = Diagnosing | WaitingApproval | WaitingParts | Testing | Ready
+}
+
+/// <summary>
 /// Cómo se le paga a un técnico. Son las tres formas que se usan en un taller, y la cuarta
 /// —sin definir— es como nace: mientras el taller no lo decida, el sistema no propone nada.
 /// </summary>

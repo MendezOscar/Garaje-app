@@ -588,7 +588,7 @@ operan sobre el taller de la sesión.
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
 | GET | `/api/tenant` | solo Dueño | Nombre, razón social, RTN, teléfonos, moneda e ISV por defecto |
-| PUT | `/api/tenant` | solo Dueño | Los guarda. Nombre obligatorio, ISV entre 0 y 100 |
+| PUT | `/api/tenant` | solo Dueño | Los guarda. Nombre obligatorio, ISV entre 0 y 100. `workOrderSteps` omitido o nulo deja los pasos como estaban |
 | POST | `/api/tenant/logo` | solo Dueño | `multipart/form-data` con `file`. PNG o JPEG, hasta 2 MB |
 | DELETE | `/api/tenant/logo` | solo Dueño | Quita el logo |
 | GET | `/api/tenants/{tenantId}/logo` | **ninguna** | Los bytes del logo, o 404 |

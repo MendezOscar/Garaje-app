@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { api } from '@/api/client'
 import { clearSession, loadSession, saveSession } from '@/api/session'
 import { Roles, type AuthResponse, type CurrentUser, type Role } from '@/types/api'
+import { WorkOrderSteps } from '@/types/domain'
 
 /** Lo que se guarda cuando se eligió «todas», para distinguirlo de no haber elegido. */
 const TODAS = 'todas'
@@ -55,6 +56,15 @@ export const useAuthStore = defineStore('auth', () => {
   /** Si este usuario puede pedirle al asistente que proponga los pasos. */
   const hasAssistant = computed(() => user.value?.assistantEnabled === true)
   const hasAssembly = computed(() => user.value?.assemblyEnabled === true)
+
+  /**
+   * Los pasos de la orden que usa el taller. Con el flujo completo si todavía no se sabe: es
+   * como trabajan todos hasta que alguien apague uno, y pintar un camino de menos sería peor
+   * que pintarlo de más.
+   */
+  const workOrderSteps = computed<number>(
+    () => user.value?.workOrderSteps ?? WorkOrderSteps.All,
+  )
 
   async function login(email: string, password: string): Promise<void> {
     const { data } = await api.post<AuthResponse>('/api/auth/login', { email, password })
@@ -122,6 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
     seesPrices,
     hasAssistant,
     hasAssembly,
+    workOrderSteps,
     login,
     logout,
     loadCurrentUser,

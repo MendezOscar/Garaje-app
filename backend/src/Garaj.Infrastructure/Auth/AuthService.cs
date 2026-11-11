@@ -340,7 +340,10 @@ public class AuthService(
             // Lo que no ve es lo que el taller cobra, y eso no lo decide este interruptor:
             // ese número no sale del servidor cuando pregunta un técnico.
             tenant.AssemblyEnabled
-                && role is AppRoles.Owner or AppRoles.Manager or AppRoles.Technician);
+                && role is AppRoles.Owner or AppRoles.Manager or AppRoles.Technician,
+            // Sin filtrar por rol: no es un permiso, es la forma del camino, y al cliente que
+            // sigue su orden por el enlace le toca ver el mismo que ve el taller.
+            tenant.WorkOrderSteps);
     }
 
     private async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct)

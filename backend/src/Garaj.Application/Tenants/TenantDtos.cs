@@ -47,7 +47,10 @@ public record TenantSettingsDto(
     // nuestro, y enseñárselo al taller invitaría a discutirlo.
     bool AssistantEnabled = false,
     int AssistantCreditsPerMonth = 0,
-    int AssistantCreditsPerDay = 0);
+    int AssistantCreditsPerDay = 0,
+    // Los pasos opcionales que usa el taller. Va al final y con valor por defecto porque la
+    // app publicada arma esta ficha sin saber que existen.
+    WorkOrderSteps WorkOrderSteps = WorkOrderSteps.All);
 
 public record UpdateTenantRequest(
     string Name,
@@ -64,7 +67,11 @@ public record UpdateTenantRequest(
     decimal StorageDailyRate = 0,
     bool TechniciansSeePrices = true,
     bool BookingEnabled = true,
-    bool PricesIncludeTax = true);
+    bool PricesIncludeTax = true,
+    // Los pasos de la orden. **Nulo es no tocarlos**, y es lo que manda la app publicada:
+    // guardar la ficha del taller desde el teléfono no puede devolverle el flujo completo a
+    // quien lo apagó desde el panel.
+    WorkOrderSteps? WorkOrderSteps = null);
 
 /// <param name="ContentType">Tipo del objeto guardado; hoy siempre `image/png`.</param>
 public record TenantLogo(byte[] Bytes, string ContentType);

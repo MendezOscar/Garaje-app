@@ -54,7 +54,12 @@ public record CurrentUserDto(
     // Si el taller tiene el armado de motos. Va aquí por lo mismo que los otros dos: el
     // técnico lo necesita —es él quien registra la moto en la bodega— y la ficha del taller
     // solo la lee el Dueño. Al cliente le llega en false siempre.
-    bool AssemblyEnabled = false);
+    bool AssemblyEnabled = false,
+    // Los pasos de la orden que usa el taller. Va aquí por lo mismo que `WorksWith`: la ficha
+    // del taller solo la lee el Dueño, y el Encargado también mueve órdenes. De esto sale el
+    // camino que se pinta en la cabecera de la orden, no lo que se le permite hacer: eso lo
+    // decide el servidor en cada cambio de estado.
+    WorkOrderSteps WorkOrderSteps = WorkOrderSteps.All);
 
 public record BranchSummaryDto(Guid Id, string Name, string? Code);
 

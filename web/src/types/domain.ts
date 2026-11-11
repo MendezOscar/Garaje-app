@@ -71,6 +71,40 @@ export const WorkOrderStatus = {
 } as const
 export type WorkOrderStatus = (typeof WorkOrderStatus)[keyof typeof WorkOrderStatus]
 
+/**
+ * Los pasos opcionales del flujo de una orden, como máscara de bits. Espejo de
+ * `Garaj.Domain.Enums.WorkOrderSteps`.
+ *
+ * Recibida, En proceso, Entregada y Cancelada no están: son el esqueleto y no se apagan.
+ * Hay talleres que abren la orden, cargan los pasos y los repuestos y facturan al terminar;
+ * a esos no se les enseña un camino que no caminan.
+ */
+export const WorkOrderSteps = {
+  None: 0,
+  Diagnosing: 1,
+  WaitingApproval: 2,
+  WaitingParts: 4,
+  Testing: 8,
+  Ready: 16,
+  All: 31,
+} as const
+export type WorkOrderSteps = number
+
+/** Qué interruptor manda sobre cada estado. Los que no están aquí no se apagan. */
+export const STEP_OF_STATUS: Partial<Record<WorkOrderStatus, number>> = {
+  [WorkOrderStatus.Diagnosing]: WorkOrderSteps.Diagnosing,
+  [WorkOrderStatus.WaitingApproval]: WorkOrderSteps.WaitingApproval,
+  [WorkOrderStatus.WaitingParts]: WorkOrderSteps.WaitingParts,
+  [WorkOrderStatus.Testing]: WorkOrderSteps.Testing,
+  [WorkOrderStatus.Ready]: WorkOrderSteps.Ready,
+}
+
+/** Si el taller usa este estado. Los del esqueleto siempre son verdad. */
+export function usaElEstado(estado: WorkOrderStatus, pasos: WorkOrderSteps): boolean {
+  const bit = STEP_OF_STATUS[estado]
+  return bit === undefined || (pasos & bit) !== 0
+}
+
 /** Cómo se cobra la mano de obra de una orden. Espejo de `Garaj.Domain.Enums.LaborMode`. */
 export const LaborMode = {
   Catalog: 1,
@@ -1435,6 +1469,8 @@ export interface TenantSettings {
   assistantEnabled: boolean
   assistantCreditsPerMonth: number
   assistantCreditsPerDay: number
+  /** Los pasos opcionales que usa el taller, como máscara. `All` es el flujo completo. */
+  workOrderSteps: WorkOrderSteps
 }
 
 /**

@@ -7,7 +7,14 @@ import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useTaller } from '@/composables/useTaller'
 import { useAuthStore } from '@/stores/auth'
-import { WorkshopKind, type Branch, type EquipmentType, type FiscalRange, type TenantSettings } from '@/types/domain'
+import {
+  WorkOrderSteps,
+  WorkshopKind,
+  type Branch,
+  type EquipmentType,
+  type FiscalRange,
+  type TenantSettings,
+} from '@/types/domain'
 import { formatDate, whatsappLink } from '@/utils/format'
 
 /**
@@ -37,7 +44,83 @@ const form = ref({
   storageFreeDays: 3,
   storageDailyRate: 0,
   defaultPhoneCountryCode: '504',
+  workOrderSteps: WorkOrderSteps.All as number,
 })
+
+/**
+ * Los pasos opcionales de la orden, como se le enseñan al Dueño.
+ *
+ * El orden es el del camino —diagnóstico, las dos esperas, pruebas, lista—, no el de la
+ * máscara: lo que está decidiendo es por dónde pasa una orden en su taller.
+ */
+const PASOS: { bit: number; titulo: string; ayuda: string }[] = [
+  {
+    bit: WorkOrderSteps.Diagnosing,
+    titulo: 'En diagnóstico',
+    ayuda: 'El taller revisa antes de trabajar y lo anota aparte.',
+  },
+  {
+    bit: WorkOrderSteps.WaitingApproval,
+    titulo: 'Esperando aprobación',
+    ayuda: 'La orden se para hasta que el cliente apruebe la cotización.',
+  },
+  {
+    bit: WorkOrderSteps.WaitingParts,
+    titulo: 'Esperando repuestos',
+    ayuda: 'La orden se para hasta que llegue lo que falta.',
+  },
+  {
+    bit: WorkOrderSteps.Testing,
+    titulo: 'En pruebas',
+    ayuda: 'Se prueba el trabajo antes de darlo por listo.',
+  },
+  {
+    bit: WorkOrderSteps.Ready,
+    titulo: 'Lista para entrega',
+    ayuda: 'El trabajo terminó y el cliente todavía no viene por el vehículo.',
+  },
+]
+
+function usaPaso(bit: number): boolean {
+  return (form.value.workOrderSteps & bit) !== 0
+}
+
+function alternarPaso(bit: number, encendido: boolean) {
+  form.value.workOrderSteps = encendido
+    ? form.value.workOrderSteps | bit
+    : form.value.workOrderSteps & ~bit
+}
+
+/**
+ * Por qué un paso no se puede apagar, o null si se puede.
+ *
+ * Se mira contra lo que hay en el formulario y no contra lo guardado: quien apaga el
+ * bodegaje y «Lista para entrega» en la misma pasada no tiene por qué guardar dos veces. El
+ * servidor vuelve a revisarlo igual; esto es para que el Dueño sepa qué apagar primero.
+ */
+function candado(bit: number): string | null {
+  if (bit === WorkOrderSteps.Ready && form.value.chargesStorage)
+    return 'No se puede apagar mientras el taller cobre bodegaje: los días de gracia se cuentan desde ese aviso.'
+
+  if (bit === WorkOrderSteps.WaitingApproval && !form.value.techniciansSeePrices)
+    return 'No se puede apagar mientras el técnico no vea precios: es donde deja la orden para que usted le ponga precio.'
+
+  return null
+}
+
+/** El camino que le queda al taller, para que vea lo que está decidiendo. */
+const flujo = computed(() =>
+  [
+    'Recibida',
+    usaPaso(WorkOrderSteps.Diagnosing) ? 'En diagnóstico' : null,
+    'En proceso',
+    usaPaso(WorkOrderSteps.Testing) ? 'En pruebas' : null,
+    usaPaso(WorkOrderSteps.Ready) ? 'Lista para entrega' : null,
+    'Entregada',
+  ]
+    .filter(Boolean)
+    .join(' → '),
+)
 
 /**
  * Las categorías de equipo del taller. Solo existen en modo equipos; al pasar a ese modo el
@@ -228,6 +311,7 @@ function fill(data: TenantSettings) {
     storageFreeDays: data.storageFreeDays,
     storageDailyRate: data.storageDailyRate,
     defaultPhoneCountryCode: data.defaultPhoneCountryCode,
+    workOrderSteps: data.workOrderSteps,
   }
   taller.actualizar(data)
 }
@@ -315,6 +399,7 @@ async function save() {
         storageFreeDays: Number(f.storageFreeDays) || 0,
         storageDailyRate: Number(f.storageDailyRate) || 0,
         defaultPhoneCountryCode: f.defaultPhoneCountryCode.trim() || null,
+        workOrderSteps: f.workOrderSteps,
       }),
     )
     await cargarCategorias()
@@ -471,6 +556,34 @@ onMounted(async () => {
               </button>
             </div>
           </template>
+        </section>
+
+        <section class="card">
+          <h2>Pasos de la orden</h2>
+          <p class="muted small ayuda">
+            Recibida, En proceso y Entregada siempre están. Apague los que su taller no use y
+            dejarán de aparecer al mover una orden.
+          </p>
+
+          <label v-for="paso in PASOS" :key="paso.bit" class="checkbox paso">
+            <input
+              type="checkbox"
+              :checked="usaPaso(paso.bit)"
+              :disabled="candado(paso.bit) !== null"
+              @change="alternarPaso(paso.bit, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>
+              <strong>{{ paso.titulo }}</strong>
+              <small :class="candado(paso.bit) ? 'candado' : 'muted'">
+                {{ candado(paso.bit) ?? paso.ayuda }}
+              </small>
+            </span>
+          </label>
+
+          <p class="flujo">
+            <span class="muted small">Su flujo:</span>
+            {{ flujo }}
+          </p>
         </section>
 
         <section class="card">
@@ -1027,6 +1140,39 @@ h1 {
   gap: 0.35rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+/* Cada paso lleva dos renglones: lo que es y cuándo se usa. */
+.paso {
+  align-items: flex-start;
+  padding: 0.35rem 0;
+}
+
+.paso input {
+  margin-top: 0.15rem;
+}
+
+.paso span {
+  display: flex;
+  flex-direction: column;
+}
+
+.paso strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* El paso que no se puede apagar dice por qué, y el motivo no se lee como una ayuda más. */
+.candado {
+  color: var(--warning);
+}
+
+/* El camino que queda, debajo de las casillas: lo que de verdad está decidiendo. */
+.flujo {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
 }
 
 .actions {

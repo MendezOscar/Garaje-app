@@ -26,6 +26,10 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         // Verdadero por omisión: el precio con el impuesto adentro es lo que hace casi todo
         // taller, y es lo que ya tenían los que existían antes de poder elegirlo.
         b.Property(x => x.PricesIncludeTax).HasDefaultValue(true);
+
+        // El flujo completo por omisión, en la base y no en el C#: el taller que ya trabaja
+        // no puede amanecer con los pasos apagados porque una migración escribió un cero.
+        b.Property(x => x.WorkOrderSteps).HasDefaultValue(WorkOrderSteps.All);
         b.Property(x => x.LogoStorageKey).HasMaxLength(500);
 
         b.Property(x => x.PlanName).HasMaxLength(60);
