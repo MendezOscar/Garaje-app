@@ -271,36 +271,6 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- El armado, aparte del total de ventas: no se factura con una venta del sistema,
-             y meterlo en el total dejaría el desglose de arriba sin cuadrar. -->
-        <div v-if="armado && (armado.billed > 0 || armado.pending > 0)" class="resumen armado">
-          <div>
-            <span>Armado de motos</span>
-            <strong class="big">{{ formatMoney(armado.billed) }}</strong>
-            <small class="muted">
-              facturado al contratista · {{ armado.billedCount }}
-              {{ armado.billedCount === 1 ? 'corte' : 'cortes' }}
-            </small>
-          </div>
-          <div>
-            <span>Cobrado en el periodo</span>
-            <strong>{{ formatMoney(armado.collected) }}</strong>
-            <small class="muted">{{ armado.collectedCount }} factura(s)</small>
-          </div>
-          <div>
-            <span>Por cobrar</span>
-            <strong :class="{ alerta: armado.pending > 0 }">
-              {{ formatMoney(armado.pending) }}
-            </strong>
-            <small class="muted">
-              <template v-if="armado.pendingCount">
-                {{ armado.pendingCount }} factura(s) · la más vieja,
-                {{ armado.oldestPendingDays }} día(s)
-              </template>
-              <template v-else>todo cobrado</template>
-            </small>
-          </div>
-        </div>
 
         <p v-if="!report.points.length" class="muted">No hubo ventas en el rango.</p>
 
@@ -407,6 +377,49 @@ onMounted(async () => {
       </template>
     </article>
 
+    <!-- El armado, en su propia tarjeta y aparte del total de ventas: no se factura con
+         una venta del sistema, y meterlo en el total dejaría el desglose de arriba sin
+         cuadrar con él. -->
+    <section v-if="armado && (armado.billed > 0 || armado.pending > 0)" class="card armado">
+      <h2>Armado de motos</h2>
+      <div class="summary">
+        <div>
+          <span>Facturado al contratista</span>
+          <strong class="big">{{ formatMoney(armado.billed) }}</strong>
+          <small class="muted">
+            {{ armado.billedCount }}
+            {{ armado.billedCount === 1 ? 'corte cerrado' : 'cortes cerrados' }}
+          </small>
+        </div>
+        <div>
+          <span>Cobrado en el periodo</span>
+          <strong>{{ formatMoney(armado.collected) }}</strong>
+          <small class="muted">
+            {{ armado.collectedCount }}
+            {{ armado.collectedCount === 1 ? 'factura' : 'facturas' }}
+          </small>
+        </div>
+        <div>
+          <span>Por cobrar</span>
+          <strong :class="{ alerta: armado.pending > 0 }">
+            {{ formatMoney(armado.pending) }}
+          </strong>
+          <small class="muted">
+            <template v-if="armado.pendingCount">
+              {{ armado.pendingCount }}
+              {{ armado.pendingCount === 1 ? 'factura' : 'facturas' }} · la más vieja,
+              {{ armado.oldestPendingDays }} día(s)
+            </template>
+            <template v-else>todo cobrado</template>
+          </small>
+        </div>
+      </div>
+      <p class="muted small">
+        No suma en el total de arriba: la moto armada no se factura con una venta del
+        sistema. Donde sí entra es en Gastos y utilidad.
+      </p>
+    </section>
+
     <article class="card">
       <header class="filters">
         <h2>Libro de ventas</h2>
@@ -425,10 +438,17 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.resumen.armado {
-  border-top: 1px solid var(--borde, #2a2f3a);
-  padding-top: 0.75rem;
-  margin-top: 0.75rem;
+.armado {
+  margin-top: 1rem;
+}
+
+.armado h2 {
+  margin: 0 0 0.75rem;
+}
+
+/* El pie explica por qué no suma arriba; la rejilla ya trae su propio margen. */
+.armado .summary {
+  margin-bottom: 0.5rem;
 }
 
 .alerta {
