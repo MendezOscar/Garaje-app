@@ -2050,6 +2050,18 @@ export interface AssemblyInvoice {
   collectedReference: string | null
 }
 
+/** Un usuario de un taller, como lo ve la plataforma para poder auxiliarlo. */
+export interface PlatformUser {
+  id: string
+  email: string
+  fullName: string
+  role: string
+  isActive: boolean
+  lastLoginAt: string | null
+  /** Bloqueado ahora mismo por intentos fallidos. Se le quita al cambiarle la contraseña. */
+  lockedOut: boolean
+}
+
 /** La página, con lo que suma el filtro entero y no solo lo que se ve. */
 export interface AssemblyPage {
   items: AssemblyRow[]

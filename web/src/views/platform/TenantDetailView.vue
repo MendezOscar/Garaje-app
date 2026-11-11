@@ -13,6 +13,7 @@ import {
   type CreatedTenant,
   type PlatformSettings,
   type PlatformTenantDetail,
+  type PlatformUser,
 } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
 
@@ -153,6 +154,36 @@ function aplicarPlan() {
 }
 const nuevoDueno = ref({ email: '', fullName: '', password: '' })
 const creado = ref<CreatedTenant | null>(null)
+
+/**
+ * Los usuarios del taller y el cambio de contraseña.
+ *
+ * Es soporte, no administración: cuando el que llama diciendo «no puedo entrar» es el Dueño,
+ * no hay nadie dentro de ese taller que pueda ayudarlo —el Dueño es quien les cambia la
+ * contraseña a los demás—, y antes la única salida era la línea de comandos contra la base
+ * de producción. La contraseña nueva se enseña una sola vez y no queda guardada.
+ */
+const usuarios = ref<PlatformUser[]>([])
+const clave = ref<{ email: string; password: string } | null>(null)
+
+async function cargarUsuarios() {
+  usuarios.value = await platformApi.users(id).catch(() => [])
+}
+
+function restablecer(u: PlatformUser) {
+  if (
+    !confirm(
+      `Se le va a poner una contraseña nueva a ${u.fullName} (${u.email}). ` +
+        'Se le cierran las sesiones abiertas y tendrá que entrar con la nueva.',
+    )
+  )
+    return
+
+  return accion(async () => {
+    clave.value = await platformApi.resetUserPassword(id, u.id)
+    await cargarUsuarios()
+  }, 'No se pudo cambiar la contraseña.')
+}
 
 /** Qué le está pasando al taller ahora mismo, dicho como se lo diríamos por teléfono. */
 const situacion = computed(() => {
@@ -382,6 +413,7 @@ onMounted(async () => {
   // El emisor primero: de él sale el ISV con que se propone el monto del pago.
   emisor.value = await platformApi.billingSettings().catch(() => null)
   await load()
+  await cargarUsuarios()
 })
 </script>
 
@@ -813,6 +845,59 @@ onMounted(async () => {
       <p class="mono">{{ creado.password }}</p>
       <button type="button" class="link" @click="creado = null">Ya las anoté</button>
     </article>
+
+    <article v-if="clave" class="card credenciales">
+      <h2>Contraseña nueva</h2>
+      <p class="muted small">Dictésela y pídale que la cambie. No vuelve a verse.</p>
+      <p class="mono">{{ clave.email }}</p>
+      <p class="mono">{{ clave.password }}</p>
+      <button type="button" class="link" @click="clave = null">Ya la anoté</button>
+    </article>
+
+    <details class="rescate">
+      <summary>Usuarios del taller</summary>
+      <div class="card">
+        <p class="muted small">
+          Con quién se está hablando cuando el taller llama. Cambiarle la contraseña a alguien
+          es el último recurso: lo normal es que el Dueño se la cambie a su gente desde su
+          propio panel. Hace falta cuando el que no puede entrar es el Dueño, porque entonces
+          no hay nadie dentro del taller que pueda ayudarlo.
+        </p>
+
+        <p v-if="!usuarios.length" class="muted">Este taller no tiene usuarios.</p>
+
+        <table v-else>
+          <thead>
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Correo</th>
+              <th scope="col">Perfil</th>
+              <th scope="col">Última entrada</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="u in usuarios" :key="u.id">
+              <td>
+                {{ u.fullName }}
+                <span v-if="!u.isActive" class="muted small">· dado de baja</span>
+                <span v-if="u.lockedOut" class="muted small">· bloqueado por intentos</span>
+              </td>
+              <td class="mono">{{ u.email }}</td>
+              <td>{{ u.role }}</td>
+              <td class="muted small">
+                {{ u.lastLoginAt ? formatDay(u.lastLoginAt) : 'nunca' }}
+              </td>
+              <td>
+                <button type="button" class="link" :disabled="busy" @click="restablecer(u)">
+                  Contraseña nueva
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
 
     <details class="rescate">
       <summary>Crear otro acceso de Dueño</summary>

@@ -64,6 +64,21 @@ public class PlatformController(IPlatformService service, IRepasoDeAvisos repaso
         => Ok(await service.CreateOwnerAsync(id, request, ct));
 
     /// <summary>Registra el pago del mes y corre la fecha de vencimiento.</summary>
+    /// <summary>Los usuarios del taller, para auxiliarlo cuando llama.</summary>
+    [HttpGet("{id:guid}/users")]
+    public async Task<ActionResult<IReadOnlyList<PlatformUserDto>>> Users(
+        Guid id, CancellationToken ct)
+        => Ok(await service.UsersAsync(id, ct));
+
+    /// <summary>
+    /// Contraseña nueva para un usuario del taller. Es el último recurso, y existe porque
+    /// cuando el que no puede entrar es el Dueño no hay nadie dentro que pueda ayudarlo.
+    /// </summary>
+    [HttpPost("{id:guid}/users/{userId:guid}/password")]
+    public async Task<ActionResult<ResetUserPasswordResultDto>> ResetUserPassword(
+        Guid id, Guid userId, ResetUserPasswordRequest request, CancellationToken ct)
+        => Ok(await service.ResetUserPasswordAsync(id, userId, request, ct));
+
     [HttpPost("{id:guid}/payments")]
     public async Task<ActionResult<PlatformTenantDetailDto>> RegisterPayment(
         Guid id, RegisterPaymentRequest request, CancellationToken ct)
