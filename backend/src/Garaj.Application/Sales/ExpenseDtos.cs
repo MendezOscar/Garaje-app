@@ -92,9 +92,9 @@ public record IncomeStatementDto(
 /// semanas después. Lo que cambia según se haya cobrado o no es
 /// <see cref="Pending"/>, que es la pregunta de caja, no la de resultados.
 ///
-/// <see cref="Cost"/> es lo que esas mismas motos costaron: el pago a los técnicos más el
-/// gasto del taller por armarlas. <b>Ese pago no debe registrarse además como gasto</b>, o se
-/// restaría dos veces.
+/// <see cref="Cost"/> es lo que le cuesta al taller armarlas, aparte del pago. El pago al
+/// técnico <b>no</b> va aquí: entra como gasto de salario el día que se cierra su corte de
+/// pago, que es cuando sale de la caja. Contarlo en los dos sitios lo restaría dos veces.
 /// </remarks>
 public record AssemblyResultDto(
     int Count,

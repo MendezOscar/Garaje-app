@@ -1940,6 +1940,8 @@ export const assemblyAdminApi = {
     contractorId?: string
     technicianUserId?: string
     reference?: string
+    /** Lo que de verdad se le paga, si no es la suma de sus motos. Solo en corte de pago. */
+    total?: number
   }) {
     const { data } = await api.post<AssemblySettlement>('/api/assembly/admin/settlements', body)
     return data

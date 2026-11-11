@@ -277,7 +277,7 @@ public class ExpenseService(
 
         var q = from m in db.MotorcycleAssemblies.AsNoTracking()
                 join c in cortes on m.BillingSettlementId equals c.Id
-                select new { m.BranchId, m.Charge, m.TechnicianPay, m.Expense, c.CollectedOn };
+                select new { m.BranchId, m.Charge, m.Expense, c.CollectedOn };
 
         if (branchId is { } id) q = q.Where(x => x.BranchId == id);
 
@@ -288,12 +288,14 @@ public class ExpenseService(
         var facturado = filas.Sum(x => x.Charge);
         var cobrado = filas.Where(x => x.CollectedOn != null).Sum(x => x.Charge);
 
+        // Solo lo que le cuesta al taller armarlas. El pago al técnico no: ese entra como
+        // gasto de salario al cerrar su corte de pago, y sumarlo aquí lo restaría dos veces.
         return new AssemblyResultDto(
             filas.Count,
             facturado,
             cobrado,
             facturado - cobrado,
-            filas.Sum(x => x.TechnicianPay + x.Expense));
+            filas.Sum(x => x.Expense));
     }
 
     private async Task<List<ExpenseGroupDto>> GastosPorCategoriaAsync(

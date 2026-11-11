@@ -235,6 +235,17 @@ public class AssemblySettlement : TenantEntity
     /// <summary>El recibo, la transferencia o el cheque con que pagó. Lo escribe el dueño.</summary>
     public string? CollectedReference { get; set; }
 
+    /// <summary>
+    /// El gasto que este corte generó, en un corte de pago. Null en uno de facturación.
+    /// </summary>
+    /// <remarks>
+    /// Cerrar el pago de un técnico es sacar plata de la caja, así que se anota como gasto
+    /// —salario, a su nombre— y ahí lo ve el estado de resultados sin que nadie lo teclee.
+    /// Se guarda el id para poder deshacerlo: reabrir el corte borra ese gasto, porque si no
+    /// quedaría restando una plata que ya no se pagó.
+    /// </remarks>
+    public Guid? ExpenseId { get; set; }
+
     public bool Cobrado => CollectedOn is not null;
 
     public AssemblyContractor? Contractor { get; set; }
