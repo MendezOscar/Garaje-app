@@ -259,7 +259,7 @@ public class ArmadoDeMotosTests
     }
 
     [RequiereBaseLocal]
-    public async Task El_tecnico_registra_y_no_recibe_lo_que_el_taller_cobra()
+    public async Task El_tecnico_registra_y_no_recibe_ninguno_de_los_dos_importes()
     {
         var (taller, sucursal, contratista, modelo, bodega) = await ContratoAsync();
         var tecnico = Guid.NewGuid();
@@ -272,9 +272,17 @@ public class ArmadoDeMotosTests
         // La serie queda normalizada como el VIN de un vehículo.
         Assert.Equal("3C1JA1234RT567890", moto.Serial);
 
-        // Su pago sí; el cobro del taller no sale del servidor. No se esconde: no viaja.
-        Assert.Equal(90m, moto.TechnicianPay);
+        // Ni lo que el taller cobra ni lo que él gana: los dos se quedan en el servidor. El
+        // pago viaja en cero y no en nulo mientras haya compilaciones viejas instaladas, que
+        // lo leen como obligatorio y se caen con nulo.
+        Assert.Equal(0m, moto.TechnicianPay);
         Assert.Null(moto.Charge);
+
+        // Pero en la base quedó lo que de verdad se le paga: es lo que liquida su corte.
+        var guardada = await db.MotorcycleAssemblies.AsNoTracking()
+            .FirstAsync(m => m.Serial == "3C1JA1234RT567890");
+
+        Assert.Equal(90m, guardada.TechnicianPay);
     }
 
     /// <summary>
@@ -406,9 +414,12 @@ public class ArmadoDeMotosTests
         await using var mias = Contexto(taller, AppRoles.Technician, uno, sucursal);
         var lo_mio = await Registro(mias).MineAsync(null, null);
 
+        // Ve sus dos motos y ninguna cifra: lo que gana por moto se liquida en su corte, no
+        // en esta pantalla, porque el trato de cada técnico es distinto.
         Assert.Equal(2, lo_mio.Count);
-        Assert.Equal(180m, lo_mio.Pay);
+        Assert.Equal(0m, lo_mio.Pay);
         Assert.All(lo_mio.Items, m => Assert.Null(m.Charge));
+        Assert.All(lo_mio.Items, m => Assert.Equal(0m, m.TechnicianPay));
     }
 
     /// <summary>
