@@ -820,16 +820,26 @@ public class ReportService(
         return (from, to);
     }
 
-    /// <summary>Un día suelto es la medianoche del taller; con hora, se deja como vino.</summary>
+    /// <summary>
+    /// Un día suelto es la medianoche del taller; con hora, se deja como vino.
+    /// </summary>
+    /// <remarks>
+    /// Sale en <b>UTC</b>, no con el desplazamiento de Honduras: Npgsql rechaza escribir un
+    /// <c>DateTimeOffset</c> cuyo desplazamiento no sea cero contra una columna
+    /// <c>timestamptz</c>, y estos dos valores viajan como parámetro de casi todas las
+    /// consultas de esta clase. Es el mismo instante, escrito como lo entiende la base.
+    /// </remarks>
     private static DateTimeOffset InicioDelDia(DateTimeOffset value) =>
         value.TimeOfDay == TimeSpan.Zero
             ? new DateTimeOffset(value.Year, value.Month, value.Day, 0, 0, 0, LocalOffset)
+                .ToUniversalTime()
             : value;
 
-    /// <summary>Y termina a las 23:59:59.999 de ese mismo día del taller.</summary>
+    /// <summary>Y termina a las 23:59:59.999 de ese mismo día del taller, también en UTC.</summary>
     private static DateTimeOffset FinDelDia(DateTimeOffset value) =>
         value.TimeOfDay == TimeSpan.Zero
             ? new DateTimeOffset(value.Year, value.Month, value.Day, 23, 59, 59, 999, LocalOffset)
+                .ToUniversalTime()
             : value;
 
     private static DateTimeOffset ToLocal(DateTimeOffset value) => value.ToOffset(LocalOffset);
