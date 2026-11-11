@@ -95,7 +95,9 @@ class _Resumen extends StatelessWidget {
                 ),
                 // Sin monto cuando el servidor no lo manda, que es el caso del propio
                 // técnico: lo que gana por moto se liquida en su corte, no en esta pantalla.
-                if (datos.pay case final total?)
+                // Nulo o cero: el servidor no se lo manda al propio técnico. El cero es el
+                // disfraz con el que viaja mientras haya compilaciones viejas en la calle.
+                if (datos.pay case final total? when total > 0)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -135,7 +137,7 @@ class _Fila extends StatelessWidget {
           '${moto.assembledOn.day.toString().padLeft(2, '0')}/'
           '${moto.assembledOn.month.toString().padLeft(2, '0')}',
         ),
-        trailing: moto.technicianPay == null
+        trailing: (moto.technicianPay ?? 0) <= 0
             ? null
             : Text('L ${moto.technicianPay!.toStringAsFixed(2)}'),
       );
