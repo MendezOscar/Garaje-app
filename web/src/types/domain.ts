@@ -293,6 +293,8 @@ export interface User {
   /** Cómo se le paga. Solo tiene sentido en técnicos. */
   payMode: TechnicianPayMode
   payAmount: number
+  /** Lo que se le paga por cada moto que arma. Null: la tarifa del modelo. */
+  assemblyFixedPay: number | null
 }
 
 /** Un abono, como lo ve el cliente en su estado de cuenta: sin quién lo recibió. */
