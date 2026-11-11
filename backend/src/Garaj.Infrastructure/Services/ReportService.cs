@@ -72,10 +72,34 @@ public class ReportService(
         var tenant = await db.Tenants.AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct);
 
-        var points = rows
+        // El armado de motos entra como una tercera fuente de ingreso, al lado de repuestos y
+        // mano de obra. Se fecha por el día en que se cerró el corte —el día en que se le
+        // facturó al contratista—, no por los días en que se armaron las motos.
+        var armado = tenant?.AssemblyEnabled == true
+            ? await ArmadoDelRangoAsync(from, to, query.BranchId, ct)
+            : [];
+
+        var armadoPorPeriodo = armado
+            .GroupBy(a => PeriodStart(a.ClosedAt, query.GroupBy))
+            .ToDictionary(g => g.Key, g => (Cobro: g.Sum(x => x.Charge), Gasto: g.Sum(x => x.Expense)));
+
+        var periodos = rows.Select(r => PeriodStart(r.SaleDate, query.GroupBy))
+            .Concat(armadoPorPeriodo.Keys)
+            .Distinct()
+            .OrderBy(p => p)
+            .ToList();
+
+        var porPeriodo = rows
             .GroupBy(r => PeriodStart(r.SaleDate, query.GroupBy))
-            .OrderBy(g => g.Key)
-            .Select(g => BuildPoint(g.Key, query.GroupBy, g.Select(x => (x.Id, x.LineType, x.Total, x.Quantity, x.UnitCost))))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var points = periodos
+            .Select(p => BuildPoint(
+                p,
+                query.GroupBy,
+                porPeriodo.GetValueOrDefault(p, [])
+                    .Select(x => (x.Id, x.LineType, x.Total, x.Quantity, x.UnitCost)),
+                armadoPorPeriodo.GetValueOrDefault(p)))
             .ToList();
 
         var branchNames = await db.Branches.AsNoTracking()
@@ -153,8 +177,9 @@ public class ReportService(
         var counter = rows.Where(r => r.WorkOrderId == null).ToList();
         var counterPartsRevenue = counter.Where(r => r.LineType == LineType.Part).Sum(r => r.Total);
         var counterSaleCount = counter.Select(r => r.Id).Distinct().Count();
-        var total = partsRevenue + laborRevenue;
-        var cost = rows.Sum(r => r.Quantity * r.UnitCost);
+        var armadoCobro = armado.Sum(a => a.Charge);
+        var total = partsRevenue + laborRevenue + armadoCobro;
+        var cost = rows.Sum(r => r.Quantity * r.UnitCost) + armado.Sum(a => a.Expense);
 
         return new RevenueReportDto(
             from,
@@ -170,6 +195,8 @@ public class ReportService(
             rows.Select(r => r.Id).Distinct().Count(),
             counterPartsRevenue,
             counterSaleCount,
+            armadoCobro,
+            armado.Select(a => a.SettlementId).Distinct().Count(),
             points,
             branches,
             technicians,
@@ -718,23 +745,54 @@ public class ReportService(
     private static RevenuePointDto BuildPoint(
         DateTimeOffset periodStart,
         RevenueGrouping grouping,
-        IEnumerable<(Guid SaleId, LineType LineType, decimal Total, decimal Quantity, decimal UnitCost)> lines)
+        IEnumerable<(Guid SaleId, LineType LineType, decimal Total, decimal Quantity, decimal UnitCost)> lines,
+        (decimal Cobro, decimal Gasto) armado = default)
     {
         var materialized = lines.ToList();
 
         var parts = materialized.Where(l => l.LineType == LineType.Part).Sum(l => l.Total);
         var labor = materialized.Where(l => l.LineType == LineType.Labor).Sum(l => l.Total);
-        var cost = materialized.Sum(l => l.Quantity * l.UnitCost);
+        var cost = materialized.Sum(l => l.Quantity * l.UnitCost) + armado.Gasto;
+        var total = parts + labor + armado.Cobro;
 
         return new RevenuePointDto(
             periodStart,
             Label(periodStart, grouping),
             parts,
             labor,
-            parts + labor,
+            total,
             cost,
-            parts + labor - cost,
-            materialized.Select(l => l.SaleId).Distinct().Count());
+            total - cost,
+            materialized.Select(l => l.SaleId).Distinct().Count(),
+            armado.Cobro);
+    }
+
+    /// <summary>
+    /// Lo que el armado facturó en el rango, fila por moto: con qué corte salió, cuándo se
+    /// cerró ese corte, cuánto se cobró y cuánto le costó al taller armarla.
+    /// </summary>
+    /// <remarks>
+    /// Se cuenta desde la moto y no desde el total del corte para que el filtro por sucursal
+    /// signifique algo: el corte no tiene sucursal, cada moto sí. El pago al técnico no entra
+    /// en el costo: ese es un gasto de salario, y sumarlo aquí lo restaría dos veces.
+    /// </remarks>
+    private async Task<List<(Guid SettlementId, DateTimeOffset ClosedAt, decimal Charge, decimal Expense)>>
+        ArmadoDelRangoAsync(
+            DateTimeOffset from, DateTimeOffset to, Guid? branchId, CancellationToken ct)
+    {
+        var cortes = db.AssemblySettlements.AsNoTracking()
+            .Where(c => c.Kind == AssemblySettlementKind.Billing
+                && c.CreatedAt >= from && c.CreatedAt <= to);
+
+        var q = from m in db.MotorcycleAssemblies.AsNoTracking()
+                join c in cortes on m.BillingSettlementId equals c.Id
+                select new { c.Id, c.CreatedAt, m.BranchId, m.Charge, m.Expense };
+
+        if (branchId is { } id) q = q.Where(x => x.BranchId == id);
+
+        return (await q.ToListAsync(ct))
+            .Select(x => (x.Id, x.CreatedAt, x.Charge, x.Expense))
+            .ToList();
     }
 
     private (DateTimeOffset From, DateTimeOffset To) ResolveRange(RevenueQuery query)

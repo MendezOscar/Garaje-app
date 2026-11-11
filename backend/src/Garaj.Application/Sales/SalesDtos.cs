@@ -252,7 +252,10 @@ public record RevenuePointDto(
     decimal Total,
     decimal Cost,
     decimal Margin,
-    int SaleCount);
+    int SaleCount,
+    // Lo facturado al contratista por motos armadas en ese periodo. Cero en el taller que no
+    // arma, y entonces la gráfica no enseña la tercera barra.
+    decimal AssemblyRevenue = 0m);
 
 public record RevenueReportDto(
     DateTimeOffset From,
@@ -272,6 +275,10 @@ public record RevenueReportDto(
     // en el total se mezcla con los repuestos que se le pusieron a un vehículo.
     decimal CounterPartsRevenue,
     int CounterSaleCount,
+    // Lo facturado por armar motos en el rango. Está dentro de Total y su costo dentro de
+    // Cost: es trabajo del taller como cualquier otro, solo que no se factura con una venta.
+    decimal AssemblyRevenue,
+    int AssemblySettlementCount,
     IReadOnlyList<RevenuePointDto> Points,
     IReadOnlyList<BranchRevenueDto> Branches,
     IReadOnlyList<TechnicianRevenueDto> Technicians,
