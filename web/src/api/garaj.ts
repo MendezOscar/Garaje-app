@@ -121,6 +121,8 @@ export const usersApi = {
     /** Cómo se le paga. Solo se aplica a técnicos. */
     payMode?: TechnicianPayMode
     payAmount?: number
+    /** Lo que se le paga por moto armada. Vacío: la tarifa del modelo. */
+    assemblyFixedPay?: number | null
   }) {
     const { data } = await api.post<User>('/api/users', body)
     return data
@@ -134,6 +136,8 @@ export const usersApi = {
       /** Cómo se le paga. Solo se aplica a técnicos. */
       payMode?: TechnicianPayMode
       payAmount?: number
+      /** Lo que se le paga por moto armada. Vacío: la tarifa del modelo. */
+      assemblyFixedPay?: number | null
     },
   ) {
     const { data } = await api.put<User>(`/api/users/${id}`, body)

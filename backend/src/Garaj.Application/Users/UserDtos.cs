@@ -13,7 +13,9 @@ public record UserDto(
     DateTimeOffset? LastLoginAt,
     // Cómo se le paga. Solo tiene sentido en técnicos.
     TechnicianPayMode PayMode,
-    decimal PayAmount);
+    decimal PayAmount,
+    // Lo que se le paga por moto armada. Null: se le paga la tarifa del modelo.
+    decimal? AssemblyFixedPay = null);
 
 /// <param name="BranchIds">Sucursales del Técnico. Se ignora en Dueño, que las ve todas.</param>
 /// <param name="CustomerId">Obligatorio al crear un usuario con perfil Cliente.</param>
@@ -26,16 +28,29 @@ public record CreateUserRequest(
     Guid? CustomerId,
     // Cómo se le paga, si ya se decide al crearlo. Solo se aplica a técnicos.
     TechnicianPayMode PayMode = TechnicianPayMode.Undefined,
-    decimal PayAmount = 0);
+    decimal PayAmount = 0,
+    decimal? AssemblyFixedPay = null);
 
+/// <remarks>
+/// <b>Lo del pago va junto y es opcional.</b> Si <see cref="PayMode"/> viene nulo, el cliente
+/// no está administrando la planilla —la app, por ejemplo, solo da de alta y de baja— y los
+/// tres campos de pago se dejan como están. Mandar <c>PayMode</c> significa hacerse cargo de
+/// los tres, y entonces un <see cref="AssemblyFixedPay"/> nulo sí borra el trato por moto.
+///
+/// Antes no eran opcionales y tenían valor por defecto, así que cambiarle el nombre a un
+/// técnico desde el teléfono le borraba en silencio cómo se le paga.
+/// </remarks>
 public record UpdateUserRequest(
     string FullName,
     bool IsActive,
     IReadOnlyList<Guid>? BranchIds,
     // Cómo se le paga: sueldo fijo, porcentaje de la mano de obra que generó, o por hora.
     // Sin definir, el sistema no propone nada al pagarle.
-    TechnicianPayMode PayMode = TechnicianPayMode.Undefined,
-    decimal PayAmount = 0);
+    TechnicianPayMode? PayMode = null,
+    decimal? PayAmount = null,
+    // Lo que se le paga por cada moto armada. Vacío: la tarifa del modelo, como siempre.
+    // Solo lo mira el módulo de armado.
+    decimal? AssemblyFixedPay = null);
 
 public record ResetPasswordRequest(string NewPassword);
 

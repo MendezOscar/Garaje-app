@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { errorMessage } from '@/api/client'
 import { branchesApi, usersApi } from '@/api/garaj'
+import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import RowMenu from '@/components/RowMenu.vue'
@@ -41,11 +42,16 @@ const emptyForm = {
   isActive: true,
   payMode: TechnicianPayMode.Undefined as TechnicianPayMode,
   payAmount: 0,
+  /** Lo que cobra por moto armada. Vacío —no cero— es «la tarifa de cada modelo». */
+  assemblyFixedPay: null as number | null,
   /** `Technician` o `Manager`: qué se está dando de alta. Solo cuenta al crear. */
   role: 'Technician' as 'Technician' | 'Manager',
 }
 
 const form = ref({ ...emptyForm })
+
+/** El armado es un módulo de contrato: sin él, el pago por moto no tiene dónde aplicarse. */
+const hayArmado = computed(() => useAuthStore().hasAssembly)
 const editing = ref(false)
 
 const technicians = computed(() => users.value.filter((u) => u.role === 'Technician'))
@@ -128,6 +134,7 @@ function edit(user: User) {
     isActive: user.isActive,
     payMode: user.payMode,
     payAmount: user.payAmount,
+    assemblyFixedPay: user.assemblyFixedPay,
     role: user.role === 'Manager' ? 'Manager' : 'Technician',
   }
 }
@@ -153,6 +160,7 @@ async function save() {
         branchIds: f.branchIds,
         payMode: f.payMode,
         payAmount: f.payAmount,
+        assemblyFixedPay: f.assemblyFixedPay,
       })
       notice.value = 'Cambios guardados.'
     } else {
@@ -174,6 +182,7 @@ async function save() {
         branchIds: f.branchIds,
         payMode: f.payMode,
         payAmount: f.payAmount,
+        assemblyFixedPay: f.assemblyFixedPay,
       })
       notice.value =
         f.role === 'Manager'
@@ -327,6 +336,11 @@ onMounted(async () => {
                 <div v-if="u.role === 'Technician' && u.payMode !== TechnicianPayMode.Undefined" class="muted small">
                   {{ PAY_MODE_LABEL[u.payMode] }} ·
                   {{ u.payMode === TechnicianPayMode.Percentage ? `${u.payAmount}%` : formatMoney(u.payAmount) }}
+                </div>
+                <!-- El trato del armado es aparte del de la planilla, y se ve de un vistazo
+                     porque es lo que hace que dos técnicos cobren distinto por la misma moto. -->
+                <div v-if="hayArmado && u.assemblyFixedPay !== null" class="muted small">
+                  {{ formatMoney(u.assemblyFixedPay) }} por moto armada
                 </div>
               </td>
               <td class="muted small">
@@ -488,6 +502,24 @@ onMounted(async () => {
                     ? 'De la mano de obra que facturaron sus órdenes.'
                     : 'Por cada hora que registre en los pasos que complete.'
               }}
+            </small>
+          </label>
+
+          <!-- Solo donde hay armado: en un taller que no arma motos sería un campo que no
+               significa nada. Vacío es lo normal y por eso no se precarga en cero: el cero
+               diría que ese técnico arma gratis. -->
+          <label v-if="hayArmado && form.role === 'Technician'">
+            Pago por moto armada
+            <input
+              v-model.number="form.assemblyFixedPay"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="La tarifa del modelo"
+            />
+            <small class="muted">
+              Lo que se le paga por cada moto, arme el modelo que arme. Déjelo vacío y se le
+              paga lo que valga cada modelo con su contratista.
             </small>
           </label>
         </template>

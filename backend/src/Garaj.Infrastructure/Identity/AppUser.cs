@@ -38,6 +38,22 @@ public class AppUser : IdentityUser<Guid>, ITenantEntity
     /// </summary>
     public decimal PayAmount { get; set; }
 
+    /// <summary>
+    /// Lo que se le paga por cada moto que arma, sea el modelo que sea. Null es lo normal:
+    /// entonces se le paga lo que diga la tarifa de ese modelo con ese contratista.
+    /// </summary>
+    /// <remarks>
+    /// Existe porque el pago al técnico no siempre sigue al modelo: hay quien está contratado
+    /// a tanto por moto armada, arme la que arme, y hay quien cobra lo que valga cada una.
+    /// Aparte de <see cref="PayAmount"/> a propósito: aquello es cómo se le paga el trabajo
+    /// del taller —sueldo, porcentaje u hora—, y esto es el armado, que se cobra por pieza y
+    /// se liquida en su propio corte.
+    ///
+    /// Como todo lo del armado, se <b>copia</b> a la moto al registrarla: subirle el trato en
+    /// marzo no reescribe lo que ya se le pagó en enero.
+    /// </remarks>
+    public decimal? AssemblyFixedPay { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
 

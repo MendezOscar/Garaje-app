@@ -131,7 +131,13 @@ public class AssemblyAdminService(
                     "contratista, o escriba los montos a mano aquí.");
 
             cobro ??= tarifa.Charge;
-            pago ??= tarifa.TechnicianPay;
+
+            // El técnico contratado a tanto por moto cobra lo suyo, no lo del modelo. Si al
+            // corregir se cambia de técnico, el pago se recalcula con el trato del nuevo.
+            pago ??= await db.UsersInTenant.AsNoTracking()
+                .Where(u => u.Id == request.TechnicianUserId)
+                .Select(u => u.AssemblyFixedPay)
+                .FirstOrDefaultAsync(ct) ?? tarifa.TechnicianPay;
         }
 
         if (cobro < 0 || pago < 0)

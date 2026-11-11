@@ -97,8 +97,13 @@ public class AssemblyImportService(
         // lista de toda la plataforma, un homónimo de otro taller se llevaba la moto.
         var tecnicos = await db.UsersInTenant.AsNoTracking()
             .Where(u => u.IsActive)
-            .Select(u => new { u.Id, u.FullName })
+            .Select(u => new { u.Id, u.FullName, u.AssemblyFixedPay })
             .ToListAsync(ct);
+
+        // Al técnico contratado a tanto por moto se le paga lo suyo, no la tarifa del modelo.
+        var fijoPorTecnico = tecnicos
+            .Where(t => t.AssemblyFixedPay is not null)
+            .ToDictionary(t => t.Id, t => t.AssemblyFixedPay!.Value);
 
         var tarifas = await db.AssemblyRates.AsNoTracking()
             .Where(r => r.ContractorId == contractorId)
@@ -157,11 +162,14 @@ public class AssemblyImportService(
 
             var modeloId = modelos[Clave(modelo)];
 
+            var quien = BuscarTecnico(tecnicos.Select(t => (t.Id, t.FullName)), tecnico)!.Value;
+
             buenas.Add(new Buena(
                 serie, modeloId, bodegas[Clave(bodega)],
-                BuscarTecnico(tecnicos.Select(t => (t.Id, t.FullName)), tecnico)!.Value,
-                fecha!.Value, cobro!.Value,
-                tarifas.GetValueOrDefault(modeloId)));
+                quien, fecha!.Value, cobro!.Value,
+                fijoPorTecnico.TryGetValue(quien, out var fijo)
+                    ? fijo
+                    : tarifas.GetValueOrDefault(modeloId)));
         }
 
         var vista = new AssemblyImportPreviewDto(

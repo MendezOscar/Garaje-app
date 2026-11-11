@@ -129,17 +129,24 @@ public class MotorcycleAssemblyService(
             throw new ConflictException(
                 $"La serie {serie} ya está registrada. Revise que sea la moto correcta.");
 
+        var tecnico = await ResolverTecnicoAsync(scope, request.TechnicianUserId, ct);
+
+        // Al técnico contratado a tanto por moto se le paga lo suyo, arme el modelo que arme;
+        // al resto, lo que valga ese modelo. Lo que se le cobra al contratista no cambia: el
+        // trato con el técnico es otro contrato y no tiene por qué verlo.
+        var pago = await PagoDelTecnicoAsync(tecnico, tarifa.TechnicianPay, ct);
+
         var moto = new MotorcycleAssembly
         {
             BranchId = sucursal,
             ContractorId = request.ContractorId,
             ModelId = request.ModelId,
             WarehouseId = request.WarehouseId,
-            TechnicianUserId = await ResolverTecnicoAsync(scope, request.TechnicianUserId, ct),
+            TechnicianUserId = tecnico,
             AssembledOn = dia,
             Serial = serie,
             Charge = tarifa.Charge,
-            TechnicianPay = tarifa.TechnicianPay,
+            TechnicianPay = pago,
             Expense = gasto,
             Notes = request.Notes?.Trim()
         };
@@ -301,6 +308,17 @@ public class MotorcycleAssemblyService(
     /// puede apuntársela a otro, que es el caso del dueño cargando la que le reportaron por
     /// teléfono, y entonces tiene que ser alguien de su taller.
     /// </remarks>
+    /// <summary>
+    /// Lo que se le paga a este técnico por una moto: su fijo si lo tiene, y si no, la tarifa
+    /// del modelo. UsersInTenant y no db.Users: AppUser no lleva filtro de taller.
+    /// </summary>
+    private async Task<decimal> PagoDelTecnicoAsync(
+        Guid tecnico, decimal deLaTarifa, CancellationToken ct) =>
+        await db.UsersInTenant.AsNoTracking()
+            .Where(u => u.Id == tecnico)
+            .Select(u => u.AssemblyFixedPay)
+            .FirstOrDefaultAsync(ct) ?? deLaTarifa;
+
     private async Task<Guid> ResolverTecnicoAsync(
         AccessScope scope, Guid? pedido, CancellationToken ct)
     {

@@ -83,7 +83,8 @@ public class UserService(
                 // Lo que gana cada técnico es del Dueño: el Encargado reparte el trabajo, no
                 // la planilla.
                 suyas is null ? user.PayMode : TechnicianPayMode.Undefined,
-                suyas is null ? user.PayAmount : 0));
+                suyas is null ? user.PayAmount : 0,
+                suyas is null ? user.AssemblyFixedPay : null));
         }
 
         return result;
@@ -155,8 +156,14 @@ public class UserService(
             if (request.PayMode == TechnicianPayMode.Percentage && request.PayAmount > 100)
                 throw new AppException("El porcentaje va entre 0 y 100.");
 
+            if (request.AssemblyFixedPay is < 0)
+                throw new AppException("El pago por moto armada no puede ser negativo.");
+
             user.PayMode = request.PayMode;
             user.PayAmount = request.PayAmount;
+
+            // Vacío es lo normal: se le paga lo que diga la tarifa de cada modelo.
+            user.AssemblyFixedPay = request.AssemblyFixedPay;
         }
 
         var created = await userManager.CreateAsync(user, request.Password);
@@ -202,17 +209,27 @@ public class UserService(
         user.IsActive = request.IsActive;
 
         // Cómo se le paga. Solo en técnicos: al Dueño no se le paga desde aquí, y un Cliente
-        // no es empleado de nadie.
-        if (string.Equals(role, AppRoles.Technician, StringComparison.OrdinalIgnoreCase))
+        // no es empleado de nadie. Y solo si el cliente mandó la modalidad: quien no la manda
+        // no está tocando la planilla, y antes se la borraba sin decir nada.
+        if (string.Equals(role, AppRoles.Technician, StringComparison.OrdinalIgnoreCase)
+            && request.PayMode is { } modalidad)
         {
-            if (request.PayAmount < 0)
+            var monto = request.PayAmount ?? 0;
+
+            if (monto < 0)
                 throw new AppException("El monto del pago no puede ser negativo.");
 
-            if (request.PayMode == TechnicianPayMode.Percentage && request.PayAmount > 100)
+            if (modalidad == TechnicianPayMode.Percentage && monto > 100)
                 throw new AppException("El porcentaje va entre 0 y 100.");
 
-            user.PayMode = request.PayMode;
-            user.PayAmount = request.PayAmount;
+            if (request.AssemblyFixedPay is < 0)
+                throw new AppException("El pago por moto armada no puede ser negativo.");
+
+            user.PayMode = modalidad;
+            user.PayAmount = monto;
+
+            // Vacío es lo normal: se le paga lo que diga la tarifa de cada modelo.
+            user.AssemblyFixedPay = request.AssemblyFixedPay;
         }
 
         if (role == AppRoles.Manager && (request.BranchIds is null || request.BranchIds.Count == 0))
@@ -395,6 +412,7 @@ public class UserService(
             branchIds,
             user.LastLoginAt,
             user.PayMode,
-            user.PayAmount);
+            user.PayAmount,
+            user.AssemblyFixedPay);
     }
 }
