@@ -807,12 +807,13 @@ function dia(valor: string) {
                 de ese técnico, si lo tiene—.
               </small>
             </label>
+            <!-- La nota va dentro de la misma rejilla, ocupando el ancho: fuera de ella
+                 quedaba como una etiqueta suelta con un recuadro diminuto al lado. -->
+            <label class="ancho">
+              Nota
+              <input v-model="correccion.notes" maxlength="300" />
+            </label>
           </div>
-
-          <label>
-            Nota
-            <input v-model="correccion.notes" maxlength="300" />
-          </label>
 
           <div class="acciones">
             <button type="submit" :disabled="busy">Guardar</button>
@@ -1085,6 +1086,10 @@ function dia(valor: string) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.75rem;
+}
+
+.correccion .campos .ancho {
+  grid-column: 1 / -1;
 }
 
 .correccion .acciones {
