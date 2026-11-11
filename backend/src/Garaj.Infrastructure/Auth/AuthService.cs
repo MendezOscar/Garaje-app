@@ -27,7 +27,10 @@ public class AuthService(
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
-        var normalizedEmail = userManager.NormalizeEmail(request.Email);
+        // Con Trim: el teclado del teléfono mete un espacio al final al autocompletar, y el
+        // normalizador de Identity solo pasa a mayúsculas. Un espacio invisible daba
+        // «Credenciales inválidas» con la contraseña correcta.
+        var normalizedEmail = userManager.NormalizeEmail(request.Email.Trim());
 
         // Sin filtro de tenant: en el login todavía no sabemos a qué taller pertenece el usuario.
         var user = await db.Users
