@@ -8,6 +8,7 @@ import type {
   AssemblyContractor,
   AssemblyModel,
   AssemblyPage,
+  AssemblyPayLine,
   AssemblyPayReport,
   AssemblyRow,
   AssemblySettlement,
@@ -189,13 +190,54 @@ async function bajarCorte(c: AssemblySettlement, formato: 'xlsx' | 'pdf') {
 }
 
 /*
- * Lo que se le va a pagar a cada técnico, por si hay que tocarlo.
+ * Cerrar el pago de un técnico.
  *
- * La suma de sus motos es una propuesta, no una orden: hay un bono, una quincena redondeada
- * o un acuerdo que no cabe ni en la tarifa del modelo ni en su fijo por moto. Lo que se
- * escriba aquí es lo que se cierra y lo que entra como gasto.
+ * Abre un formulario con lo que suman sus motos ya escrito, y ahí se cambia si hace falta:
+ * hay un bono, una quincena redondeada o un acuerdo que no cabe ni en la tarifa del modelo
+ * ni en su fijo por moto. Lo que quede escrito es lo que se cierra y lo que entra como
+ * gasto del periodo.
+ *
+ * El monto no se edita en la casilla de la tabla: una cifra que se puede cambiar sin querer,
+ * en la fila de un botón que congela el periodo, es una forma fácil de pagar de más.
  */
-const pagoEditado = ref<Record<string, number>>({})
+const pagando = ref<AssemblyPayLine | null>(null)
+
+const pago_ = ref({ total: 0, reference: '' })
+
+function abrirPago(linea: AssemblyPayLine) {
+  pagando.value = linea
+  pago_.value = { total: linea.pay, reference: '' }
+}
+
+async function cerrarPagoDelTecnico() {
+  const linea = pagando.value
+  if (!linea) return
+
+  if (
+    !confirm(
+      `Se le van a pagar ${formatMoney(pago_.value.total)} a ${linea.technicianName} por el ` +
+        `periodo del ${filtro.value.from} al ${filtro.value.to}. Sus motos quedan congeladas ` +
+        'y el monto entra como gasto de salario del periodo.',
+    )
+  )
+    return
+
+  await correr(async () => {
+    const corte = await assemblyAdminApi.close({
+      kind: 2,
+      from: filtro.value.from,
+      to: filtro.value.to,
+      technicianUserId: linea.technicianUserId,
+      reference: pago_.value.reference.trim() || undefined,
+      total: pago_.value.total,
+    })
+
+    pagando.value = null
+    aviso.value = `Corte cerrado: ${corte.count} motos, ${formatMoney(corte.total)}.`
+    await Promise.all([buscar(), cargarCortes()])
+    pago.value = await assemblyAdminApi.payReport(consulta.value)
+  })
+}
 
 async function cerrarCorte(kind: 1 | 2, technicianUserId?: string) {
   const esFacturacion = kind === 1
@@ -235,8 +277,6 @@ async function cerrarCorte(kind: 1 | 2, technicianUserId?: string) {
       contractorId: esFacturacion ? filtro.value.contractorId : undefined,
       technicianUserId: esFacturacion ? undefined : technicianUserId,
       reference: referencia.trim() || undefined,
-      // Solo si se tocó: vacío significa «lo que suman sus motos», y es el caso normal.
-      total: esFacturacion ? undefined : pagoEditado.value[technicianUserId!],
     })
 
     aviso.value = `Corte cerrado: ${corte.count} motos, ${formatMoney(corte.total)}.`
@@ -911,6 +951,37 @@ function dia(valor: string) {
           </button>
         </div>
 
+        <!-- El formulario del pago, como el de corregir una moto: encima de la tabla y con
+             lo que suman sus motos ya escrito. -->
+        <form v-if="pagando" class="card correccion" @submit.prevent="cerrarPagoDelTecnico">
+          <p class="rotulo">Pago a {{ pagando.technicianName }}</p>
+          <p class="muted small">
+            {{ pagando.count }} {{ pagando.count === 1 ? 'moto' : 'motos' }} del
+            {{ filtro.from }} al {{ filtro.to }} · suman {{ formatMoney(pagando.pay) }}.
+          </p>
+
+          <div class="campos">
+            <label>
+              Se le paga
+              <input v-model.number="pago_.total" type="number" min="0" step="0.01" required />
+              <small class="muted">
+                Lo que quede escrito es lo que se paga y lo que entra como gasto del periodo.
+              </small>
+            </label>
+            <label>
+              Referencia
+              <input v-model="pago_.reference" maxlength="60" placeholder="Recibo, transferencia…" />
+            </label>
+          </div>
+
+          <div class="acciones">
+            <button type="submit" :disabled="busy">Cerrar el pago</button>
+            <button type="button" class="chico" :disabled="busy" @click="pagando = null">
+              Cancelar
+            </button>
+          </div>
+        </form>
+
         <p v-if="!pago?.lines.length" class="muted">Nadie armó motos en ese periodo.</p>
 
         <table v-else class="tabla">
@@ -926,26 +997,9 @@ function dia(valor: string) {
             <tr v-for="l in pago.lines" :key="l.technicianUserId">
               <td>{{ l.technicianName }}</td>
               <td class="num">{{ l.count }}</td>
-              <!-- Editable: lo que de verdad se le paga lo decide el dueño, y si lo cambia
-                   aquí es lo que se cierra y lo que entra como gasto. -->
-              <td class="num">
-                <input
-                  v-model.number="pagoEditado[l.technicianUserId]"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="monto"
-                  :placeholder="l.pay.toFixed(2)"
-                  :aria-label="`Lo que se le paga a ${l.technicianName}`"
-                />
-              </td>
+              <td class="num">{{ formatMoney(l.pay) }}</td>
               <td class="estado">
-                <button
-                  type="button"
-                  class="link"
-                  :disabled="busy"
-                  @click="cerrarCorte(2, l.technicianUserId)"
-                >
+                <button type="button" class="link" :disabled="busy" @click="abrirPago(l)">
                   Cerrar su pago
                 </button>
               </td>
@@ -962,7 +1016,8 @@ function dia(valor: string) {
         <p class="muted small">
           Cerrar el pago de un técnico marca sus motos del periodo como pagadas. Lo que ya
           está pagado no vuelve a aparecer aquí, que es la forma de no pagarlo dos veces.
-          El monto se puede cambiar antes de cerrar: lo que quede escrito es lo que se paga.
+          Al cerrarlo se pregunta cuánto se le paga, con lo que suman sus motos ya escrito:
+          ahí se cambia si el trato de ese técnico fue otro.
           Y queda anotado como <strong>gasto de salario</strong> a su nombre, así que el
           estado de resultados del periodo ya lo lleva restado — no lo registre otra vez.
         </p>
@@ -1112,12 +1167,6 @@ function dia(valor: string) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.75rem;
-}
-
-/* Angosto y alineado a la derecha: es una cifra, no un texto. */
-.monto {
-  width: 7.5rem;
-  text-align: right;
 }
 
 .correccion .campos .ancho {
