@@ -78,7 +78,30 @@ public record IncomeStatementDto(
     decimal NetMarginPercent,
     IReadOnlyList<ExpenseGroupDto> Expenses,
     // El mismo cálculo del periodo anterior, del mismo largo. Null si no se pidió comparar.
-    IncomeStatementSummaryDto? Previous);
+    IncomeStatementSummaryDto? Previous,
+    // El armado de motos, desglosado. Ya está sumado en Revenue y en CostOfSales: esto es
+    // para poder decir cuánto de lo facturado todavía no entró a la caja.
+    AssemblyResultDto? Assembly = null);
+
+/// <summary>
+/// Lo que el armado de motos aportó al periodo.
+/// </summary>
+/// <remarks>
+/// Entra cuando se <b>cierra el corte de facturación</b>, que es el día en que se le factura
+/// al contratista, cobrado o no: un trabajo facturado es ingreso aunque la plata llegue tres
+/// semanas después. Lo que cambia según se haya cobrado o no es
+/// <see cref="Pending"/>, que es la pregunta de caja, no la de resultados.
+///
+/// <see cref="Cost"/> es lo que esas mismas motos costaron: el pago a los técnicos más el
+/// gasto del taller por armarlas. <b>Ese pago no debe registrarse además como gasto</b>, o se
+/// restaría dos veces.
+/// </remarks>
+public record AssemblyResultDto(
+    int Count,
+    decimal Billed,
+    decimal Collected,
+    decimal Pending,
+    decimal Cost);
 
 public record ExpenseGroupDto(ExpenseCategory Category, decimal Amount, int Count);
 

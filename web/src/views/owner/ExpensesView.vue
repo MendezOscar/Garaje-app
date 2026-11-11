@@ -404,9 +404,33 @@ onUnmounted(() => window.removeEventListener('keydown', alTeclear))
               <dt>Mano de obra</dt>
               <dd class="num">{{ formatMoney(statement.laborRevenue) }}</dd>
             </div>
+            <!-- El armado entra el día que se cierra el corte, que es el día en que se le
+                 factura al contratista. Que esté cobrado o no es pregunta de caja, y por eso
+                 va al lado y no cambia el número. -->
+            <div v-if="statement.assembly && statement.assembly.billed > 0" class="renglon sangria">
+              <dt>
+                Armado de motos
+                <span class="muted small">
+                  · {{ statement.assembly.count }}
+                  {{ statement.assembly.count === 1 ? 'moto facturada' : 'motos facturadas' }}
+                  <template v-if="statement.assembly.pending > 0">
+                    · {{ formatMoney(statement.assembly.pending) }} por cobrar
+                  </template>
+                  <template v-else>· cobrado</template>
+                </span>
+              </dt>
+              <dd class="num">{{ formatMoney(statement.assembly.billed) }}</dd>
+            </div>
             <div class="renglon">
               <dt>Costo de lo vendido</dt>
               <dd class="num">−{{ formatMoney(statement.costOfSales) }}</dd>
+            </div>
+            <div v-if="statement.assembly && statement.assembly.cost > 0" class="renglon sangria">
+              <dt>
+                Del armado
+                <span class="muted small">· pago a técnicos y lo que cuesta armarlas</span>
+              </dt>
+              <dd class="num">−{{ formatMoney(statement.assembly.cost) }}</dd>
             </div>
             <div class="renglon suma">
               <dt>Utilidad bruta</dt>

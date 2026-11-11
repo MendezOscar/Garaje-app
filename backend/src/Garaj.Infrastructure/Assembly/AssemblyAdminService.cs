@@ -54,8 +54,11 @@ public class AssemblyAdminService(
                 m.Id,
                 m.AssembledOn,
                 m.Serial,
+                m.ModelId,
                 ModelName = m.Model.Name,
+                m.ContractorId,
                 ContractorName = m.Contractor.Name,
+                m.WarehouseId,
                 WarehouseName = m.Warehouse.Name,
                 m.TechnicianUserId,
                 m.Charge,
@@ -72,7 +75,8 @@ public class AssemblyAdminService(
         var items = filas.Select(f => new AssemblyRowDto(
             f.Id, f.AssembledOn, f.Serial, f.ModelName, f.ContractorName, f.WarehouseName,
             nombres.GetValueOrDefault(f.TechnicianUserId, "—"),
-            f.Charge, f.TechnicianPay, f.Notes, f.Billed, f.Paid, f.Expense)).ToList();
+            f.Charge, f.TechnicianPay, f.Notes, f.Billed, f.Paid, f.Expense,
+            f.ModelId, f.ContractorId, f.WarehouseId, f.TechnicianUserId)).ToList();
 
         return new AssemblyPageDto(
             items,

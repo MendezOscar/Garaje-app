@@ -1844,6 +1844,20 @@ export interface IncomeStatement {
   netMarginPercent: number
   expenses: ExpenseGroup[]
   previous: IncomeStatementSummary | null
+  /** El armado de motos del periodo. Null en el taller que no arma. */
+  assembly: AssemblyResult | null
+}
+
+/**
+ * Lo que el armado aportó al periodo. Ya está dentro de `revenue` y de `costOfSales`: esto
+ * es el desglose, y sobre todo cuánto de lo facturado todavía no ha entrado a la caja.
+ */
+export interface AssemblyResult {
+  count: number
+  billed: number
+  collected: number
+  pending: number
+  cost: number
 }
 
 /**
@@ -1991,6 +2005,11 @@ export interface AssemblyRow {
   paid: boolean
   /** Lo que le costó al taller, aparte del pago al técnico. Nunca viaja al contratista. */
   expense: number
+  /** Los ids, para precargar el formulario de corrección. */
+  modelId: string
+  contractorId: string
+  warehouseId: string
+  technicianUserId: string
 }
 
 /** La página, con lo que suma el filtro entero y no solo lo que se ve. */

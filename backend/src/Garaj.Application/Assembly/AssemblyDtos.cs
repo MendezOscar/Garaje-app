@@ -234,7 +234,13 @@ public record AssemblyRowDto(
     bool Billed,
     bool Paid,
     /// <summary>Lo que le costó al taller, aparte del pago. Nunca viaja al contratista.</summary>
-    decimal Expense = 0m);
+    decimal Expense = 0m,
+    // Los ids, para poder precargar el formulario de corrección sin tener que adivinarlos
+    // desde los nombres —hay modelos que se llaman casi igual—.
+    Guid ModelId = default,
+    Guid ContractorId = default,
+    Guid WarehouseId = default,
+    Guid TechnicianUserId = default);
 
 /// <summary>La página, con lo que suma el filtro completo y no solo la página.</summary>
 public record AssemblyPageDto(

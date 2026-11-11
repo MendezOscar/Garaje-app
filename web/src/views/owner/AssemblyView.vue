@@ -296,6 +296,73 @@ async function reabrir(corte: AssemblySettlement) {
   })
 }
 
+/*
+ * Corregir una moto ya registrada.
+ *
+ * La serie y el modelo se teclean con la caja delante y a veces salen mal, y el error se ve
+ * días después, cuando el contratista reclama. Mientras la moto no haya entrado en un corte
+ * se corrige aquí; si ya se facturó o se pagó, está congelada y el servidor no la deja:
+ * del otro lado hay una factura emitida.
+ *
+ * Los dos importes van en el mismo formulario a propósito: el caso real no es «corregí el
+ * modelo», es «corregí el modelo y ahora el pago que le corresponde es otro». Vacíos, el
+ * servidor los recalcula con la tarifa de hoy y con el trato del técnico.
+ */
+const corrigiendo = ref<AssemblyRow | null>(null)
+
+const correccion = ref({
+  serial: '',
+  modelId: '',
+  contractorId: '',
+  warehouseId: '',
+  technicianUserId: '',
+  assembledOn: '',
+  notes: '',
+  charge: null as number | null,
+  technicianPay: null as number | null,
+})
+
+function corregir(moto: AssemblyRow) {
+  corrigiendo.value = moto
+  correccion.value = {
+    serial: moto.serial,
+    modelId: moto.modelId,
+    contractorId: moto.contractorId,
+    warehouseId: moto.warehouseId,
+    technicianUserId: moto.technicianUserId,
+    assembledOn: moto.assembledOn.slice(0, 10),
+    notes: moto.notes ?? '',
+    charge: moto.charge,
+    technicianPay: moto.technicianPay,
+  }
+}
+
+async function guardarCorreccion() {
+  const moto = corrigiendo.value
+  if (!moto) return
+
+  const c = correccion.value
+
+  await correr(async () => {
+    await assemblyAdminApi.correct(moto.id, {
+      serial: c.serial.trim(),
+      modelId: c.modelId,
+      contractorId: c.contractorId,
+      warehouseId: c.warehouseId,
+      technicianUserId: c.technicianUserId,
+      assembledOn: c.assembledOn,
+      notes: c.notes.trim() || null,
+      // Vacío no es cero: es «recalcúlemelo con la tarifa».
+      charge: c.charge,
+      technicianPay: c.technicianPay,
+    })
+
+    corrigiendo.value = null
+    await buscar()
+    aviso.value = 'Moto corregida.'
+  })
+}
+
 async function borrar(moto: AssemblyRow) {
   if (!confirm(`¿Borrar la moto ${moto.serial}? Es para una que se registró por error.`)) return
 
@@ -690,6 +757,71 @@ function dia(valor: string) {
           </button>
         </div>
 
+        <!-- Corregir una moto. Sale encima de la tabla y no en una ventana aparte porque
+             casi siempre se corrige mirando la fila de al lado. -->
+        <form v-if="corrigiendo" class="card correccion" @submit.prevent="guardarCorreccion">
+          <p class="rotulo">Corregir la moto {{ corrigiendo.serial }}</p>
+
+          <div class="campos">
+            <label>
+              Serie del chasis
+              <input v-model="correccion.serial" maxlength="25" required />
+            </label>
+            <label>
+              Modelo
+              <select v-model="correccion.modelId" required>
+                <option v-for="m in modelos" :key="m.id" :value="m.id">{{ m.name }}</option>
+              </select>
+            </label>
+            <label>
+              Contratista
+              <select v-model="correccion.contractorId" required>
+                <option v-for="c in contratistas" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </label>
+            <label>
+              Bodega
+              <select v-model="correccion.warehouseId" required>
+                <option v-for="b in bodegas" :key="b.id" :value="b.id">{{ b.name }}</option>
+              </select>
+            </label>
+            <label>
+              Quién la armó
+              <select v-model="correccion.technicianUserId" required>
+                <option v-for="u in personal" :key="u.id" :value="u.id">{{ u.fullName }}</option>
+              </select>
+            </label>
+            <label>
+              Día en que se armó
+              <input v-model="correccion.assembledOn" type="date" required />
+            </label>
+            <label>
+              Se le cobra al contratista
+              <input v-model.number="correccion.charge" type="number" min="0" step="0.01" />
+            </label>
+            <label>
+              Se le paga al técnico
+              <input v-model.number="correccion.technicianPay" type="number" min="0" step="0.01" />
+              <small class="muted">
+                Déjelo vacío y se recalcula con la tarifa del modelo —o con el fijo por moto
+                de ese técnico, si lo tiene—.
+              </small>
+            </label>
+          </div>
+
+          <label>
+            Nota
+            <input v-model="correccion.notes" maxlength="300" />
+          </label>
+
+          <div class="acciones">
+            <button type="submit" :disabled="busy">Guardar</button>
+            <button type="button" class="chico" :disabled="busy" @click="corrigiendo = null">
+              Cancelar
+            </button>
+          </div>
+        </form>
+
         <p v-if="!pagina?.items.length" class="muted">No hay motos con ese filtro.</p>
 
         <table v-else class="tabla">
@@ -723,15 +855,14 @@ function dia(valor: string) {
               <td class="estado">
                 <span v-if="m.billed" class="sello">facturada</span>
                 <span v-if="m.paid" class="sello">pagada</span>
-                <button
-                  v-if="!m.billed && !m.paid"
-                  type="button"
-                  class="link"
-                  :disabled="busy"
-                  @click="borrar(m)"
-                >
-                  Borrar
-                </button>
+                <template v-if="!m.billed && !m.paid">
+                  <button type="button" class="link" :disabled="busy" @click="corregir(m)">
+                    Corregir
+                  </button>
+                  <button type="button" class="link" :disabled="busy" @click="borrar(m)">
+                    Borrar
+                  </button>
+                </template>
               </td>
             </tr>
           </tbody>
@@ -946,6 +1077,22 @@ function dia(valor: string) {
 </template>
 
 <style scoped>
+.correccion {
+  margin-bottom: 1rem;
+}
+
+.correccion .campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.correccion .acciones {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
 .vista {
   display: flex;
   flex-direction: column;
