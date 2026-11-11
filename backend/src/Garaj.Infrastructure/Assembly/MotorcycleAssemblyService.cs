@@ -198,7 +198,7 @@ public class MotorcycleAssemblyService(
         // pantalla enseña cuántas motos armó y ninguna cifra.
         return new MyAssembliesDto(
             desde, hasta, items.Count,
-            scope.IsManagement ? items.Sum(i => i.TechnicianPay ?? 0) : null,
+            scope.IsManagement ? items.Sum(i => i.TechnicianPay ?? 0) : 0m,
             items);
     }
 
@@ -298,7 +298,11 @@ public class MotorcycleAssemblyService(
             f.Id, f.AssembledOn, f.Serial, f.ModelId, f.ModelName,
             f.ContractorId, f.ContractorName, f.WarehouseId, f.WarehouseName,
             f.TechnicianUserId, nombres.GetValueOrDefault(f.TechnicianUserId, "—"),
-            veElDinero ? f.TechnicianPay : null, f.Notes,
+            // Cero y no nulo a propósito: las compilaciones 21 y 22 leen este campo como
+            // obligatorio y se caen con nulo. Enseñan «L 0.00», que es feo pero deja ver el
+            // resto de la información. Vuelve a nulo cuando no quede ninguna de esas dos
+            // instalada; el contrato ya lo admite y la app de la 23 en adelante lo esconde.
+            veElDinero ? f.TechnicianPay : 0m, f.Notes,
             veElDinero ? f.Charge : null)).ToList();
     }
 
