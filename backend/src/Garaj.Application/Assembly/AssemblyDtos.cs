@@ -294,13 +294,19 @@ public record AssemblySettlementDto(
 public record CollectSettlementRequest(DateOnly? On = null, string? Reference = null);
 
 /// <param name="Reference">El número de factura o de la nota de pago.</param>
+/// <param name="Total">
+/// Lo que de verdad se le paga, cuando no es la suma de sus motos. Solo en un corte de pago:
+/// hay acuerdos que no salen ni de la tarifa del modelo ni del fijo por moto —un bono, un
+/// descuento acordado, la quincena redondeada—. Vacío, se usa la suma.
+/// </param>
 public record CloseSettlementRequest(
     AssemblySettlementKind Kind,
     DateOnly From,
     DateOnly To,
     Guid? ContractorId = null,
     Guid? TechnicianUserId = null,
-    string? Reference = null);
+    string? Reference = null,
+    decimal? Total = null);
 
 /// <summary>Una fila del Excel histórico, ya leída y con su veredicto.</summary>
 /// <param name="Problem">Por qué no entra, o null si entra.</param>

@@ -245,6 +245,19 @@ public class AssemblyAdminService(
         if (motos.Count == 0)
             throw new AppException("No hay nada pendiente en ese periodo. Ya se cerró o no hubo.");
 
+        if (esFacturacion && request.Total is not null)
+            throw new AppException(
+                "Lo que se le factura al contratista sale de las motos, no se escribe a mano.");
+
+        if (request.Total is < 0)
+            throw new AppException("El pago no puede ser negativo.");
+
+        // La suma de sus motos es la propuesta; lo que de verdad se le paga lo decide el
+        // dueño, porque hay acuerdos que no caben en ninguna tarifa.
+        var total = esFacturacion
+            ? motos.Sum(m => m.Charge)
+            : request.Total ?? motos.Sum(m => m.TechnicianPay);
+
         var corte = new AssemblySettlement
         {
             Kind = request.Kind,
@@ -253,7 +266,7 @@ public class AssemblyAdminService(
             ContractorId = esFacturacion ? request.ContractorId : null,
             TechnicianUserId = esFacturacion ? null : request.TechnicianUserId,
             Count = motos.Count,
-            Total = esFacturacion ? motos.Sum(m => m.Charge) : motos.Sum(m => m.TechnicianPay),
+            Total = total,
             Reference = request.Reference?.Trim(),
             ClosedByUserId = scope.UserId
         };
@@ -264,6 +277,34 @@ public class AssemblyAdminService(
         {
             if (esFacturacion) moto.BillingSettlementId = corte.Id;
             else moto.PaySettlementId = corte.Id;
+        }
+
+        // Cerrar el pago es sacar plata de la caja: queda como gasto de salario a nombre del
+        // técnico, sin que nadie lo teclee aparte. Así el estado de resultados del periodo
+        // cuadra con lo que de verdad se pagó, y no con lo que las tarifas decían.
+        if (!esFacturacion && total > 0)
+        {
+            var nombre = (await db.UsersInTenant.AsNoTracking()
+                .Where(u => u.Id == request.TechnicianUserId)
+                .Select(u => u.FullName)
+                .FirstOrDefaultAsync(ct)) ?? "el técnico";
+
+            var gasto = new Expense
+            {
+                BranchId = motos[0].BranchId,
+                Category = ExpenseCategory.Salaries,
+                Description =
+                    $"Armado de motos · {nombre} · {request.From:dd/MM/yyyy} a {request.To:dd/MM/yyyy}",
+                Amount = total,
+                PaymentMethod = PaymentMethod.Cash,
+                SupplierName = nombre,
+                EmployeeUserId = request.TechnicianUserId,
+                ExpenseDate = clock.UtcNow,
+                Notes = $"{motos.Count} motos. Generado al cerrar el corte de pago."
+            };
+
+            db.Expenses.Add(gasto);
+            corte.ExpenseId = gasto.Id;
         }
 
         await db.SaveChangesAsync(ct);
@@ -354,6 +395,14 @@ public class AssemblyAdminService(
         {
             if (corte.Kind == AssemblySettlementKind.Billing) moto.BillingSettlementId = null;
             else moto.PaySettlementId = null;
+        }
+
+        // El gasto que generó se va con él: si no, quedaría restando una plata que ya no se
+        // pagó, y el dueño lo buscaría en Gastos sin saber de dónde salió.
+        if (corte.ExpenseId is { } gastoId)
+        {
+            var gasto = await db.Expenses.FirstOrDefaultAsync(e => e.Id == gastoId, ct);
+            if (gasto is not null) db.Expenses.Remove(gasto);
         }
 
         db.AssemblySettlements.Remove(corte);

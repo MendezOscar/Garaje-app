@@ -188,6 +188,15 @@ async function bajarCorte(c: AssemblySettlement, formato: 'xlsx' | 'pdf') {
   })
 }
 
+/*
+ * Lo que se le va a pagar a cada técnico, por si hay que tocarlo.
+ *
+ * La suma de sus motos es una propuesta, no una orden: hay un bono, una quincena redondeada
+ * o un acuerdo que no cabe ni en la tarifa del modelo ni en su fijo por moto. Lo que se
+ * escriba aquí es lo que se cierra y lo que entra como gasto.
+ */
+const pagoEditado = ref<Record<string, number>>({})
+
 async function cerrarCorte(kind: 1 | 2, technicianUserId?: string) {
   const esFacturacion = kind === 1
 
@@ -226,6 +235,8 @@ async function cerrarCorte(kind: 1 | 2, technicianUserId?: string) {
       contractorId: esFacturacion ? filtro.value.contractorId : undefined,
       technicianUserId: esFacturacion ? undefined : technicianUserId,
       reference: referencia.trim() || undefined,
+      // Solo si se tocó: vacío significa «lo que suman sus motos», y es el caso normal.
+      total: esFacturacion ? undefined : pagoEditado.value[technicianUserId!],
     })
 
     aviso.value = `Corte cerrado: ${corte.count} motos, ${formatMoney(corte.total)}.`
@@ -915,7 +926,19 @@ function dia(valor: string) {
             <tr v-for="l in pago.lines" :key="l.technicianUserId">
               <td>{{ l.technicianName }}</td>
               <td class="num">{{ l.count }}</td>
-              <td class="num">{{ formatMoney(l.pay) }}</td>
+              <!-- Editable: lo que de verdad se le paga lo decide el dueño, y si lo cambia
+                   aquí es lo que se cierra y lo que entra como gasto. -->
+              <td class="num">
+                <input
+                  v-model.number="pagoEditado[l.technicianUserId]"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="monto"
+                  :placeholder="l.pay.toFixed(2)"
+                  :aria-label="`Lo que se le paga a ${l.technicianName}`"
+                />
+              </td>
               <td class="estado">
                 <button
                   type="button"
@@ -939,6 +962,9 @@ function dia(valor: string) {
         <p class="muted small">
           Cerrar el pago de un técnico marca sus motos del periodo como pagadas. Lo que ya
           está pagado no vuelve a aparecer aquí, que es la forma de no pagarlo dos veces.
+          El monto se puede cambiar antes de cerrar: lo que quede escrito es lo que se paga.
+          Y queda anotado como <strong>gasto de salario</strong> a su nombre, así que el
+          estado de resultados del periodo ya lo lleva restado — no lo registre otra vez.
         </p>
       </template>
 
@@ -1086,6 +1112,12 @@ function dia(valor: string) {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.75rem;
+}
+
+/* Angosto y alineado a la derecha: es una cifra, no un texto. */
+.monto {
+  width: 7.5rem;
+  text-align: right;
 }
 
 .correccion .campos .ancho {
