@@ -210,6 +210,8 @@ public class AuthService(
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == scope.UserId, ct)
             ?? throw new NotFoundException("El usuario no existe.");
 
+        await EnsureNoEsElUltimoDuenoAsync(user, ct);
+
         // La ficha del cliente **no** se borra: es del taller, tiene sus vehículos, sus órdenes
         // y sus facturas, y la ley obliga a conservarlas. Lo que se borra es el acceso, y así
         // el taller puede volver a dárselo si el cliente cambia de opinión.
@@ -244,6 +246,41 @@ public class AuthService(
 
         // Cierra la sesión en todos sus aparatos, no solo en el que pidió el borrado.
         await RevokeAllForUserAsync(user.Id, ct);
+    }
+
+    /// <summary>
+    /// El último Dueño de un taller no puede borrarse a sí mismo.
+    /// </summary>
+    /// <remarks>
+    /// Borrar la cuenta borra el acceso, no los datos: las órdenes, el inventario y las
+    /// facturas del taller siguen ahí. Si el que se va es el único Dueño, nadie puede volver
+    /// a entrar ni dar de alta a quien entre —crear usuarios es cosa del Dueño—, y el taller
+    /// queda encerrado afuera de su propia información. Pasó: un Dueño lo hizo sin querer y
+    /// hubo que crearle el acceso desde la plataforma.
+    ///
+    /// No se le quita el derecho a borrarse, que la tienda exige: se le pide que antes deje
+    /// a alguien con la llave. Un Técnico o un Encargado no pasan por aquí.
+    /// </remarks>
+    private async Task EnsureNoEsElUltimoDuenoAsync(AppUser user, CancellationToken ct)
+    {
+        if (!await userManager.IsInRoleAsync(user, AppRoles.Owner)) return;
+
+        var otros = await (
+            from u in db.Users
+            join ur in db.UserRoles on u.Id equals ur.UserId
+            join r in db.Roles on ur.RoleId equals r.Id
+            where u.TenantId == user.TenantId
+                && u.Id != user.Id
+                && u.IsActive
+                && r.Name == AppRoles.Owner
+            select u.Id).AnyAsync(ct);
+
+        if (otros) return;
+
+        throw new ConflictException(
+            "Usted es el único Dueño de este taller. Si borra su cuenta, nadie podrá entrar a "
+            + "sus órdenes, su inventario ni sus facturas. Déle el perfil de Dueño a otra "
+            + "persona primero, o escríbanos para dar de baja el taller completo.");
     }
 
     private async Task<CurrentUserDto> BuildCurrentUserAsync(AppUser user, CancellationToken ct)
