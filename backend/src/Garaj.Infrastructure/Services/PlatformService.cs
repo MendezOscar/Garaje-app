@@ -9,6 +9,7 @@ using Garaj.Infrastructure.Identity;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Garaj.Infrastructure.Services;
@@ -28,7 +29,8 @@ public class PlatformService(
     IDateTimeProvider clock,
     TenantProvisioner provisioner,
     UserManager<AppUser> userManager,
-    IOptions<AssistantOptions> assistantOptions) : IPlatformService
+    IOptions<AssistantOptions> assistantOptions,
+    ILogger<PlatformService> logger) : IPlatformService
 {
     public async Task<IReadOnlyList<PlatformTenantDto>> ListAsync(CancellationToken ct = default)
     {
@@ -129,6 +131,93 @@ public class PlatformService(
         }
 
         return new CreatedTenantDto(result.TenantId, result.BranchId, result.OwnerEmail, result.Password);
+    }
+
+    /// <summary>
+    /// Los usuarios de un taller. Se filtra por el id de la ruta y no por el contexto:
+    /// <see cref="AppUser"/> no lleva filtro de taller —el correo es único en todo el
+    /// sistema—, y el contexto de quien pregunta es el de la plataforma, no el del taller.
+    /// </summary>
+    public async Task<IReadOnlyList<PlatformUserDto>> UsersAsync(
+        Guid tenantId, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        await FindAsync(tenantId, ct);
+
+        var usuarios = await db.Users.AsNoTracking()
+            .Where(u => u.TenantId == tenantId)
+            .OrderBy(u => u.FullName)
+            .ToListAsync(ct);
+
+        var ids = usuarios.Select(u => u.Id).ToList();
+
+        var roles = await (
+            from ur in db.UserRoles
+            join r in db.Roles on ur.RoleId equals r.Id
+            where ids.Contains(ur.UserId)
+            select new { ur.UserId, r.Name }).ToListAsync(ct);
+
+        var porUsuario = roles
+            .GroupBy(x => x.UserId)
+            .ToDictionary(g => g.Key, g => g.First().Name ?? "");
+
+        var ahora = clock.UtcNow;
+
+        return usuarios
+            .Select(u => new PlatformUserDto(
+                u.Id,
+                u.Email ?? "",
+                u.FullName,
+                porUsuario.GetValueOrDefault(u.Id, "—"),
+                u.IsActive,
+                u.LastLoginAt,
+                u.LockoutEnd is { } fin && fin > ahora))
+            .ToList();
+    }
+
+    public async Task<ResetUserPasswordResultDto> ResetUserPasswordAsync(
+        Guid tenantId, Guid userId, ResetUserPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        scope.EnsurePlatform();
+
+        await FindAsync(tenantId, ct);
+
+        // Por el id de la ruta **y** por el del taller: así un id de otro taller no abre la
+        // puerta de ese otro taller desde la ficha de este.
+        var user = await db.Users.FirstOrDefaultAsync(
+            u => u.Id == userId && u.TenantId == tenantId, ct)
+            ?? throw new NotFoundException("Ese usuario no es de este taller.");
+
+        var password = Trim(request.Password) ?? TenantProvisioner.GeneratePassword();
+
+        await userManager.RemovePasswordAsync(user);
+        var resultado = await userManager.AddPasswordAsync(user, password);
+
+        if (!resultado.Succeeded)
+            throw new AppException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
+
+        // Quien llama porque «no puede entrar» muchas veces está además bloqueado por los
+        // intentos. Cambiarle la contraseña y dejarlo bloqueado no resolvería la llamada.
+        await userManager.ResetAccessFailedCountAsync(user);
+        await userManager.SetLockoutEndDateAsync(user, null);
+
+        // Y se le cierran las sesiones abiertas: si la contraseña se cambió porque se filtró,
+        // dejar vivo un refresh token deja la puerta abierta igual.
+        var ahora = clock.UtcNow;
+        await db.RefreshTokens
+            .Where(t => t.UserId == user.Id && t.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, ahora), ct);
+
+        // Queda escrito quién lo hizo: es la acción más delicada de la plataforma, porque
+        // entrega el acceso a los datos de un taller. La contraseña no se escribe nunca.
+        logger.LogWarning(
+            "La plataforma le cambió la contraseña a {Email} del taller {TenantId}",
+            user.Email, tenantId);
+
+        return new ResetUserPasswordResultDto(user.Email ?? "", password);
     }
 
     public async Task<CreatedTenantDto> CreateOwnerAsync(

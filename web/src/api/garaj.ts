@@ -44,6 +44,7 @@ import type {
   PaymentMethod,
   PlatformSettings,
   PlatformTenant,
+  PlatformUser,
   PlatformTenantDetail,
   SubscriptionInvoice,
   TechnicianTimeReport,
@@ -1621,6 +1622,23 @@ export const platformApi = {
     body: { email: string; fullName: string; password?: string | null },
   ): Promise<CreatedTenant> {
     const { data } = await api.post<CreatedTenant>(`/api/platform/tenants/${id}/owner`, body)
+    return data
+  },
+  /** Los usuarios del taller: con quién se está hablando cuando llama a soporte. */
+  async users(id: string) {
+    const { data } = await api.get<PlatformUser[]>(`/api/platform/tenants/${id}/users`)
+    return data
+  },
+  /**
+   * Contraseña nueva para un usuario del taller. Último recurso: lo normal es que el Dueño
+   * se la cambie a su gente. Existe porque cuando el que no puede entrar es el Dueño, no hay
+   * nadie dentro de ese taller que pueda ayudarlo. Vuelve una sola vez.
+   */
+  async resetUserPassword(id: string, userId: string, password?: string | null) {
+    const { data } = await api.post<{ email: string; password: string }>(
+      `/api/platform/tenants/${id}/users/${userId}/password`,
+      { password: password || null },
+    )
     return data
   },
   async registerPayment(

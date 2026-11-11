@@ -161,6 +161,26 @@ public record RegisterPaymentRequest(
 /// </summary>
 public record CreateOwnerRequest(string Email, string FullName, string? Password = null);
 
+/// <summary>Un usuario del taller, como lo ve la plataforma para poder auxiliarlo.</summary>
+public record PlatformUserDto(
+    Guid Id,
+    string Email,
+    string FullName,
+    string Role,
+    bool IsActive,
+    DateTimeOffset? LastLoginAt,
+    /// <summary>Si está bloqueado ahora mismo por intentos fallidos.</summary>
+    bool LockedOut);
+
+/// <param name="Password">
+/// La contraseña nueva. Vacía, se genera una y se devuelve: es lo normal, porque así no la
+/// elige quien la está dictando por teléfono.
+/// </param>
+public record ResetUserPasswordRequest(string? Password = null);
+
+/// <summary>Lo que se le dicta al taller. Vuelve una sola vez y no se guarda en ningún lado.</summary>
+public record ResetUserPasswordResultDto(string Email, string Password);
+
 /// <summary>El acuerdo de pago: hasta cuándo se le suelta el freno y por qué.</summary>
 public record PaymentAgreementRequest(DateOnly UnblockedThrough, string? Note);
 
@@ -217,6 +237,21 @@ public interface IPlatformService
     /// <summary>Le crea un Dueño nuevo a un taller existente. La contraseña vuelve una sola vez.</summary>
     Task<CreatedTenantDto> CreateOwnerAsync(
         Guid tenantId, CreateOwnerRequest request, CancellationToken ct = default);
+
+    /// <summary>Los usuarios de un taller, para poder auxiliarlo cuando llama.</summary>
+    Task<IReadOnlyList<PlatformUserDto>> UsersAsync(Guid tenantId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Le pone contraseña nueva a un usuario de un taller. Es el último recurso: lo normal es
+    /// que el Dueño se la cambie a su gente desde su propio panel.
+    /// </summary>
+    /// <remarks>
+    /// Existe porque cuando el que no puede entrar es el <b>Dueño</b>, no hay nadie dentro de
+    /// ese taller que pueda ayudarlo, y antes solo quedaba la línea de comandos contra la base
+    /// de producción. Cierra sus sesiones abiertas y le quita el bloqueo por intentos.
+    /// </remarks>
+    Task<ResetUserPasswordResultDto> ResetUserPasswordAsync(
+        Guid tenantId, Guid userId, ResetUserPasswordRequest request, CancellationToken ct = default);
 
     /// <summary>Registra el pago y corre la fecha de vencimiento. Cancela el acuerdo si lo había.</summary>
     Task<PlatformTenantDetailDto> RegisterPaymentAsync(
