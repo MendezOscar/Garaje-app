@@ -1153,6 +1153,8 @@ export interface RevenuePoint {
   cost: number
   margin: number
   saleCount: number
+  /** Lo facturado por armar motos en ese periodo. Es la tercera barra de la gráfica. */
+  assemblyRevenue: number
 }
 
 export interface RevenueReport {
@@ -1170,6 +1172,9 @@ export interface RevenueReport {
   /** Repuestos vendidos en mostrador, sin pasar por una orden de trabajo. */
   counterPartsRevenue: number
   counterSaleCount: number
+  /** Lo facturado por armar motos en el rango. Ya está dentro de `total`. */
+  assemblyRevenue: number
+  assemblySettlementCount: number
   points: RevenuePoint[]
   branches: {
     branchId: string

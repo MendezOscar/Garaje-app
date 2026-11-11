@@ -123,6 +123,7 @@ const chart = computed(() => {
     ...p,
     partsHeight: (p.partsRevenue / max) * 100,
     laborHeight: (p.laborRevenue / max) * 100,
+    assemblyHeight: (p.assemblyRevenue / max) * 100,
   }))
 })
 
@@ -256,6 +257,19 @@ onMounted(async () => {
             <span>Mano de obra</span>
             <strong>{{ formatMoney(report.laborRevenue) }}</strong>
           </div>
+          <!-- La tercera fuente de ingreso del taller que arma motos, al lado de las otras
+               dos. Entra en el Total, igual que ellas. -->
+          <div v-if="report.assemblyRevenue > 0 || armado?.pendingCount">
+            <span>Armado de motos</span>
+            <strong>{{ formatMoney(report.assemblyRevenue) }}</strong>
+            <small v-if="armado?.pendingCount" class="muted">
+              {{ formatMoney(armado.pending) }} por cobrar
+            </small>
+            <small v-else class="muted">
+              {{ report.assemblySettlementCount }}
+              {{ report.assemblySettlementCount === 1 ? 'corte' : 'cortes' }}
+            </small>
+          </div>
           <div>
             <span>Total</span>
             <strong class="big">{{ formatMoney(report.total) }}</strong>
@@ -277,6 +291,7 @@ onMounted(async () => {
         <div v-else class="chart">
           <div v-for="p in chart" :key="p.periodStart" class="bar" :title="`${p.periodLabel}: ${formatMoney(p.total)}`">
             <div class="stack">
+              <div class="assembly" :style="{ height: `${p.assemblyHeight}%` }" />
               <div class="labor" :style="{ height: `${p.laborHeight}%` }" />
               <div class="parts" :style="{ height: `${p.partsHeight}%` }" />
             </div>
@@ -287,6 +302,9 @@ onMounted(async () => {
         <p v-if="report.points.length" class="legend">
           <span><i class="swatch parts" /> Repuestos</span>
           <span><i class="swatch labor" /> Mano de obra</span>
+          <span v-if="report.assemblyRevenue > 0">
+            <i class="swatch assembly" /> Armado de motos
+          </span>
         </p>
 
         <div class="tables">
@@ -357,6 +375,7 @@ onMounted(async () => {
                 <th scope="col">Periodo</th>
                 <th scope="col" class="num">Repuestos</th>
                 <th scope="col" class="num">Mano de obra</th>
+                <th v-if="report.assemblyRevenue > 0" scope="col" class="num">Armado</th>
                 <th scope="col" class="num">Total</th>
                 <th scope="col" class="num">Margen</th>
                 <th scope="col" class="num">Ventas</th>
@@ -367,6 +386,9 @@ onMounted(async () => {
                 <td>{{ p.periodLabel }}</td>
                 <td class="num">{{ formatMoney(p.partsRevenue) }}</td>
                 <td class="num">{{ formatMoney(p.laborRevenue) }}</td>
+                <td v-if="report.assemblyRevenue > 0" class="num">
+                  {{ formatMoney(p.assemblyRevenue) }}
+                </td>
                 <td class="num"><strong>{{ formatMoney(p.total) }}</strong></td>
                 <td class="num muted">{{ formatMoney(p.margin) }}</td>
                 <td class="num muted">{{ p.saleCount }}</td>
@@ -377,48 +399,6 @@ onMounted(async () => {
       </template>
     </article>
 
-    <!-- El armado, en su propia tarjeta y aparte del total de ventas: no se factura con
-         una venta del sistema, y meterlo en el total dejaría el desglose de arriba sin
-         cuadrar con él. -->
-    <section v-if="armado && (armado.billed > 0 || armado.pending > 0)" class="card armado">
-      <h2>Armado de motos</h2>
-      <div class="summary">
-        <div>
-          <span>Facturado al contratista</span>
-          <strong class="big">{{ formatMoney(armado.billed) }}</strong>
-          <small class="muted">
-            {{ armado.billedCount }}
-            {{ armado.billedCount === 1 ? 'corte cerrado' : 'cortes cerrados' }}
-          </small>
-        </div>
-        <div>
-          <span>Cobrado en el periodo</span>
-          <strong>{{ formatMoney(armado.collected) }}</strong>
-          <small class="muted">
-            {{ armado.collectedCount }}
-            {{ armado.collectedCount === 1 ? 'factura' : 'facturas' }}
-          </small>
-        </div>
-        <div>
-          <span>Por cobrar</span>
-          <strong :class="{ alerta: armado.pending > 0 }">
-            {{ formatMoney(armado.pending) }}
-          </strong>
-          <small class="muted">
-            <template v-if="armado.pendingCount">
-              {{ armado.pendingCount }}
-              {{ armado.pendingCount === 1 ? 'factura' : 'facturas' }} · la más vieja,
-              {{ armado.oldestPendingDays }} día(s)
-            </template>
-            <template v-else>todo cobrado</template>
-          </small>
-        </div>
-      </div>
-      <p class="muted small">
-        No suma en el total de arriba: la moto armada no se factura con una venta del
-        sistema. Donde sí entra es en Gastos y utilidad.
-      </p>
-    </section>
 
     <article class="card">
       <header class="filters">
@@ -438,19 +418,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.armado {
-  margin-top: 1rem;
-}
-
-.armado h2 {
-  margin: 0 0 0.75rem;
-}
-
-/* El pie explica por qué no suma arriba; la rejilla ya trae su propio margen. */
-.armado .summary {
-  margin-bottom: 0.5rem;
-}
-
 .alerta {
   color: var(--peligro, #f87171);
 }
@@ -611,6 +578,12 @@ h1 {
 
 .labor {
   background: #f59e0b;
+}
+
+/* Verde: ni el azul de los repuestos ni el ámbar de la mano de obra, y se distingue de los
+   dos con el teléfono al sol, que es donde se mira esta gráfica. */
+.assembly {
+  background: #10b981;
   border-radius: 2px 2px 0 0;
 }
 
