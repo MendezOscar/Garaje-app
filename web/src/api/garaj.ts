@@ -4,6 +4,7 @@ import type {
   AcceptWorkStepsResult,
   AssemblyContractor,
   AssemblyImportPreview,
+  AssemblyIncome,
   AssemblyPage,
   AssemblyPayReport,
   AssemblyRow,
@@ -1921,6 +1922,13 @@ export const assemblyAdminApi = {
   },
   async remove(id: string) {
     await api.delete(`/api/assembly/admin/motorcycles/${id}`)
+  },
+  /** Lo facturado y lo cobrado del armado en un rango, más lo que sigue por cobrar hoy. */
+  async income(from: string, to: string) {
+    const { data } = await api.get<AssemblyIncome>('/api/assembly/admin/income', {
+      params: { from, to },
+    })
+    return data
   },
   async technicians() {
     const { data } = await api.get<{ id: string; name: string }[]>(
