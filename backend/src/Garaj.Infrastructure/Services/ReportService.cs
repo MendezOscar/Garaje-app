@@ -795,17 +795,42 @@ public class ReportService(
             .ToList();
     }
 
+    /// <summary>
+    /// El rango que se va a consultar, en instantes.
+    /// </summary>
+    /// <remarks>
+    /// La pantalla manda días sueltos —<c>2026-11-11</c>—, que se atan a las <b>00:00</b>. Sin
+    /// corregirlo, el último día del rango quedaba fuera entero: «Este mes» no enseñaba lo de
+    /// hoy, y el total del reporte no cuadraba con el «Este mes» del tablero, que sí lo
+    /// cuenta. Un día suelto significa el día completo del taller, de su medianoche a su
+    /// 23:59:59, en hora de Honduras y no en UTC —seis horas de diferencia son seis horas de
+    /// ventas que caen en el día equivocado—.
+    ///
+    /// Si viene con hora, se respeta tal cual: entonces quien pregunta quiere un instante.
+    /// </remarks>
     private (DateTimeOffset From, DateTimeOffset To) ResolveRange(RevenueQuery query)
     {
-        var to = query.To ?? clock.UtcNow;
+        var to = query.To is { } hasta ? FinDelDia(hasta) : clock.UtcNow;
 
         // Por defecto, el mes en curso: es lo que el dueño mira cuando entra sin filtrar.
-        var from = query.From ?? StartOfLocalMonth(to);
+        var from = query.From is { } desde ? InicioDelDia(desde) : StartOfLocalMonth(to);
 
         if (from > to) throw new AppException("La fecha inicial es posterior a la final.");
 
         return (from, to);
     }
+
+    /// <summary>Un día suelto es la medianoche del taller; con hora, se deja como vino.</summary>
+    private static DateTimeOffset InicioDelDia(DateTimeOffset value) =>
+        value.TimeOfDay == TimeSpan.Zero
+            ? new DateTimeOffset(value.Year, value.Month, value.Day, 0, 0, 0, LocalOffset)
+            : value;
+
+    /// <summary>Y termina a las 23:59:59.999 de ese mismo día del taller.</summary>
+    private static DateTimeOffset FinDelDia(DateTimeOffset value) =>
+        value.TimeOfDay == TimeSpan.Zero
+            ? new DateTimeOffset(value.Year, value.Month, value.Day, 23, 59, 59, 999, LocalOffset)
+            : value;
 
     private static DateTimeOffset ToLocal(DateTimeOffset value) => value.ToOffset(LocalOffset);
 
