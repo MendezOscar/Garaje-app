@@ -157,9 +157,19 @@ public class ExpenseService(
 
         var actual = await CalcularAsync(desde, hasta, query.BranchId, ct);
         var gastos = await GastosPorCategoriaAsync(desde, hasta, query.BranchId, ct);
+        var armado = tenant.AssemblyEnabled
+            ? await ArmadoAsync(desde, hasta, query.BranchId, ct)
+            : null;
+
+        // El armado entra en los ingresos y en el costo: es trabajo del taller, facturado y
+        // con su costo propio. Fuera de aquí, el dueño que arma motos veía un estado de
+        // resultados que no se parecía a su negocio.
+        var ingresos = actual.Revenue + (armado?.Billed ?? 0);
+        var costo = actual.CostOfSales + (armado?.Cost ?? 0);
+        var utilidadBruta = ingresos - costo;
 
         var gastoTotal = gastos.Sum(g => g.Amount);
-        var utilidadNeta = actual.GrossProfit - gastoTotal;
+        var utilidadNeta = utilidadBruta - gastoTotal;
 
         // El periodo anterior del mismo largo, para poner al lado. Sin él, un número suelto no
         // dice nada: un millón de ingresos puede ser un buen mes o la mitad del anterior.
@@ -173,29 +183,38 @@ public class ExpenseService(
             var previo = await CalcularAsync(antesDesde, antesHasta, query.BranchId, ct);
             var gastoPrevio = (await GastosPorCategoriaAsync(antesDesde, antesHasta, query.BranchId, ct))
                 .Sum(g => g.Amount);
+            var armadoPrevio = tenant.AssemblyEnabled
+                ? await ArmadoAsync(antesDesde, antesHasta, query.BranchId, ct)
+                : null;
+
+            // El periodo anterior se compara con la misma vara: si el armado cuenta hoy,
+            // tiene que contar en el mes contra el que se compara.
+            var ingresosPrevios = previo.Revenue + (armadoPrevio?.Billed ?? 0);
+            var brutaPrevia = ingresosPrevios - previo.CostOfSales - (armadoPrevio?.Cost ?? 0);
 
             anterior = new IncomeStatementSummaryDto(
-                previo.Revenue,
-                previo.GrossProfit,
+                ingresosPrevios,
+                brutaPrevia,
                 gastoPrevio,
-                previo.GrossProfit - gastoPrevio);
+                brutaPrevia - gastoPrevio);
         }
 
         return new IncomeStatementDto(
             desde,
             hasta,
             tenant.Currency,
-            actual.Revenue,
+            ingresos,
             actual.PartsRevenue,
             actual.LaborRevenue,
-            actual.CostOfSales,
-            actual.GrossProfit,
-            Porcentaje(actual.GrossProfit, actual.Revenue),
+            costo,
+            utilidadBruta,
+            Porcentaje(utilidadBruta, ingresos),
             gastoTotal,
             utilidadNeta,
-            Porcentaje(utilidadNeta, actual.Revenue),
+            Porcentaje(utilidadNeta, ingresos),
             gastos,
-            anterior);
+            anterior,
+            armado);
     }
 
     /// <summary>
@@ -235,6 +254,46 @@ public class ExpenseService(
             porTipo.FirstOrDefault(x => x.Tipo == LineType.Labor)?.Total ?? 0,
             cost,
             revenue - cost);
+    }
+
+    /// <summary>
+    /// Lo que el armado aportó: lo facturado al contratista en el periodo, cuánto de eso ya
+    /// se cobró, y lo que esas motos costaron.
+    /// </summary>
+    /// <remarks>
+    /// El periodo se mide por <b>cuándo se cerró el corte</b> —el día en que se facturó—, no
+    /// por los días en que se armaron las motos: un corte de octubre cerrado en noviembre es
+    /// una factura de noviembre, igual que cualquier otra.
+    ///
+    /// Las motos se cuentan desde la moto y no desde el total del corte para que el filtro
+    /// por sucursal signifique algo: el corte no tiene sucursal, cada moto sí.
+    /// </remarks>
+    private async Task<AssemblyResultDto> ArmadoAsync(
+        DateTimeOffset desde, DateTimeOffset hasta, Guid? branchId, CancellationToken ct)
+    {
+        var cortes = db.AssemblySettlements.AsNoTracking()
+            .Where(c => c.Kind == AssemblySettlementKind.Billing
+                && c.CreatedAt >= desde && c.CreatedAt <= hasta);
+
+        var q = from m in db.MotorcycleAssemblies.AsNoTracking()
+                join c in cortes on m.BillingSettlementId equals c.Id
+                select new { m.BranchId, m.Charge, m.TechnicianPay, m.Expense, c.CollectedOn };
+
+        if (branchId is { } id) q = q.Where(x => x.BranchId == id);
+
+        var filas = await q.ToListAsync(ct);
+
+        if (filas.Count == 0) return new AssemblyResultDto(0, 0, 0, 0, 0);
+
+        var facturado = filas.Sum(x => x.Charge);
+        var cobrado = filas.Where(x => x.CollectedOn != null).Sum(x => x.Charge);
+
+        return new AssemblyResultDto(
+            filas.Count,
+            facturado,
+            cobrado,
+            facturado - cobrado,
+            filas.Sum(x => x.TechnicianPay + x.Expense));
     }
 
     private async Task<List<ExpenseGroupDto>> GastosPorCategoriaAsync(
