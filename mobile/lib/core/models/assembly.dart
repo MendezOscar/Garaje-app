@@ -35,7 +35,7 @@ class MotorcycleAssembly {
         warehouseName: json['warehouseName'] as String,
         technicianUserId: json['technicianUserId'] as String,
         technicianName: json['technicianName'] as String,
-        technicianPay: (json['technicianPay'] as num).toDouble(),
+        technicianPay: (json['technicianPay'] as num?)?.toDouble(),
         notes: json['notes'] as String?,
         charge: (json['charge'] as num?)?.toDouble(),
       );
@@ -52,8 +52,9 @@ class MotorcycleAssembly {
   final String technicianUserId;
   final String technicianName;
 
-  /// Lo que se le paga al técnico por esta moto.
-  final double technicianPay;
+  /// Lo que se le paga al técnico por esta moto. **Null para el propio técnico**: el
+  /// servidor no se lo manda, porque el trato de cada uno se liquida en su corte.
+  final double? technicianPay;
   final String? notes;
 
   /// Lo que se le cobra al contratista. **Null para el técnico**: el servidor no se lo manda.
@@ -117,7 +118,7 @@ class MyAssemblies {
         from: DateTime.parse(json['from'] as String),
         to: DateTime.parse(json['to'] as String),
         count: json['count'] as int,
-        pay: (json['pay'] as num).toDouble(),
+        pay: (json['pay'] as num?)?.toDouble(),
         items: (json['items'] as List<dynamic>)
             .map((e) => MotorcycleAssembly.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -128,7 +129,8 @@ class MyAssemblies {
   final int count;
 
   /// Lo que se le debe por esas motos. Es su número, no el del taller.
-  final double pay;
+  /// Lo que lleva ganado. Null cuando lo pregunta el propio técnico.
+  final double? pay;
   final List<MotorcycleAssembly> items;
 }
 

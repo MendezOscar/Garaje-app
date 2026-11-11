@@ -93,18 +93,21 @@ class _Resumen extends StatelessWidget {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'L ${datos.pay.toStringAsFixed(2)}',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: theme.colorScheme.primary,
+                // Sin monto cuando el servidor no lo manda, que es el caso del propio
+                // técnico: lo que gana por moto se liquida en su corte, no en esta pantalla.
+                if (datos.pay case final total?)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'L ${total.toStringAsFixed(2)}',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
-                    ),
-                    Text('le corresponde', style: theme.textTheme.bodySmall),
-                  ],
-                ),
+                      Text('le corresponde', style: theme.textTheme.bodySmall),
+                    ],
+                  ),
               ],
             ),
           ],
@@ -132,6 +135,8 @@ class _Fila extends StatelessWidget {
           '${moto.assembledOn.day.toString().padLeft(2, '0')}/'
           '${moto.assembledOn.month.toString().padLeft(2, '0')}',
         ),
-        trailing: Text('L ${moto.technicianPay.toStringAsFixed(2)}'),
+        trailing: moto.technicianPay == null
+            ? null
+            : Text('L ${moto.technicianPay!.toStringAsFixed(2)}'),
       );
 }

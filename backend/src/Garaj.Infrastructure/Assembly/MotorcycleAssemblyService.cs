@@ -194,8 +194,12 @@ public class MotorcycleAssemblyService(
         var items = await Proyectar(q.OrderByDescending(m => m.AssembledOn)
             .ThenByDescending(m => m.CreatedAt), scope, ct);
 
+        // El total va con lo que de verdad lleva cada fila: al técnico le llega nulo, y su
+        // pantalla enseña cuántas motos armó y ninguna cifra.
         return new MyAssembliesDto(
-            desde, hasta, items.Count, items.Sum(i => i.TechnicianPay), items);
+            desde, hasta, items.Count,
+            scope.IsManagement ? items.Sum(i => i.TechnicianPay ?? 0) : null,
+            items);
     }
 
     public async Task<ModelGuessDto> GuessModelAsync(string serial, CancellationToken ct = default)
@@ -252,13 +256,18 @@ public class MotorcycleAssemblyService(
     }
 
     /// <summary>
-    /// La proyección, con el cobro fuera cuando pregunta un técnico. Está en un solo sitio
-    /// para que no haya una segunda consulta que se olvide de quitarlo.
+    /// La proyección, con el dinero fuera cuando pregunta un técnico: ni lo que se le cobra
+    /// al contratista ni lo que se le paga a él. Está en un solo sitio para que no haya una
+    /// segunda consulta que se olvide de quitarlo.
     /// </summary>
+    /// <remarks>
+    /// Que el técnico no vea su propio pago es decisión del taller, no un descuido: el trato
+    /// de cada uno es distinto y se liquida en el corte. Su pantalla cuenta motos.
+    /// </remarks>
     private async Task<List<MotorcycleAssemblyDto>> Proyectar(
         IQueryable<MotorcycleAssembly> q, AccessScope scope, CancellationToken ct)
     {
-        var veElCobro = scope.IsManagement;
+        var veElDinero = scope.IsManagement;
 
         var filas = await q
             .Select(m => new
@@ -289,8 +298,8 @@ public class MotorcycleAssemblyService(
             f.Id, f.AssembledOn, f.Serial, f.ModelId, f.ModelName,
             f.ContractorId, f.ContractorName, f.WarehouseId, f.WarehouseName,
             f.TechnicianUserId, nombres.GetValueOrDefault(f.TechnicianUserId, "—"),
-            f.TechnicianPay, f.Notes,
-            veElCobro ? f.Charge : null)).ToList();
+            veElDinero ? f.TechnicianPay : null, f.Notes,
+            veElDinero ? f.Charge : null)).ToList();
     }
 
     private async Task<bool> YaExisteAsync(string serie, Guid propia, CancellationToken ct)

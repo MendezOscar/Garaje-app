@@ -396,7 +396,9 @@ class _RegisterMotorcycleScreenState extends ConsumerState<RegisterMotorcycleScr
                       style: const TextStyle(fontFamily: 'monospace'),
                     ),
                     subtitle: Text('${m.modelName} · ${m.warehouseName}'),
-                    trailing: Text('L ${m.technicianPay.toStringAsFixed(2)}'),
+                    trailing: m.technicianPay == null
+                        ? null
+                        : Text('L ${m.technicianPay!.toStringAsFixed(2)}'),
                   ),
               ],
             ],

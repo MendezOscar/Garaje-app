@@ -114,7 +114,11 @@ public record MotorcycleAssemblyDto(
     string WarehouseName,
     Guid TechnicianUserId,
     string TechnicianName,
-    decimal TechnicianPay,
+    /// <summary>
+    /// Lo que se le paga por armarla. <b>Null cuando pregunta un técnico</b>: lo que gana por
+    /// moto es cosa del dueño y del corte de pago, y lo que no se manda no se puede mirar.
+    /// </summary>
+    decimal? TechnicianPay,
     string? Notes,
     decimal? Charge);
 
@@ -154,11 +158,15 @@ public record AssemblyNameDto(Guid Id, string Name);
 /// Lo que lleva armado quien pregunta en un periodo, con lo que suma.
 /// </summary>
 /// <param name="Pay">Lo que se le debe por esas motos. Es su número, no el del taller.</param>
+/// <param name="Pay">
+/// Lo que lleva ganado en el periodo. Null para el propio técnico: su pantalla cuenta motos,
+/// no lempiras. Lo lleva con valor solo cuando pregunta quien manda.
+/// </param>
 public record MyAssembliesDto(
     DateOnly From,
     DateOnly To,
     int Count,
-    decimal Pay,
+    decimal? Pay,
     IReadOnlyList<MotorcycleAssemblyDto> Items);
 
 /// <summary>
