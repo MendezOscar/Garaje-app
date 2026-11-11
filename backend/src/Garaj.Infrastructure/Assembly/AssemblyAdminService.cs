@@ -371,6 +371,70 @@ public class AssemblyAdminService(
         return corte;
     }
 
+    /// <summary>
+    /// El dinero del armado: lo facturado en el rango, lo que entró a la caja en el rango, y
+    /// lo que sigue por cobrar hoy.
+    /// </summary>
+    /// <remarks>
+    /// Los tres números salen de los cortes de facturación, no de las motos: la factura es el
+    /// corte, y es lo que el contratista tiene en la mano. Lo pendiente no mira el rango a
+    /// propósito —una factura de agosto sin cobrar sigue sin cobrarse en noviembre—.
+    /// </remarks>
+    public async Task<AssemblyIncomeDto> IncomeAsync(
+        DateOnly from, DateOnly to, CancellationToken ct = default)
+    {
+        await EnsureEnabledAsync(ct);
+        EnsureManda();
+
+        if (to < from) (from, to) = (to, from);
+
+        // El corte se cierra en un instante; el rango viene en días de Honduras.
+        var desde = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-6));
+        var hasta = new DateTimeOffset(to.ToDateTime(TimeOnly.MaxValue), TimeSpan.FromHours(-6));
+
+        var cortes = await db.AssemblySettlements.AsNoTracking()
+            .Where(c => c.Kind == AssemblySettlementKind.Billing)
+            .Select(c => new AssemblyInvoiceDto(
+                c.Id,
+                c.ContractorId == null ? "—" : c.Contractor!.Name,
+                c.PeriodFrom,
+                c.PeriodTo,
+                c.Count,
+                c.Total,
+                c.Reference,
+                c.CreatedAt,
+                c.CollectedOn,
+                c.CollectedReference))
+            .ToListAsync(ct);
+
+        var facturadas = cortes.Where(c => c.ClosedAt >= desde && c.ClosedAt <= hasta).ToList();
+        var cobradas = cortes
+            .Where(c => c.CollectedOn is { } d && d >= from && d <= to)
+            .OrderByDescending(c => c.CollectedOn)
+            .ToList();
+
+        var pendientes = cortes
+            .Where(c => c.CollectedOn is null)
+            .OrderBy(c => c.ClosedAt)
+            .ToList();
+
+        var hoy = clock.Today();
+        var masVieja = pendientes.Count == 0
+            ? 0
+            : Math.Max(0, hoy.DayNumber - DateOnly.FromDateTime(pendientes[0].ClosedAt.UtcDateTime).DayNumber);
+
+        return new AssemblyIncomeDto(
+            facturadas.Count,
+            facturadas.Sum(c => c.Total),
+            cobradas.Count,
+            cobradas.Sum(c => c.Total),
+            pendientes.Count,
+            pendientes.Sum(c => c.Total),
+            masVieja,
+            pendientes,
+            cobradas);
+    }
+
     public async Task ReopenAsync(Guid id, CancellationToken ct = default)
     {
         await EnsureEnabledAsync(ct);

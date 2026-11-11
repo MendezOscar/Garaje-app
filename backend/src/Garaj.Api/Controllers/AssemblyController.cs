@@ -164,6 +164,15 @@ public class AssemblyAdminController(
         CancellationToken ct)
         => Ok(await service.SettlementsAsync(ct));
 
+    /// <summary>
+    /// El dinero del armado en un rango: lo facturado, lo cobrado y lo que sigue pendiente.
+    /// Lo leen Reportes, Caja del día y Por cobrar.
+    /// </summary>
+    [HttpGet("income")]
+    public async Task<ActionResult<AssemblyIncomeDto>> Income(
+        [FromQuery] DateOnly from, [FromQuery] DateOnly to, CancellationToken ct)
+        => Ok(await service.IncomeAsync(from, to, ct));
+
     /// <summary>Cerrar un corte: congela lo que incluyó. Es lo que impide cobrar dos veces.</summary>
     [HttpPost("settlements")]
     public async Task<ActionResult<AssemblySettlementDto>> Close(

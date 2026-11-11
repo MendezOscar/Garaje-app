@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { salesApi, statementsApi } from '@/api/garaj'
+import { assemblyAdminApi, salesApi, statementsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import ViewTabs from '@/components/ViewTabs.vue'
 import FilterBar from '@/components/FilterBar.vue'
@@ -11,6 +11,7 @@ import SkeletonList from '@/components/SkeletonList.vue'
 import {
   PAYMENT_METHOD_LABEL,
   PaymentMethod,
+  type AssemblyIncome,
   type SaleDetail,
   type SaleListItem,
 } from '@/types/domain'
@@ -123,6 +124,25 @@ function desplegar(clave: string) {
 const vencido = computed(() =>
   sales.value.filter((s) => s.isOverdue).reduce((sum, s) => sum + s.balance, 0),
 )
+
+/**
+ * Lo que el contratista debe por motos armadas.
+ *
+ * No entra en la lista de clientes: el contratista no es un cliente del taller, su factura no
+ * es una venta del sistema y no se le abona por aquí. Se enseña arriba, con lo que debe y
+ * desde cuándo, y el detalle vive en Motos armadas → Cortes.
+ */
+const armado = ref<AssemblyIncome | null>(null)
+const hayArmado = computed(() => auth.hasAssembly)
+
+async function cargarArmado() {
+  if (!hayArmado.value) return
+
+  // El pendiente no mira el rango —una deuda de agosto sigue siendo deuda—, así que el día
+  // que se pida da igual: se manda hoy y hoy.
+  const hoy = new Date().toISOString().slice(0, 10)
+  armado.value = await assemblyAdminApi.income(hoy, hoy)
+}
 
 async function load() {
   loading.value = true
@@ -249,6 +269,12 @@ watch(branchId, load)
 
 onMounted(async () => {
   await load()
+  // Aparte del listado: si el armado falla, el por cobrar de los clientes se ve igual.
+  try {
+    await cargarArmado()
+  } catch {
+    armado.value = null
+  }
 })
 </script>
 
@@ -290,6 +316,21 @@ onMounted(async () => {
         { to: { name: 'receivables' }, label: 'Por cobrar' },
       ]"
     />
+
+    <!-- El contratista del armado no es un cliente y su factura no es una venta, así que no
+         entra en la tabla de abajo. Pero debe plata, y eso tiene que verse aquí. -->
+    <article v-if="armado?.pendingCount" class="card armado">
+      <div>
+        <strong>Armado de motos</strong>
+        <p class="muted small">
+          {{ armado.pendingCount }}
+          {{ armado.pendingCount === 1 ? 'factura' : 'facturas' }} al contratista sin cobrar ·
+          la más vieja, {{ armado.oldestPendingDays }} día(s). Se anota el cobro en
+          <RouterLink :to="{ name: 'assembly' }">Motos armadas → Cortes</RouterLink>.
+        </p>
+      </div>
+      <strong class="danger grande">{{ formatMoney(armado.pending) }}</strong>
+    </article>
 
     <FilterBar
       v-model:search="search"
@@ -494,6 +535,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.armado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0;
+}
+
+.armado .grande {
+  font-size: 1.25rem;
+}
+
 /* La fila del cliente se toca para abrirla; las de sus facturas van metidas un poco. */
 .grupo {
   cursor: pointer;

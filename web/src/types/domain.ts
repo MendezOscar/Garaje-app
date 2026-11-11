@@ -2012,6 +2012,39 @@ export interface AssemblyRow {
   technicianUserId: string
 }
 
+/**
+ * El dinero del armado, para las pantallas que ya hablan de dinero.
+ *
+ * `billed` es lo facturado en el rango, cobrado o no. `collected` es lo que entró a la caja
+ * en el rango, se haya facturado cuando sea. `pending` es lo que sigue por cobrar **hoy**, de
+ * cualquier periodo: una deuda vieja no deja de existir por estar mirando otro mes.
+ */
+export interface AssemblyIncome {
+  billedCount: number
+  billed: number
+  collectedCount: number
+  collected: number
+  pendingCount: number
+  pending: number
+  oldestPendingDays: number
+  pendingInvoices: AssemblyInvoice[]
+  collectedInvoices: AssemblyInvoice[]
+}
+
+/** Un corte de facturación visto como lo que es: una factura al contratista. */
+export interface AssemblyInvoice {
+  id: string
+  contractorName: string
+  periodFrom: string
+  periodTo: string
+  count: number
+  total: number
+  reference: string | null
+  closedAt: string
+  collectedOn: string | null
+  collectedReference: string | null
+}
+
 /** La página, con lo que suma el filtro entero y no solo lo que se ve. */
 export interface AssemblyPage {
   items: AssemblyRow[]

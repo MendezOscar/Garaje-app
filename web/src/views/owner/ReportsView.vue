@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { reportsApi, usersApi } from '@/api/garaj'
+import { assemblyAdminApi, reportsApi, usersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import ViewTabs from '@/components/ViewTabs.vue'
 import FilterBar from '@/components/FilterBar.vue'
@@ -11,6 +11,7 @@ import {
   RevenueGrouping,
   WORK_ORDER_STATUS_LABEL,
   type Dashboard,
+  type AssemblyIncome,
   type RevenueReport,
   type User,
 } from '@/types/domain'
@@ -19,6 +20,16 @@ import { formatMoney, formatQuantity } from '@/utils/format'
 
 const dashboard = ref<Dashboard | null>(null)
 const report = ref<RevenueReport | null>(null)
+
+/**
+ * El dinero del armado de motos, para el taller que las arma.
+ *
+ * Va aparte de los ingresos de ventas y no mezclado en el total: la moto armada no se
+ * factura con una venta del sistema —se le pasa una hoja al contratista—, así que sumarla al
+ * «Total» de arriba haría que el desglose de repuestos y mano de obra no cuadre con él.
+ */
+const armado = ref<AssemblyIncome | null>(null)
+const hayArmado = computed(() => useAuthStore().hasAssembly)
 const auth = useAuthStore()
 const technicians = ref<User[]>([])
 
@@ -59,6 +70,10 @@ async function load() {
     ])
     dashboard.value = d
     report.value = r
+
+    if (hayArmado.value) {
+      armado.value = await assemblyAdminApi.income(from.value, to.value)
+    }
   } catch (e) {
     error.value = errorMessage(e, 'No se pudieron cargar los reportes.')
   } finally {
@@ -256,6 +271,37 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- El armado, aparte del total de ventas: no se factura con una venta del sistema,
+             y meterlo en el total dejaría el desglose de arriba sin cuadrar. -->
+        <div v-if="armado && (armado.billed > 0 || armado.pending > 0)" class="resumen armado">
+          <div>
+            <span>Armado de motos</span>
+            <strong class="big">{{ formatMoney(armado.billed) }}</strong>
+            <small class="muted">
+              facturado al contratista · {{ armado.billedCount }}
+              {{ armado.billedCount === 1 ? 'corte' : 'cortes' }}
+            </small>
+          </div>
+          <div>
+            <span>Cobrado en el periodo</span>
+            <strong>{{ formatMoney(armado.collected) }}</strong>
+            <small class="muted">{{ armado.collectedCount }} factura(s)</small>
+          </div>
+          <div>
+            <span>Por cobrar</span>
+            <strong :class="{ alerta: armado.pending > 0 }">
+              {{ formatMoney(armado.pending) }}
+            </strong>
+            <small class="muted">
+              <template v-if="armado.pendingCount">
+                {{ armado.pendingCount }} factura(s) · la más vieja,
+                {{ armado.oldestPendingDays }} día(s)
+              </template>
+              <template v-else>todo cobrado</template>
+            </small>
+          </div>
+        </div>
+
         <p v-if="!report.points.length" class="muted">No hubo ventas en el rango.</p>
 
         <div v-else class="chart">
@@ -379,6 +425,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.resumen.armado {
+  border-top: 1px solid var(--borde, #2a2f3a);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.alerta {
+  color: var(--peligro, #f87171);
+}
+
 .top {
   display: flex;
   align-items: flex-start;

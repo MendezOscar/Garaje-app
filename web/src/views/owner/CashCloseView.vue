@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
-import { reportsApi } from '@/api/garaj'
+import { assemblyAdminApi, reportsApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import { useAuthStore } from '@/stores/auth'
-import { PAYMENT_METHOD_LABEL, type CashClose } from '@/types/domain'
+import { PAYMENT_METHOD_LABEL, type AssemblyIncome, type CashClose } from '@/types/domain'
 import { formatMoney } from '@/utils/format'
 
 /**
@@ -18,6 +18,16 @@ import { formatMoney } from '@/utils/format'
 const auth = useAuthStore()
 
 const cierre = ref<CashClose | null>(null)
+
+/**
+ * Lo que el contratista pagó ese día por las motos armadas.
+ *
+ * Va en su propia sección y no sumado al total de arriba: ese total cuadra contra los abonos
+ * de facturas de clientes y es el que lleva el PDF. Lo del armado entra por otra puerta —una
+ * transferencia contra la hoja que se le mandó—, así que se enseña al lado.
+ */
+const armado = ref<AssemblyIncome | null>(null)
+const hayArmado = computed(() => auth.hasAssembly)
 
 /** El día en formato `yyyy-MM-dd`, que es lo que entiende `<input type="date">`. */
 const dia = ref(hoyLocal())
@@ -50,6 +60,10 @@ async function load() {
   error.value = ''
   try {
     cierre.value = await reportsApi.cashClose(query.value)
+
+    if (hayArmado.value) {
+      armado.value = await assemblyAdminApi.income(dia.value, dia.value)
+    }
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar el cierre de caja.')
   } finally {
@@ -117,11 +131,35 @@ onMounted(async () => {
     <template v-else-if="cierre">
       <p class="muted small dia">{{ cierre.dayLabel }}</p>
 
-      <p v-if="!cierre.paymentCount" class="muted vacio">
+      <p v-if="!cierre.paymentCount && !armado?.collectedCount" class="muted vacio">
         No se recibió ningún pago este día.
       </p>
 
-      <template v-else>
+      <article v-if="armado?.collectedCount" class="card armado">
+        <h2>Armado de motos</h2>
+        <p class="muted small">
+          Lo que el contratista pagó hoy contra las hojas que se le facturaron. No entra en el
+          total de arriba: eso cuadra contra los abonos de facturas de clientes.
+        </p>
+        <ul>
+          <li v-for="f in armado.collectedInvoices" :key="f.id">
+            <span>
+              {{ f.contractorName }}
+              <small class="muted">
+                · {{ f.count }} motos
+                <template v-if="f.collectedReference">· {{ f.collectedReference }}</template>
+              </small>
+            </span>
+            <strong>{{ formatMoney(f.total) }}</strong>
+          </li>
+        </ul>
+        <p class="total">
+          <span>Cobrado del armado</span>
+          <strong>{{ formatMoney(armado.collected) }}</strong>
+        </p>
+      </article>
+
+      <template v-if="cierre.paymentCount">
         <div class="resumen">
           <article class="card">
             <h2>Por forma de pago</h2>
@@ -199,6 +237,29 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.armado {
+  margin-bottom: 1rem;
+}
+
+.armado ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.armado li,
+.armado .total {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}
+
+.armado .total {
+  border-top: 1px solid var(--borde, #2a2f3a);
+  margin: 0.25rem 0 0;
+}
+
 .top {
   display: flex;
   align-items: flex-start;

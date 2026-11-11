@@ -308,6 +308,44 @@ public record CloseSettlementRequest(
     string? Reference = null,
     decimal? Total = null);
 
+/// <summary>
+/// El dinero del armado, para las pantallas que ya hablan de dinero: Reportes, Caja del día y
+/// Por cobrar.
+/// </summary>
+/// <remarks>
+/// Lleva tres cosas que responden preguntas distintas y que es fácil confundir:
+///
+/// - <see cref="Billed"/>: lo que se facturó <b>en el rango</b>, cobrado o no. Es el ingreso.
+/// - <see cref="Collected"/>: lo que <b>entró a la caja</b> en el rango, lo hayan facturado
+///   cuando lo hayan facturado. Es lo que cuadra con el efectivo del día.
+/// - <see cref="Pending"/>: lo que sigue por cobrar <b>a hoy</b>, de cualquier periodo. No
+///   depende del rango, porque una deuda vieja no deja de existir por mirar otro mes.
+/// </remarks>
+public record AssemblyIncomeDto(
+    int BilledCount,
+    decimal Billed,
+    int CollectedCount,
+    decimal Collected,
+    int PendingCount,
+    decimal Pending,
+    /// <summary>Días desde que se cerró la factura pendiente más vieja. 0 si no hay.</summary>
+    int OldestPendingDays,
+    IReadOnlyList<AssemblyInvoiceDto> PendingInvoices,
+    IReadOnlyList<AssemblyInvoiceDto> CollectedInvoices);
+
+/// <summary>Un corte de facturación visto como lo que es: una factura al contratista.</summary>
+public record AssemblyInvoiceDto(
+    Guid Id,
+    string ContractorName,
+    DateOnly PeriodFrom,
+    DateOnly PeriodTo,
+    int Count,
+    decimal Total,
+    string? Reference,
+    DateTimeOffset ClosedAt,
+    DateOnly? CollectedOn,
+    string? CollectedReference);
+
 /// <summary>Una fila del Excel histórico, ya leída y con su veredicto.</summary>
 /// <param name="Problem">Por qué no entra, o null si entra.</param>
 public record AssemblyImportRowDto(
@@ -336,6 +374,10 @@ public interface IAssemblyAdminService
     Task DeleteAsync(Guid id, CancellationToken ct = default);
 
     Task<IReadOnlyList<AssemblySettlementDto>> SettlementsAsync(CancellationToken ct = default);
+
+    /// <summary>El dinero del armado en un rango de días, más lo que sigue por cobrar hoy.</summary>
+    Task<AssemblyIncomeDto> IncomeAsync(
+        DateOnly from, DateOnly to, CancellationToken ct = default);
 
     Task<AssemblySettlementDto> CloseAsync(
         CloseSettlementRequest request, CancellationToken ct = default);
