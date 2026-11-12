@@ -125,6 +125,9 @@ const rutasDelDueno = {
   '/trabajos-frecuentes',
   '/usuarios',
   '/ajustes',
+
+  // El catálogo del armado es un catálogo más: de él salen los dos precios de cada moto.
+  '/catalogo-de-armado',
 };
 
 /// Lo que abren el Dueño y el Encargado. Es el negocio del día: facturar, cobrar, cotizar,
@@ -140,6 +143,12 @@ const rutasDelMando = {
   '/ventas',
   '/mostrador',
   '/clientes',
+
+  // El armado que lleva dinero: las motos de todos con sus dos precios, la factura al
+  // contratista y el pago al técnico. Lo de registrar está en las del taller.
+  '/motos-del-taller',
+  '/cortes-de-armado',
+  '/pago-de-armado',
 };
 
 /// Lo del taller: el Dueño y el Técnico, el Cliente no.
