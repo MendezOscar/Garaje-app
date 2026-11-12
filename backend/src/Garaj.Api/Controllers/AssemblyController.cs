@@ -165,8 +165,8 @@ public class AssemblyAdminController(
 
     [HttpGet("settlements")]
     public async Task<ActionResult<IReadOnlyList<AssemblySettlementDto>>> Settlements(
-        CancellationToken ct)
-        => Ok(await service.SettlementsAsync(ct));
+        [FromQuery] AssemblySettlementsQuery query, CancellationToken ct)
+        => Ok(await service.SettlementsAsync(query, ct));
 
     /// <summary>
     /// El dinero del armado en un rango: lo facturado, lo cobrado y lo que sigue pendiente.

@@ -757,7 +757,7 @@ public class ArmadoDeMotosTests
 
         await panel.ReopenAsync(corte.Id);
 
-        Assert.DoesNotContain(await panel.SettlementsAsync(), c => c.Id == corte.Id);
+        Assert.DoesNotContain(await panel.SettlementsAsync(new AssemblySettlementsQuery()), c => c.Id == corte.Id);
     }
 
     private static AssemblyReportService Reportes(GarajDbContext db) =>

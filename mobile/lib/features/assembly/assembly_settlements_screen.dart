@@ -26,8 +26,38 @@ class AssemblySettlementsScreen extends ConsumerStatefulWidget {
 
 class _AssemblySettlementsScreenState
     extends ConsumerState<AssemblySettlementsScreen> {
-  /// Qué se está mirando: todo, lo que falta por cobrar, o los pagos a los técnicos.
+  /// Qué se está mirando. El filtro viaja al servidor: con los años esta lista se hace larga
+  /// y recortarla en el teléfono dejaría fuera justo lo viejo que se anda buscando.
+  SettlementFilter _filtro = SettlementFilter(from: _inicioDeMes(DateTime.now()));
+
+  static DateTime _inicioDeMes(DateTime d) => DateTime(d.year, d.month);
+
+  /// Qué pestaña está marcada, que no sale del filtro: «Todo» y «Por cobrar» se piden
+  /// distinto y las dos pueden traer facturas.
   String _vista = 'todo';
+
+  void _mirar(String vista) => setState(() {
+        _vista = vista;
+        _filtro = switch (vista) {
+          // Por cobrar no lleva periodo: el servidor lo ignora igual, porque lo que deben
+          // se debe sea de este mes o del año pasado.
+          'cobrar' => _filtro.copyWith(
+              onlyPending: true,
+              limpiarClase: true,
+            ),
+          'pagos' => _filtro.copyWith(
+              onlyPending: false,
+              kind: AssemblySettlementKind.technicianPay,
+            ),
+          _ => _filtro.copyWith(onlyPending: false, limpiarClase: true),
+        };
+      });
+
+  void _periodo(DateTime? desde, DateTime? hasta) => setState(() {
+        _filtro = desde == null
+            ? _filtro.copyWith(limpiarPeriodo: true)
+            : _filtro.copyWith(from: desde, to: hasta);
+      });
 
   Future<void> _cerrarFactura() async {
     final cerrada = await showModalBottomSheet<bool>(
@@ -44,6 +74,11 @@ class _AssemblySettlementsScreenState
     ref.invalidate(assemblySettlementsProvider);
     ref.invalidate(assemblyPickListsProvider);
   }
+
+  /// El rótulo del periodo que se está mirando, para el pie de la lista.
+  String get _rotuloDelPeriodo => _filtro.from == null
+      ? 'todos los periodos'
+      : '${_dia(_filtro.from!)} en adelante';
 
   Future<void> _cobrar(AssemblySettlement corte) async {
     final cobrada = await showModalBottomSheet<bool>(
@@ -171,7 +206,10 @@ class _AssemblySettlementsScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cortes = ref.watch(assemblySettlementsProvider);
+    final cortes = ref.watch(assemblySettlementsProvider(_filtro));
+
+    final hoy = DateTime.now();
+    final mesPasado = DateTime(hoy.year, hoy.month - 1);
 
     // Cerrar un corte y reabrirlo son del Dueño: es facturar y es deshacer una factura. El
     // Encargado mira, manda la hoja y anota el cobro. Lo impone el servidor.
@@ -200,9 +238,35 @@ class _AssemblySettlementsScreenState
                       child: ChoiceChip(
                         label: Text(v.value),
                         selected: _vista == v.key,
-                        onSelected: (_) => setState(() => _vista = v.key),
+                        onSelected: (_) => _mirar(v.key),
                       ),
                     ),
+                  // El periodo no se ofrece con «Por cobrar»: ahí la lista es lo que deben,
+                  // de cuando sea, y un chip que no hace nada confunde más que faltar.
+                  if (!_filtro.onlyPending) ...[
+                    const VerticalDivider(width: 16),
+                    _Chip(
+                      label: 'Este mes',
+                      selected: _filtro.from == _inicioDeMes(hoy) && _filtro.to == null,
+                      onSelected: () => _periodo(_inicioDeMes(hoy), null),
+                    ),
+                    _Chip(
+                      label: 'Mes pasado',
+                      selected: _filtro.from == mesPasado,
+                      onSelected: () =>
+                          _periodo(mesPasado, DateTime(hoy.year, hoy.month, 0)),
+                    ),
+                    _Chip(
+                      label: 'Este año',
+                      selected: _filtro.from == DateTime(hoy.year) && _filtro.to == null,
+                      onSelected: () => _periodo(DateTime(hoy.year), null),
+                    ),
+                    _Chip(
+                      label: 'Todo',
+                      selected: _filtro.from == null,
+                      onSelected: () => _periodo(null, null),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -227,14 +291,8 @@ class _AssemblySettlementsScreenState
             ),
           ),
         ),
-        data: (todos) {
-          final items = switch (_vista) {
-            'cobrar' => todos.where((c) => c.porCobrar).toList(),
-            'pagos' => todos.where((c) => !c.kind.esFactura).toList(),
-            _ => todos,
-          };
-
-          final porCobrar = todos
+        data: (items) {
+          final porCobrar = items
               .where((c) => c.porCobrar)
               .fold<double>(0, (suma, c) => suma + c.total);
 
@@ -242,7 +300,7 @@ class _AssemblySettlementsScreenState
             onRefresh: () async => _refrescar(),
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-              itemCount: items.length + 1,
+              itemCount: items.length + 2,
               itemBuilder: (context, i) {
                 if (i == 0) {
                   if (porCobrar == 0) return const SizedBox(height: 4);
@@ -267,6 +325,33 @@ class _AssemblySettlementsScreenState
                   );
                 }
 
+                if (i == items.length + 1) {
+                  if (items.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Text(
+                        'No hay cortes con ese filtro.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    );
+                  }
+
+                  // El servidor devuelve como mucho 200. Si vinieron 200, hay más atrás y
+                  // la manera de llegar es acotando el periodo, no bajando con el dedo.
+                  if (items.length < 200) return const SizedBox(height: 8);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Se están viendo los 200 más recientes de $_rotuloDelPeriodo. '
+                      'Acote el periodo para ver los de más atrás.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  );
+                }
+
                 return _CorteCard(
                   corte: items[i - 1],
                   puedeReabrir: esDueno,
@@ -282,6 +367,24 @@ class _AssemblySettlementsScreenState
       ),
     );
   }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.selected, required this.onSelected});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          label: Text(label),
+          selected: selected,
+          onSelected: (_) => onSelected(),
+        ),
+      );
 }
 
 class _CorteCard extends StatelessWidget {
