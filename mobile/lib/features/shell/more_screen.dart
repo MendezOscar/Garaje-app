@@ -88,35 +88,6 @@ class MoreScreen extends ConsumerWidget {
                   label: 'Mis motos armadas',
                   route: '/motos-armadas',
                 ),
-                // Lo que es del que factura: las motos de todos con sus dos precios, la
-                // factura al contratista y lo que se le paga a cada técnico. Al técnico no
-                // se le enseñan porque la API se las niega.
-                if (manda) ...[
-                  _Row(
-                    icon: Icons.two_wheeler,
-                    label: 'Motos del taller',
-                    foot: 'corregir, filtrar y ver lo que queda',
-                    route: '/motos-del-taller',
-                  ),
-                  _Row(
-                    icon: Icons.receipt_long_outlined,
-                    label: 'Cortes y facturas',
-                    foot: 'facturar al contratista y anotar el cobro',
-                    route: '/cortes-de-armado',
-                  ),
-                  _Row(
-                    icon: Icons.payments_outlined,
-                    label: 'Pago a técnicos',
-                    route: '/pago-de-armado',
-                  ),
-                ],
-                if (esDueno)
-                  _Row(
-                    icon: Icons.tune,
-                    label: 'Catálogo del armado',
-                    foot: 'contratistas, modelos, bodegas y tarifas',
-                    route: '/catalogo-de-armado',
-                  ),
               ],
             ),
             const SizedBox(height: 20),
@@ -184,6 +155,29 @@ class MoreScreen extends ConsumerWidget {
                   route: '/ventas',
                 ),
                 _Row(icon: Icons.insights_outlined, label: 'Reportes', route: '/reportes'),
+                // El armado que lleva dinero va aquí y no arriba con el registro: arriba es
+                // lo que se hace parado en la bodega, y esto es el mes, que se revisa
+                // sentado. Es el mismo reparto que en el panel.
+                if (armado) ...[
+                  _Row(
+                    icon: Icons.two_wheeler,
+                    label: 'Motos del taller',
+                    foot: 'corregir, filtrar y ver lo que queda',
+                    route: '/motos-del-taller',
+                  ),
+                  _Row(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Cortes y facturas',
+                    foot: 'facturar al contratista y anotar el cobro',
+                    route: '/cortes-de-armado',
+                  ),
+                  _Row(
+                    icon: Icons.handshake_outlined,
+                    label: 'Pago a técnicos',
+                    foot: 'por las motos que armaron',
+                    route: '/pago-de-armado',
+                  ),
+                ],
                 // Lo que dejó el mes es del taller entero, y los gastos los carga el Dueño:
                 // el Encargado ve lo que entra por su sucursal, no lo que queda.
                 if (esDueno)
@@ -230,6 +224,13 @@ class MoreScreen extends ConsumerWidget {
                   route: '/inventario',
                 ),
                 if (esDueno) ...[
+                  if (armado)
+                    _Row(
+                      icon: Icons.tune,
+                      label: 'Catálogo del armado',
+                      foot: 'contratistas, modelos, bodegas y tarifas',
+                      route: '/catalogo-de-armado',
+                    ),
                   _Row(icon: Icons.group_outlined, label: 'Usuarios', route: '/usuarios'),
                   _Row(
                     icon: Icons.storefront_outlined,
