@@ -36,6 +36,9 @@ public class MotorcycleAssemblyService(
     /// </summary>
     private const int LargoDelPrefijo = 8;
 
+    /// <summary>Lo más largo que puede ser una serie: un VIN son 17 caracteres.</summary>
+    private const int LargoDeSerie = 17;
+
     public async Task<AssemblyPickListsDto> PickListsAsync(CancellationToken ct = default)
     {
         await EnsureEnabledAsync(ct);
@@ -191,8 +194,14 @@ public class MotorcycleAssemblyService(
                 && m.AssembledOn >= desde
                 && m.AssembledOn <= hasta);
 
-        if (VinFormatter.Normalize(query.Serial ?? string.Empty) is { Length: > 0 } serie)
+        // Recortada a lo que puede ser una serie: más que eso no encuentra nada y sí hace
+        // trabajar a la base.
+        var buscada = VinFormatter.Normalize(query.Serial ?? string.Empty);
+        if (buscada.Length > 0)
+        {
+            var serie = buscada.Length > LargoDeSerie ? buscada[..LargoDeSerie] : buscada;
             q = q.Where(m => m.Serial.Contains(serie));
+        }
 
         if (query.WarehouseId is { } bodega) q = q.Where(m => m.WarehouseId == bodega);
         if (query.ModelId is { } modelo) q = q.Where(m => m.ModelId == modelo);
@@ -209,17 +218,19 @@ public class MotorcycleAssemblyService(
         var items = await Proyectar(
             q.OrderByDescending(m => m.AssembledOn)
                 .ThenByDescending(m => m.CreatedAt)
-                .Skip((query.Page - 1) * query.PageSize)
+                .Skip(query.Skip)
                 .Take(query.PageSize),
             scope,
             ct);
 
         // El total va con lo que de verdad lleva cada fila: al técnico le llega nulo, y su
         // pantalla enseña cuántas motos armó y ninguna cifra.
+        var pagina = Math.Max(query.Page, 1);
+
         return new MyAssembliesDto(
             desde, hasta, cuantas, pago, items,
-            query.Page, query.PageSize,
-            query.Page * query.PageSize < cuantas);
+            pagina, query.PageSize,
+            pagina * query.PageSize < cuantas);
     }
 
     public async Task<ModelGuessDto> GuessModelAsync(string serial, CancellationToken ct = default)

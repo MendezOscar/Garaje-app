@@ -444,6 +444,11 @@ public class TenantService(
     /// </remarks>
     private static WorkOrderSteps Validar(WorkOrderSteps pasos, Tenant tenant)
     {
+        // Lo que llega es un número: sin esto, un 999 encendería bits que no son ningún paso
+        // y quedarían guardados esperando a significar algo el día que se agregue uno.
+        if ((pasos & ~WorkOrderSteps.All) != 0)
+            throw new AppException("Esos no son pasos de una orden.");
+
         if (tenant.ChargesStorage && !pasos.HasFlag(WorkOrderSteps.Ready))
             throw new AppException(
                 "«Lista para entrega» no se puede apagar mientras el taller cobre bodegaje: " +
