@@ -514,6 +514,52 @@ class AssemblyFilter {
       );
 }
 
+/// Qué cortes se piden: el periodo, la clase y si solo los que faltan por cobrar.
+class SettlementFilter {
+  const SettlementFilter({this.from, this.to, this.kind, this.onlyPending = false});
+
+  final DateTime? from;
+  final DateTime? to;
+  final AssemblySettlementKind? kind;
+
+  /// Solo las facturas por cobrar. **Ignora el periodo** en el servidor: una deuda vieja no
+  /// deja de existir por estar mirando otro mes.
+  final bool onlyPending;
+
+  SettlementFilter copyWith({
+    DateTime? from,
+    DateTime? to,
+    AssemblySettlementKind? kind,
+    bool? onlyPending,
+    bool limpiarPeriodo = false,
+    bool limpiarClase = false,
+  }) =>
+      SettlementFilter(
+        from: limpiarPeriodo ? null : from ?? this.from,
+        to: limpiarPeriodo ? null : to ?? this.to,
+        kind: limpiarClase ? null : kind ?? this.kind,
+        onlyPending: onlyPending ?? this.onlyPending,
+      );
+
+  Map<String, dynamic> toQuery() => {
+        if (from != null) 'from': diaApi(from!),
+        if (to != null) 'to': diaApi(to!),
+        if (kind != null) 'kind': kind!.value,
+        if (onlyPending) 'onlyPending': true,
+      };
+
+  @override
+  bool operator ==(Object other) =>
+      other is SettlementFilter &&
+      other.from == from &&
+      other.to == to &&
+      other.kind == kind &&
+      other.onlyPending == onlyPending;
+
+  @override
+  int get hashCode => Object.hash(from, to, kind, onlyPending);
+}
+
 /// Un día como lo espera la API: `2026-11-11`, sin hora y sin desplazamiento.
 String diaApi(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-'

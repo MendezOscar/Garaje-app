@@ -29,8 +29,8 @@ final assembliesProvider =
 
 /// Los cortes cerrados: las facturas a los contratistas y los pagos a los técnicos.
 final assemblySettlementsProvider =
-    FutureProvider.autoDispose<List<AssemblySettlement>>(
-  (ref) => ref.watch(assemblyRepositoryProvider).settlements(),
+    FutureProvider.autoDispose.family<List<AssemblySettlement>, SettlementFilter>(
+  (ref, filtro) => ref.watch(assemblyRepositoryProvider).settlements(filtro),
 );
 
 /// Quiénes han armado motos. Es la lista del filtro y la del corte de pago: incluye al
@@ -183,8 +183,13 @@ class AssemblyRepository {
         .toList();
   }
 
-  Future<List<AssemblySettlement>> settlements() async {
-    final response = await _dio.get<List<dynamic>>('/api/assembly/admin/settlements');
+  Future<List<AssemblySettlement>> settlements([
+    SettlementFilter filtro = const SettlementFilter(),
+  ]) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/assembly/admin/settlements',
+      queryParameters: filtro.toQuery(),
+    );
 
     return response.data!
         .map((e) => AssemblySettlement.fromJson(e as Map<String, dynamic>))

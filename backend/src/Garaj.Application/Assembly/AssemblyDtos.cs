@@ -344,6 +344,26 @@ public record AssemblySettlementDto(
     DateOnly? CollectedOn = null,
     string? CollectedReference = null);
 
+/// <summary>Qué cortes se piden. Sin nada, los últimos de todos.</summary>
+/// <remarks>
+/// El periodo se cruza con el del corte: el que va del 1 al 15 de octubre sale cuando se
+/// pide octubre, aunque se haya cerrado en noviembre. Es como lo busca el que factura.
+/// </remarks>
+public record AssemblySettlementsQuery
+{
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+
+    /// <summary>Solo las facturas o solo los pagos. Vacío, las dos cosas.</summary>
+    public AssemblySettlementKind? Kind { get; init; }
+
+    /// <summary>
+    /// Solo las facturas que siguen por cobrar. <b>Ignora el periodo</b>: una deuda vieja no
+    /// deja de existir por estar mirando otro mes.
+    /// </summary>
+    public bool OnlyPending { get; init; }
+}
+
 /// <param name="On">El día del pago. Vacío, el de hoy.</param>
 /// <param name="Reference">El recibo, la transferencia o el cheque.</param>
 public record CollectSettlementRequest(DateOnly? On = null, string? Reference = null);
@@ -428,7 +448,8 @@ public interface IAssemblyAdminService
 
     Task DeleteAsync(Guid id, CancellationToken ct = default);
 
-    Task<IReadOnlyList<AssemblySettlementDto>> SettlementsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<AssemblySettlementDto>> SettlementsAsync(
+        AssemblySettlementsQuery query, CancellationToken ct = default);
 
     /// <summary>El dinero del armado en un rango de días, más lo que sigue por cobrar hoy.</summary>
     Task<AssemblyIncomeDto> IncomeAsync(

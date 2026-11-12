@@ -31,6 +31,11 @@ class _MyAssembliesScreenState extends ConsumerState<MyAssembliesScreen> {
 
   static DateTime _inicioDeMes(DateTime d) => DateTime(d.year, d.month);
 
+  /// El lunes de esta semana. La semana del taller empieza el lunes: el sábado se trabaja y
+  /// el domingo se descansa, así que cortarla en domingo parte la semana por la mitad.
+  static DateTime _inicioDeSemana(DateTime d) =>
+      DateTime(d.year, d.month, d.day - (d.weekday - 1));
+
   /// «Todo» se manda como una fecha vieja y no como vacío: vacío le dice al servidor que
   /// use su valor por omisión, que es el mes corriente, y el chip estaría mintiendo.
   static final _desdeSiempre = DateTime(2000);
@@ -108,6 +113,11 @@ class _MyAssembliesScreenState extends ConsumerState<MyAssembliesScreen> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
+                      _Chip(
+                        label: 'Esta semana',
+                        selected: _filtro.from == _inicioDeSemana(hoy) && _filtro.to == null,
+                        onSelected: () => _periodo(_inicioDeSemana(hoy), null),
+                      ),
                       _Chip(
                         label: 'Este mes',
                         selected: _filtro.from == _inicioDeMes(hoy) && _filtro.to == null,

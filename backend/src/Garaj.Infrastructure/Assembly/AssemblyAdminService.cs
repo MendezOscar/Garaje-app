@@ -181,12 +181,30 @@ public class AssemblyAdminService(
     }
 
     public async Task<IReadOnlyList<AssemblySettlementDto>> SettlementsAsync(
-        CancellationToken ct = default)
+        AssemblySettlementsQuery query, CancellationToken ct = default)
     {
         await EnsureEnabledAsync(ct);
         EnsureManda();
 
-        var cortes = await db.AssemblySettlements.AsNoTracking()
+        var q = db.AssemblySettlements.AsNoTracking().AsQueryable();
+
+        if (query.Kind is { } clase) q = q.Where(s => s.Kind == clase);
+
+        if (query.OnlyPending)
+        {
+            // Lo que sigue por cobrar es de cualquier periodo, así que el rango no se aplica:
+            // el que va a llamar al contratista quiere la lista entera de lo que le deben.
+            q = q.Where(s => s.Kind == AssemblySettlementKind.Billing && s.CollectedOn == null);
+        }
+        else
+        {
+            // El periodo del corte cruzado con el que se pide: el corte del 1 al 15 sale
+            // cuando se pide ese mes, lo hayan cerrado cuando lo hayan cerrado.
+            if (query.From is { } desde) q = q.Where(s => s.PeriodTo >= desde);
+            if (query.To is { } hasta) q = q.Where(s => s.PeriodFrom <= hasta);
+        }
+
+        var cortes = await q
             .OrderByDescending(s => s.PeriodTo).ThenByDescending(s => s.CreatedAt)
             .Take(200)
             .Select(s => new
@@ -309,7 +327,7 @@ public class AssemblyAdminService(
 
         await db.SaveChangesAsync(ct);
 
-        var cortes = await SettlementsAsync(ct);
+        var cortes = await SettlementsAsync(new AssemblySettlementsQuery(), ct);
 
         return cortes.First(c => c.Id == corte.Id);
     }
@@ -339,7 +357,8 @@ public class AssemblyAdminService(
 
         await db.SaveChangesAsync(ct);
 
-        return (await SettlementsAsync(ct)).First(c => c.Id == id);
+        return (await SettlementsAsync(new AssemblySettlementsQuery(), ct))
+            .First(c => c.Id == id);
     }
 
     public async Task<AssemblySettlementDto> UncollectAsync(
@@ -352,7 +371,8 @@ public class AssemblyAdminService(
 
         await db.SaveChangesAsync(ct);
 
-        return (await SettlementsAsync(ct)).First(c => c.Id == id);
+        return (await SettlementsAsync(new AssemblySettlementsQuery(), ct))
+            .First(c => c.Id == id);
     }
 
     private async Task<AssemblySettlement> ParaCobrarAsync(Guid id, CancellationToken ct)
