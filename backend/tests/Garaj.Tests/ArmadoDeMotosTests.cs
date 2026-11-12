@@ -447,6 +447,12 @@ public class ArmadoDeMotosTests
             .MineAsync(new MyAssembliesQuery { Serial = "rt000001" });
 
         Assert.Equal(1, buscada.Count);
+
+        // Una página cero llegaría a Skip en negativo, que no es una lista vacía sino un 500.
+        var cero = await Registro(mias).MineAsync(new MyAssembliesQuery { Page = 0 });
+
+        Assert.Equal(2, cero.Items.Count);
+        Assert.Equal(1, cero.Page);
     }
 
     /// <summary>

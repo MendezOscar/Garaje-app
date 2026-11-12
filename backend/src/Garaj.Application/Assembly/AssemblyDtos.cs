@@ -194,6 +194,10 @@ public record MyAssembliesQuery
     public DateOnly? To { get; init; }
 
     /// <summary>Parte de la serie, como se teclea de la calcomanía.</summary>
+    /// <remarks>
+    /// Con tope de largo al usarla: un VIN son 17 caracteres, y un `Contains` con lo que
+    /// quepa en una petición es trabajo de la base que nadie pidió.
+    /// </remarks>
     public string? Serial { get; init; }
 
     public Guid? WarehouseId { get; init; }
@@ -212,6 +216,12 @@ public record MyAssembliesQuery
             _ => value
         };
     }
+
+    /// <summary>
+    /// Cuántas saltar. Con el mismo candado que <c>PageQuery</c>: una página cero o negativa
+    /// llegaría a <c>Skip</c> en negativo y eso no es una lista vacía, es un 500.
+    /// </summary>
+    public int Skip => (Math.Max(Page, 1) - 1) * PageSize;
 }
 
 /// <summary>

@@ -31,6 +31,10 @@ class _MyAssembliesScreenState extends ConsumerState<MyAssembliesScreen> {
 
   static DateTime _inicioDeMes(DateTime d) => DateTime(d.year, d.month);
 
+  /// «Todo» se manda como una fecha vieja y no como vacío: vacío le dice al servidor que
+  /// use su valor por omisión, que es el mes corriente, y el chip estaría mintiendo.
+  static final _desdeSiempre = DateTime(2000);
+
   @override
   void dispose() {
     _espera?.cancel();
@@ -49,7 +53,7 @@ class _MyAssembliesScreenState extends ConsumerState<MyAssembliesScreen> {
 
   /// Cambiar de periodo siempre vuelve a la primera página: quedarse en la siete de un mes
   /// que ahora tiene dos páginas es mirar una lista vacía sin entender por qué.
-  void _periodo(DateTime? desde, DateTime? hasta) => setState(() {
+  void _periodo(DateTime desde, DateTime? hasta) => setState(() {
         _filtro = AssemblyFilter(
           from: desde,
           to: hasta,
@@ -117,8 +121,8 @@ class _MyAssembliesScreenState extends ConsumerState<MyAssembliesScreen> {
                       ),
                       _Chip(
                         label: 'Todo',
-                        selected: _filtro.from == null,
-                        onSelected: () => _periodo(null, null),
+                        selected: _filtro.from == _desdeSiempre,
+                        onSelected: () => _periodo(_desdeSiempre, null),
                       ),
                       if (bodegas.length > 1) ...[
                         const VerticalDivider(width: 16),
@@ -166,7 +170,7 @@ class _MyAssembliesScreenState extends ConsumerState<MyAssembliesScreen> {
           data: (d) => ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
-              _Resumen(datos: d, todo: _filtro.from == null),
+              _Resumen(datos: d, todo: _filtro.from == _desdeSiempre),
               const SizedBox(height: 16),
               if (d.items.isEmpty)
                 Padding(
