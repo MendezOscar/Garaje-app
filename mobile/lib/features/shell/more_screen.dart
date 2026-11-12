@@ -88,6 +88,35 @@ class MoreScreen extends ConsumerWidget {
                   label: 'Mis motos armadas',
                   route: '/motos-armadas',
                 ),
+                // Lo que es del que factura: las motos de todos con sus dos precios, la
+                // factura al contratista y lo que se le paga a cada técnico. Al técnico no
+                // se le enseñan porque la API se las niega.
+                if (manda) ...[
+                  _Row(
+                    icon: Icons.two_wheeler,
+                    label: 'Motos del taller',
+                    foot: 'corregir, filtrar y ver lo que queda',
+                    route: '/motos-del-taller',
+                  ),
+                  _Row(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Cortes y facturas',
+                    foot: 'facturar al contratista y anotar el cobro',
+                    route: '/cortes-de-armado',
+                  ),
+                  _Row(
+                    icon: Icons.payments_outlined,
+                    label: 'Pago a técnicos',
+                    route: '/pago-de-armado',
+                  ),
+                ],
+                if (esDueno)
+                  _Row(
+                    icon: Icons.tune,
+                    label: 'Catálogo del armado',
+                    foot: 'contratistas, modelos, bodegas y tarifas',
+                    route: '/catalogo-de-armado',
+                  ),
               ],
             ),
             const SizedBox(height: 20),
