@@ -11,6 +11,52 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.10.0 (24)
+
+### Google Play — «Novedades» (es-419)
+
+```
+El armado de motos, completo desde el teléfono.
+
+Si su taller arma motos: ahora ve desde la app las de todo el taller con lo que se cobra y lo que queda, corrige una mal registrada, cierra la factura del contratista y se la manda por WhatsApp, anota cuándo le pagaron y cierra el pago de cada técnico.
+
+Sus motos armadas se buscan por serie y se filtran por semana, por mes o por bodega.
+
+Y su taller puede apagar los pasos de la orden que no use: hay talleres que abren, cargan y facturan.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+El armado de motos, completo desde el teléfono.
+
+LO QUE ANTES PEDÍA COMPUTADORA
+· Motos del taller: todas, con lo que se cobra, lo que se paga, lo que cuesta armarlas y lo
+  que le queda al taller. Filtre por semana, mes, contratista, técnico o bodega, o busque una
+  serie suelta.
+· Corrija una moto mal registrada —la serie, el modelo, el contratista, la bodega, el técnico,
+  el día— y, si lo acordado no es lo de la tabla, también lo que se cobra y lo que se paga por
+  esa moto.
+· Cierre la factura del contratista por el periodo que diga, mándesela por WhatsApp en PDF y
+  anote el día que le pagaron, con su recibo.
+· Cierre el pago de cada técnico por las motos que armó, con el monto editable para el bono o
+  la quincena redondeada. Ese pago entra solo en los gastos del mes.
+· El catálogo del contrato: contratistas con su tabla de precios, modelos, bodegas y lo que le
+  cuesta al taller armar una.
+
+SUS MOTOS ARMADAS
+· Busque por serie y filtre por semana, mes o bodega. Y se piden por páginas, para el que arma
+  por tandas y lleva cientos en un mes.
+
+LOS PASOS DE LA ORDEN, LOS QUE USTED USE
+· Hay talleres que no diagnostican aparte ni prueban aparte: abren la orden, cargan los pasos
+  y los repuestos, y facturan al terminar.
+· En Taller → Pasos de la orden apague los que no use. Los que apague dejan de aparecer al
+  mover una orden, y las órdenes abiertas siguen su camino sin enredarse.
+```
+
+---
+
 ## 1.9.0 (21)
 
 ### Google Play — «Novedades» (es-419)
