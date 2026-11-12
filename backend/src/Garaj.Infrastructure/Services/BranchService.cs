@@ -44,6 +44,8 @@ public class BranchService(GarajDbContext db, ITenantContext tenantContext) : IB
         var code = Normalize(request.Code);
         await EnsureCodeIsFreeAsync(code, null, ct);
 
+        if (request.IsActive) await EnsureCabeOtraAsync(null, ct);
+
         var branch = new Branch
         {
             Name = request.Name.Trim(),
@@ -70,6 +72,10 @@ public class BranchService(GarajDbContext db, ITenantContext tenantContext) : IB
         var code = Normalize(request.Code);
         await EnsureCodeIsFreeAsync(code, id, ct);
 
+        // Volver a encender una dada de baja ocupa lugar igual que crearla: sin esto, el
+        // tope se esquiva apagando una y encendiendo otra.
+        if (request.IsActive && !branch.IsActive) await EnsureCabeOtraAsync(id, ct);
+
         branch.Name = request.Name.Trim();
         branch.Code = code;
         branch.Address = request.Address?.Trim();
@@ -80,6 +86,36 @@ public class BranchService(GarajDbContext db, ITenantContext tenantContext) : IB
         await db.SaveChangesAsync(ct);
 
         return Map(branch);
+    }
+
+    /// <summary>
+    /// Si al taller le cabe otra sucursal activa.
+    /// </summary>
+    /// <remarks>
+    /// La cuota del plan Básico es por una sucursal, y la segunda se cobra aparte. El tope
+    /// vive en el taller y no en el plan porque es lo que se negocia: al que paga por la
+    /// segunda se le sube el número sin moverlo de plan.
+    ///
+    /// Se cuentan solo las activas, así que cerrar un local y abrir otro no pide permiso.
+    /// El mensaje dice el número y qué hacer, porque el Dueño no puede resolverlo solo.
+    /// </remarks>
+    private async Task EnsureCabeOtraAsync(Guid? exceptId, CancellationToken ct)
+    {
+        var tope = await db.Tenants.AsNoTracking()
+            .Where(t => t.Id == tenantContext.TenantId)
+            .Select(t => t.BranchLimit)
+            .FirstOrDefaultAsync(ct);
+
+        if (tope is not { } limite) return;
+
+        var activas = await db.Branches.CountAsync(b => b.IsActive && b.Id != exceptId, ct);
+
+        if (activas >= limite)
+            throw new ConflictException(
+                limite == 1
+                    ? "Su plan incluye una sucursal. Para abrir otra, escríbanos: se cobra aparte."
+                    : $"Su plan incluye {limite} sucursales y ya tiene {activas}. " +
+                      "Para abrir otra, escríbanos: se cobra aparte.");
     }
 
     /// <summary>

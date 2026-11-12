@@ -50,7 +50,10 @@ public record TenantSettingsDto(
     int AssistantCreditsPerDay = 0,
     // Los pasos opcionales que usa el taller. Va al final y con valor por defecto porque la
     // app publicada arma esta ficha sin saber que existen.
-    WorkOrderSteps WorkOrderSteps = WorkOrderSteps.All);
+    WorkOrderSteps WorkOrderSteps = WorkOrderSteps.All,
+    // Cuántas sucursales activas puede tener. Null es sin tope. Viaja de solo lectura: el
+    // tope lo movemos nosotros desde el panel de plataforma, no el taller.
+    int? BranchLimit = null);
 
 public record UpdateTenantRequest(
     string Name,

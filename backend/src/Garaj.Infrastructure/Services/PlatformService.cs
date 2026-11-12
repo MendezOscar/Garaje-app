@@ -393,6 +393,7 @@ public class PlatformService(
         tenant.Plan = request.Plan;
         tenant.PlanName = Planes.NombreDe(request.Plan);
         tenant.TechnicianLimit = cambioDePlan ? Planes.TecnicosDe(request.Plan) : NormalizeLimit(request.TechnicianLimit);
+        tenant.BranchLimit = cambioDePlan ? Planes.SucursalesDe(request.Plan) : NormalizeLimit(request.BranchLimit);
         tenant.DiagnosticsEnabled = cambioDePlan ? Planes.DiagnosticoDe(request.Plan) : request.DiagnosticsEnabled;
 
         // El asistente y sus créditos se reescriben solo al mover de plan. Mientras el panel
@@ -792,6 +793,7 @@ public class PlatformService(
             tenant.CreatedAt,
             tenant.Plan,
             tenant.TechnicianLimit,
+            tenant.BranchLimit,
             tenant.DiagnosticsEnabled,
             tenant.AssistantEnabled,
             tenant.AssistantCreditsPerMonth,

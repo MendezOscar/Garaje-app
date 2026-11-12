@@ -1788,6 +1788,8 @@ export const platformApi = {
       graceDays: number
       /** Null es sin tope. Se ignora si el plan cambia en esta misma llamada. */
       technicianLimit?: number | null
+      /** Tope de sucursales activas. Null es sin tope. */
+      branchLimit?: number | null
       diagnosticsEnabled?: boolean
       /** El asistente va aparte del diagnóstico: aquel es el del escáner. */
       assistantEnabled?: boolean

@@ -115,6 +115,7 @@ const plan = ref({
   graceDays: 5,
   /** Vacío es sin tope. Se escribe así y no con una casilla: el número es el acuerdo. */
   technicianLimit: '' as number | '',
+  branchLimit: '' as number | '',
   diagnosticsEnabled: false,
   /** El asistente va aparte del diagnóstico: aquel es el del escáner. */
   assistantEnabled: false,
@@ -223,6 +224,7 @@ async function load() {
       paidThrough: t.paidThrough ?? '',
       graceDays: t.graceDays,
       technicianLimit: t.technicianLimit ?? '',
+      branchLimit: t.branchLimit ?? '',
       diagnosticsEnabled: t.diagnosticsEnabled,
       assistantEnabled: t.assistantEnabled,
       assemblyEnabled: t.assemblyEnabled,
@@ -361,6 +363,7 @@ function guardarPlan() {
         // Vacío es sin tope. Si el plan cambió, el servidor los reescribe con los del plan
         // nuevo y estos dos se ignoran: lo dice el aviso de arriba del botón.
         technicianLimit: plan.value.technicianLimit === '' ? null : Number(plan.value.technicianLimit),
+        branchLimit: plan.value.branchLimit === '' ? null : Number(plan.value.branchLimit),
         diagnosticsEnabled: plan.value.diagnosticsEnabled,
         assistantEnabled: plan.value.assistantEnabled,
         assemblyEnabled: plan.value.assemblyEnabled,
@@ -668,6 +671,28 @@ onMounted(async () => {
             </template>
             Déjelo en blanco para que no tenga tope. Del cuarto técnico en adelante se cobra
             aparte: súbale el número aquí sin moverlo de plan.
+          </p>
+
+          <label class="corta">
+            Tope de sucursales
+            <input
+              v-model="plan.branchLimit"
+              type="number"
+              min="1"
+              max="500"
+              placeholder="Sin tope"
+              :disabled="cambiandoDePlan"
+            />
+          </label>
+
+          <p class="muted small">
+            <template v-if="tenant">
+              Hoy tiene <strong>{{ tenant.branchCount }}</strong>
+              {{ tenant.branchCount === 1 ? 'sucursal' : 'sucursales' }}.
+            </template>
+            La cuota del Básico es por una. El taller que abre la segunda paga por ella: súbale
+            el número aquí. Cuenta solo las activas, así que cerrar un local y abrir otro no
+            pide permiso.
           </p>
 
           <!-- Los dos módulos que se venden aparte, juntos y con su casilla a la izquierda del

@@ -28,6 +28,19 @@ public static class Planes
         _ => null
     };
 
+    /// <summary>
+    /// Tope de sucursales con que nace. Null es sin tope.
+    /// </summary>
+    /// <remarks>
+    /// La cuota del Básico es por una sucursal: la segunda se cobra aparte y se le sube el
+    /// número al taller. El Pro y los heredados nacen sin tope, como con los técnicos.
+    /// </remarks>
+    public static int? SucursalesDe(SubscriptionPlan plan) => plan switch
+    {
+        SubscriptionPlan.Basic => 1,
+        _ => null
+    };
+
     /// <summary>Si nace con el módulo de diagnóstico.</summary>
     public static bool DiagnosticoDe(SubscriptionPlan plan) => plan == SubscriptionPlan.Pro;
 

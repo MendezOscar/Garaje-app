@@ -151,6 +151,20 @@ public class Tenant : AuditableEntity
     public int? TechnicianLimit { get; set; }
 
     /// <summary>
+    /// Cuántas sucursales activas puede tener. <c>null</c> es sin tope, que es como quedan el
+    /// plan Pro y los talleres de antes de los planes.
+    /// </summary>
+    /// <remarks>
+    /// Va aquí y no deducido del plan por lo mismo que el de técnicos: es lo que se negocia.
+    /// La cuota del plan Básico es por una sucursal; el taller que abre la segunda paga por
+    /// ella y se le sube el número, sin moverlo de plan.
+    ///
+    /// Cuenta solo las activas: dar de baja una libera su lugar, que es lo que pasa cuando un
+    /// taller cierra un local y abre otro.
+    /// </remarks>
+    public int? BranchLimit { get; set; }
+
+    /// <summary>
     /// Si tiene el módulo de diagnóstico con escáner: el informe dentro de la orden, la
     /// lectura de los códigos y el historial por vehículo.
     /// </summary>

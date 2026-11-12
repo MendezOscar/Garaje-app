@@ -25,6 +25,11 @@ que ya salieron lo llevan impreso.
 Una sucursal no se borra: se **da de baja**. Deja de salir al recibir un vehículo y al
 facturar, y lo que ya tiene se queda donde está.
 
+**El plan dice cuántas.** La cuota del Básico es por una sucursal; la segunda se cobra
+aparte. Cuando el taller llega a su tope, el botón de agregar deja de salir y la tarjeta dice
+cuántas incluye su plan. Se cuentan solo las activas, así que cerrar un local y abrir otro no
+pide permiso.
+
 ## Pasos de la orden
 
 Recibida, En proceso y Entregada siempre están. Los otros cinco —En diagnóstico, Esperando
