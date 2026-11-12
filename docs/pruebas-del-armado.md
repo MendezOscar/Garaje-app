@@ -370,6 +370,59 @@ entraron con su fecha vieja y su cobro de la hoja.
 
 ---
 
+## 8 · El armado desde el teléfono (Dueño)
+
+Lo mismo del panel, para el dueño que anda en la bodega y no frente a la computadora. Entra
+por **Más → Armado de motos**, debajo de lo del técnico.
+
+### 8.1 · Motos del taller
+
+La lista con los dos precios. Arriba van las cuatro cifras del **filtro entero** —se cobra,
+se paga, gasto y **queda**—, igual que en el panel: compruebe que cuadran con las de allá
+poniendo el mismo periodo.
+
+- Los chips de arriba: el periodo, **sin facturar**, **sin pagar**, el contratista y el
+  técnico. Teclee parte de una serie en el buscador y compruebe que filtra.
+- Toque los tres puntos de una moto → **Corregir**: la serie, el modelo, el contratista, la
+  bodega, el técnico, el día, la nota, y los dos importes. Guarde y compruebe en el panel que
+  el cambio está.
+- Una moto **ya facturada** no deja corregirse ni borrarse: primero se reabre el corte.
+- **Borrar** solo le sale al Dueño. Entre como Encargado y compruebe que no está.
+
+### 8.2 · Cortes y facturas
+
+- **Cerrar factura**: elija contratista y periodo, escriba el número de factura y ciérrela.
+  Compruebe en el panel que el corte está, con las mismas motos.
+- En un corte cerrado: **Anotar que pagó** (día y recibo), **Quitar el cobro**, **Reabrir** y
+  **Mandar la hoja**, que baja el PDF del corte y lo pasa a WhatsApp. Esa hoja sale del corte,
+  no de un filtro: tiene que traer exactamente las motos que se congelaron.
+- Arriba va lo que suman las facturas **por cobrar**. Anote un cobro y compruebe que baja.
+- Cerrar y reabrir son del Dueño. Al Encargado no le sale el botón, y la API se lo niega.
+
+### 8.3 · Pago a técnicos
+
+El periodo arriba, y una fila por técnico con sus motos y lo que se le debe. **Solo cuenta lo
+que no entró todavía en un corte de pago.**
+
+- **Cerrar pago**: el monto viene de sus motos y **se puede cambiar** —un bono, un descuento
+  acordado, la quincena redondeada—. Lo que quede ahí es lo que entra en los **gastos del
+  periodo**: compruébelo en Resultados.
+- Después de cerrar, ese técnico deja de salir en el periodo. Reabra el corte desde Cortes y
+  compruebe que vuelve.
+
+### 8.4 · Catálogo del armado
+
+Solo el Dueño. Tres pestañas —contratistas, modelos y bodegas— y el **gasto por moto** arriba
+de la primera.
+
+- Agregue un modelo con prefijo de VIN y compruebe que el teléfono lo propone al registrar.
+- **Tarifas** de un contratista: una fila por modelo con cobro y pago. En blanco es que ese
+  contratista no manda a armar ese modelo. Guarde y compruebe la tabla en el panel.
+- Cambie una tarifa y compruebe que **las motos ya registradas no cambian**: el precio se
+  copia al registrarlas.
+
+---
+
 ## Lo que este módulo no hace
 
 Dígalo antes de que lo pregunten, que es mejor que descubrirlo:
@@ -385,6 +438,9 @@ Dígalo antes de que lo pregunten, que es mejor que descubrirlo:
   siempre.
 - **No hay modo sin conexión.** El registro necesita señal. Lo que aguanta sin ella es la
   foto, que sube después.
+- **El Excel de antes y los tres reportes en hoja se quedan en el panel.** Desde el teléfono
+  sale la hoja de un corte en PDF, que es la que se manda al contratista; escoger un `.xlsx`
+  del teléfono y revisar 300 filas en una pantalla de cinco pulgadas no es trabajo de app.
 
 ---
 
