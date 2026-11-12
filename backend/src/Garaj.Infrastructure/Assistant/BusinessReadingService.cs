@@ -36,6 +36,10 @@ public class BusinessReadingService(
     public async Task<IReadOnlyList<BusinessReadingListItemDto>> ListAsync(
         CancellationToken ct = default)
     {
+        // El módulo antes que el rol, aquí y en las demás: al taller que no lo tiene se le
+        // responde que no existe, no que no le toca. Leer lo que ya se generó tampoco sale
+        // del candado, porque apagar el asistente es apagarlo entero.
+        await EnsureEnabledAsync(ct);
         AccessScope.From(tenantContext).EnsureOwner();
 
         return await db.BusinessReadings
@@ -49,6 +53,7 @@ public class BusinessReadingService(
 
     public async Task<BusinessReadingDto> GetAsync(Guid id, CancellationToken ct = default)
     {
+        await EnsureEnabledAsync(ct);
         AccessScope.From(tenantContext).EnsureOwner();
 
         var fila = await db.BusinessReadings.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct)

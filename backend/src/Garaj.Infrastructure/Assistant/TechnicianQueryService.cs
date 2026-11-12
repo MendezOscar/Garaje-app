@@ -42,6 +42,10 @@ public class TechnicianQueryService(
     public async Task<IReadOnlyList<ConversationListItemDto>> ListAsync(
         Guid workOrderId, CancellationToken ct = default)
     {
+        // También para leer lo de antes: apagarle el asistente a un taller es apagarlo
+        // entero, no solo dejar de dejarle preguntar.
+        await EnsureEnabledAsync(ct);
+
         var scope = AccessScope.From(tenantContext);
 
         if (scope.IsCustomer) throw new ForbiddenException();
@@ -65,6 +69,8 @@ public class TechnicianQueryService(
     public async Task<ConversationDto> GetAsync(
         Guid conversationId, CancellationToken ct = default)
     {
+        await EnsureEnabledAsync(ct);
+
         var conversacion = await BuscarAsync(conversationId, ct);
         var uso = await quota.UsageAsync(ct);
 
