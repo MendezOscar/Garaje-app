@@ -14,9 +14,10 @@ final assemblyPickListsProvider = FutureProvider.autoDispose<AssemblyPickLists>(
   (ref) => ref.watch(assemblyRepositoryProvider).pickLists(),
 );
 
-/// Lo que lleva armado quien está dentro, en el mes corriente.
-final myAssembliesProvider = FutureProvider.autoDispose<MyAssemblies>(
-  (ref) => ref.watch(assemblyRepositoryProvider).mine(),
+/// Lo que lleva armado quien está dentro, con el filtro que esté mirando.
+final myAssembliesProvider =
+    FutureProvider.autoDispose.family<MyAssemblies, AssemblyFilter>(
+  (ref, filtro) => ref.watch(assemblyRepositoryProvider).mine(filtro),
 );
 
 /// Las motos del taller con el filtro que se esté mirando. Del Dueño y del Encargado: al
@@ -101,9 +102,12 @@ class AssemblyRepository {
     return MotorcycleAssembly.fromJson(response.data!);
   }
 
-  Future<MyAssemblies> mine() async {
+  /// Lo que lleva armado quien pregunta. Sin filtro es el mes corriente, que es lo que se
+  /// quiere ver casi siempre; los que arman por tandas necesitan lo demás.
+  Future<MyAssemblies> mine([AssemblyFilter filtro = const AssemblyFilter()]) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/assembly/motorcycles/mine',
+      queryParameters: filtro.toQuery(),
     );
 
     return MyAssemblies.fromJson(response.data!);

@@ -107,10 +107,14 @@ public class MotorcyclesController(IMotorcycleAssemblyService service) : Control
         => Ok(await service.RegisterAsync(request, ct));
 
     /// <summary>Lo que lleva armado quien pregunta, y lo que suma para él.</summary>
+    /// <remarks>
+    /// Los parámetros sueltos de antes —<c>from</c> y <c>to</c>— siguen entrando aquí: el
+    /// enlace de una app vieja es el mismo, y lo que no mande toma su valor por omisión.
+    /// </remarks>
     [HttpGet("mine")]
     public async Task<ActionResult<MyAssembliesDto>> Mine(
-        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
-        => Ok(await service.MineAsync(from, to, ct));
+        [FromQuery] MyAssembliesQuery query, CancellationToken ct)
+        => Ok(await service.MineAsync(query, ct));
 
     /// <summary>
     /// Qué modelo suele llevar una serie como esa, aprendido de lo ya registrado en este

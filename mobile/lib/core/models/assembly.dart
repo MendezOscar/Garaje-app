@@ -112,6 +112,8 @@ class MyAssemblies {
     required this.count,
     required this.pay,
     required this.items,
+    this.page = 1,
+    this.hasMore = false,
   });
 
   factory MyAssemblies.fromJson(Map<String, dynamic> json) => MyAssemblies(
@@ -122,6 +124,8 @@ class MyAssemblies {
         items: (json['items'] as List<dynamic>)
             .map((e) => MotorcycleAssembly.fromJson(e as Map<String, dynamic>))
             .toList(),
+        page: json['page'] as int? ?? 1,
+        hasMore: json['hasMore'] as bool? ?? false,
       );
 
   final DateTime from;
@@ -131,7 +135,12 @@ class MyAssemblies {
   /// Lo que se le debe por esas motos. Es su número, no el del taller.
   /// Lo que lleva ganado. Null cuando lo pregunta el propio técnico.
   final double? pay;
+
+  /// La página que vino. `count` y `pay` son del periodo entero, no de ella: el que arma
+  /// por tandas lleva cientos en un mes y lo que quiere saber es cuántas van.
   final List<MotorcycleAssembly> items;
+  final int page;
+  final bool hasMore;
 }
 
 /// El modelo que probablemente lleva una serie, aprendido de lo ya registrado en el taller.

@@ -175,7 +175,7 @@ public class MotorcycleAssemblyService(
     }
 
     public async Task<MyAssembliesDto> MineAsync(
-        DateOnly? from, DateOnly? to, CancellationToken ct = default)
+        MyAssembliesQuery query, CancellationToken ct = default)
     {
         await EnsureEnabledAsync(ct);
         var scope = EnsureDelTaller();
@@ -183,23 +183,43 @@ public class MotorcycleAssemblyService(
         var hoy = clock.Today();
 
         // Por omisión, el mes corriente: es el periodo con el que se le paga.
-        var desde = from ?? new DateOnly(hoy.Year, hoy.Month, 1);
-        var hasta = to ?? hoy;
+        var desde = query.From ?? new DateOnly(hoy.Year, hoy.Month, 1);
+        var hasta = query.To ?? hoy;
 
         var q = db.MotorcycleAssemblies.AsNoTracking()
             .Where(m => m.TechnicianUserId == scope.UserId
                 && m.AssembledOn >= desde
                 && m.AssembledOn <= hasta);
 
-        var items = await Proyectar(q.OrderByDescending(m => m.AssembledOn)
-            .ThenByDescending(m => m.CreatedAt), scope, ct);
+        if (VinFormatter.Normalize(query.Serial ?? string.Empty) is { Length: > 0 } serie)
+            q = q.Where(m => m.Serial.Contains(serie));
+
+        if (query.WarehouseId is { } bodega) q = q.Where(m => m.WarehouseId == bodega);
+        if (query.ModelId is { } modelo) q = q.Where(m => m.ModelId == modelo);
+
+        // Las dos cifras de arriba son del filtro entero y se piden a la base, no a la
+        // página: el que arma por tandas lleva cientos en un mes y lo que quiere saber es
+        // cuántas van, no cuántas caben en la pantalla.
+        var cuantas = await q.CountAsync(ct);
+
+        var pago = scope.IsManagement
+            ? await q.SumAsync(m => (decimal?)m.TechnicianPay, ct) ?? 0m
+            : 0m;
+
+        var items = await Proyectar(
+            q.OrderByDescending(m => m.AssembledOn)
+                .ThenByDescending(m => m.CreatedAt)
+                .Skip((query.Page - 1) * query.PageSize)
+                .Take(query.PageSize),
+            scope,
+            ct);
 
         // El total va con lo que de verdad lleva cada fila: al técnico le llega nulo, y su
         // pantalla enseña cuántas motos armó y ninguna cifra.
         return new MyAssembliesDto(
-            desde, hasta, items.Count,
-            scope.IsManagement ? items.Sum(i => i.TechnicianPay ?? 0) : 0m,
-            items);
+            desde, hasta, cuantas, pago, items,
+            query.Page, query.PageSize,
+            query.Page * query.PageSize < cuantas);
     }
 
     public async Task<ModelGuessDto> GuessModelAsync(string serial, CancellationToken ct = default)

@@ -167,7 +167,52 @@ public record MyAssembliesDto(
     DateOnly To,
     int Count,
     decimal? Pay,
-    IReadOnlyList<MotorcycleAssemblyDto> Items);
+    IReadOnlyList<MotorcycleAssemblyDto> Items,
+    /// <summary>
+    /// La página que se devolvió y si queda más. <see cref="Count"/> y <see cref="Pay"/>
+    /// siguen siendo del filtro entero, no de la página: lo que el técnico mira arriba es
+    /// cuántas lleva en el periodo, no cuántas caben en una pantalla.
+    /// </summary>
+    int Page = 1,
+    int PageSize = 50,
+    bool HasMore = false);
+
+/// <summary>
+/// Lo que el técnico pregunta de lo suyo. Nace en el mes corriente y sin filtros: es lo que
+/// quiere ver el 90% de las veces.
+/// </summary>
+/// <remarks>
+/// Lleva página porque hay talleres que arman por tandas: cien motos en un día es un martes
+/// normal en un contrato de armado, y traerlas todas de una vez es una respuesta de medio
+/// megabyte para enseñar las diez primeras.
+/// </remarks>
+public record MyAssembliesQuery
+{
+    private const int MaxPageSize = 200;
+
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+
+    /// <summary>Parte de la serie, como se teclea de la calcomanía.</summary>
+    public string? Serial { get; init; }
+
+    public Guid? WarehouseId { get; init; }
+    public Guid? ModelId { get; init; }
+
+    public int Page { get; init; } = 1;
+
+    private readonly int _pageSize = 50;
+    public int PageSize
+    {
+        get => _pageSize;
+        init => _pageSize = value switch
+        {
+            < 1 => 50,
+            > MaxPageSize => MaxPageSize,
+            _ => value
+        };
+    }
+}
 
 /// <summary>
 /// El modelo que probablemente le corresponde a una serie, aprendido de lo ya registrado.
@@ -188,7 +233,7 @@ public interface IMotorcycleAssemblyService
         RegisterMotorcycleRequest request, CancellationToken ct = default);
 
     Task<MyAssembliesDto> MineAsync(
-        DateOnly? from, DateOnly? to, CancellationToken ct = default);
+        MyAssembliesQuery query, CancellationToken ct = default);
 
     Task<ModelGuessDto> GuessModelAsync(string serial, CancellationToken ct = default);
 }

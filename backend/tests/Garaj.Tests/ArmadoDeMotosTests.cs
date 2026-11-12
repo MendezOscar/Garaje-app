@@ -412,7 +412,7 @@ public class ArmadoDeMotosTests
         }
 
         await using var mias = Contexto(taller, AppRoles.Technician, uno, sucursal);
-        var lo_mio = await Registro(mias).MineAsync(null, null);
+        var lo_mio = await Registro(mias).MineAsync(new MyAssembliesQuery());
 
         // Ve sus dos motos y ninguna cifra: lo que gana por moto se liquida en su corte, no
         // en esta pantalla, porque el trato de cada técnico es distinto.
@@ -420,6 +420,33 @@ public class ArmadoDeMotosTests
         Assert.Equal(0m, lo_mio.Pay);
         Assert.All(lo_mio.Items, m => Assert.Null(m.Charge));
         Assert.All(lo_mio.Items, m => Assert.Equal(0m, m.TechnicianPay));
+
+        // La página trae las dos y no hay más que pedir: el contador de arriba y la lista
+        // dicen lo mismo mientras quepan.
+        Assert.Equal(2, lo_mio.Items.Count);
+        Assert.False(lo_mio.HasMore);
+
+        // Con una página de una, el contador sigue diciendo dos: es lo que lleva armado en
+        // el periodo, no lo que cupo en la pantalla.
+        var primera = await Registro(mias).MineAsync(new MyAssembliesQuery { PageSize = 1 });
+
+        Assert.Equal(2, primera.Count);
+        Assert.Single(primera.Items);
+        Assert.True(primera.HasMore);
+
+        var segunda = await Registro(mias)
+            .MineAsync(new MyAssembliesQuery { Page = 2, PageSize = 1 });
+
+        Assert.Single(segunda.Items);
+        Assert.False(segunda.HasMore);
+        Assert.NotEqual(primera.Items[0].Id, segunda.Items[0].Id);
+
+        // Y el filtro por serie encuentra la que se teclea de la calcomanía, en minúsculas y
+        // a medias, que es como se teclea.
+        var buscada = await Registro(mias)
+            .MineAsync(new MyAssembliesQuery { Serial = "rt000001" });
+
+        Assert.Equal(1, buscada.Count);
     }
 
     /// <summary>

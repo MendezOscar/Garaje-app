@@ -272,16 +272,15 @@ class _WorkshopAssembliesScreenState extends ConsumerState<WorkshopAssembliesScr
                   );
                 }
 
-                if (!p.hayMas) return const SizedBox(height: 8);
+                if (!p.hayMas && p.page == 1) return const SizedBox(height: 8);
 
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: OutlinedButton(
-                    onPressed: () => setState(
-                      () => _filtro = _filtro.copyWith(page: _filtro.page + 1),
-                    ),
-                    child: Text('Ver más (${p.total - p.items.length} restantes)'),
-                  ),
+                // Páginas y no un «ver más» que apila: con una tanda de mil, apilar deja al
+                // teléfono cargando una lista que nadie recorre con el dedo.
+                return _Paginas(
+                  pagina: p.page,
+                  de: (p.total / p.pageSize).ceil(),
+                  onCambiar: (pagina) =>
+                      setState(() => _filtro = _filtro.copyWith(page: pagina)),
                 );
               }
 
@@ -362,6 +361,41 @@ class _Linea extends StatelessWidget {
             ),
           ),
           Text(money(valor, 'HNL'), style: estilo),
+        ],
+      ),
+    );
+  }
+}
+
+/// El pie para moverse entre páginas. Los totales de arriba son del filtro entero, así que
+/// cambiar de página no cambia ninguna cifra: solo qué motos se están leyendo.
+class _Paginas extends StatelessWidget {
+  const _Paginas({required this.pagina, required this.de, required this.onCambiar});
+
+  final int pagina;
+  final int de;
+  final ValueChanged<int> onCambiar;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            tooltip: 'Anterior',
+            icon: const Icon(Icons.chevron_left),
+            onPressed: pagina <= 1 ? null : () => onCambiar(pagina - 1),
+          ),
+          Text('Página $pagina de $de', style: theme.textTheme.bodySmall),
+          IconButton(
+            tooltip: 'Siguiente',
+            icon: const Icon(Icons.chevron_right),
+            onPressed: pagina >= de ? null : () => onCambiar(pagina + 1),
+          ),
         ],
       ),
     );
