@@ -444,9 +444,91 @@ async function quitarLogo() {
   }
 }
 
+/**
+ * El alta y la edición de sucursales.
+ *
+ * El código prefija los correlativos de orden, cotización y venta —`COT-SUR-000045`—, así que
+ * es único en el taller y cambiarlo después deja los documentos viejos con un prefijo que ya
+ * no corresponde a nadie. Por eso se pide al crearla y se avisa al editarla.
+ */
+const sucursal = ref<{
+  id: string | null
+  name: string
+  code: string
+  address: string
+  city: string
+  phone: string
+  isActive: boolean
+} | null>(null)
+
+/** Solo las que están trabajando: a una dada de baja no se le registra un CAI nuevo. */
+const sucursalesActivas = computed(() => branches.value.filter((b) => b.isActive))
+
+const guardandoSucursal = ref(false)
+const errorSucursal = ref('')
+
+function nuevaSucursal() {
+  errorSucursal.value = ''
+  sucursal.value = {
+    id: null,
+    name: '',
+    code: '',
+    address: '',
+    city: '',
+    phone: '',
+    isActive: true,
+  }
+}
+
+function editarSucursal(b: Branch) {
+  errorSucursal.value = ''
+  sucursal.value = {
+    id: b.id,
+    name: b.name,
+    code: b.code ?? '',
+    address: b.address ?? '',
+    city: b.city ?? '',
+    phone: b.phone ?? '',
+    isActive: b.isActive,
+  }
+}
+
+async function guardarSucursal() {
+  const f = sucursal.value
+  if (!f) return
+
+  guardandoSucursal.value = true
+  errorSucursal.value = ''
+  try {
+    const body = {
+      name: f.name.trim(),
+      code: f.code.trim() || null,
+      address: f.address.trim() || null,
+      city: f.city.trim() || null,
+      phone: f.phone.trim() || null,
+      isActive: f.isActive,
+    }
+
+    if (f.id) {
+      await branchesApi.update(f.id, body)
+    } else {
+      await branchesApi.create(body)
+    }
+
+    // Inactivas incluidas: la que se acaba de dar de baja tiene que seguir a la vista para
+    // poder volver a encenderla.
+    branches.value = await branchesApi.list(true)
+    sucursal.value = null
+  } catch (e) {
+    errorSucursal.value = errorMessage(e, 'No se pudo guardar la sucursal.')
+  } finally {
+    guardandoSucursal.value = false
+  }
+}
+
 onMounted(async () => {
   await load()
-  branches.value = await branchesApi.list().catch(() => [])
+  branches.value = await branchesApi.list(true).catch(() => [])
   nuevoRango.value.branchId = branches.value[0]?.id ?? ''
   await loadFiscal()
 })
@@ -556,6 +638,99 @@ onMounted(async () => {
               </button>
             </div>
           </template>
+        </section>
+
+        <section class="card">
+          <h2>Sucursales</h2>
+          <p class="muted small ayuda">
+            Cada una lleva sus órdenes, su caja y su rango de facturación. El código prefija
+            los correlativos —«COT-SUR-000045»—, así que conviene que sea corto y que no
+            cambie después.
+          </p>
+
+          <ul class="sucursales">
+            <li v-for="b in branches" :key="b.id">
+              <div>
+                <strong>{{ b.name }}</strong>
+                <small class="muted">
+                  {{
+                    [b.code, b.city, b.phone, b.isActive ? null : 'dada de baja']
+                      .filter(Boolean)
+                      .join(' · ') || 'sin código'
+                  }}
+                </small>
+              </div>
+              <button type="button" class="btn-ghost" @click="editarSucursal(b)">Editar</button>
+            </li>
+          </ul>
+
+          <button
+            v-if="!sucursal"
+            type="button"
+            class="btn-ghost"
+            @click="nuevaSucursal"
+          >
+            Agregar una sucursal
+          </button>
+
+          <!-- El formulario sale debajo de la lista, como el de corregir una moto: en una
+               tarjeta chica un modal tapa justo lo que se está copiando. -->
+          <div v-if="sucursal" class="alta">
+            <div class="row">
+              <label>
+                Nombre
+                <input v-model="sucursal.name" maxlength="150" placeholder="Sucursal Sur" />
+              </label>
+              <label>
+                Código
+                <input v-model="sucursal.code" maxlength="20" placeholder="SUR" />
+                <small class="muted">
+                  {{
+                    sucursal.id
+                      ? 'Cambiarlo no reescribe los documentos ya emitidos.'
+                      : 'Va en el número de cada orden, cotización y factura.'
+                  }}
+                </small>
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Ciudad
+                <input v-model="sucursal.city" maxlength="100" />
+              </label>
+              <label>
+                Teléfono
+                <input v-model="sucursal.phone" maxlength="30" />
+              </label>
+            </div>
+            <label>
+              Dirección
+              <input v-model="sucursal.address" maxlength="300" />
+              <small class="muted">Es la del establecimiento que emite: va en la factura.</small>
+            </label>
+
+            <label v-if="sucursal.id" class="checkbox">
+              <input v-model="sucursal.isActive" type="checkbox" />
+              Activa
+            </label>
+            <p v-if="sucursal.id && !sucursal.isActive" class="muted small ayuda">
+              Dada de baja deja de salir al recibir un vehículo o al facturar. Lo que ya tiene
+              se queda donde está.
+            </p>
+
+            <p v-if="errorSucursal" class="error">{{ errorSucursal }}</p>
+
+            <div class="actions">
+              <button
+                type="button"
+                :disabled="guardandoSucursal || !sucursal.name.trim()"
+                @click="guardarSucursal"
+              >
+                {{ guardandoSucursal ? 'Guardando…' : 'Guardar' }}
+              </button>
+              <button type="button" class="btn-ghost" @click="sucursal = null">Cancelar</button>
+            </div>
+          </div>
         </section>
 
         <section class="card">
@@ -820,7 +995,9 @@ onMounted(async () => {
         <label>
           Sucursal
           <select v-model="nuevoRango.branchId" required>
-            <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+            <option v-for="b in sucursalesActivas" :key="b.id" :value="b.id">
+              {{ b.name }}
+            </option>
           </select>
         </label>
         <label class="ancho">
@@ -1140,6 +1317,40 @@ h1 {
   gap: 0.35rem;
   font-size: 0.8125rem;
   color: var(--text-muted);
+}
+
+.sucursales {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+}
+
+.sucursales li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sucursales strong {
+  display: block;
+  font-weight: 500;
+}
+
+.sucursales small {
+  font-size: 0.8125rem;
+}
+
+/* El alta cuelga de la lista: se ve que es parte de ella y no otra tarjeta. */
+.alta {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* Cada paso lleva dos renglones: lo que es y cuándo se usa. */

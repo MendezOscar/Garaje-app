@@ -12,6 +12,29 @@ para que se entienda qué toca cada cosa.
 Es **lo que se imprime en cada cotización y en cada factura**: nombre comercial, razón social,
 RTN, teléfono, país, correo y dirección.
 
+## Sucursales
+
+**Es del panel, no de la app.** La primera sucursal la trae el taller desde que se da de alta;
+las demás se agregan aquí, con **Agregar una sucursal**.
+
+Cada sucursal lleva sus órdenes, su caja y su rango de facturación aparte. Lo único que hay
+que pensar antes de guardar es el **código**: prefija los correlativos de esa sucursal
+—«COT-SUR-000045»—, así que conviene corto y conviene que no cambie, porque los documentos
+que ya salieron lo llevan impreso.
+
+Una sucursal no se borra: se **da de baja**. Deja de salir al recibir un vehículo y al
+facturar, y lo que ya tiene se queda donde está.
+
+## Pasos de la orden
+
+Recibida, En proceso y Entregada siempre están. Los otros cinco —En diagnóstico, Esperando
+aprobación, Esperando repuestos, En pruebas y Lista para entrega— se apagan si el taller no
+los usa; el flujo que queda se ve ahí mismo mientras se eligen.
+
+Dos no se dejan apagar y la pantalla dice por qué: *Lista para entrega* mientras el taller
+cobre bodegaje, porque de ese aviso sale la fecha del cobro, y *Esperando aprobación* mientras
+el técnico no vea precios, porque es donde deja la orden para que el Dueño se lo ponga.
+
 ## Cómo cobra el taller
 
 Lo que el sistema propone al cotizar y al facturar. Todo se puede cambiar trabajo por trabajo.

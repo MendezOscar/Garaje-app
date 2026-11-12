@@ -3,6 +3,7 @@ using Garaj.Application.Appointments;
 using Garaj.Application.Assembly;
 using Garaj.Application.Assistant;
 using Garaj.Application.Auth;
+using Garaj.Application.Branches;
 using Garaj.Application.Customers;
 using Garaj.Application.Inventory;
 using Garaj.Application.Media;
@@ -427,6 +428,26 @@ public class SavePlatformFiscalRangeValidator : AbstractValidator<SavePlatformFi
         RuleFor(x => x.RangeEnd)
             .GreaterThanOrEqualTo(x => x.RangeStart)
             .WithMessage("El final del rango no puede ser menor que el inicio.");
+    }
+}
+
+/// <summary>
+/// La sucursal. Los topes son los de las columnas: lo que no entra en la base tiene que
+/// rebotar en la puerta con un mensaje, no 500 páginas más adentro.
+/// </summary>
+public class SaveBranchValidator : AbstractValidator<SaveBranchRequest>
+{
+    public SaveBranchValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("La sucursal necesita un nombre.")
+            .MaximumLength(150);
+
+        // El código prefija los correlativos de orden, cotización y venta: corto a propósito.
+        RuleFor(x => x.Code).MaximumLength(20);
+        RuleFor(x => x.Address).MaximumLength(300);
+        RuleFor(x => x.City).MaximumLength(100);
+        RuleFor(x => x.Phone).MaximumLength(30);
     }
 }
 

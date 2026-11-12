@@ -106,6 +106,37 @@ export const branchesApi = {
     const { data } = await api.get<Branch[]>('/api/branches', { params: { includeInactive } })
     return data
   },
+  /**
+   * Da de alta una sucursal. Solo el Dueño.
+   *
+   * El `code` prefija los correlativos de orden, cotización y venta de esa sucursal, así que
+   * es único en el taller y no se cambia a la ligera: las que ya salieron lo llevan impreso.
+   */
+  async create(body: {
+    name: string
+    code?: string | null
+    address?: string | null
+    city?: string | null
+    phone?: string | null
+    isActive?: boolean
+  }): Promise<Branch> {
+    const { data } = await api.post<Branch>('/api/branches', body)
+    return data
+  },
+  async update(
+    id: string,
+    body: {
+      name: string
+      code?: string | null
+      address?: string | null
+      city?: string | null
+      phone?: string | null
+      isActive?: boolean
+    },
+  ): Promise<Branch> {
+    const { data } = await api.put<Branch>(`/api/branches/${id}`, body)
+    return data
+  },
 }
 
 export const usersApi = {
