@@ -3529,6 +3529,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("booking_token");
 
+                    b.Property<int?>("BranchLimit")
+                        .HasColumnType("integer")
+                        .HasColumnName("branch_limit");
+
                     b.Property<bool>("ChargesStorage")
                         .HasColumnType("boolean")
                         .HasColumnName("charges_storage");

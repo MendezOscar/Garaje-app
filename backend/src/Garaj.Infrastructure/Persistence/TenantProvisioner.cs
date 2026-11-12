@@ -97,6 +97,7 @@ public class TenantProvisioner(
             Plan = request.Plan,
             PlanName = Planes.NombreDe(request.Plan),
             TechnicianLimit = Planes.TecnicosDe(request.Plan),
+            BranchLimit = Planes.SucursalesDe(request.Plan),
             DiagnosticsEnabled = Planes.DiagnosticoDe(request.Plan),
             // El asistente nace del plan, pero no se enciende de verdad hasta que el servidor
             // tenga la llave del modelo: sin ella la cuota lo da por apagado en todos lados.

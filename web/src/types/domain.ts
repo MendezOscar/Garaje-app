@@ -1471,6 +1471,8 @@ export interface TenantSettings {
   assistantCreditsPerDay: number
   /** Los pasos opcionales que usa el taller, como máscara. `All` es el flujo completo. */
   workOrderSteps: WorkOrderSteps
+  /** Cuántas sucursales activas puede tener. Null es sin tope. Solo lectura. */
+  branchLimit: number | null
 }
 
 /**
@@ -1502,6 +1504,8 @@ export interface PlatformTenant {
   plan: SubscriptionPlan
   /** Tope de técnicos activos. Null es sin tope: el plan Pro y los talleres de antes. */
   technicianLimit: number | null
+  /** Tope de sucursales activas. Null es sin tope. La cuota del Básico es por una. */
+  branchLimit: number | null
   /** Si tiene el módulo de diagnóstico con escáner. */
   diagnosticsEnabled: boolean
   /** Si tiene el asistente. Es otro interruptor: el de arriba es el del escáner. */

@@ -464,6 +464,14 @@ const sucursal = ref<{
 /** Solo las que están trabajando: a una dada de baja no se le registra un CAI nuevo. */
 const sucursalesActivas = computed(() => branches.value.filter((b) => b.isActive))
 
+/**
+ * Si le cabe otra. El servidor lo vuelve a comprobar; esto es para no ofrecer un botón que
+ * solo puede terminar en «escríbanos».
+ */
+const cabeOtraSucursal = computed(
+  () => ficha.value?.branchLimit == null || sucursalesActivas.value.length < ficha.value.branchLimit,
+)
+
 const guardandoSucursal = ref(false)
 const errorSucursal = ref('')
 
@@ -665,13 +673,21 @@ onMounted(async () => {
           </ul>
 
           <button
-            v-if="!sucursal"
+            v-if="!sucursal && cabeOtraSucursal"
             type="button"
             class="btn-ghost"
             @click="nuevaSucursal"
           >
             Agregar una sucursal
           </button>
+
+          <p v-else-if="!sucursal" class="muted small">
+            Su plan incluye
+            <strong>
+              {{ ficha?.branchLimit === 1 ? 'una sucursal' : `${ficha?.branchLimit} sucursales` }}
+            </strong>
+            y ya las tiene. Para abrir otra, escríbanos: se cobra aparte.
+          </p>
 
           <!-- El formulario sale debajo de la lista, como el de corregir una moto: en una
                tarjeta chica un modal tapa justo lo que se está copiando. -->

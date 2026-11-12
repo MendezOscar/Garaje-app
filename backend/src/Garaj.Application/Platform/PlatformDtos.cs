@@ -38,6 +38,8 @@ public record PlatformTenantDto(
     // estos dos son los que mandan, y se ajustan sin moverlo de plan.
     SubscriptionPlan Plan = SubscriptionPlan.Legacy,
     int? TechnicianLimit = null,
+    /// <summary>Tope de sucursales activas. Null es sin tope.</summary>
+    int? BranchLimit = null,
     bool DiagnosticsEnabled = false,
     /// <summary>
     /// El asistente, con sus créditos y su tope de gasto. Aquí sí sale el tope en lempiras:
@@ -213,6 +215,11 @@ public record UpdateSubscriptionRequest(
     DateOnly? PaidThrough,
     int GraceDays,
     int? TechnicianLimit = null,
+    /// <summary>
+    /// Tope de sucursales activas. Null es sin tope. Se ignora cuando el plan cambia en esta
+    /// misma llamada: ahí manda el plan.
+    /// </summary>
+    int? BranchLimit = null,
     bool DiagnosticsEnabled = false,
     bool AssistantEnabled = false,
     int AssistantCreditsPerMonth = 0,

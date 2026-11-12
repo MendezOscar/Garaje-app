@@ -427,7 +427,8 @@ public class TenantService(
         tenant.AssistantEnabled,
         tenant.AssistantCreditsPerMonth,
         tenant.AssistantCreditsPerDay,
-        tenant.WorkOrderSteps);
+        tenant.WorkOrderSteps,
+        tenant.BranchLimit);
 
     /// <summary>
     /// Los dos pasos que no se pueden apagar según cómo esté configurado el taller.
