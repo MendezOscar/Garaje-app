@@ -45,12 +45,27 @@ const aviso = ref('')
 /** Qué se está mirando. Por confirmar es lo primero: es lo único que espera una respuesta. */
 const pestana = ref<'porConfirmar' | 'hoy' | 'semana' | 'todas'>('porConfirmar')
 
+/**
+ * Cómo se miran las citas. El calendario es lo primero que ve el dueño: la agenda de un
+ * taller se entiende por día, no por renglón. La lista queda para trabajar la bandeja.
+ */
+const vista = ref<'calendario' | 'lista'>('calendario')
+
+/** Si el mes trajo más citas de las que caben en una página. */
+const recortadas = ref(false)
+
 /** La ventana abierta: confirmar o rechazar una cita, o anotar una nueva. */
 const ventana = ref<'confirmar' | 'rechazar' | 'nueva' | null>(null)
 const enMano = ref<Appointment | null>(null)
 
 const hoy = new Date()
 const hoyISO = isoDe(hoy)
+
+/** Primer día del mes que se está mirando en el calendario. */
+const mesVisible = ref(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
+
+/** El día abierto debajo del calendario. Es el que manda sobre la lista. */
+const diaElegido = ref(hoyISO)
 
 const confirmacion = ref({ day: '', slot: AppointmentSlot.Morning as AppointmentSlot, note: '' })
 const motivo = ref('')
@@ -82,7 +97,138 @@ const finDeSemana = computed(() => {
   return isoDe(d)
 })
 
+const MESES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+]
+
+/** Domingo primero, como el calendario de pared. */
+const INICIALES = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
+
+const tituloDelMes = computed(
+  () => `${MESES[mesVisible.value.getMonth()]} ${mesVisible.value.getFullYear()}`,
+)
+
+/**
+ * La rejilla que se dibuja: desde el domingo anterior al día uno hasta completar la última
+ * semana. Al servidor se le pide este rango entero —no el mes— para que las casillas de
+ * orilla, que son días de verdad, no salgan vacías teniendo cita.
+ */
+const rejilla = computed(() => {
+  const primero = mesVisible.value
+  const arranque = new Date(primero)
+  arranque.setDate(1 - primero.getDay())
+
+  const diasDelMes = new Date(primero.getFullYear(), primero.getMonth() + 1, 0).getDate()
+  const cuantas = Math.ceil((primero.getDay() + diasDelMes) / 7)
+
+  return { arranque, cuantas }
+})
+
+const rango = computed(() => {
+  const { arranque, cuantas } = rejilla.value
+  const ultimo = new Date(arranque)
+  ultimo.setDate(arranque.getDate() + cuantas * 7 - 1)
+  return { desde: isoDe(arranque), hasta: isoDe(ultimo) }
+})
+
+/** Las citas agrupadas por día, que es como las pide el calendario. */
+const porDia = computed(() => {
+  const mapa = new Map<string, Appointment[]>()
+
+  for (const cita of citas.value) {
+    const lista = mapa.get(cita.day)
+    if (lista) lista.push(cita)
+    else mapa.set(cita.day, [cita])
+  }
+
+  // Dentro del día, la mañana antes que la tarde.
+  for (const lista of mapa.values()) lista.sort((a, b) => a.slot - b.slot)
+
+  return mapa
+})
+
+/** Una casilla del calendario. */
+type DiaDelMes = {
+  iso: string
+  numero: number
+  delMes: boolean
+  esHoy: boolean
+  citas: Appointment[]
+}
+
+const semanas = computed(() => {
+  const { arranque, cuantas } = rejilla.value
+  const filas: DiaDelMes[][] = []
+
+  for (let fila = 0; fila < cuantas; fila++) {
+    const dias: DiaDelMes[] = []
+
+    for (let columna = 0; columna < 7; columna++) {
+      const fecha = new Date(arranque)
+      fecha.setDate(arranque.getDate() + fila * 7 + columna)
+      const iso = isoDe(fecha)
+
+      dias.push({
+        iso,
+        numero: fecha.getDate(),
+        delMes: fecha.getMonth() === mesVisible.value.getMonth(),
+        esHoy: iso === hoyISO,
+        citas: porDia.value.get(iso) ?? [],
+      })
+    }
+
+    filas.push(dias)
+  }
+
+  return filas
+})
+
+/** Lo que espera respuesta en lo que se está mirando. Es el único número que apura. */
+const porConfirmar = computed(
+  () => citas.value.filter((c) => c.status === AppointmentStatus.Requested).length,
+)
+
+function moverMes(cuantos: number) {
+  const destino = new Date(mesVisible.value.getFullYear(), mesVisible.value.getMonth() + cuantos, 1)
+  mesVisible.value = destino
+
+  // El día abierto sigue al mes: si es el mes corriente vuelve a hoy, si no, al día uno.
+  diaElegido.value =
+    destino.getFullYear() === hoy.getFullYear() && destino.getMonth() === hoy.getMonth()
+      ? hoyISO
+      : isoDe(destino)
+}
+
+/** Saltar del calendario a la bandeja, con la pestaña que importa ya puesta. */
+function verLasQueEsperan() {
+  pestana.value = 'porConfirmar'
+  vista.value = 'lista'
+}
+
+function alDiaDeHoy() {
+  mesVisible.value = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+  diaElegido.value = hoyISO
+}
+
+/** El rótulo del chip dentro de la casilla: quién, sin el apellido, que no cabe. */
+function primerNombre(cita: Appointment) {
+  return cita.contactName.trim().split(/\s+/)[0] || cita.contactName
+}
+
 const visibles = computed(() => {
+  if (vista.value === 'calendario') return porDia.value.get(diaElegido.value) ?? []
+
   switch (pestana.value) {
     case 'porConfirmar':
       return citas.value.filter((c) => c.status === AppointmentStatus.Requested)
@@ -114,11 +260,22 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await appointmentsApi.list({
-      branchId: branchId.value || undefined,
-      pageSize: 100,
-    })
+    // El calendario pide el mes entero y con lo ya cerrado: un día de la semana pasada sin
+    // sus citas atendidas se vería libre, y no lo estaba. La lista sigue siendo la bandeja:
+    // de hoy en adelante y solo lo que sigue vivo.
+    const result = await appointmentsApi.list(
+      vista.value === 'calendario'
+        ? {
+            branchId: branchId.value || undefined,
+            from: rango.value.desde,
+            to: rango.value.hasta,
+            includeClosed: true,
+            pageSize: 200,
+          }
+        : { branchId: branchId.value || undefined, pageSize: 100 },
+    )
     citas.value = result.items
+    recortadas.value = result.total > result.items.length
   } catch (e) {
     error.value = errorMessage(e, 'No se pudieron cargar las citas.')
   } finally {
@@ -229,9 +386,9 @@ function esHoy(cita: Appointment) {
   return cita.day === hoyISO
 }
 
-// Al cambiar de sucursal en el menú, esta pantalla vuelve a pedir lo suyo.
+// Al cambiar de sucursal en el menú, de mes o de vista, esta pantalla vuelve a pedir lo suyo.
 
-watch(branchId, load)
+watch([branchId, vista, () => rango.value.desde], load)
 
 
 onMounted(async () => {
@@ -255,6 +412,18 @@ onMounted(async () => {
         </p>
       </div>
       <div class="filtros">
+        <div class="cambio" role="group" aria-label="Cómo ver las citas">
+          <button
+            type="button"
+            :class="{ activa: vista === 'calendario' }"
+            @click="vista = 'calendario'"
+          >
+            Calendario
+          </button>
+          <button type="button" :class="{ activa: vista === 'lista' }" @click="vista = 'lista'">
+            Lista
+          </button>
+        </div>
         <button type="button" @click="abrirNueva">Anotar una cita</button>
       </div>
     </header>
@@ -263,7 +432,7 @@ onMounted(async () => {
     <p v-if="aviso" class="notice">{{ aviso }}</p>
 
     <div class="panel">
-      <div class="pestanas">
+      <div v-if="vista === 'lista'" class="pestanas">
         <button
           v-for="p in pestanas"
           :key="p.key"
@@ -277,16 +446,108 @@ onMounted(async () => {
         </button>
       </div>
 
-      <SkeletonList v-if="loading" :rows="4" variant="lista" />
-      <p v-else-if="!visibles.length" class="vacio muted">
+      <template v-else>
+        <div class="mes">
+          <button type="button" class="icono" title="Mes anterior" @click="moverMes(-1)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="m15 5-7 7 7 7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+
+          <strong class="titulo">{{ tituloDelMes }}</strong>
+
+          <button type="button" class="icono" title="Mes siguiente" @click="moverMes(1)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="m9 5 7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+
+          <button type="button" class="btn-ghost btn-sm" @click="alDiaDeHoy">Hoy</button>
+
+          <span class="separa" />
+
+          <button
+            v-if="porConfirmar"
+            type="button"
+            class="aguardan"
+            title="Ver las que esperan respuesta"
+            @click="verLasQueEsperan"
+          >
+            {{ porConfirmar }} por confirmar
+          </button>
+        </div>
+
+        <SkeletonList v-if="loading" :rows="5" variant="lista" />
+
+        <div v-else class="calendario">
+          <div class="encabezado">
+            <span v-for="(inicial, i) in INICIALES" :key="i">{{ inicial }}</span>
+          </div>
+
+          <div v-for="(semana, f) in semanas" :key="f" class="semana">
+            <button
+              v-for="dia in semana"
+              :key="dia.iso"
+              type="button"
+              class="celda"
+              :class="{ fuera: !dia.delMes, hoy: dia.esHoy, elegido: dia.iso === diaElegido }"
+              @click="diaElegido = dia.iso"
+            >
+              <span class="numero">{{ dia.numero }}</span>
+
+              <span
+                v-for="cita in dia.citas.slice(0, 3)"
+                :key="cita.id"
+                class="chip"
+                :class="`s${cita.status}`"
+              >
+                <span class="franja">{{
+                  cita.slot === AppointmentSlot.Morning ? 'AM' : 'PM'
+                }}</span>
+                {{ primerNombre(cita) }}
+              </span>
+
+              <span v-if="dia.citas.length > 3" class="mas">+{{ dia.citas.length - 3 }} más</span>
+            </button>
+          </div>
+        </div>
+
+        <p v-if="recortadas" class="recorte muted small">
+          Este mes tiene más citas de las que caben de un golpe. Use la lista para verlas todas.
+        </p>
+
+        <h2 class="delDia">
+          {{ formatDay(diaElegido) }}
+          <span class="muted small">
+            {{ visibles.length }} {{ visibles.length === 1 ? 'cita' : 'citas' }}
+          </span>
+        </h2>
+      </template>
+
+      <SkeletonList v-if="loading && vista === 'lista'" :rows="4" variant="lista" />
+      <p v-else-if="!loading && !visibles.length" class="vacio muted">
         {{
-          pestana === 'porConfirmar'
-            ? 'Ninguna cita espera respuesta. Al día.'
-            : 'No hay citas en este periodo.'
+          vista === 'calendario'
+            ? 'Ese día está libre.'
+            : pestana === 'porConfirmar'
+              ? 'Ninguna cita espera respuesta. Al día.'
+              : 'No hay citas en este periodo.'
         }}
       </p>
 
-      <ul v-else class="citas">
+      <ul v-else-if="!loading" class="citas">
         <li v-for="cita in visibles" :key="cita.id" :class="{ hoy: esHoy(cita) }">
           <span class="dia">
             <strong>{{ formatDay(cita.day) }}</strong>
@@ -584,6 +845,211 @@ h1 {
   background: color-mix(in srgb, var(--brand) 10%, transparent);
   color: var(--brand);
   font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ el calendario */
+
+.cambio {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cambio button {
+  padding: 0.35rem 0.85rem;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.cambio button.activa {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.mes {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mes .titulo {
+  min-width: 10rem;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.mes .separa {
+  flex: 1;
+}
+
+.aguardan {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.calendario {
+  padding: 0.75rem 0.875rem 0.5rem;
+}
+
+.encabezado,
+.semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.encabezado {
+  margin-bottom: 0.25rem;
+}
+
+.encabezado span {
+  padding: 0.15rem 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.semana + .semana {
+  margin-top: 0.25rem;
+}
+
+.celda {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+  min-height: 5.25rem;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.celda:hover {
+  background: var(--surface-alt);
+}
+
+/* Los días del mes vecino siguen siendo días: se ven, pero no compiten. */
+.celda.fuera {
+  background: color-mix(in srgb, var(--surface-alt) 55%, transparent);
+  opacity: 0.6;
+}
+
+.celda.hoy .numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-accent);
+}
+
+.celda.elegido {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.numero {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip .franja {
+  font-size: 0.625rem;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+/* Por confirmar es lo que apura; confirmada ya está hablada; lo cerrado se apaga. */
+.chip.s1 {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning-text);
+}
+
+.chip.s2 {
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  color: var(--brand);
+}
+
+.chip.s3 {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success-text);
+}
+
+.chip.s4,
+.chip.s5 {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.mas {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+.recorte {
+  margin: 0;
+  padding: 0 0.875rem 0.5rem;
+}
+
+/* El día abierto: el renglón que separa el calendario de las citas de ese día. */
+.delDia {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: var(--text-md);
+  text-transform: capitalize;
+}
+
+.delDia .small {
+  text-transform: none;
+}
+
+@media (max-width: 640px) {
+  .celda {
+    min-height: 3.75rem;
+  }
+
+  .chip .franja,
+  .mas {
+    display: none;
+  }
 }
 
 .citas {
