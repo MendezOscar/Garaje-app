@@ -1,6 +1,13 @@
 # Importar presupuestos de peritación en un clic
 
-Documento de diseño. Nada de esto está implementado todavía.
+> **Descartado el 16/11/2026.** Estos XML no se descargan de ningún lado: cada uno es
+> el peritaje de un caso concreto que la aseguradora o el perito le manda al taller. Si
+> nadie se los manda, no hay nada que importar. Tampoco existe una base de tiempos de
+> mano de obra ni de precios por modelo gratuita (GT Motive, Audatex, Mitchell, MOTOR y
+> Alldata la venden por licencia). El documento queda como registro del análisis: si
+> algún día un taller empieza a recibir estos archivos, se retoma desde la fase 0.
+
+Documento de diseño. Nada de esto está implementado.
 
 La idea: el taller recibe de la aseguradora (o del perito) un XML con el presupuesto
 del daño, lo sube a GarajApp y sale una **cotización en borrador** con sus líneas de
