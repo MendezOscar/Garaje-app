@@ -367,7 +367,7 @@ const preguntas = [
         <div class="bar-acciones">
           <RouterLink class="entrar" :to="{ name: 'login' }">Entrar</RouterLink>
           <a class="boton chico" :href="whatsapp" target="_blank" rel="noopener">
-            Escribir por WhatsApp
+            <span class="solo-ancho">Escribir por&nbsp;</span>WhatsApp
           </a>
         </div>
       </div>
@@ -756,6 +756,27 @@ const preguntas = [
   gap: 1.5rem;
 }
 
+/*
+ * La barra es pegajosa: sin esto, el ancla deja el título del bloque escondido debajo de
+ * ella y el que hizo clic cree que no pasó nada.
+ */
+#como,
+#incluye,
+#preguntas {
+  scroll-margin-top: 5.5rem;
+}
+
+/* En el teléfono «Escribir por WhatsApp» parte el botón en dos renglones. */
+.solo-ancho {
+  display: none;
+}
+
+@media (min-width: 26rem) {
+  .solo-ancho {
+    display: inline;
+  }
+}
+
 .anclas a {
   color: var(--text-muted);
   font-size: 0.9375rem;
@@ -1010,7 +1031,7 @@ h1 {
 
 .sellos {
   list-style: none;
-  margin: 1.75rem 0 0;
+  margin: 1.75rem 0 2.5rem;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
