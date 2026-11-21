@@ -98,6 +98,11 @@ sale de la bodega en ese momento. La app muestra cuántos quedan en esa sucursal
 Un repuesto que el taller no tiene se puede cargar **fuera del catálogo**, con su precio, y se
 marca si se compra en casa de repuestos.
 
+**Si ya los cotizó, no los teclee otra vez.** Cuando la orden tiene una cotización con
+repuestos, arriba aparece **«Traer los N de COT-…»**: los copia a la orden con el precio que
+el cliente aprobó. Entran **por confirmar**, porque lo cotizado es una propuesta: no salen de
+la bodega hasta que usted confirme cada uno. Lo que ya estaba cargado no se duplica.
+
 ### Cotizaciones
 
 Para cuando el trabajo hay que aprobarlo antes de hacerlo. Ver

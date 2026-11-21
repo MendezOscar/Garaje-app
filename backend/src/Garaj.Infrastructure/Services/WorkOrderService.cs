@@ -1204,6 +1204,128 @@ public class WorkOrderService(
     }
 
     /// <summary>
+    /// Trae a la orden los repuestos de una cotización suya.
+    ///
+    /// Entran por confirmar, no consumidos: lo cotizado es lo que se le propuso al cliente,
+    /// y puede que ni siquiera haya existencia. Al confirmar cada línea es cuando sale de
+    /// bodega, con la existencia de ese momento.
+    /// </summary>
+    public async Task<ImportQuotePartsResultDto> ImportQuotePartsAsync(
+        Guid workOrderId, ImportQuotePartsRequest request, CancellationToken ct = default)
+    {
+        var scope = AccessScope.From(tenantContext);
+        var order = await FindEditableAsync(workOrderId, scope, ct);
+
+        if (scope.IsCustomer) throw new ForbiddenException("Un cliente no puede cargar repuestos.");
+
+        if (order.Status is WorkOrderStatus.Delivered or WorkOrderStatus.Cancelled)
+            throw new ConflictException(
+                $"La orden está {Describe(order.Status).ToLowerInvariant()}: ya no admite repuestos.");
+
+        // La cotización tiene que ser de esta orden. La de otra orden no existe para aquí.
+        var quote = await db.Quotes
+            .Include(q => q.Lines)
+            .FirstOrDefaultAsync(q => q.Id == request.QuoteId && q.WorkOrderId == workOrderId, ct)
+            ?? throw new NotFoundException("La cotización no es de esta orden.");
+
+        if (quote.Status == QuoteStatus.Rejected)
+            throw new AppException("Esa cotización la rechazó el cliente.");
+
+        var deRepuestos = quote.Lines
+            .Where(l => l.LineType == LineType.Part && l.Quantity > 0)
+            .OrderBy(l => l.Sequence)
+            .ToList();
+
+        if (deRepuestos.Count == 0)
+            throw new AppException("Esa cotización no lleva repuestos.");
+
+        // Lo que ya está en la orden no se vuelve a traer: sería cobrárselo dos veces.
+        var cargados = await db.WorkOrderParts
+            .Where(p => p.WorkOrderId == order.Id)
+            .Select(p => new { p.PartId, p.Description })
+            .ToListAsync(ct);
+
+        var delCatalogo = cargados
+            .Where(p => p.PartId is not null)
+            .Select(p => p.PartId!.Value)
+            .ToHashSet();
+
+        var aMano = cargados
+            .Where(p => p.PartId is null && p.Description != null)
+            .Select(p => p.Description!.Trim().ToLowerInvariant())
+            .ToHashSet();
+
+        // El costo sale del catálogo de hoy, como en cualquier otra carga: la cotización
+        // lleva el precio de venta, nunca lo que al taller le costó.
+        var ids = deRepuestos
+            .Where(l => l.PartId is not null && !l.BoughtOutside)
+            .Select(l => l.PartId!.Value)
+            .Distinct()
+            .ToList();
+
+        var catalogo = await db.Parts
+            .Where(p => ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);
+
+        var nuevas = new List<WorkOrderPart>();
+        var saltadas = 0;
+
+        foreach (var linea in deRepuestos)
+        {
+            // Lo comprado afuera nunca pasó por bodega, así que entra a mano aunque la
+            // cotización lo haya sacado del catálogo.
+            var del = !linea.BoughtOutside && linea.PartId is { } id && catalogo.TryGetValue(id, out var ficha)
+                ? ficha
+                : null;
+
+            var repetida = del is not null
+                ? !delCatalogo.Add(del.Id)
+                : !aMano.Add(linea.Description.Trim().ToLowerInvariant());
+
+            if (repetida)
+            {
+                saltadas++;
+                continue;
+            }
+
+            // El precio es el que el cliente aprobó, con su descuento ya repartido: el total
+            // de la línea entre lo que lleva.
+            var precio = Math.Round(linea.Total / linea.Quantity, 2, MidpointRounding.AwayFromZero);
+
+            nuevas.Add(new WorkOrderPart
+            {
+                WorkOrderId = order.Id,
+                PartId = del?.Id,
+                Description = del is null ? linea.Description.Trim() : null,
+                Quantity = linea.Quantity,
+                UnitPrice = precio < 0 ? 0 : precio,
+                UnitCost = del?.CostPrice ?? 0,
+                BoughtOutside = del is null && linea.BoughtOutside,
+                SupplierName = del is null && linea.BoughtOutside
+                    ? linea.SupplierName?.Trim() is { Length: > 0 } casa ? casa : null
+                    : null,
+                ConfirmedOn = null,
+                ConfirmedByUserId = null
+            });
+        }
+
+        if (nuevas.Count == 0)
+            return new ImportQuotePartsResultDto([], saltadas);
+
+        db.WorkOrderParts.AddRange(nuevas);
+        await db.SaveChangesAsync(ct);
+
+        await AvisarDeLoQueCambioAsync(order, scope, ct);
+
+        var puestas = nuevas.Select(l => l.Id).ToHashSet();
+        var todas = await PartsOfAsync(order.Id, ct);
+
+        return new ImportQuotePartsResultDto(
+            todas.Where(p => puestas.Contains(p.Id)).ToList(),
+            saltadas);
+    }
+
+    /// <summary>
     /// Repuesto del catálogo: sale de la bodega de la sucursal donde está el vehículo, no de
     /// otra. Si no alcanza, ConsumeAsync corta con 409 y la línea no llega a crearse.
     /// </summary>

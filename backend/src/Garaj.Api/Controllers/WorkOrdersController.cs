@@ -256,6 +256,17 @@ public class WorkOrdersController(
         => Ok(await service.AddPartAsync(id, request, ct));
 
     /// <summary>
+    /// Trae a la orden los repuestos de una cotización de esta misma orden. Entran por
+    /// confirmar: nada sale de bodega hasta que el taller confirme cada línea. Lo que ya
+    /// estaba cargado no se duplica, y la respuesta dice cuántas se saltaron.
+    /// </summary>
+    [HttpPost("{id:guid}/parts/from-quote")]
+    [Authorize(Policy = AppPolicies.TechnicianOrOwner)]
+    public async Task<ActionResult<ImportQuotePartsResultDto>> ImportQuoteParts(
+        Guid id, ImportQuotePartsRequest request, CancellationToken ct)
+        => Ok(await service.ImportQuotePartsAsync(id, request, ct));
+
+    /// <summary>
     /// Confirma un repuesto que estaba puesto en la orden sin haber salido de bodega. Es aquí
     /// donde se descuenta, y con la existencia de ahora: si ya no alcanza, corta con 409.
     /// </summary>

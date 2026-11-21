@@ -567,6 +567,17 @@ export const workOrdersApi = {
     return data
   },
   /**
+   * Trae a la orden los repuestos de una de sus cotizaciones. Entran por confirmar: nada sale
+   * de bodega hasta que el taller confirme cada línea. Lo que ya estaba cargado no se duplica.
+   */
+  async importQuoteParts(id: string, quoteId: string) {
+    const { data } = await api.post<{ added: WorkOrderPart[]; skipped: number }>(
+      `/api/work-orders/${id}/parts/from-quote`,
+      { quoteId },
+    )
+    return data
+  },
+  /**
    * Confirma un repuesto que estaba puesto sin haber salido de bodega. Es aquí donde se
    * descuenta, con la existencia de ahora: si ya no alcanza, el servidor corta.
    */

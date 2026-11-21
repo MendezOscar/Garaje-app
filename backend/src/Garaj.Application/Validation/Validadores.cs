@@ -435,6 +435,16 @@ public class SavePlatformFiscalRangeValidator : AbstractValidator<SavePlatformFi
 /// La sucursal. Los topes son los de las columnas: lo que no entra en la base tiene que
 /// rebotar en la puerta con un mensaje, no 500 páginas más adentro.
 /// </summary>
+/// <summary>Traer los repuestos de una cotización a la orden.</summary>
+public class ImportQuotePartsValidator : AbstractValidator<ImportQuotePartsRequest>
+{
+    public ImportQuotePartsValidator()
+    {
+        RuleFor(x => x.QuoteId)
+            .NotEmpty().WithMessage("Diga de qué cotización se traen los repuestos.");
+    }
+}
+
 public class SaveBranchValidator : AbstractValidator<SaveBranchRequest>
 {
     public SaveBranchValidator()
