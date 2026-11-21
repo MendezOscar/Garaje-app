@@ -948,6 +948,7 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | Método | Ruta | Auth | Qué hace |
 | --- | --- | --- | --- |
 | GET | `/api/platform/tenants` | Plataforma | Los talleres, lo que vence primero arriba |
+| GET | `/api/platform/usage?days=` | Plataforma | Uso por taller (7–365 días, 30 por omisión); el que menos se mueve, primero |
 | GET | `/api/platform/tenants/{id}` | Plataforma | Ficha de cobro con el historial de pagos |
 | POST | `/api/platform/tenants` | Plataforma | **Da de alta un taller**, su sucursal y su Dueño |
 | POST | `/api/platform/tenants/{id}/owner` | Plataforma | Le crea un Dueño a un taller que ya existe |

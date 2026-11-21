@@ -1484,6 +1484,34 @@ export interface TenantSettings {
  * Un taller visto desde nuestro lado, el de GarajApp: no lo que hace, sino cómo va con la
  * mensualidad. Solo lo recibe el perfil Plataforma.
  */
+/**
+ * Cómo está usando GarajApp un taller. Contesta tres cosas antes de llamar a nadie: si
+ * entran, si trabajan adentro, y qué partes no tocan.
+ */
+export interface PlatformUsage {
+  id: string
+  name: string
+  isActive: boolean
+  plan: SubscriptionPlan
+  activeUsers: number
+  /** Los que dio de baja. Junto a las órdenes dice si reacomodó o si se está apagando. */
+  inactiveUsers: number
+  technicianCount: number
+  usersSignedIn: number
+  lastLoginAt: string | null
+  workOrders: number
+  workOrdersEver: number
+  lastWorkOrderAt: string | null
+  sales: number
+  billed: number
+  quotes: number
+  photos: number
+  scans: number
+  assistantCalls: number
+  appointments: number
+  motorcycles: number
+}
+
 export interface PlatformTenant {
   id: string
   name: string

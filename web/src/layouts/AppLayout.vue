@@ -192,6 +192,7 @@ const navGroups = computed<
             title: null,
             items: [
               { to: { name: 'platform-tenants' }, label: 'Talleres' },
+              { to: { name: 'platform-usage' }, label: 'Uso' },
               { to: { name: 'platform-billing' }, label: 'Facturación' },
             ],
           },
@@ -238,6 +239,7 @@ const barraAbajo = computed<{ to: object; label: string }[]>(() => {
     case Roles.Platform:
       return [
         { to: { name: 'platform-tenants' }, label: 'Talleres' },
+        { to: { name: 'platform-usage' }, label: 'Uso' },
         { to: { name: 'platform-billing' }, label: 'Facturación' },
       ]
     default:

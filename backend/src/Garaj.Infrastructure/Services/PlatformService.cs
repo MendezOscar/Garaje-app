@@ -1,6 +1,7 @@
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Platform;
+using Garaj.Domain.Common;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Domain.Rules;
@@ -80,6 +81,122 @@ public class PlatformService(
             .ThenBy(t => t.Name)
             .ToList();
     }
+
+    /// <summary>
+    /// El uso de cada taller: si entran, si trabajan adentro y qué partes no tocan.
+    /// </summary>
+    /// <remarks>
+    /// Una consulta agrupada por tabla y no una por taller: con veinte talleres y diez
+    /// métricas serían doscientos viajes para pintar una pantalla. Todas saltan el filtro por
+    /// tenant porque es la plataforma mirando a sus clientes, como el resto de esta sección.
+    /// </remarks>
+    public async Task<IReadOnlyList<PlatformUsageDto>> UsageAsync(
+        int days = 30, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        // Entre una semana y un año: fuera de ahí el número no dice nada y la consulta sí
+        // cuesta.
+        var ventana = Math.Clamp(days, 7, 365);
+        var desde = clock.UtcNow.AddDays(-ventana);
+
+        var tenants = await db.Tenants.IgnoreQueryFilters().AsNoTracking().ToListAsync(ct);
+
+        var tecnicos = await db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => u.IsActive)
+            .Join(db.UserRoles.IgnoreQueryFilters(), u => u.Id, ur => ur.UserId,
+                (u, ur) => new { u.TenantId, ur.RoleId })
+            .Join(
+                db.Roles.IgnoreQueryFilters().Where(r => r.Name == AppRoles.Technician),
+                x => x.RoleId, r => r.Id, (x, r) => x.TenantId)
+            .GroupBy(id => id)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
+        var gente = await db.Users.IgnoreQueryFilters().AsNoTracking()
+            .GroupBy(u => u.TenantId)
+            .Select(g => new
+            {
+                TenantId = g.Key,
+                Activos = g.Count(u => u.IsActive),
+                DeBaja = g.Count(u => !u.IsActive),
+                Entraron = g.Count(u => u.LastLoginAt >= desde),
+                Ultimo = g.Max(u => u.LastLoginAt)
+            })
+            .ToDictionaryAsync(x => x.TenantId, x => x, ct);
+
+        var ordenes = await db.WorkOrders.IgnoreQueryFilters().AsNoTracking()
+            .GroupBy(w => w.TenantId)
+            .Select(g => new
+            {
+                TenantId = g.Key,
+                Siempre = g.Count(),
+                Ventana = g.Count(w => w.OpenedAt >= desde),
+                Ultima = (DateTimeOffset?)g.Max(w => w.OpenedAt)
+            })
+            .ToDictionaryAsync(x => x.TenantId, x => x, ct);
+
+        // Las anuladas no cuentan: una factura anulada no es trabajo, es una corrección.
+        var ventas = await db.Sales.IgnoreQueryFilters().AsNoTracking()
+            .Where(s => s.SaleDate >= desde && s.VoidedAt == null)
+            .GroupBy(s => s.TenantId)
+            .Select(g => new { TenantId = g.Key, Cuantas = g.Count(), Monto = g.Sum(s => s.Total) })
+            .ToDictionaryAsync(x => x.TenantId, x => x, ct);
+
+        var cotizaciones = await ContarAsync(db.Quotes, q => q.CreatedAt >= desde, ct);
+        var fotos = await ContarAsync(db.MediaAttachments, m => m.CreatedAt >= desde, ct);
+        var escaneos = await ContarAsync(db.VehicleScans, e => e.ScannedAt >= desde, ct);
+        var asistente = await ContarAsync(db.AssistantCalls, a => a.CreatedAt >= desde, ct);
+        var citas = await ContarAsync(db.Appointments, c => c.CreatedAt >= desde, ct);
+        var motos = await ContarAsync(db.MotorcycleAssemblies, m => m.CreatedAt >= desde, ct);
+
+        return tenants
+            .Select(t =>
+            {
+                var suGente = gente.GetValueOrDefault(t.Id);
+                var susOrdenes = ordenes.GetValueOrDefault(t.Id);
+                var susVentas = ventas.GetValueOrDefault(t.Id);
+
+                return new PlatformUsageDto(
+                    t.Id,
+                    t.Name,
+                    t.IsActive,
+                    t.Plan,
+                    suGente?.Activos ?? 0,
+                    suGente?.DeBaja ?? 0,
+                    tecnicos.GetValueOrDefault(t.Id),
+                    suGente?.Entraron ?? 0,
+                    suGente?.Ultimo,
+                    susOrdenes?.Ventana ?? 0,
+                    susOrdenes?.Siempre ?? 0,
+                    susOrdenes?.Ultima,
+                    susVentas?.Cuantas ?? 0,
+                    susVentas?.Monto ?? 0m,
+                    cotizaciones.GetValueOrDefault(t.Id),
+                    fotos.GetValueOrDefault(t.Id),
+                    escaneos.GetValueOrDefault(t.Id),
+                    asistente.GetValueOrDefault(t.Id),
+                    citas.GetValueOrDefault(t.Id),
+                    motos.GetValueOrDefault(t.Id));
+            })
+            // El que menos se mueve, arriba: es la lista de a quién hay que llamar.
+            .OrderBy(t => t.WorkOrders)
+            .ThenBy(t => t.Name)
+            .ToList();
+    }
+
+    /// <summary>Cuántas filas de una tabla cayeron en la ventana, por taller.</summary>
+    private static async Task<Dictionary<Guid, int>> ContarAsync<T>(
+        IQueryable<T> tabla, System.Linq.Expressions.Expression<Func<T, bool>> dentro,
+        CancellationToken ct)
+        where T : TenantEntity
+        => await tabla
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(dentro)
+            .GroupBy(x => x.TenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
 
     public async Task<PlatformTenantDetailDto> GetAsync(Guid tenantId, CancellationToken ct = default)
     {
