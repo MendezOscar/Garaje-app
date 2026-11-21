@@ -529,6 +529,14 @@ public interface IWorkOrderService
         Guid workOrderId, AddWorkOrderPartRequest request, CancellationToken ct = default);
 
     /// <summary>
+    /// Copia a la orden los repuestos de una cotización de esta misma orden. Entran
+    /// <b>por confirmar</b>: lo cotizado es una propuesta, así que nada sale de la bodega
+    /// hasta que el taller confirme cada línea.
+    /// </summary>
+    Task<ImportQuotePartsResultDto> ImportQuotePartsAsync(
+        Guid workOrderId, ImportQuotePartsRequest request, CancellationToken ct = default);
+
+    /// <summary>
     /// Confirma una línea que estaba por confirmar: es aquí donde el repuesto sale de bodega.
     /// </summary>
     Task<WorkOrderPartDto> ConfirmPartAsync(

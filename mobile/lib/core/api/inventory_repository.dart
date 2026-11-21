@@ -72,6 +72,30 @@ class InventoryRepository {
     return WorkOrderPart.fromJson(response.data!);
   }
 
+  /// Trae a la orden los repuestos de una de sus cotizaciones. Entran **por confirmar**: lo
+  /// cotizado es la propuesta que se le mandó al cliente, así que nada sale de bodega hasta
+  /// que alguien confirme cada línea. Lo que ya estaba cargado no se duplica.
+  ///
+  /// Devuelve cuántas entraron y cuántas se saltaron por estar ya en la orden.
+  Future<({List<WorkOrderPart> added, int skipped})> importQuoteParts(
+    String workOrderId, {
+    required String quoteId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/parts/from-quote',
+      data: {'quoteId': quoteId},
+    );
+
+    final datos = response.data!;
+
+    return (
+      added: (datos['added'] as List<dynamic>? ?? const [])
+          .map((e) => WorkOrderPart.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      skipped: (datos['skipped'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   Future<void> removePart(String workOrderId, String partLineId) =>
       _dio.delete<void>('/api/work-orders/$workOrderId/parts/$partLineId');
 

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
+import '../../core/api/quote_repository.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/models/inventory.dart';
+import '../../core/models/quote.dart';
 import '../../core/models/work_order.dart';
 import '../../core/widgets/garaj_states.dart';
 
@@ -69,6 +71,41 @@ class PartsSection extends ConsumerWidget {
     }
   }
 
+  /// Trae los repuestos que ya se le cotizaron al cliente, para no teclearlos otra vez.
+  /// Entran por confirmar: lo cotizado es una propuesta y puede que ni haya existencia.
+  Future<void> _fromQuote(BuildContext context, WidgetRef ref, Quote quote) async {
+    try {
+      final r = await ref
+          .read(inventoryRepositoryProvider)
+          .importQuoteParts(order.id, quoteId: quote.id);
+
+      await onChanged();
+
+      if (context.mounted) {
+        final cuantos = r.added.length;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              cuantos == 0
+                  ? 'Esos repuestos ya estaban cargados en la orden.'
+                  : 'Entraron $cuantos ${cuantos == 1 ? 'repuesto' : 'repuestos'}, por confirmar.'
+                      '${r.skipped > 0 ? ' ${r.skipped} ya estaban.' : ''}',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(apiErrorMessage(e, 'No se pudieron traer los repuestos.')),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _remove(BuildContext context, WidgetRef ref, WorkOrderPart line) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -117,6 +154,38 @@ class PartsSection extends ConsumerWidget {
     }
   }
 
+  /// Un botón por cotización de la orden que lleve repuestos. Si las cotizaciones no se
+  /// pudieron leer no pasa nada: esta sección no depende de ellas.
+  List<Widget> _deLasCotizaciones(BuildContext context, WidgetRef ref) {
+    final quotes = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
+
+    final conRepuestos = quotes
+        .where((q) => q.status != QuoteStatus.rejected)
+        .map((q) => (
+              quote: q,
+              cuantos: q.lines.where((l) => l.lineType == LineType.part).length,
+            ))
+        .where((q) => q.cuantos > 0)
+        .toList();
+
+    if (conRepuestos.isEmpty) return const [];
+
+    return [
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final q in conRepuestos)
+            OutlinedButton.icon(
+              onPressed: busy ? null : () => _fromQuote(context, ref, q.quote),
+              icon: const Icon(Icons.file_download_outlined, size: 18),
+              label: Text('Traer los ${q.cuantos} de ${q.quote.number}'),
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+    ];
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -147,6 +216,10 @@ class PartsSection extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
+
+            // Lo que ya se le cotizó al cliente no se vuelve a teclear. Al Técnico el
+            // servidor no le da cotizaciones, así que no le sale ningún botón.
+            ..._deLasCotizaciones(context, ref),
           ],
 
           if (order.parts.isEmpty)

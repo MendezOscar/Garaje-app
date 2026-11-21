@@ -217,6 +217,21 @@ public record AddWorkOrderPartRequest(
     string? SupplierName = null,
     bool Pending = false);
 
+/// <summary>
+/// Trae a la orden los repuestos que ya se le cotizaron al cliente, para no volver a
+/// teclearlos uno por uno.
+/// </summary>
+public record ImportQuotePartsRequest(Guid QuoteId);
+
+/// <param name="Added">Las líneas que entraron, todas por confirmar.</param>
+/// <param name="Skipped">
+/// Cuántas líneas de la cotización se saltaron por estar ya cargadas en la orden. Traer dos
+/// veces el mismo repuesto es cobrárselo dos veces al cliente.
+/// </param>
+public record ImportQuotePartsResultDto(
+    IReadOnlyList<WorkOrderPartDto> Added,
+    int Skipped);
+
 public interface IPartService
 {
     Task<PagedResult<PartDto>> ListAsync(PartQuery query, CancellationToken ct = default);

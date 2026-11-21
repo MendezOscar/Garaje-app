@@ -19,6 +19,11 @@ const props = defineProps<{
    * vehículo —la venta de mostrador— y entonces el interruptor ni aparece.
    */
   vehicleId?: string | null
+  /**
+   * Las cotizaciones de esta orden que llevan repuestos. Son las que se pueden traer de un
+   * tirón, para no volver a teclear lo que ya se le cotizó al cliente.
+   */
+  quotesWithParts?: { id: string; number: string; parts: number }[]
 }>()
 
 const emit = defineEmits<{ changed: [] }>()
@@ -28,6 +33,7 @@ const search = ref('')
 const selectedPartId = ref('')
 const quantity = ref(1)
 const error = ref('')
+const aviso = ref('')
 const busy = ref(false)
 const adding = ref(false)
 
@@ -72,6 +78,30 @@ const listo = computed(() =>
     ? !!concepto.value.trim() && Number(precio.value) >= 0 && precio.value !== ''
     : !!selectedPartId.value,
 )
+
+/**
+ * Trae los repuestos de una cotización. Entran por confirmar: lo cotizado es la propuesta que
+ * se le mandó al cliente, así que nada sale de bodega hasta que alguien confirme cada línea.
+ */
+async function traerDeLaCotizacion(quoteId: string) {
+  busy.value = true
+  error.value = ''
+  aviso.value = ''
+  try {
+    const r = await workOrdersApi.importQuoteParts(props.workOrderId, quoteId)
+
+    aviso.value = r.added.length
+      ? `Entraron ${r.added.length} ${r.added.length === 1 ? 'repuesto' : 'repuestos'}, por confirmar.`
+          + (r.skipped ? ` ${r.skipped} ya estaban cargados.` : '')
+      : 'Esos repuestos ya estaban cargados en la orden.'
+
+    emit('changed')
+  } catch (e) {
+    error.value = errorMessage(e, 'No se pudieron traer los repuestos de la cotización.')
+  } finally {
+    busy.value = false
+  }
+}
 
 async function loadCatalog() {
   try {
@@ -251,6 +281,17 @@ watch(soloLoQueAplica, () => loadCatalog())
     </header>
 
     <ErrorNote v-if="error" :message="error" />
+    <p v-if="aviso" class="aviso small">{{ aviso }}</p>
+
+    <!-- Lo que ya se le cotizó al cliente no se vuelve a teclear. -->
+    <p v-if="canEdit && quotesWithParts?.length" class="de-cotizacion small">
+      <template v-for="(q, i) in quotesWithParts" :key="q.id">
+        <span v-if="i"> · </span>
+        <button type="button" class="link" :disabled="busy" @click="traerDeLaCotizacion(q.id)">
+          Traer los {{ q.parts }} de {{ q.number }}
+        </button>
+      </template>
+    </p>
 
     <p v-if="!parts.length && !adding" class="muted">
       Todavía no se ha cargado ningún repuesto a esta orden.
@@ -439,6 +480,17 @@ watch(soloLoQueAplica, () => loadCatalog())
 </template>
 
 <style scoped>
+.aviso {
+  margin: 0 0 0.5rem;
+  color: var(--success-text);
+}
+
+/* Los enlaces para traer lo ya cotizado. Van arriba de la tabla, antes de teclear nada. */
+.de-cotizacion {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+}
+
 .por-confirmar {
   color: var(--warning, #b45309);
   font-style: normal;

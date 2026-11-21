@@ -687,6 +687,21 @@ function laborOf(quote: QuoteDetail) {
 const quotesWithLabor = computed(() => quotes.value.filter((q) => laborOf(q) > 0))
 
 /**
+ * Las cotizaciones de la orden que llevan repuestos, para poder traerlos de un tirón. Las
+ * rechazadas no: esas el cliente las dijo que no.
+ */
+const quotesWithParts = computed(() =>
+  quotes.value
+    .filter((q) => q.status !== QuoteStatus.Rejected)
+    .map((q) => ({
+      id: q.id,
+      number: q.number,
+      parts: q.lines.filter((l) => l.lineType === LineType.Part).length,
+    }))
+    .filter((q) => q.parts > 0),
+)
+
+/**
  * Si el cliente aprobó una cotización, esa es la mano de obra que espera pagar: cobrarle otra
  * cosa al entregar es donde se pierden los clientes. Si no hay, se cobran los pasos.
  */
@@ -1969,6 +1984,7 @@ onMounted(async () => {
           :can-edit="canEdit"
           :show-cost="auth.isOwner"
           :vehicle-id="order.vehicleId"
+          :quotes-with-parts="quotesWithParts"
           @changed="load"
         />
 
