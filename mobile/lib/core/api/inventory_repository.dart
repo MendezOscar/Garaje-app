@@ -105,11 +105,16 @@ class InventoryRepository {
     String workOrderId,
     String partLineId, {
     required double unitPrice,
+    double? quantity,
     bool updateCatalog = false,
   }) async {
     final response = await _dio.put<Map<String, dynamic>>(
       '/api/work-orders/$workOrderId/parts/$partLineId/price',
-      data: {'unitPrice': unitPrice, 'updateCatalog': updateCatalog},
+      data: {
+        'unitPrice': unitPrice,
+        'quantity': quantity,
+        'updateCatalog': updateCatalog,
+      },
     );
 
     return WorkOrderPart.fromJson(response.data!);

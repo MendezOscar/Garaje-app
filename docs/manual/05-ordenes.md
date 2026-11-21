@@ -109,12 +109,13 @@ aviso —«Esto cambió en la cotización y aquí no»— con lo que dice cada u
 también en la orden. **La factura sale con lo que diga la orden**, no con lo que diga la
 cotización.
 
-Para ajustarlo, en la línea sale **Cambiar precio**, mientras el repuesto no haya salido de
-bodega todavía —o esté en cero—. Si el repuesto es del catálogo, ahí mismo puede marcar
-**«Cambiarlo también en el catálogo»** y el precio queda para las próximas órdenes; eso solo
-lo hace el Dueño. Una línea ya confirmada no se edita: esa es la que de verdad salió de
-bodega, y se arregla quitándola y cargándola de nuevo, para que el kardex cuadre con lo que se
-cobró.
+Para ajustarlo, cada línea tiene **Editar**: cantidad y precio. Si el repuesto es del
+catálogo, ahí mismo puede marcar **«Cambiarlo también en el catálogo»** y el precio queda para
+las próximas órdenes; eso solo lo hace el Dueño.
+
+**Cambiar la cantidad de un repuesto que ya salió de bodega mueve la bodega**: la diferencia
+se descuenta o se devuelve, con su movimiento en el kardex, y la pantalla se lo advierte antes
+de guardar. Si sube la cantidad y no hay existencia, no deja: hay que comprar primero.
 
 ### Cotizaciones
 

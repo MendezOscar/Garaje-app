@@ -29,11 +29,17 @@ const VENTANAS = [
   { dias: 90, label: '90 días' },
 ]
 
-/** Los talleres de prueba no son clientes: ensucian la lista de a quién llamar. */
+/**
+ * Los talleres de prueba no son clientes: ensucian la lista de a quién llamar. Son los que
+ * dejan las pruebas del servidor («Prueba 3F2A…») y los de demostración —«Taller Demo» y
+ * «Taller de equipos demo»—, que se reconocen por llevar «demo» en el nombre.
+ */
 const sinPruebas = ref(true)
 
+const DE_PRUEBA = /^prueba |\bdemo\b/i
+
 const visibles = computed(() =>
-  sinPruebas.value ? filas.value.filter((f) => !/^prueba |^taller demo$/i.test(f.name)) : filas.value,
+  sinPruebas.value ? filas.value.filter((f) => !DE_PRUEBA.test(f.name)) : filas.value,
 )
 
 const activos = computed(() => visibles.value.filter((f) => f.isActive))

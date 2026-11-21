@@ -289,6 +289,72 @@ public class TraerLosRepuestosDeLaCotizacionTests
     }
 
     [RequiereBaseLocal]
+    public async Task Bajar_la_cantidad_de_una_linea_confirmada_devuelve_a_bodega()
+    {
+        var caso = await EscenarioAsync();
+
+        await using var db = Contexto(caso.Taller, caso.Usuario);
+        var servicio = Servicio(db);
+
+        // Dos juegos salen de bodega: quedan uno.
+        var linea = await servicio.AddPartAsync(
+            caso.Orden, new AddWorkOrderPartRequest(caso.Repuesto, 2m, null, null));
+
+        Assert.Equal(1m, await ExistenciaAsync(db, caso.Repuesto));
+
+        // Era uno solo: el otro vuelve.
+        var corregida = await servicio.SetPartPriceAsync(
+            caso.Orden, linea.Id, new SetPartPriceRequest(1200m, null, Quantity: 1m));
+
+        Assert.Equal(1m, corregida.Quantity);
+        Assert.Equal(2m, await ExistenciaAsync(db, caso.Repuesto));
+    }
+
+    [RequiereBaseLocal]
+    public async Task Subirla_descuenta_y_sin_existencia_no_pasa()
+    {
+        var caso = await EscenarioAsync();
+
+        await using var db = Contexto(caso.Taller, caso.Usuario);
+        var servicio = Servicio(db);
+
+        var linea = await servicio.AddPartAsync(
+            caso.Orden, new AddWorkOrderPartRequest(caso.Repuesto, 1m, null, null));
+
+        await servicio.SetPartPriceAsync(
+            caso.Orden, linea.Id, new SetPartPriceRequest(1200m, null, Quantity: 3m));
+
+        Assert.Equal(0m, await ExistenciaAsync(db, caso.Repuesto));
+
+        // Ya no hay de dónde sacar el cuarto.
+        await Assert.ThrowsAnyAsync<AppException>(
+            () => servicio.SetPartPriceAsync(
+                caso.Orden, linea.Id, new SetPartPriceRequest(1200m, null, Quantity: 4m)));
+
+        Assert.Equal(0m, await ExistenciaAsync(db, caso.Repuesto));
+    }
+
+    [RequiereBaseLocal]
+    public async Task La_linea_por_confirmar_cambia_de_cantidad_sin_tocar_la_bodega()
+    {
+        var caso = await EscenarioAsync();
+
+        await using var db = Contexto(caso.Taller, caso.Usuario);
+        var servicio = Servicio(db);
+
+        var traidos = await servicio.ImportQuotePartsAsync(
+            caso.Orden, new ImportQuotePartsRequest(caso.Cotizacion));
+
+        var corregida = await servicio.SetPartPriceAsync(
+            caso.Orden, traidos.Added.Single().Id,
+            new SetPartPriceRequest(1200m, null, Quantity: 5m));
+
+        Assert.Equal(5m, corregida.Quantity);
+        Assert.True(corregida.PorConfirmar);
+        Assert.Equal(3m, await ExistenciaAsync(db, caso.Repuesto));
+    }
+
+    [RequiereBaseLocal]
     public async Task El_catalogo_del_taller_solo_lo_mueve_el_Dueno()
     {
         var caso = await EscenarioAsync();

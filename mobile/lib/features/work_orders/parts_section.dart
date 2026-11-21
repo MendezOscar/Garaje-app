@@ -139,21 +139,22 @@ class PartsSection extends ConsumerWidget {
     }
   }
 
-  /// Corrige el precio de una línea. Hace falta en dos casos: lo que se cargó sin poder
-  /// valorarlo —en cero, y así no se puede facturar— y lo que se trajo de una cotización que
-  /// después cambió.
+  /// Corrige una línea sin quitarla: cantidad y precio. Hace falta en tres casos —lo que se
+  /// cargó sin poder valorarlo, lo que se trajo de una cotización que después cambió, y la
+  /// cantidad que se tecleó mal—.
   ///
-  /// Solo en líneas que todavía no salieron de bodega, o en las que están en cero. Una ya
-  /// confirmada es lo que de verdad se consumió: ahí el precio se arregla quitándola y
-  /// volviéndola a cargar, para que la bodega y el kardex cuadren con lo que se cobró.
-  bool _sePuedeCorregir(WorkOrderPart line) =>
-      canEdit && (line.unitPrice == 0 || line.porConfirmar);
+  /// Si la línea ya salió de bodega, cambiar la cantidad **mueve la bodega**: la diferencia
+  /// se descuenta o se devuelve, con su movimiento. El histórico no se reescribe.
+  ///
+  /// Es cosa del mando: el servidor pide Dueño o Encargado, y al técnico sin precios no se
+  /// le enseña siquiera.
+  bool _sePuedeCorregir(bool esMando) => canEdit && esMando;
 
   Future<void> _setPrice(BuildContext context, WidgetRef ref, WorkOrderPart line) async {
     final auth = ref.read(authControllerProvider);
     final esDueno = auth is AuthSignedIn && auth.user.role == AppRole.owner;
 
-    final cambio = await showModalBottomSheet<({double precio, bool alCatalogo})>(
+    final cambio = await showModalBottomSheet<({double precio, double cantidad, bool alCatalogo})>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _PrecioSheet(
@@ -170,6 +171,7 @@ class PartsSection extends ConsumerWidget {
             order.id,
             line.id,
             unitPrice: cambio.precio,
+            quantity: cambio.cantidad,
             updateCatalog: cambio.alCatalogo,
           );
 
@@ -337,6 +339,10 @@ class PartsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
+    final sesion = ref.watch(authControllerProvider);
+    final esMando = sesion is AuthSignedIn &&
+        (sesion.user.role == AppRole.owner || sesion.user.role == AppRole.manager);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -399,11 +405,11 @@ class PartsSection extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_money(line.total), style: theme.textTheme.bodyMedium),
-                  if (_sePuedeCorregir(line))
+                  if (_sePuedeCorregir(esMando))
                     IconButton(
                       onPressed: busy ? null : () => _setPrice(context, ref, line),
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      tooltip: line.unitPrice == 0 ? 'Poner precio' : 'Cambiar precio',
+                      tooltip: line.unitPrice == 0 ? 'Poner precio' : 'Editar',
                     ),
                   if (canEdit && line.porConfirmar)
                     IconButton(
@@ -826,7 +832,20 @@ class _PrecioSheetState extends State<_PrecioSheet> {
     text: widget.line.unitPrice == 0 ? '' : _texto(widget.line.unitPrice),
   );
 
+  late final TextEditingController _cantidad =
+      TextEditingController(text: _texto(widget.line.quantity));
+
   bool _alCatalogo = false;
+
+  /// Corregir la cantidad de una línea ya confirmada mueve la bodega, y hay que decirlo.
+  bool get _mueveBodega {
+    final cantidad = double.tryParse(_cantidad.text.replaceAll(',', '.').trim());
+
+    return widget.line.partId != null &&
+        !widget.line.porConfirmar &&
+        cantidad != null &&
+        cantidad != widget.line.quantity;
+  }
 
   static String _texto(double valor) =>
       valor == valor.roundToDouble() ? valor.toStringAsFixed(0) : valor.toString();
@@ -834,14 +853,17 @@ class _PrecioSheetState extends State<_PrecioSheet> {
   @override
   void dispose() {
     _precio.dispose();
+    _cantidad.dispose();
     super.dispose();
   }
 
   void _guardar() {
     final precio = double.tryParse(_precio.text.replaceAll(',', '.').trim());
-    if (precio == null || precio < 0) return;
+    final cantidad = double.tryParse(_cantidad.text.replaceAll(',', '.').trim());
 
-    Navigator.pop(context, (precio: precio, alCatalogo: _alCatalogo));
+    if (precio == null || precio < 0 || cantidad == null || cantidad <= 0) return;
+
+    Navigator.pop(context, (precio: precio, cantidad: cantidad, alCatalogo: _alCatalogo));
   }
 
   @override
@@ -861,11 +883,15 @@ class _PrecioSheetState extends State<_PrecioSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(line.partName, style: theme.textTheme.titleMedium),
-          Text(
-            '${_quantity(line.quantity)} ${line.unit}',
-            style: theme.textTheme.bodySmall,
-          ),
           const SizedBox(height: 12),
+
+          TextField(
+            controller: _cantidad,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: 'Cantidad (${line.unit})'),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
 
           TextField(
             controller: _precio,
@@ -873,6 +899,16 @@ class _PrecioSheetState extends State<_PrecioSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: '¿Cuánto se le cobra por cada uno?'),
           ),
+
+          if (_mueveBodega)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Este repuesto ya salió de bodega. Al guardar, la diferencia se descuenta o '
+                'se devuelve, con su movimiento en el kardex.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.tertiary),
+              ),
+            ),
 
           if (widget.puedeTocarCatalogo)
             CheckboxListTile(

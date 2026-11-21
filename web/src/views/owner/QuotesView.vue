@@ -173,12 +173,21 @@ function cambiarPeriodo(rango: { desde: string; hasta: string }) {
   load()
 }
 
+/**
+ * Cuando se llega desde una orden, la pantalla es la de esa orden: sin periodo y sin pestaña
+ * automática. Si no, el listado del taller.
+ */
+const deLaOrden = computed(() =>
+  typeof route.query.workOrderId === 'string' ? route.query.workOrderId : null,
+)
+
 async function load() {
   loading.value = true
   error.value = ''
   try {
     const page = await quotesApi.list({
-      from: desde.value || undefined,
+      workOrderId: deLaOrden.value || undefined,
+      from: deLaOrden.value ? undefined : desde.value || undefined,
       pageSize: 100,
     })
     quotes.value = page.items
@@ -391,9 +400,16 @@ onMounted(async () => {
   tasaDelTaller.value = taller?.defaultTaxRate ?? 0
   precioConIsv.value = taller?.pricesIncludeTax ?? true
   await load()
-  abrirDondeHayTrabajo()
-  // Se puede llegar desde el detalle de una orden con ?id=…
-  if (typeof route.query.id === 'string') await open(route.query.id)
+
+  // Viniendo de una orden se abre la que se pidió, o la más reciente de esa orden. La
+  // pestaña automática se salta a propósito: mandaría a «esperando respuesta», que con dos
+  // cotizaciones es la vieja y no el borrador que se acaba de hacer.
+  if (!deLaOrden.value) abrirDondeHayTrabajo()
+  else pestana.value = 'todas'
+
+  const pedida = typeof route.query.id === 'string' ? route.query.id : quotes.value[0]?.id
+
+  if (pedida) await open(pedida)
 })
 </script>
 

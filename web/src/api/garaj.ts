@@ -620,7 +620,13 @@ export const workOrdersApi = {
   async setPartPrice(
     id: string,
     partLineId: string,
-    body: { unitPrice: number; unitCost?: number; updateCatalog?: boolean },
+    body: {
+      unitPrice: number
+      unitCost?: number
+      updateCatalog?: boolean
+      /** La cantidad nueva. Si la línea ya salió de bodega, la diferencia se mueve. */
+      quantity?: number
+    },
   ) {
     const { data } = await api.put<WorkOrderPart>(
       `/api/work-orders/${id}/parts/${partLineId}/price`,

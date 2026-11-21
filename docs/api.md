@@ -258,7 +258,7 @@ diferencia de inventario siempre tiene autor y hora, en vez de aparecer de la na
 | GET | `/api/work-orders/{id}/parts` | cualquiera | Repuestos cargados a la orden |
 | POST | `/api/work-orders/{id}/parts` | Owner o Técnico | Con `partId`: descuenta de la bodega. Sin él: línea manual |
 | POST | `/api/work-orders/{id}/parts/from-quote` | Owner o Técnico | Trae los repuestos de una cotización **de esa orden**, por confirmar |
-| PUT | `/api/work-orders/{id}/parts/{lineId}/price` | Dueño o Encargado | Corrige el precio. Con `updateCatalog` lo deja también en el catálogo (**solo el Dueño**) |
+| PUT | `/api/work-orders/{id}/parts/{lineId}/price` | Dueño o Encargado | Corrige precio y, con `quantity`, la cantidad: en una línea ya confirmada del catálogo la diferencia **mueve bodega**. Con `updateCatalog` el precio queda también en el catálogo (**solo el Dueño**) |
 | DELETE | `/api/work-orders/{id}/parts/{lineId}` | Owner o Técnico | Devuelve a la bodega si había salido de ella |
 
 `StockMovementType`: `1` entrada · `2` salida · `3` ajuste · `4` traslado recibido ·
