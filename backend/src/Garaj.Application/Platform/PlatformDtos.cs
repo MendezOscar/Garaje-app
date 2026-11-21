@@ -233,9 +233,47 @@ public record UpdateSubscriptionRequest(
 /// </summary>
 public record SetWorksWithRequest(WorkshopKind WorksWith);
 
+/// <summary>
+/// Cómo está usando GarajApp un taller. Contesta tres cosas antes de llamar a nadie: si
+/// entran, si trabajan adentro, y qué partes no tocan.
+/// </summary>
+/// <param name="UsersSignedIn">Cuántos de sus usuarios entraron en la ventana.</param>
+/// <param name="InactiveUsers">
+/// Los que dio de baja. Leído junto a las órdenes dice si reacomodó el taller o si se está
+/// apagando.
+/// </param>
+/// <param name="LastLoginAt">La última vez que alguien del taller entró.</param>
+public record PlatformUsageDto(
+    Guid Id,
+    string Name,
+    bool IsActive,
+    SubscriptionPlan Plan,
+    int ActiveUsers,
+    int InactiveUsers,
+    int TechnicianCount,
+    int UsersSignedIn,
+    DateTimeOffset? LastLoginAt,
+    int WorkOrders,
+    int WorkOrdersEver,
+    DateTimeOffset? LastWorkOrderAt,
+    int Sales,
+    decimal Billed,
+    int Quotes,
+    int Photos,
+    int Scans,
+    int AssistantCalls,
+    int Appointments,
+    int Motorcycles);
+
 public interface IPlatformService
 {
     Task<IReadOnlyList<PlatformTenantDto>> ListAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// El uso de cada taller en los últimos <paramref name="days"/> días. El que menos se
+    /// mueve sale primero: es la lista de a quién hay que llamar.
+    /// </summary>
+    Task<IReadOnlyList<PlatformUsageDto>> UsageAsync(int days = 30, CancellationToken ct = default);
 
     Task<PlatformTenantDetailDto> GetAsync(Guid tenantId, CancellationToken ct = default);
 

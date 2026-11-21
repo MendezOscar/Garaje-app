@@ -294,6 +294,14 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Platform] },
       },
       {
+        // Cómo usan los talleres lo que les vendimos: a quién hay que llamar, no a quién
+        // cobrarle.
+        path: 'plataforma/uso',
+        name: 'platform-usage',
+        component: () => import('@/views/platform/UsageView.vue'),
+        meta: { roles: [Roles.Platform] },
+      },
+      {
         // Cómo facturamos nosotros: el emisor y el CAI. El documento se emite con el pago.
         path: 'plataforma/facturacion',
         name: 'platform-billing',

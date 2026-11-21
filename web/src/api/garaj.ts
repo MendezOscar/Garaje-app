@@ -44,6 +44,7 @@ import type {
   PaymentMethod,
   PlatformSettings,
   PlatformTenant,
+  PlatformUsage,
   PlatformUser,
   PlatformTenantDetail,
   SubscriptionInvoice,
@@ -1633,6 +1634,14 @@ export const platformApi = {
   },
   async list(): Promise<PlatformTenant[]> {
     const { data } = await api.get<PlatformTenant[]>('/api/platform/tenants')
+    return data
+  },
+  /**
+   * El uso de cada taller en los últimos `days` días. El que menos se mueve sale primero: es
+   * la lista de a quién hay que llamar.
+   */
+  async usage(days = 30): Promise<PlatformUsage[]> {
+    const { data } = await api.get<PlatformUsage[]>('/api/platform/usage', { params: { days } })
     return data
   },
   async get(id: string): Promise<PlatformTenantDetail> {

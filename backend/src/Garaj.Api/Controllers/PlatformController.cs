@@ -39,6 +39,15 @@ public class PlatformController(IPlatformService service, IRepasoDeAvisos repaso
     public async Task<ActionResult<IReadOnlyList<PlatformTenantDto>>> List(CancellationToken ct)
         => Ok(await service.ListAsync(ct));
 
+    /// <summary>
+    /// Cómo está usando GarajApp cada taller en los últimos <c>days</c> días (7 a 365, 30 por
+    /// omisión). El que menos se mueve sale primero: es la lista de a quién hay que llamar.
+    /// </summary>
+    [HttpGet("~/api/platform/usage")]
+    public async Task<ActionResult<IReadOnlyList<PlatformUsageDto>>> Usage(
+        CancellationToken ct, int days = 30)
+        => Ok(await service.UsageAsync(days, ct));
+
     /// <summary>La ficha de cobro de un taller con su historial de pagos.</summary>
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PlatformTenantDetailDto>> Get(Guid id, CancellationToken ct)
