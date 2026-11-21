@@ -71,7 +71,7 @@ Dos comprobaciones que cuestan una tarde si se olvidan:
 - **Que el paquete lleve el código nuevo.** Mirar la versión no sirve. Hay que buscar un texto
   del código nuevo dentro del binario, y en Latin-1 **y** UTF-16 —Dart guarda en UTF-16 lo que
   lleva tildes—. De esta versión sirven `from-quote`, `Traer los` y
-  `Esto cambió en la cotización y aquí no:`.
+  `Esto cambió en la cotización y aquí no:` y `ya salió de bodega`.
 
 ---
 
@@ -122,14 +122,17 @@ Con una orden abierta que tenga una cotización con repuestos:
 4. **El desfase.** Con la cotización todavía en borrador o enviada, cámbiele el precio a ese
    repuesto. En la orden tiene que aparecer el aviso «Esto cambió en la cotización y aquí
    no», con los dos números.
-5. **Corregir el precio.** En la línea sin confirmar, «Cambiar precio». Póngale otro y
-   compruebe que el aviso se va.
-6. **Al catálogo.** Como Dueño, marque «Cambiarlo también en el catálogo» y revise en
+5. **Corregir el precio.** En la línea, «Editar». Póngale otro precio y compruebe que el
+   aviso se va.
+6. **La cantidad mueve bodega.** En una línea **ya confirmada** del catálogo, bájele la
+   cantidad: la pantalla avisa antes de guardar y la existencia tiene que subir. Súbala por
+   encima de lo que hay y tiene que cortar diciendo cuánto queda.
+7. **Al catálogo.** Como Dueño, marque «Cambiarlo también en el catálogo» y revise en
    Inventario que el precio de venta quedó cambiado. Como Encargado, el interruptor no se
    ofrece —y si se fuerza por API, el servidor responde 403—.
-7. **La línea de la cotización.** En una cotización sin responder, edite una línea: cantidad,
+8. **La línea de la cotización.** En una cotización sin responder, edite una línea: cantidad,
    precio y descuento. El total de la cotización tiene que recalcularse solo.
-8. **La cotización aprobada no se edita.** Apruebe una desde el enlace público y compruebe
+9. **La cotización aprobada no se edita.** Apruebe una desde el enlace público y compruebe
    que ya no deja editarla: tiene que decir que cree una nueva.
 
 Y lo de siempre antes de soltar: abrir una orden, cargar un repuesto del catálogo, cotizar,
