@@ -34,6 +34,9 @@ class QuoteLine {
     required this.id,
     required this.lineType,
     required this.description,
+    this.partId,
+    this.laborServiceId,
+    this.discount = 0,
     required this.quantity,
     required this.unitPrice,
     required this.total,
@@ -45,6 +48,9 @@ class QuoteLine {
         id: json['id'] as String,
         lineType: LineType.fromValue(json['lineType'] as int),
         description: json['description'] as String,
+        partId: json['partId'] as String?,
+        laborServiceId: json['laborServiceId'] as String?,
+        discount: (json['discount'] as num?)?.toDouble() ?? 0,
         quantity: (json['quantity'] as num).toDouble(),
         unitPrice: (json['unitPrice'] as num).toDouble(),
         total: (json['total'] as num).toDouble(),
@@ -55,6 +61,16 @@ class QuoteLine {
   final String id;
   final LineType lineType;
   final String description;
+
+  /// El repuesto del catálogo, cuando la línea salió de ahí. Null en lo escrito a mano.
+  final String? partId;
+
+  /// El servicio de mano de obra del catálogo, por lo mismo.
+  final String? laborServiceId;
+
+  /// Descuento en importe, no en porcentaje.
+  final double discount;
+
   final double quantity;
   final double unitPrice;
   final double total;

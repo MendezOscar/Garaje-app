@@ -124,6 +124,11 @@ public record UpdateQuoteRequest(
 /// Opcional: si va vacío se toma el del catálogo. Se congela en la línea, para que
 /// renombrar un repuesto mañana no cambie una cotización ya enviada.
 /// </param>
+/// <param name="UpdateCatalog">
+/// Que el precio escrito aquí pase también al catálogo —al repuesto o al servicio de mano de
+/// obra del que salió la línea—, para no volver a corregirlo en la próxima cotización. Solo
+/// lo puede hacer el Dueño.
+/// </param>
 public record SaveQuoteLineRequest(
     LineType LineType,
     Guid? PartId,
@@ -133,7 +138,8 @@ public record SaveQuoteLineRequest(
     decimal? UnitPrice,
     decimal Discount = 0,
     bool BoughtOutside = false,
-    string? SupplierName = null);
+    string? SupplierName = null,
+    bool UpdateCatalog = false);
 
 /// <summary>Todo lo que hace falta para armar la cotización desde una orden de trabajo.</summary>
 public record QuoteFromWorkOrderRequest(

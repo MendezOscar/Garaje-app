@@ -5,6 +5,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/inventory_repository.dart';
 import '../../core/api/quote_repository.dart';
 import '../../core/auth/auth_controller.dart';
+import '../../core/models/current_user.dart';
 import '../../core/models/inventory.dart';
 import '../../core/models/quote.dart';
 import '../../core/models/work_order.dart';
@@ -138,6 +139,59 @@ class PartsSection extends ConsumerWidget {
     }
   }
 
+  /// Corrige el precio de una línea. Hace falta en dos casos: lo que se cargó sin poder
+  /// valorarlo —en cero, y así no se puede facturar— y lo que se trajo de una cotización que
+  /// después cambió.
+  ///
+  /// Solo en líneas que todavía no salieron de bodega, o en las que están en cero. Una ya
+  /// confirmada es lo que de verdad se consumió: ahí el precio se arregla quitándola y
+  /// volviéndola a cargar, para que la bodega y el kardex cuadren con lo que se cobró.
+  bool _sePuedeCorregir(WorkOrderPart line) =>
+      canEdit && (line.unitPrice == 0 || line.porConfirmar);
+
+  Future<void> _setPrice(BuildContext context, WidgetRef ref, WorkOrderPart line) async {
+    final auth = ref.read(authControllerProvider);
+    final esDueno = auth is AuthSignedIn && auth.user.role == AppRole.owner;
+
+    final cambio = await showModalBottomSheet<({double precio, bool alCatalogo})>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PrecioSheet(
+        line: line,
+        // El catálogo del taller lo mueve el Dueño; el servidor lo exige igual.
+        puedeTocarCatalogo: esDueno && line.partId != null,
+      ),
+    );
+
+    if (cambio == null) return;
+
+    try {
+      await ref.read(inventoryRepositoryProvider).setPartPrice(
+            order.id,
+            line.id,
+            unitPrice: cambio.precio,
+            updateCatalog: cambio.alCatalogo,
+          );
+
+      await onChanged();
+
+      if (context.mounted && cambio.alCatalogo) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${line.partName} quedó en ${_money(cambio.precio)}, '
+                'también en el catálogo.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e, 'No se pudo cambiar el precio.'))),
+        );
+      }
+    }
+  }
+
   /// Confirmar es lo único que saca el repuesto de la bodega. Hasta entonces la línea está
   /// en la orden y se le cotiza al cliente, pero el inventario no se tocó.
   Future<void> _confirm(BuildContext context, WidgetRef ref, WorkOrderPart line) async {
@@ -154,23 +208,116 @@ class PartsSection extends ConsumerWidget {
     }
   }
 
-  /// Un botón por cotización de la orden que lleve repuestos. Si las cotizaciones no se
-  /// pudieron leer no pasa nada: esta sección no depende de ellas.
+  /// La línea de la orden que corresponde a una de la cotización. Es el mismo emparejamiento
+  /// que usa el servidor al traerlos: por repuesto del catálogo, y lo demás por concepto.
+  WorkOrderPart? _enLaOrden(QuoteLine linea) {
+    final delCatalogo = linea.partId != null && !linea.boughtOutside;
+
+    for (final puesta in order.parts) {
+      final igual = delCatalogo
+          ? puesta.partId == linea.partId
+          : puesta.partId == null &&
+              puesta.partName.trim().toLowerCase() == linea.description.trim().toLowerCase();
+
+      if (igual) return puesta;
+    }
+
+    return null;
+  }
+
+  /// El precio unitario que el cliente aprobó: el total de la línea, con su descuento ya
+  /// adentro, entre lo que lleva.
+  double _precioCotizado(QuoteLine linea) =>
+      linea.quantity > 0 ? (linea.total / linea.quantity * 100).round() / 100 : 0;
+
+  /// Un botón por cotización de la orden que lleve repuestos, y el aviso de lo que cambió en
+  /// la cotización después de traerlo. Si las cotizaciones no se pudieron leer no pasa nada:
+  /// esta sección no depende de ellas.
   List<Widget> _deLasCotizaciones(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final quotes = ref.watch(workOrderQuotesProvider(order.id)).value ?? const <Quote>[];
 
-    final conRepuestos = quotes
-        .where((q) => q.status != QuoteStatus.rejected)
+    final vivas = quotes.where((q) => q.status != QuoteStatus.rejected).toList();
+
+    final conRepuestos = vivas
         .map((q) => (
               quote: q,
-              cuantos: q.lines.where((l) => l.lineType == LineType.part).length,
+              lineas: q.lines
+                  .where((l) => l.lineType == LineType.part && l.quantity > 0)
+                  .toList(),
             ))
-        .where((q) => q.cuantos > 0)
+        .where((q) => q.lineas.isNotEmpty)
         .toList();
 
     if (conRepuestos.isEmpty) return const [];
 
+    // La línea de la orden es una copia: se congela al traerla, porque mueve bodega. Si
+    // después se corrige la cotización, la factura saldría con lo viejo sin que nadie se
+    // entere. Por eso se avisa aquí, que es donde se arregla.
+    final desfasados = <String>[];
+
+    for (final q in conRepuestos) {
+      for (final linea in q.lineas) {
+        final puesta = _enLaOrden(linea);
+        if (puesta == null) continue;
+
+        final precio = _precioCotizado(linea);
+        final mismaCantidad = (puesta.quantity - linea.quantity).abs() < 0.0001;
+        final mismoPrecio = (puesta.unitPrice - precio).abs() < 0.005;
+
+        if (mismaCantidad && mismoPrecio) continue;
+
+        desfasados.add(
+          '${puesta.partName} — ${q.quote.number} dice '
+          '${_quantity(linea.quantity)} × ${_money(precio)}, la orden tiene '
+          '${_quantity(puesta.quantity)} × ${_money(puesta.unitPrice)}',
+        );
+      }
+    }
+
     return [
+      if (desfasados.isNotEmpty) ...[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.tertiaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Esto cambió en la cotización y aquí no:',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onTertiaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              for (final aviso in desfasados)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '· $aviso',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Corríjalo también aquí: la factura sale con lo que diga la orden.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
       Wrap(
         spacing: 8,
         children: [
@@ -178,7 +325,7 @@ class PartsSection extends ConsumerWidget {
             OutlinedButton.icon(
               onPressed: busy ? null : () => _fromQuote(context, ref, q.quote),
               icon: const Icon(Icons.file_download_outlined, size: 18),
-              label: Text('Traer los ${q.cuantos} de ${q.quote.number}'),
+              label: Text('Traer los ${q.lineas.length} de ${q.quote.number}'),
             ),
         ],
       ),
@@ -252,6 +399,12 @@ class PartsSection extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_money(line.total), style: theme.textTheme.bodyMedium),
+                  if (_sePuedeCorregir(line))
+                    IconButton(
+                      onPressed: busy ? null : () => _setPrice(context, ref, line),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      tooltip: line.unitPrice == 0 ? 'Poner precio' : 'Cambiar precio',
+                    ),
                   if (canEdit && line.porConfirmar)
                     IconButton(
                       onPressed: busy ? null : () => _confirm(context, ref, line),
@@ -655,3 +808,99 @@ String _money(double value) => 'L ${value.toStringAsFixed(2)}';
 
 String _quantity(double value) =>
     value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
+
+/// Corregir el precio de una línea de la orden. Si el repuesto salió del catálogo, ofrece
+/// dejar el precio nuevo también allá, para no corregirlo en la próxima orden.
+class _PrecioSheet extends StatefulWidget {
+  const _PrecioSheet({required this.line, required this.puedeTocarCatalogo});
+
+  final WorkOrderPart line;
+  final bool puedeTocarCatalogo;
+
+  @override
+  State<_PrecioSheet> createState() => _PrecioSheetState();
+}
+
+class _PrecioSheetState extends State<_PrecioSheet> {
+  late final TextEditingController _precio = TextEditingController(
+    text: widget.line.unitPrice == 0 ? '' : _texto(widget.line.unitPrice),
+  );
+
+  bool _alCatalogo = false;
+
+  static String _texto(double valor) =>
+      valor == valor.roundToDouble() ? valor.toStringAsFixed(0) : valor.toString();
+
+  @override
+  void dispose() {
+    _precio.dispose();
+    super.dispose();
+  }
+
+  void _guardar() {
+    final precio = double.tryParse(_precio.text.replaceAll(',', '.').trim());
+    if (precio == null || precio < 0) return;
+
+    Navigator.pop(context, (precio: precio, alCatalogo: _alCatalogo));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final line = widget.line;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(line.partName, style: theme.textTheme.titleMedium),
+          Text(
+            '${_quantity(line.quantity)} ${line.unit}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            controller: _precio,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: '¿Cuánto se le cobra por cada uno?'),
+          ),
+
+          if (widget.puedeTocarCatalogo)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _alCatalogo,
+              onChanged: (v) => setState(() => _alCatalogo = v ?? false),
+              title: const Text('Cambiarlo también en el catálogo'),
+              subtitle: const Text('Para no corregirlo en la próxima orden'),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                line.partId == null
+                    ? 'Este repuesto se cargó a mano: no está en el catálogo.'
+                    : 'En el catálogo lo cambia el Dueño.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _guardar, child: const Text('Guardar')),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}

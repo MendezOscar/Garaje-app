@@ -1422,6 +1422,18 @@ public class WorkOrderService(
         line.UnitPrice = request.UnitPrice;
         if (request.UnitCost is { } costo && costo >= 0) line.UnitCost = costo;
 
+        // Que el precio nuevo quede también en el catálogo, para no corregirlo otra vez en la
+        // próxima orden. Es tocar el catálogo del taller, así que es cosa del Dueño.
+        if (request.UpdateCatalog && line.PartId is { } repuestoId)
+        {
+            scope.EnsureOwner();
+
+            var ficha = await db.Parts.FirstOrDefaultAsync(p => p.Id == repuestoId, ct)
+                ?? throw new NotFoundException("El repuesto no existe en el catálogo.");
+
+            ficha.SalePrice = request.UnitPrice;
+        }
+
         await db.SaveChangesAsync(ct);
 
         return (await PartsOfAsync(workOrderId, ct)).First(p => p.Id == line.Id);

@@ -665,6 +665,51 @@ public class QuoteService(
         }
 
         line.Total = Math.Max(0, line.Quantity * line.UnitPrice - line.Discount);
+
+        if (request.UpdateCatalog) await LlevarAlCatalogoAsync(line, ct);
+    }
+
+    /// <summary>
+    /// Deja el precio escrito en la línea también en el catálogo, para no volver a corregirlo
+    /// en la próxima cotización. Toca el catálogo del taller, así que es cosa del Dueño.
+    ///
+    /// Lo que ya se cotizó antes no se mueve: cada línea lleva su precio congelado.
+    /// </summary>
+    private async Task LlevarAlCatalogoAsync(QuoteLine line, CancellationToken ct)
+    {
+        AccessScope.From(tenantContext).EnsureOwner();
+
+        if (line.PartId is { } partId)
+        {
+            var part = await db.Parts.FirstOrDefaultAsync(p => p.Id == partId, ct)
+                ?? throw new NotFoundException("El repuesto no existe.");
+
+            part.SalePrice = line.UnitPrice;
+            return;
+        }
+
+        if (line.LaborServiceId is not { } serviceId) return;
+
+        var service = await db.LaborServices.FirstOrDefaultAsync(s => s.Id == serviceId, ct)
+            ?? throw new NotFoundException("El servicio no existe.");
+
+        if (service.IsFixedPrice)
+        {
+            service.FixedPrice = line.UnitPrice;
+        }
+        else if (service.StandardHours > 0)
+        {
+            // De precio por hora: lo que cambia es la tarifa, no el modo. Cambiarle el modo
+            // al servicio desde una cotización sería tocarle el catálogo más de lo que pidió.
+            service.HourlyRate = Math.Round(
+                line.UnitPrice / service.StandardHours, 2, MidpointRounding.AwayFromZero);
+        }
+        else
+        {
+            throw new AppException(
+                $"{service.Name} se cobra por hora y no tiene horas estándar: "
+                + "póngale el precio en Mano de obra.");
+        }
     }
 
     private static string Describe(string? given, string? fromCatalog) =>

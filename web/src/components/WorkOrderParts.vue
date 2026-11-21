@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { errorMessage } from '@/api/client'
 import { partsApi, workOrdersApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
-import type { Part, WorkOrderPart } from '@/types/domain'
+import type { Part, QuoteLine, WorkOrderPart } from '@/types/domain'
 import { formatMoney, formatQuantity } from '@/utils/format'
 
 const props = defineProps<{
@@ -23,7 +23,9 @@ const props = defineProps<{
    * Las cotizaciones de esta orden que llevan repuestos. Son las que se pueden traer de un
    * tirón, para no volver a teclear lo que ya se le cotizó al cliente.
    */
-  quotesWithParts?: { id: string; number: string; parts: number }[]
+  quotesWithParts?: { id: string; number: string; parts: QuoteLine[] }[]
+  /** Solo el Dueño puede llevar un precio corregido al catálogo del taller. */
+  canTouchCatalog?: boolean
 }>()
 
 const emit = defineEmits<{ changed: [] }>()
@@ -34,6 +36,11 @@ const selectedPartId = ref('')
 const quantity = ref(1)
 const error = ref('')
 const aviso = ref('')
+
+/** La línea a la que se le está corrigiendo el precio, y con qué. */
+const enPrecio = ref<WorkOrderPart | null>(null)
+const precioNuevo = ref<number | ''>('')
+const tambienElCatalogo = ref(false)
 const busy = ref(false)
 const adding = ref(false)
 
@@ -78,6 +85,57 @@ const listo = computed(() =>
     ? !!concepto.value.trim() && Number(precio.value) >= 0 && precio.value !== ''
     : !!selectedPartId.value,
 )
+
+/**
+ * La línea de la orden que corresponde a una de la cotización. Es el mismo emparejamiento que
+ * usa el servidor al traerlos: por repuesto del catálogo, y lo demás por concepto.
+ */
+function enLaOrden(linea: QuoteLine) {
+  return linea.partId && !linea.boughtOutside
+    ? props.parts.find((p) => p.partId === linea.partId)
+    : props.parts.find(
+        (p) =>
+          !p.partId && p.partName.trim().toLowerCase() === linea.description.trim().toLowerCase(),
+      )
+}
+
+/** El precio unitario que el cliente aprobó: el total de la línea, con su descuento, entre lo que lleva. */
+function precioCotizado(linea: QuoteLine) {
+  return linea.quantity > 0 ? Math.round((linea.total / linea.quantity) * 100) / 100 : 0
+}
+
+/**
+ * Lo que se trajo de una cotización y después cambió en ella.
+ *
+ * La línea de la orden es una copia: se congela al traerla, porque mueve bodega. Si luego se
+ * corrige la cotización, nadie se entera, y la factura saldría con el precio viejo. Por eso se
+ * avisa aquí, que es donde se arregla.
+ */
+const desfasados = computed(() => {
+  const avisos: { numero: string; concepto: string; cotizado: string; enOrden: string }[] = []
+
+  for (const q of props.quotesWithParts ?? []) {
+    for (const linea of q.parts) {
+      const puesta = enLaOrden(linea)
+      if (!puesta) continue
+
+      const precio = precioCotizado(linea)
+      const mismaCantidad = Math.abs(puesta.quantity - linea.quantity) < 0.0001
+      const mismoPrecio = Math.abs(puesta.unitPrice - precio) < 0.005
+
+      if (mismaCantidad && mismoPrecio) continue
+
+      avisos.push({
+        numero: q.number,
+        concepto: puesta.partName,
+        cotizado: `${formatQuantity(linea.quantity)} × ${formatMoney(precio)}`,
+        enOrden: `${formatQuantity(puesta.quantity)} × ${formatMoney(puesta.unitPrice)}`,
+      })
+    }
+  }
+
+  return avisos
+})
 
 /**
  * Trae los repuestos de una cotización. Entran por confirmar: lo cotizado es la propuesta que
@@ -159,18 +217,46 @@ async function add() {
 }
 
 /**
- * Le pone precio a lo que el técnico cargó sin poder valorarlo. Mientras una línea esté en
- * cero, facturar la orden se corta: cobrar así sería regalar el repuesto sin querer.
+ * Corrige el precio de una línea. Hace falta en dos casos: lo que el técnico cargó sin poder
+ * valorarlo —en cero, y así no se puede facturar— y lo que se trajo de una cotización que
+ * después cambió.
+ *
+ * Solo en líneas que todavía no salieron de bodega, o en las que están en cero. Una línea ya
+ * confirmada es lo que de verdad se consumió: ahí el precio se arregla quitándola y
+ * volviéndola a cargar, para que la bodega y el kardex cuadren con lo que se cobró.
  */
-async function ponerPrecio(line: WorkOrderPart) {
-  const escrito = prompt(`¿Cuánto se le cobra por ${line.partName}?`, '')
-  const precio = Number(escrito)
-  if (escrito === null || !Number.isFinite(precio) || precio < 0) return
+function sePuedeCorregir(line: WorkOrderPart) {
+  return props.canEdit && props.showCost && (line.unitPrice === 0 || line.porConfirmar)
+}
+
+function abrirPrecio(line: WorkOrderPart) {
+  enPrecio.value = line
+  precioNuevo.value = line.unitPrice || ''
+  tambienElCatalogo.value = false
+  error.value = ''
+  aviso.value = ''
+}
+
+async function guardarPrecio() {
+  const line = enPrecio.value
+  const precio = Number(precioNuevo.value)
+
+  if (!line || precioNuevo.value === '' || !Number.isFinite(precio) || precio < 0) return
 
   busy.value = true
   error.value = ''
   try {
-    await workOrdersApi.setPartPrice(props.workOrderId, line.id, { unitPrice: precio })
+    await workOrdersApi.setPartPrice(props.workOrderId, line.id, {
+      unitPrice: precio,
+      // Al catálogo solo va si lo pidieron y la línea de verdad salió de ahí.
+      updateCatalog: tambienElCatalogo.value && !!line.partId,
+    })
+
+    aviso.value = tambienElCatalogo.value && line.partId
+      ? `${line.partName} quedó en ${formatMoney(precio)}, también en el catálogo.`
+      : ''
+
+    enPrecio.value = null
     emit('changed')
   } catch (e) {
     error.value = errorMessage(e)
@@ -283,12 +369,23 @@ watch(soloLoQueAplica, () => loadCatalog())
     <ErrorNote v-if="error" :message="error" />
     <p v-if="aviso" class="aviso small">{{ aviso }}</p>
 
+    <!-- La cotización cambió después de traer sus repuestos: aquí no se enteró nadie. -->
+    <div v-if="canEdit && desfasados.length" class="desfase small">
+      <strong>Esto cambió en la cotización y aquí no:</strong>
+      <ul>
+        <li v-for="(d, i) in desfasados" :key="i">
+          {{ d.concepto }} — {{ d.numero }} dice {{ d.cotizado }}, la orden tiene {{ d.enOrden }}
+        </li>
+      </ul>
+      <span>Corríjalo también aquí: la factura sale con lo que diga la orden.</span>
+    </div>
+
     <!-- Lo que ya se le cotizó al cliente no se vuelve a teclear. -->
     <p v-if="canEdit && quotesWithParts?.length" class="de-cotizacion small">
       <template v-for="(q, i) in quotesWithParts" :key="q.id">
         <span v-if="i"> · </span>
         <button type="button" class="link" :disabled="busy" @click="traerDeLaCotizacion(q.id)">
-          Traer los {{ q.parts }} de {{ q.number }}
+          Traer los {{ q.parts.length }} de {{ q.number }}
         </button>
       </template>
     </p>
@@ -340,13 +437,13 @@ watch(soloLoQueAplica, () => loadCatalog())
             </button>
             <em v-else-if="line.porConfirmar" class="muted small">hay que comprarlo</em>
             <button
-              v-if="showCost && line.unitPrice === 0"
+              v-if="sePuedeCorregir(line)"
               type="button"
               class="link"
               :disabled="busy"
-              @click="ponerPrecio(line)"
+              @click="abrirPrecio(line)"
             >
-              Poner precio
+              {{ line.unitPrice === 0 ? 'Poner precio' : 'Cambiar precio' }}
             </button>
             <button type="button" class="link danger" :disabled="busy" @click="remove(line)">
               Quitar
@@ -388,6 +485,38 @@ watch(soloLoQueAplica, () => loadCatalog())
       </tfoot>
       </table>
     </div>
+
+    <!-- Corregir el precio de una línea que todavía no salió de bodega. -->
+    <form v-if="enPrecio" class="precio" @submit.prevent="guardarPrecio">
+      <p class="small">
+        <strong>{{ enPrecio.partName }}</strong> ·
+        {{ formatQuantity(enPrecio.quantity) }} {{ enPrecio.unit }}
+      </p>
+
+      <label>
+        ¿Cuánto se le cobra por cada uno?
+        <input v-model="precioNuevo" type="number" min="0" step="0.01" required />
+      </label>
+
+      <!-- Solo lo del catálogo puede volver a él, y solo el Dueño toca el catálogo. -->
+      <label v-if="enPrecio.partId && canTouchCatalog" class="check">
+        <input v-model="tambienElCatalogo" type="checkbox" />
+        Cambiarlo también en el catálogo, para las próximas órdenes
+      </label>
+      <p v-else-if="enPrecio.partId" class="muted small">
+        En el catálogo lo cambia el Dueño, en Inventario.
+      </p>
+      <p v-else class="muted small">
+        Este repuesto se cargó a mano: no está en el catálogo, así que solo cambia aquí.
+      </p>
+
+      <div class="acciones">
+        <button type="submit" :disabled="busy || precioNuevo === ''">Guardar</button>
+        <button type="button" class="link" :disabled="busy" @click="enPrecio = null">
+          Cancelar
+        </button>
+      </div>
+    </form>
 
     <form v-if="adding" class="add" @submit.prevent="add">
       <div class="origen">
@@ -489,6 +618,46 @@ watch(soloLoQueAplica, () => loadCatalog())
 .de-cotizacion {
   margin: 0 0 0.75rem;
   color: var(--text-muted);
+}
+
+.precio {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.precio p {
+  margin: 0;
+}
+
+.precio .check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.precio .acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.desfase {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--warning-text);
+}
+
+.desfase ul {
+  margin: 0.25rem 0;
+  padding-left: 1.1rem;
 }
 
 .por-confirmar {

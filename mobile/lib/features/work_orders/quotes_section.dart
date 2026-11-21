@@ -87,6 +87,9 @@ class _QuotesSectionState extends ConsumerState<QuotesSection> {
               quote: quote,
               workOrderId: widget.workOrderId,
               isOwner: isOwner,
+              // El catálogo del taller lo mueve el Dueño, no el Encargado: el servidor lo
+              // exige igual, así que el interruptor tampoco se le ofrece.
+              puedeTocarCatalogo: role == AppRole.owner,
             ),
           if (isOwner)
             TextButton.icon(
@@ -110,11 +113,13 @@ class _QuoteCard extends ConsumerStatefulWidget {
     required this.quote,
     required this.workOrderId,
     required this.isOwner,
+    required this.puedeTocarCatalogo,
   });
 
   final Quote quote;
   final String workOrderId;
   final bool isOwner;
+  final bool puedeTocarCatalogo;
 
   @override
   ConsumerState<_QuoteCard> createState() => _QuoteCardState();
@@ -485,6 +490,31 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
     });
   }
 
+  /// Corrige una línea sin quitarla y volver a escribirla. Si salió del catálogo, ofrece
+  /// dejar el precio nuevo también allá, para no corregirlo en cada cotización.
+  Future<void> _editLine(QuoteLine line) async {
+    final cambio = await showModalBottomSheet<_CambioDeLinea>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) =>
+          _EditarLineaSheet(line: line, puedeTocarCatalogo: widget.puedeTocarCatalogo),
+    );
+
+    if (cambio == null) return;
+
+    await _run(() async {
+      await ref.read(quoteRepositoryProvider).updateLine(
+            widget.quote.id,
+            line.id,
+            line: line,
+            quantity: cambio.quantity,
+            unitPrice: cambio.unitPrice,
+            discount: cambio.discount,
+            updateCatalog: cambio.updateCatalog,
+          );
+    });
+  }
+
   Future<void> _removeLine(QuoteLine line) async {
     await _run(() async {
       await ref.read(quoteRepositoryProvider).removeLine(widget.quote.id, line.id);
@@ -569,13 +599,20 @@ class _QuoteCardState extends ConsumerState<_QuoteCard> {
                       ),
                       style: theme.textTheme.bodySmall,
                     ),
-                    if (editable)
+                    if (editable) ...[
+                      IconButton(
+                        tooltip: 'Corregir la línea',
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _busy ? null : () => _editLine(line),
+                      ),
                       IconButton(
                         tooltip: 'Quitar la línea',
                         icon: const Icon(Icons.close, size: 16),
                         visualDensity: VisualDensity.compact,
                         onPressed: _busy ? null : () => _removeLine(line),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -884,5 +921,135 @@ class _QuotePartPickerState extends ConsumerState<_QuotePartPicker> {
 
     if (quantity == null || quantity <= 0 || !mounted) return;
     Navigator.pop(context, (part: part, quantity: quantity));
+  }
+}
+
+/// Lo que se le cambió a una línea de la cotización.
+typedef _CambioDeLinea = ({
+  double quantity,
+  double unitPrice,
+  double discount,
+  bool updateCatalog,
+});
+
+/// Corregir una línea: cantidad, precio y descuento. Si la línea salió del catálogo, ofrece
+/// dejar el precio nuevo también allá; si se escribió a mano, no hay catálogo que tocar.
+class _EditarLineaSheet extends StatefulWidget {
+  const _EditarLineaSheet({required this.line, required this.puedeTocarCatalogo});
+
+  final QuoteLine line;
+  final bool puedeTocarCatalogo;
+
+  @override
+  State<_EditarLineaSheet> createState() => _EditarLineaSheetState();
+}
+
+class _EditarLineaSheetState extends State<_EditarLineaSheet> {
+  late final TextEditingController _cantidad =
+      TextEditingController(text: _texto(widget.line.quantity));
+  late final TextEditingController _precio =
+      TextEditingController(text: _texto(widget.line.unitPrice));
+  late final TextEditingController _descuento =
+      TextEditingController(text: _texto(widget.line.discount));
+
+  bool _alCatalogo = false;
+
+  bool get _delCatalogo => widget.line.partId != null || widget.line.laborServiceId != null;
+
+  static String _texto(double valor) =>
+      valor == valor.roundToDouble() ? valor.toStringAsFixed(0) : valor.toString();
+
+  static double? _leer(TextEditingController c) =>
+      double.tryParse(c.text.replaceAll(',', '.').trim());
+
+  @override
+  void dispose() {
+    _cantidad.dispose();
+    _precio.dispose();
+    _descuento.dispose();
+    super.dispose();
+  }
+
+  void _guardar() {
+    final cantidad = _leer(_cantidad);
+    final precio = _leer(_precio);
+    final descuento = _leer(_descuento) ?? 0;
+
+    if (cantidad == null || cantidad <= 0 || precio == null || precio < 0) return;
+
+    Navigator.pop(context, (
+      quantity: cantidad,
+      unitPrice: precio,
+      discount: descuento < 0 ? 0.0 : descuento,
+      updateCatalog: _alCatalogo && _delCatalogo,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.line.description, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+
+          TextField(
+            controller: _cantidad,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Cantidad'),
+          ),
+          const SizedBox(height: 8),
+
+          TextField(
+            controller: _precio,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Precio por unidad'),
+          ),
+          const SizedBox(height: 8),
+
+          TextField(
+            controller: _descuento,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Descuento'),
+          ),
+
+          if (_delCatalogo && widget.puedeTocarCatalogo)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _alCatalogo,
+              onChanged: (v) => setState(() => _alCatalogo = v ?? false),
+              title: const Text('Cambiarlo también en el catálogo'),
+              subtitle: const Text('Para no corregirlo en la próxima cotización'),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _delCatalogo
+                    ? 'En el catálogo lo cambia el Dueño.'
+                    : 'Esta línea se escribió a mano: no está en el catálogo.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _guardar, child: const Text('Guardar')),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
   }
 }

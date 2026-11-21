@@ -937,6 +937,11 @@ export interface SaveQuoteLine {
   /** Solo en repuestos sin catálogo: se compra en una casa de repuestos. */
   boughtOutside?: boolean
   supplierName?: string
+  /**
+   * Que el precio escrito aquí quede también en el catálogo —el repuesto o el servicio de mano
+   * de obra del que salió la línea—. Solo lo puede hacer el Dueño.
+   */
+  updateCatalog?: boolean
 }
 
 export interface WhatsAppLink {

@@ -96,6 +96,25 @@ class InventoryRepository {
     );
   }
 
+  /// Corrige el precio de una línea de la orden: lo que se cargó sin poder valorarlo, o lo
+  /// que se trajo de una cotización que después cambió.
+  ///
+  /// Con [updateCatalog] el precio queda también en el catálogo, para no corregirlo otra vez
+  /// en la próxima orden. Eso solo lo puede hacer el Dueño.
+  Future<WorkOrderPart> setPartPrice(
+    String workOrderId,
+    String partLineId, {
+    required double unitPrice,
+    bool updateCatalog = false,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/work-orders/$workOrderId/parts/$partLineId/price',
+      data: {'unitPrice': unitPrice, 'updateCatalog': updateCatalog},
+    );
+
+    return WorkOrderPart.fromJson(response.data!);
+  }
+
   Future<void> removePart(String workOrderId, String partLineId) =>
       _dio.delete<void>('/api/work-orders/$workOrderId/parts/$partLineId');
 
