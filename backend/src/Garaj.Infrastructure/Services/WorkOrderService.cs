@@ -1413,7 +1413,7 @@ public class WorkOrderService(
         if (request.UnitPrice < 0)
             throw new AppException("El precio no puede ser negativo.");
 
-        await FindEditableAsync(workOrderId, scope, ct);
+        var order = await FindEditableAsync(workOrderId, scope, ct);
 
         var line = await db.WorkOrderParts
             .FirstOrDefaultAsync(p => p.Id == partLineId && p.WorkOrderId == workOrderId, ct)
@@ -1421,6 +1421,30 @@ public class WorkOrderService(
 
         line.UnitPrice = request.UnitPrice;
         if (request.UnitCost is { } costo && costo >= 0) line.UnitCost = costo;
+
+        // La cantidad también se corrige aquí, y si la línea ya salió de bodega la diferencia
+        // se mueve: de más descuenta, de menos devuelve. El histórico no se reescribe —entra
+        // otro movimiento—, que es como funciona quitar una línea.
+        if (request.Quantity is { } cantidad && cantidad != line.Quantity)
+        {
+            if (cantidad <= 0)
+                throw new AppException("La cantidad debe ser mayor que cero.");
+
+            if (line.PartId is { } enBodega && !line.PorConfirmar)
+            {
+                var diferencia = cantidad - line.Quantity;
+
+                if (diferencia > 0)
+                    await stock.ConsumeAsync(
+                        order.BranchId, enBodega, diferencia, order.Id, scope.UserId, ct);
+                else
+                    await stock.ReturnAsync(
+                        order.BranchId, enBodega, -diferencia, order.Id, scope.UserId,
+                        $"Corrección de {order.Number}", ct);
+            }
+
+            line.Quantity = cantidad;
+        }
 
         // Que el precio nuevo quede también en el catálogo, para no corregirlo otra vez en la
         // próxima orden. Es tocar el catálogo del taller, así que es cosa del Dueño.

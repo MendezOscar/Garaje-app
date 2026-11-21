@@ -424,10 +424,15 @@ public record SaveVehicleReceptionRequest(
 /// Que este precio pase también al catálogo, para no volver a corregirlo en la próxima orden.
 /// Solo lo puede hacer el Dueño, y solo tiene sentido en una línea del catálogo.
 /// </param>
+/// <param name="Quantity">
+/// La cantidad nueva, cuando también se corrige. Null la deja como está. Si la línea ya salió
+/// de bodega, la diferencia se mueve: de más descuenta, de menos devuelve.
+/// </param>
 public record SetPartPriceRequest(
     decimal UnitPrice,
     decimal? UnitCost,
-    bool UpdateCatalog = false);
+    bool UpdateCatalog = false,
+    decimal? Quantity = null);
 
 public record ServiceReminderQuery
 {

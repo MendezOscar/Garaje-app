@@ -2294,10 +2294,16 @@ onMounted(async () => {
         <article v-if="auth.isOwner" class="card">
           <div class="titulo">
             <h2>Cotización</h2>
+            <!-- A la que se está enseñando aquí, no a «la que tenga trabajo»: con dos
+                 cotizaciones de la misma orden, el listado abría la enviada y no el
+                 borrador recién hecho. -->
             <RouterLink
-              v-if="quotes.length"
+              v-if="ultimaCotizacion"
               class="small"
-              :to="{ name: 'quotes', query: { workOrderId: order.id } }"
+              :to="{
+                name: 'quotes',
+                query: { id: ultimaCotizacion.id, workOrderId: order.id },
+              }"
             >
               Ver
             </RouterLink>

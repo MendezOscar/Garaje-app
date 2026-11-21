@@ -40,7 +40,16 @@ const aviso = ref('')
 /** La línea a la que se le está corrigiendo el precio, y con qué. */
 const enPrecio = ref<WorkOrderPart | null>(null)
 const precioNuevo = ref<number | ''>('')
+const cantidadNueva = ref<number | ''>('')
 const tambienElCatalogo = ref(false)
+
+/** Corregir la cantidad de una línea ya confirmada mueve la bodega, y hay que decirlo. */
+const mueveBodega = computed(
+  () =>
+    !!enPrecio.value?.partId &&
+    !enPrecio.value.porConfirmar &&
+    Number(cantidadNueva.value) !== enPrecio.value.quantity,
+)
 const busy = ref(false)
 const adding = ref(false)
 
@@ -217,21 +226,21 @@ async function add() {
 }
 
 /**
- * Corrige el precio de una línea. Hace falta en dos casos: lo que el técnico cargó sin poder
- * valorarlo —en cero, y así no se puede facturar— y lo que se trajo de una cotización que
- * después cambió.
+ * Corrige una línea sin quitarla: cantidad y precio. Hace falta en tres casos —lo que el
+ * técnico cargó sin poder valorarlo, lo que se trajo de una cotización que después cambió, y
+ * la cantidad que se tecleó mal—.
  *
- * Solo en líneas que todavía no salieron de bodega, o en las que están en cero. Una línea ya
- * confirmada es lo que de verdad se consumió: ahí el precio se arregla quitándola y
- * volviéndola a cargar, para que la bodega y el kardex cuadren con lo que se cobró.
+ * Si la línea ya salió de bodega, cambiar la cantidad **mueve la bodega**: la diferencia se
+ * descuenta o se devuelve, con su movimiento. El histórico no se reescribe.
  */
 function sePuedeCorregir(line: WorkOrderPart) {
-  return props.canEdit && props.showCost && (line.unitPrice === 0 || line.porConfirmar)
+  return props.canEdit && props.showCost && !!line
 }
 
 function abrirPrecio(line: WorkOrderPart) {
   enPrecio.value = line
   precioNuevo.value = line.unitPrice || ''
+  cantidadNueva.value = line.quantity
   tambienElCatalogo.value = false
   error.value = ''
   aviso.value = ''
@@ -240,14 +249,17 @@ function abrirPrecio(line: WorkOrderPart) {
 async function guardarPrecio() {
   const line = enPrecio.value
   const precio = Number(precioNuevo.value)
+  const cantidad = Number(cantidadNueva.value)
 
   if (!line || precioNuevo.value === '' || !Number.isFinite(precio) || precio < 0) return
+  if (cantidadNueva.value === '' || !Number.isFinite(cantidad) || cantidad <= 0) return
 
   busy.value = true
   error.value = ''
   try {
     await workOrdersApi.setPartPrice(props.workOrderId, line.id, {
       unitPrice: precio,
+      quantity: cantidad,
       // Al catálogo solo va si lo pidieron y la línea de verdad salió de ahí.
       updateCatalog: tambienElCatalogo.value && !!line.partId,
     })
@@ -259,6 +271,7 @@ async function guardarPrecio() {
     enPrecio.value = null
     emit('changed')
   } catch (e) {
+    // El 409 de existencia insuficiente dice cuánto queda: se muestra tal cual.
     error.value = errorMessage(e)
   } finally {
     busy.value = false
@@ -443,7 +456,7 @@ watch(soloLoQueAplica, () => loadCatalog())
               :disabled="busy"
               @click="abrirPrecio(line)"
             >
-              {{ line.unitPrice === 0 ? 'Poner precio' : 'Cambiar precio' }}
+              {{ line.unitPrice === 0 ? 'Poner precio' : 'Editar' }}
             </button>
             <button type="button" class="link danger" :disabled="busy" @click="remove(line)">
               Quitar
@@ -493,10 +506,22 @@ watch(soloLoQueAplica, () => loadCatalog())
         {{ formatQuantity(enPrecio.quantity) }} {{ enPrecio.unit }}
       </p>
 
-      <label>
-        ¿Cuánto se le cobra por cada uno?
-        <input v-model="precioNuevo" type="number" min="0" step="0.01" required />
-      </label>
+      <div class="campos">
+        <label>
+          Cantidad ({{ enPrecio.unit }})
+          <input v-model="cantidadNueva" type="number" min="0.01" step="0.01" required />
+        </label>
+        <label>
+          ¿Cuánto se le cobra por cada uno?
+          <input v-model="precioNuevo" type="number" min="0" step="0.01" required />
+        </label>
+      </div>
+
+      <!-- Esa línea ya salió de bodega: la diferencia se mueve, y hay que decirlo antes. -->
+      <p v-if="mueveBodega" class="mueve small">
+        Este repuesto ya salió de bodega. Al guardar, la diferencia se descuenta o se devuelve,
+        con su movimiento en el kardex.
+      </p>
 
       <!-- Solo lo del catálogo puede volver a él, y solo el Dueño toca el catálogo. -->
       <label v-if="enPrecio.partId && canTouchCatalog" class="check">
@@ -632,6 +657,17 @@ watch(soloLoQueAplica, () => loadCatalog())
 
 .precio p {
   margin: 0;
+}
+
+.precio .campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.precio .mueve {
+  margin: 0;
+  color: var(--warning-text);
 }
 
 .precio .check {
