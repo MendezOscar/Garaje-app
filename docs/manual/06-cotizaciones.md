@@ -16,6 +16,15 @@ dos cosas: que autorice el gasto, y que quede escrito qué se le dijo.
 
 Debajo va el total, con el ISV del taller ya incluido («el total no cambia»).
 
+**Corregir una línea.** Mientras el cliente no haya contestado, cada línea tiene **Editar**:
+cantidad, precio y descuento, sin tener que quitarla y volver a escribirla. Si la línea salió
+del catálogo —un repuesto o un trabajo de mano de obra—, ahí mismo puede marcar **«Cambiar
+también el precio en el catálogo»** y queda para las próximas cotizaciones; eso solo lo hace
+el Dueño. Lo que ya se cotizó antes no se mueve: cada cotización guarda su precio.
+
+Una cotización **ya aprobada o rechazada no se edita**. Si hay que cambiar el precio, se hace
+otra: si no, el cliente aprobaría una cosa y recibiría otra.
+
 **Las fotos del daño.** La cotización lleva las fotos de la orden. *«Una del daño explica el
 presupuesto mejor que el texto»*: cuesta menos discutir un repuesto cuando se ve la pieza.
 

@@ -97,6 +97,39 @@ class QuoteRepository {
     return Quote.fromJson(response.data!);
   }
 
+  /// Corrige una línea sin tener que quitarla y volver a escribirla.
+  ///
+  /// Con [updateCatalog] el precio queda también en el repuesto o en el servicio del que
+  /// salió la línea, para no volver a corregirlo en la próxima cotización. Eso solo lo puede
+  /// hacer el Dueño, y lo ya cotizado antes no se mueve: cada línea lleva su precio congelado.
+  Future<Quote> updateLine(
+    String id,
+    String lineId, {
+    required QuoteLine line,
+    required double quantity,
+    required double unitPrice,
+    double discount = 0,
+    bool updateCatalog = false,
+  }) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/quotes/$id/lines/$lineId',
+      data: {
+        'lineType': line.lineType.value,
+        'partId': line.partId,
+        'laborServiceId': line.laborServiceId,
+        'description': line.description,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'discount': discount,
+        'boughtOutside': line.boughtOutside,
+        'supplierName': line.supplierName,
+        'updateCatalog': updateCatalog,
+      },
+    );
+
+    return Quote.fromJson(response.data!);
+  }
+
   Future<Quote> removeLine(String id, String lineId) async {
     final response = await _dio.delete<Map<String, dynamic>>('/api/quotes/$id/lines/$lineId');
     return Quote.fromJson(response.data!);

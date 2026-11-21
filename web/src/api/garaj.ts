@@ -611,8 +611,16 @@ export const workOrdersApi = {
     const { data } = await api.put<VehicleReception>(`/api/work-orders/${id}/reception`, body)
     return data
   },
-  /** Le pone precio a lo que el técnico cargó sin poder valorarlo. */
-  async setPartPrice(id: string, partLineId: string, body: { unitPrice: number; unitCost?: number }) {
+  /**
+   * Corrige el precio de una línea de la orden: lo que el técnico cargó sin poder valorarlo, o
+   * lo que se trajo de una cotización que después cambió. Con `updateCatalog` el precio queda
+   * también en el catálogo —eso solo lo puede hacer el Dueño—.
+   */
+  async setPartPrice(
+    id: string,
+    partLineId: string,
+    body: { unitPrice: number; unitCost?: number; updateCatalog?: boolean },
+  ) {
     const { data } = await api.put<WorkOrderPart>(
       `/api/work-orders/${id}/parts/${partLineId}/price`,
       body,

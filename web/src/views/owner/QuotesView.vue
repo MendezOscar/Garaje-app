@@ -17,11 +17,14 @@ import {
   type LaborService,
   type Part,
   type QuoteDetail,
+  type QuoteLine,
   type QuoteListItem,
 } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
 import { formatDate, formatMoney, formatQuantity, sinIsv } from '@/utils/format'
 
 const route = useRoute()
+const auth = useAuthStore()
 
 const quotes = ref<QuoteListItem[]>([])
 const selected = ref<QuoteDetail | null>(null)
@@ -256,6 +259,53 @@ function removeLine(lineId: string) {
   return run(() => quotesApi.removeLine(selected.value!.id, lineId))
 }
 
+/** La línea que se está corrigiendo, con lo que se le va a poner. */
+const enEdicion = ref<QuoteLine | null>(null)
+const edicion = ref({ quantity: 1, unitPrice: 0, discount: 0, updateCatalog: false })
+
+function editarLinea(line: QuoteLine) {
+  enEdicion.value = line
+  edicion.value = {
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    discount: line.discount,
+    updateCatalog: false,
+  }
+}
+
+/**
+ * Guarda la corrección. El precio se escribe **con el ISV adentro si la cotización lo lleva**,
+ * igual que al agregar la línea: es el precio que el cliente lee.
+ *
+ * Con `updateCatalog` el precio queda también en el repuesto o en el servicio del que salió la
+ * línea, para no volver a corregirlo en la próxima. Lo ya cotizado antes no se mueve: cada
+ * línea lleva su precio congelado.
+ */
+function guardarLinea() {
+  const line = enEdicion.value
+  if (!line) return
+
+  const datos = edicion.value
+
+  return run(async () => {
+    const result = await quotesApi.updateLine(selected.value!.id, line.id, {
+      lineType: line.lineType,
+      partId: line.partId,
+      laborServiceId: line.laborServiceId,
+      description: line.description,
+      quantity: Number(datos.quantity),
+      unitPrice: Number(datos.unitPrice),
+      discount: Number(datos.discount) || 0,
+      boughtOutside: line.boughtOutside,
+      supplierName: line.supplierName ?? undefined,
+      updateCatalog: datos.updateCatalog && !!(line.partId || line.laborServiceId),
+    })
+
+    enEdicion.value = null
+    return result
+  })
+}
+
 /**
  * Prende o apaga el ISV de esta cotización. Con el impuesto dentro del precio no cambia el
  * total: cambia lo que el documento le dice al cliente —cuánto lleva incluido, o que no
@@ -477,6 +527,9 @@ onMounted(async () => {
               </td>
               <td class="num">{{ formatMoney(netoDeLinea(line.total)) }}</td>
               <td v-if="selected.isEditable" class="num">
+                <button type="button" class="link" :disabled="busy" @click="editarLinea(line)">
+                  Editar
+                </button>
                 <button type="button" class="link danger" :disabled="busy" @click="removeLine(line.id)">
                   Quitar
                 </button>
@@ -484,6 +537,44 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+
+        <!-- Corregir una línea sin tener que quitarla y volver a escribirla. -->
+        <form v-if="enEdicion" class="editar-linea" @submit.prevent="guardarLinea">
+          <p class="small"><strong>{{ enEdicion.description }}</strong></p>
+
+          <div class="campos">
+            <label>
+              Cantidad
+              <input v-model="edicion.quantity" type="number" min="0.01" step="0.01" required />
+            </label>
+            <label>
+              Precio por unidad<template v-if="selected.taxRate > 0 && selected.pricesIncludedTax">
+                (con ISV)</template>
+              <input v-model="edicion.unitPrice" type="number" min="0" step="0.01" required />
+            </label>
+            <label>
+              Descuento
+              <input v-model="edicion.discount" type="number" min="0" step="0.01" />
+            </label>
+          </div>
+
+          <!-- Al catálogo solo vuelve lo que salió de él, y solo lo mueve el Dueño. -->
+          <label v-if="enEdicion.partId || enEdicion.laborServiceId" class="check">
+            <input v-model="edicion.updateCatalog" type="checkbox" :disabled="!auth.isOwner" />
+            Cambiar también el precio en el catálogo, para las próximas cotizaciones
+            <span v-if="!auth.isOwner" class="muted small">(solo el Dueño)</span>
+          </label>
+          <p v-else class="muted small">
+            Esta línea se escribió a mano: no está en el catálogo, así que solo cambia aquí.
+          </p>
+
+          <div class="acciones">
+            <button type="submit" :disabled="busy">Guardar</button>
+            <button type="button" class="link" :disabled="busy" @click="enEdicion = null">
+              Cancelar
+            </button>
+          </div>
+        </form>
 
         <!-- Con ISV el desglose reemplaza al subtotal: es lo mismo que lee el cliente. -->
         <div class="totals">
@@ -861,6 +952,38 @@ td {
 .num {
   text-align: right;
   white-space: nowrap;
+}
+
+.editar-linea {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+.editar-linea p {
+  margin: 0;
+}
+
+.editar-linea .campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.editar-linea .check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.editar-linea .acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .totals {

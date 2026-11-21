@@ -103,6 +103,19 @@ repuestos, arriba aparece **«Traer los N de COT-…»**: los copia a la orden c
 el cliente aprobó. Entran **por confirmar**, porque lo cotizado es una propuesta: no salen de
 la bodega hasta que usted confirme cada uno. Lo que ya estaba cargado no se duplica.
 
+**Si después corrige la cotización**, la orden no se corrige sola: la línea de la orden ya
+movió bodega, así que se queda como se trajo. Cuando eso pasa, arriba de los repuestos sale un
+aviso —«Esto cambió en la cotización y aquí no»— con lo que dice cada una, para que lo ajuste
+también en la orden. **La factura sale con lo que diga la orden**, no con lo que diga la
+cotización.
+
+Para ajustarlo, en la línea sale **Cambiar precio**, mientras el repuesto no haya salido de
+bodega todavía —o esté en cero—. Si el repuesto es del catálogo, ahí mismo puede marcar
+**«Cambiarlo también en el catálogo»** y el precio queda para las próximas órdenes; eso solo
+lo hace el Dueño. Una línea ya confirmada no se edita: esa es la que de verdad salió de
+bodega, y se arregla quitándola y cargándola de nuevo, para que el kardex cuadre con lo que se
+cobró.
+
 ### Cotizaciones
 
 Para cuando el trabajo hay que aprobarlo antes de hacerlo. Ver

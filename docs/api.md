@@ -258,6 +258,7 @@ diferencia de inventario siempre tiene autor y hora, en vez de aparecer de la na
 | GET | `/api/work-orders/{id}/parts` | cualquiera | Repuestos cargados a la orden |
 | POST | `/api/work-orders/{id}/parts` | Owner o Técnico | Con `partId`: descuenta de la bodega. Sin él: línea manual |
 | POST | `/api/work-orders/{id}/parts/from-quote` | Owner o Técnico | Trae los repuestos de una cotización **de esa orden**, por confirmar |
+| PUT | `/api/work-orders/{id}/parts/{lineId}/price` | Dueño o Encargado | Corrige el precio. Con `updateCatalog` lo deja también en el catálogo (**solo el Dueño**) |
 | DELETE | `/api/work-orders/{id}/parts/{lineId}` | Owner o Técnico | Devuelve a la bodega si había salido de ella |
 
 `StockMovementType`: `1` entrada · `2` salida · `3` ajuste · `4` traslado recibido ·
@@ -316,7 +317,7 @@ link `wa.me` con el mensaje ya escrito y el Dueño lo envía desde su propio Wha
 | POST | `/api/quotes` | Owner | Cotización en blanco para un cliente |
 | POST | `/api/quotes/from-work-order` | Owner | La arma con los repuestos y pasos de la orden |
 | PUT | `/api/quotes/{id}` | Owner | Vigencia, notas e impuesto |
-| POST/PUT/DELETE | `/api/quotes/{id}/lines[/{lineId}]` | Owner | Líneas; recalcula totales |
+| POST/PUT/DELETE | `/api/quotes/{id}/lines[/{lineId}]` | Owner | Líneas; recalcula totales. Con `updateCatalog` el precio queda también en el repuesto o en el servicio (**solo el Dueño**) |
 | POST | `/api/quotes/{id}/send` | Owner | La marca enviada y devuelve el link de WhatsApp |
 | GET | `/api/quotes/{id}/work-order-photos` | Owner | Fotos de su orden, para elegir cuáles mandar |
 | POST | `/api/quotes/{id}/work-order-photos` | Owner | Trae a la cotización las elegidas |

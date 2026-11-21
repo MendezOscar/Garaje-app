@@ -420,7 +420,14 @@ public record SaveVehicleReceptionRequest(
     string? Signature);
 
 /// <param name="UnitCost">Lo que le costó al taller. Omitido deja el que tenía.</param>
-public record SetPartPriceRequest(decimal UnitPrice, decimal? UnitCost);
+/// <param name="UpdateCatalog">
+/// Que este precio pase también al catálogo, para no volver a corregirlo en la próxima orden.
+/// Solo lo puede hacer el Dueño, y solo tiene sentido en una línea del catálogo.
+/// </param>
+public record SetPartPriceRequest(
+    decimal UnitPrice,
+    decimal? UnitCost,
+    bool UpdateCatalog = false);
 
 public record ServiceReminderQuery
 {

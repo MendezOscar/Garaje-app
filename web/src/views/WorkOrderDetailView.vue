@@ -696,9 +696,9 @@ const quotesWithParts = computed(() =>
     .map((q) => ({
       id: q.id,
       number: q.number,
-      parts: q.lines.filter((l) => l.lineType === LineType.Part).length,
+      parts: q.lines.filter((l) => l.lineType === LineType.Part && l.quantity > 0),
     }))
-    .filter((q) => q.parts > 0),
+    .filter((q) => q.parts.length > 0),
 )
 
 /**
@@ -1985,6 +1985,7 @@ onMounted(async () => {
           :show-cost="auth.isOwner"
           :vehicle-id="order.vehicleId"
           :quotes-with-parts="quotesWithParts"
+          :can-touch-catalog="auth.isOwner"
           @changed="load"
         />
 

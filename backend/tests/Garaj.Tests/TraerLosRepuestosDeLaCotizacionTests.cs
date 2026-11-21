@@ -1,6 +1,7 @@
 using Garaj.Application.Common;
 using Garaj.Application.Inventory;
 using Garaj.Application.Notifications;
+using Garaj.Application.WorkOrders;
 using Garaj.Domain.Entities;
 using Garaj.Domain.Enums;
 using Garaj.Infrastructure.Persistence;
@@ -24,12 +25,13 @@ public class TraerLosRepuestosDeLaCotizacionTests
     private const string CadenaLocal =
         "Host=localhost;Port=5434;Database=garaj;Username=garaj;Password=garaj-dev-secret";
 
-    private static GarajDbContext Contexto(Guid taller, Guid usuario)
+    private static GarajDbContext Contexto(
+        Guid taller, Guid usuario, string rol = "Owner", Guid? sucursal = null)
     {
         var cadena = Environment.GetEnvironmentVariable("ConnectionStrings__Default") ?? CadenaLocal;
 
         var contexto = new TenantContext();
-        contexto.Initialize(taller, usuario, "Owner", [], null);
+        contexto.Initialize(taller, usuario, rol, sucursal is { } s ? [s] : [], null);
 
         var options = new DbContextOptionsBuilder<GarajDbContext>()
             .UseNpgsql(cadena)
@@ -41,7 +43,7 @@ public class TraerLosRepuestosDeLaCotizacionTests
     }
 
     private sealed record Escenario(
-        Guid Taller, Guid Usuario, Guid Orden, Guid Repuesto, Guid Cotizacion);
+        Guid Taller, Guid Usuario, Guid Sucursal, Guid Orden, Guid Repuesto, Guid Cotizacion);
 
     /// <summary>
     /// Un taller con una orden abierta, un repuesto con tres en bodega y una cotización
@@ -134,7 +136,7 @@ public class TraerLosRepuestosDeLaCotizacionTests
 
         await db.SaveChangesAsync();
 
-        return new Escenario(taller, usuario, orden, repuesto, cotizacion);
+        return new Escenario(taller, usuario, sucursal, orden, repuesto, cotizacion);
     }
 
     /// <summary>Los avisos no son lo que se prueba aquí: se tragan.</summary>
@@ -242,5 +244,74 @@ public class TraerLosRepuestosDeLaCotizacionTests
         await Assert.ThrowsAsync<NotFoundException>(
             () => Servicio(db).ImportQuotePartsAsync(
                 caso.Orden, new ImportQuotePartsRequest(otroCaso.Cotizacion)));
+    }
+
+    // ---------- Corregir el precio de lo que se trajo ----------
+
+    [RequiereBaseLocal]
+    public async Task Corregir_el_precio_puede_dejarlo_tambien_en_el_catalogo()
+    {
+        var caso = await EscenarioAsync();
+
+        await using var db = Contexto(caso.Taller, caso.Usuario);
+        var servicio = Servicio(db);
+
+        var traidos = await servicio.ImportQuotePartsAsync(
+            caso.Orden, new ImportQuotePartsRequest(caso.Cotizacion));
+
+        var linea = traidos.Added.Single();
+
+        var corregida = await servicio.SetPartPriceAsync(
+            caso.Orden, linea.Id, new SetPartPriceRequest(1500m, null, UpdateCatalog: true));
+
+        Assert.Equal(1500m, corregida.UnitPrice);
+
+        var ficha = await db.Parts.AsNoTracking().FirstAsync(p => p.Id == caso.Repuesto);
+        Assert.Equal(1500m, ficha.SalePrice);
+    }
+
+    [RequiereBaseLocal]
+    public async Task Sin_pedirlo_el_catalogo_no_se_toca()
+    {
+        var caso = await EscenarioAsync();
+
+        await using var db = Contexto(caso.Taller, caso.Usuario);
+        var servicio = Servicio(db);
+
+        var traidos = await servicio.ImportQuotePartsAsync(
+            caso.Orden, new ImportQuotePartsRequest(caso.Cotizacion));
+
+        await servicio.SetPartPriceAsync(
+            caso.Orden, traidos.Added.Single().Id, new SetPartPriceRequest(1500m, null));
+
+        var ficha = await db.Parts.AsNoTracking().FirstAsync(p => p.Id == caso.Repuesto);
+        Assert.Equal(1200m, ficha.SalePrice);
+    }
+
+    [RequiereBaseLocal]
+    public async Task El_catalogo_del_taller_solo_lo_mueve_el_Dueno()
+    {
+        var caso = await EscenarioAsync();
+
+        Guid lineaId;
+
+        await using (var db = Contexto(caso.Taller, caso.Usuario))
+        {
+            var traidos = await Servicio(db).ImportQuotePartsAsync(
+                caso.Orden, new ImportQuotePartsRequest(caso.Cotizacion));
+
+            lineaId = traidos.Added.Single().Id;
+        }
+
+        // El Encargado corrige el precio de su orden, pero no el catálogo del taller.
+        await using var comoEncargado =
+            Contexto(caso.Taller, caso.Usuario, "Manager", caso.Sucursal);
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => Servicio(comoEncargado).SetPartPriceAsync(
+                caso.Orden, lineaId, new SetPartPriceRequest(1500m, null, UpdateCatalog: true)));
+
+        var ficha = await comoEncargado.Parts.AsNoTracking().FirstAsync(p => p.Id == caso.Repuesto);
+        Assert.Equal(1200m, ficha.SalePrice);
     }
 }
