@@ -11,6 +11,48 @@ Dos reglas que no son de estilo sino de la tienda:
 
 ---
 
+## 1.11.0 (25)
+
+### Google Play — «Novedades» (es-419)
+
+```
+Lo que ya cotizó, no lo teclee otra vez.
+
+Si la orden tiene una cotización con repuestos, ahora los trae de un toque: entran con el precio que el cliente aprobó y por confirmar, así que nada sale de bodega hasta que usted lo confirme.
+
+Y si después corrige la cotización, la orden se lo avisa, para que la factura no salga con el precio viejo.
+
+También puede corregir el precio de un repuesto sin quitarlo, y dejarlo de una vez en su catálogo.
+```
+
+### App Store — «Novedades de esta versión»
+
+```
+Lo que ya cotizó, no lo teclee otra vez.
+
+TRAER LOS REPUESTOS DE LA COTIZACIÓN
+· Si la orden tiene una cotización con repuestos, arriba de Repuestos sale «Traer los N de
+  COT-…». Entran con el precio que el cliente aprobó, con su descuento ya adentro.
+· Entran por confirmar: lo cotizado es una propuesta y puede que ni haya existencia. Confirmar
+  cada línea es lo que la saca de la bodega, con lo que haya en ese momento.
+· Lo que ya estaba cargado no se duplica. Si agrega otro repuesto a la cotización, vuelva a
+  tocar el botón: entran solo los nuevos.
+
+SI LA COTIZACIÓN CAMBIA DESPUÉS, LA ORDEN SE LO DICE
+· La línea de la orden ya movió bodega, así que no se corrige sola. Cuando el precio o la
+  cantidad dejan de cuadrar, sale el aviso con lo que dice cada una.
+· La factura sale con lo que diga la orden, nunca con lo que diga la cotización.
+
+LOS PRECIOS, SIN QUITAR Y VOLVER A CARGAR
+· Cambie el precio de un repuesto que todavía no salió de bodega, sin borrar la línea.
+· Si el repuesto es del catálogo, puede dejar el precio nuevo también allá, para las próximas
+  órdenes. Eso lo hace el Dueño.
+· En la cotización, cada línea ahora se edita —cantidad, precio y descuento— mientras el
+  cliente no haya contestado, y el precio también puede quedar en el catálogo.
+```
+
+---
+
 ## 1.10.0 (24)
 
 ### Google Play — «Novedades» (es-419)
