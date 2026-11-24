@@ -70,6 +70,33 @@ public class PlatformFiscalRange : AuditableEntity
 }
 
 /// <summary>
+/// Un servicio que cobramos: GarajApp, StockRuta, Profeapp y los que vengan.
+/// </summary>
+/// <remarks>
+/// En tabla y no en un enum porque el cuarto servicio no puede pedir un despliegue. Cada uno
+/// lleva su llave de API —guardada en hash, como una contraseña— para que su propio portal
+/// pida el número de la factura cuando cobra: el padrón de clientes vive allá, aquí vive el
+/// CAI.
+/// </remarks>
+public class PlatformProduct : AuditableEntity
+{
+    public string Name { get; set; } = null!;
+
+    /// <summary>
+    /// Hash de la llave con la que el portal se identifica. Null mientras no se haya emitido
+    /// una: GarajApp no la necesita, factura desde esta misma consola.
+    /// </summary>
+    public string? ApiKeyHash { get; set; }
+
+    /// <summary>Las cuatro últimas de la llave, para reconocerla sin poder reconstruirla.</summary>
+    public string? ApiKeyHint { get; set; }
+
+    public DateTimeOffset? ApiKeyIssuedOn { get; set; }
+
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>
 /// El documento que le entregamos al taller por su mensualidad. Nace del pago —se emite
 /// cuando el dinero ya entró—, así que no hay facturas por cobrar que después haya que anular.
 /// </summary>
@@ -80,10 +107,37 @@ public class PlatformFiscalRange : AuditableEntity
 /// </remarks>
 public class SubscriptionInvoice : AuditableEntity
 {
-    public Guid TenantId { get; set; }
+    /// <summary>
+    /// El taller, cuando el documento es de GarajApp. Null en los otros servicios: su cliente
+    /// no vive aquí, vive en su portal.
+    /// </summary>
+    public Guid? TenantId { get; set; }
 
-    /// <summary>El pago que la originó. Uno a uno: cada pago registrado deja su documento.</summary>
-    public Guid SubscriptionPaymentId { get; set; }
+    /// <summary>
+    /// Qué servicio se cobró. Junto con <see cref="ProductName"/>, que se copia: renombrar el
+    /// producto mañana no puede reescribir el documento de hoy.
+    /// </summary>
+    public Guid? ProductId { get; set; }
+
+    public string? ProductName { get; set; }
+
+    /// <summary>
+    /// El cliente en el sistema que lo cobró. No es una relación —ese padrón no es nuestro—:
+    /// es la etiqueta que permite juntar los documentos de un mismo cliente.
+    /// </summary>
+    public string? ExternalCustomerRef { get; set; }
+
+    /// <summary>
+    /// El pago que la originó, en GarajApp. Uno a uno: cada pago registrado deja su documento.
+    /// Null en los otros servicios, donde el cobro lo hizo su portal y aquí solo se emite.
+    /// </summary>
+    public Guid? SubscriptionPaymentId { get; set; }
+
+    /// <summary>
+    /// Con qué se pagó, cuando el pago no vive aquí: el número de depósito o de transferencia
+    /// que mandó el portal, para poder cotejarlo.
+    /// </summary>
+    public string? PaymentReference { get; set; }
 
     /// <summary>Lo que se le enseña al taller: el correlativo propio o el autorizado.</summary>
     public string Number { get; set; } = null!;

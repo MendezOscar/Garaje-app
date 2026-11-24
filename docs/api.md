@@ -965,6 +965,30 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | GET | `/api/platform/billing/invoices/{id}.pdf` | Plataforma | Su PDF, para mandárselo al taller |
 | POST | `/api/platform/billing/invoices/{id}/void` | Plataforma | Lo anula. El pago queda |
 
+### La facturación de los tres servicios
+
+El CAI es **uno solo para todo lo que cobramos** —GarajApp, StockRuta, Profeapp y lo que
+venga—, porque el emisor es el mismo: la misma empresa y el mismo RTN. Lo que **no** vive aquí
+es el padrón de clientes de los otros servicios: cada portal tiene el suyo, y lo que comparte
+con esta consola es el número del documento.
+
+- **`platform_products`** son los servicios, en tabla y no en un enum: el cuarto no puede pedir
+  un despliegue. Cada uno lleva su llave de API en hash, para que su portal pida número.
+- **La factura** quedó con dos orígenes posibles: `tenant_id` y `subscription_payment_id` son
+  **nullables**. En GarajApp la factura nace del pago que corre el vencimiento del taller; en
+  los otros servicios el cobro lo hizo su portal y aquí solo se emite, con
+  `payment_reference` como texto y `external_customer_ref` para juntar los documentos de un
+  mismo cliente sin tener su ficha.
+- **`product_name` se copia en el documento**, como el nombre del cliente: renombrar el
+  servicio mañana no reescribe lo emitido.
+
+**El número se toma con un solo UPDATE atómico** (`NumeracionDePlataforma`), no leyendo y
+sumando en memoria. Mientras las emitía una persona de a una daba igual; con tres portales
+pidiendo número a la vez, dos leerían el mismo `next_number` y saldrían **dos documentos con el
+mismo número del SAR**. Las condiciones del tope y de la fecha van en el `WHERE` del UPDATE
+para que Postgres las reevalúe sobre la fila ya bloqueada. Si el guardado posterior falla queda
+un hueco: un hueco se explica, un número repetido no.
+
 ### Los planes y los topes
 
 `SubscriptionPlan`: `0` Heredado · `1` Básico · `2` Pro. El plan dice **con qué topes nace** el

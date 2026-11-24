@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Platform;
@@ -689,9 +690,15 @@ public class PlatformService(
         var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
         var (total, impuesto) = Isv.Totales(suma, tasa, conImpuestoAdentro);
 
+        var producto = await ProductoAsync(ProductoDeGarajApp, ct);
+
         var factura = new SubscriptionInvoice
         {
             TenantId = tenant.Id,
+            // Qué servicio se cobró. El nombre se copia, como el del cliente: renombrar el
+            // producto mañana no puede reescribir el documento de hoy.
+            ProductId = producto?.Id,
+            ProductName = producto?.Name ?? "GarajApp",
             SubscriptionPaymentId = payment.Id,
             IssuedOn = paidOn,
             // Copiados, no leídos por relación: el RTN que corrija el taller el mes que viene
@@ -722,7 +729,7 @@ public class PlatformService(
 
         factura.Number = request.Fiscal
             ? await NumeroAutorizadoAsync(factura, ct)
-            : NumeroPropio(settings);
+            : await NumeroPropioAsync(settings, ct);
 
         db.SubscriptionInvoices.Add(factura);
     }
@@ -732,9 +739,22 @@ public class PlatformService(
     /// un comprobante por su cuenta— cuando no hay rango, venció o se acabó: quien pidió
     /// factura con CAI tiene que enterarse ahí, no al imprimir.
     /// </summary>
+    /// <remarks>
+    /// El número se toma de a uno y atómico, en <see cref="NumeracionDePlataforma"/>: ahí está
+    /// explicado por qué y qué pasa cuando dos emisiones coinciden. La lectura de arriba es
+    /// solo para poder decir qué falta en vez de un «no se pudo».
+    ///
+    /// Y se toma antes de guardar la factura, así que si el guardado falla queda un hueco en la
+    /// numeración. Es a propósito: un hueco se explica —«ese número no se usó»— y un número
+    /// repetido no.
+    /// </remarks>
     private async Task<string> NumeroAutorizadoAsync(SubscriptionInvoice factura, CancellationToken ct)
     {
+        var ahora = clock.UtcNow;
+
+        // Primero sin tocar nada, solo para poder decir qué pasa en vez de un «no se pudo».
         var rango = await db.PlatformFiscalRanges
+            .AsNoTracking()
             .Where(r => r.IsActive)
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync(ct)
@@ -742,31 +762,61 @@ public class PlatformService(
                 "Todavía no hay un CAI registrado. Regístrelo en Ajustes de facturación, o "
                 + "emita el comprobante sin CAI.");
 
-        if (rango.IssueDeadline < clock.UtcNow)
+        if (rango.IssueDeadline < ahora)
             throw new AppException("El CAI registrado venció. Registre el rango nuevo del SAR.");
 
         if (rango.NextNumber > rango.RangeEnd)
             throw new AppException("Se agotó el rango autorizado. Registre el rango nuevo del SAR.");
 
-        var numero = rango.Format(rango.NextNumber);
+        var numero = await NumeracionDePlataforma.TomarAutorizadoAsync(db, rango.Id, ahora, ct)
+            ?? throw new ConflictException(
+                "Otra emisión se llevó el último número del rango autorizado. Registre el rango "
+                + "nuevo del SAR.");
 
         factura.PlatformFiscalRangeId = rango.Id;
         factura.FiscalCai = rango.Cai;
         factura.FiscalRangeText = rango.RangeText;
         factura.FiscalIssueDeadline = rango.IssueDeadline;
 
-        rango.NextNumber++;
-
-        return numero;
+        return rango.Format(numero);
     }
 
-    /// <summary>El correlativo nuestro, el del comprobante sin CAI: «C-000007».</summary>
-    private static string NumeroPropio(PlatformSettings settings)
+    /// <summary>
+    /// El correlativo nuestro, el del comprobante sin CAI: «C-000007». Se toma igual de atómico
+    /// que el autorizado: el número es único en la tabla, así que dos a la vez no sacarían dos
+    /// documentos sino un error al guardar el segundo.
+    /// </summary>
+    private async Task<string> NumeroPropioAsync(PlatformSettings settings, CancellationToken ct)
     {
-        var numero = $"{settings.InvoicePrefix}-{settings.NextInvoiceNumber:D6}";
-        settings.NextInvoiceNumber++;
-        return numero;
+        // La fila nace sola la primera vez, y todavía no está en la base que se pueda actualizar.
+        if (db.Entry(settings).State == EntityState.Added)
+        {
+            var primero = settings.NextInvoiceNumber;
+            settings.NextInvoiceNumber++;
+            return $"{settings.InvoicePrefix}-{primero:D6}";
+        }
+
+        var numero = await NumeracionDePlataforma.TomarPropioAsync(db, settings.Id, ct)
+            ?? settings.NextInvoiceNumber;
+
+        // Lo que quedó en memoria ya no vale: el bueno es el de la base, y no hay que
+        // reescribirlo al guardar.
+        var propiedad = db.Entry(settings).Property(s => s.NextInvoiceNumber);
+        propiedad.CurrentValue = numero + 1;
+        propiedad.IsModified = false;
+
+        return $"{settings.InvoicePrefix}-{numero:D6}";
     }
+
+    /// <summary>GarajApp como servicio. El id lo fija la migración que creó la tabla.</summary>
+    private static readonly Guid ProductoDeGarajApp = new("1a5d1f00-0000-4000-8000-000000000001");
+
+    /// <summary>
+    /// El servicio que se está cobrando. Null si todavía no está en la tabla —una base vieja
+    /// sin la migración—: la factura sale igual, con el nombre escrito, antes que no salir.
+    /// </summary>
+    private async Task<PlatformProduct?> ProductoAsync(Guid id, CancellationToken ct) =>
+        await db.PlatformProducts.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
 
     /// <summary>
     /// Nuestros datos de emisor. La fila nace sola la primera vez que se necesita: pedirle al

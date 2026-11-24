@@ -5,6 +5,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- La numeración de documentos se prueba sola, desde diez tareas a la vez: es la única
+         pieza con un problema de concurrencia de verdad y no se puede dejar sin prueba solo
+         por estar marcada como interna. -->
+    <InternalsVisibleTo Include="Garaj.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Anthropic" Version="13.6.0" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.416.7" />
     <PackageReference Include="ClosedXML" Version="0.104.2" />

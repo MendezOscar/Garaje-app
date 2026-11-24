@@ -167,6 +167,19 @@ public class PlatformFiscalRangeConfiguration : IEntityTypeConfiguration<Platfor
     }
 }
 
+public class PlatformProductConfiguration : IEntityTypeConfiguration<PlatformProduct>
+{
+    public void Configure(EntityTypeBuilder<PlatformProduct> b)
+    {
+        b.Property(x => x.Name).HasMaxLength(80).IsRequired();
+        b.Property(x => x.ApiKeyHash).HasMaxLength(200);
+        b.Property(x => x.ApiKeyHint).HasMaxLength(8);
+
+        // Dos servicios con el mismo nombre no se pueden distinguir en el documento.
+        b.HasIndex(x => x.Name).IsUnique();
+    }
+}
+
 public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<SubscriptionInvoice>
 {
     public void Configure(EntityTypeBuilder<SubscriptionInvoice> b)
@@ -180,6 +193,9 @@ public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<Subscri
         b.Property(x => x.FiscalCai).HasMaxLength(50);
         b.Property(x => x.FiscalRangeText).HasMaxLength(60);
         b.Property(x => x.VoidReason).HasMaxLength(300);
+        b.Property(x => x.ProductName).HasMaxLength(80);
+        b.Property(x => x.ExternalCustomerRef).HasMaxLength(100);
+        b.Property(x => x.PaymentReference).HasMaxLength(80);
 
         // Dos documentos con el mismo número no se pueden distinguir, y uno de los dos es el
         // que el SAR no va a encontrar.
@@ -190,6 +206,12 @@ public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<Subscri
 
         b.HasIndex(x => new { x.TenantId, x.IssuedOn });
 
+        // La pestaña de documentos se lee así: por servicio y por fecha.
+        b.HasIndex(x => new { x.ProductId, x.IssuedOn });
+
+        // Para juntar los documentos de un mismo cliente de otro portal.
+        b.HasIndex(x => new { x.ProductId, x.ExternalCustomerRef });
+
         b.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(x => x.TenantId)
@@ -199,6 +221,12 @@ public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<Subscri
             .WithMany()
             .HasForeignKey(x => x.SubscriptionPaymentId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // El producto no se borra si tiene documentos: son los que el SAR va a pedir.
+        b.HasOne<PlatformProduct>()
+            .WithMany()
+            .HasForeignKey(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 
