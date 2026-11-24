@@ -1876,6 +1876,21 @@ export const platformApi = {
     )
     return data
   },
+  /**
+   * Le emite el documento a un pago que se registró sin él. Consume un número igual que
+   * cualquier otra emisión.
+   */
+  async issuePaymentInvoice(
+    tenantId: string,
+    paymentId: string,
+    body: { fiscal?: boolean },
+  ): Promise<PlatformTenantDetail> {
+    const { data } = await api.post<PlatformTenantDetail>(
+      `/api/platform/tenants/${tenantId}/payments/${paymentId}/invoice`,
+      body,
+    )
+    return data
+  },
   /** Acuerdo de pago: el taller sigue trabajando hasta la fecha acordada aunque deba. */
   async setAgreement(id: string, body: { unblockedThrough: string; note?: string | null }) {
     const { data } = await api.put<PlatformTenant>(

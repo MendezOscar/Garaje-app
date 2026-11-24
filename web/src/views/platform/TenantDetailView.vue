@@ -292,6 +292,23 @@ function bajarDocumento(invoiceId: string, numero: string) {
   return platformApi.invoicePdf(invoiceId, numero)
 }
 
+/**
+ * Le emite el documento a un pago que se registró sin él: el taller no lo pidió entonces y
+ * después sí. Consume un número igual que cualquier otra emisión, así que se pregunta antes
+ * y se dice cuál va a ser.
+ */
+function emitirDelPago(paymentId: string) {
+  const conCai = !sinCai.value && confirm(
+    `¿Con CAI? Consume el número ${emisor.value?.fiscalRange?.nextFiscalNumber ?? ''} del rango `
+      + 'autorizado.\n\nCancelar emite un comprobante con numeración propia.',
+  )
+
+  return accion(
+    () => platformApi.issuePaymentInvoice(id, paymentId, { fiscal: conCai }),
+    'No se pudo emitir el documento.',
+  )
+}
+
 function anularDocumento(invoiceId: string) {
   const motivo = prompt('¿Por qué se anula? Queda escrito en el documento.')
   if (!motivo?.trim()) return
@@ -926,6 +943,17 @@ onMounted(async () => {
                 Anular documento
               </button>
             </template>
+            <!-- El pago que se registró sin documento: el taller no lo pidió entonces y
+                 después sí. Se puede emitir desde acá, con su número. -->
+            <button
+              v-else-if="!p.isVoided"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="emitirDelPago(p.id)"
+            >
+              Emitir
+            </button>
             <span v-else class="muted">—</span>
           </td>
           <td>

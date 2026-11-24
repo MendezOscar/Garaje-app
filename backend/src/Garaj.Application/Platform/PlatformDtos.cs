@@ -158,6 +158,15 @@ public record RegisterPaymentRequest(
     IReadOnlyList<SaveInvoiceLineRequest>? Lines = null);
 
 /// <summary>
+/// Emitirle el documento a un pago que se registró sin él, porque el taller no lo pidió en su
+/// momento y después sí.
+/// </summary>
+public record IssuePaymentInvoiceRequest(
+    bool Fiscal = false,
+    IReadOnlyList<SaveInvoiceLineRequest>? Lines = null,
+    string? Note = null);
+
+/// <summary>
 /// Alta de un Dueño para un taller que ya existe. Es el rescate: si el único Dueño perdió la
 /// contraseña, borró su cuenta desde la app o se fue del negocio, el taller queda con sus datos
 /// intactos pero sin nadie que pueda entrar, y desde adentro no hay forma de arreglarlo.
@@ -300,6 +309,14 @@ public interface IPlatformService
         Guid tenantId, Guid userId, ResetUserPasswordRequest request, CancellationToken ct = default);
 
     /// <summary>Registra el pago y corre la fecha de vencimiento. Cancela el acuerdo si lo había.</summary>
+    /// <summary>
+    /// Le emite el documento a un pago que no lo tiene. Consume un número igual que cualquier
+    /// otra emisión, así que se niega si ese pago ya tiene el suyo.
+    /// </summary>
+    Task<PlatformTenantDetailDto> IssuePaymentInvoiceAsync(
+        Guid tenantId, Guid paymentId, IssuePaymentInvoiceRequest request,
+        CancellationToken ct = default);
+
     Task<PlatformTenantDetailDto> RegisterPaymentAsync(
         Guid tenantId, RegisterPaymentRequest request, CancellationToken ct = default);
 
