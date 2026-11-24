@@ -410,7 +410,8 @@ public class PlatformBillingService(
         return productos
             .Select(p => new PlatformProductDto(
                 p.Id, p.Name, p.IsActive, p.ApiKeyHint, p.ApiKeyIssuedOn,
-                emitidos.GetValueOrDefault(p.Id)))
+                emitidos.GetValueOrDefault(p.Id),
+                p.Id == PlatformProducts.GarajApp))
             .ToList();
     }
 
@@ -453,6 +454,12 @@ public class PlatformBillingService(
     public async Task<NewApiKeyDto> RotateApiKeyAsync(Guid productId, CancellationToken ct = default)
     {
         AccessScope.From(tenantContext).EnsurePlatform();
+
+        // Nosotros no pedimos número por la API: lo tomamos aquí dentro, con el pago del
+        // taller. Una llave para GarajApp sería una credencial repartida que nadie usa.
+        if (productId == PlatformProducts.GarajApp)
+            throw new AppException(
+                "GarajApp factura desde esta misma consola: no necesita llave.");
 
         var producto = await db.PlatformProducts.FirstOrDefaultAsync(p => p.Id == productId, ct)
             ?? throw new NotFoundException("El servicio no existe.");

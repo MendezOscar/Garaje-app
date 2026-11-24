@@ -609,9 +609,15 @@ onMounted(load)
           <tbody>
             <tr v-for="s in servicios" :key="s.id" :class="{ apagado: !s.isActive }">
               <td><strong>{{ s.name }}</strong></td>
-              <td class="mono small">
-                <template v-if="s.apiKeyHint">
-                  …{{ s.apiKeyHint }}
+              <td class="small">
+                <!-- Nosotros no pedimos número por la API: lo tomamos aquí mismo, con el pago
+                     del taller. Ofrecerle una llave sería repartir una credencial que nadie
+                     va a usar. -->
+                <span v-if="s.billsFromConsole" class="muted">
+                  No la necesita: factura desde esta consola
+                </span>
+                <template v-else-if="s.apiKeyHint">
+                  <span class="mono">…{{ s.apiKeyHint }}</span>
                   <div class="muted">desde {{ formatDay(s.apiKeyIssuedOn) }}</div>
                 </template>
                 <span v-else class="muted">sin llave</span>
@@ -619,12 +625,15 @@ onMounted(load)
               <td class="num">{{ s.invoiceCount }}</td>
               <td>{{ s.isActive ? 'Activo' : 'Apagado' }}</td>
               <td class="acciones-fila">
-                <button type="button" class="link" :disabled="busy" @click="rotarLlave(s)">
-                  {{ s.apiKeyHint ? 'Llave nueva' : 'Generar llave' }}
-                </button>
-                <button type="button" class="link" :disabled="busy" @click="alternarServicio(s)">
-                  {{ s.isActive ? 'Apagar' : 'Encender' }}
-                </button>
+                <template v-if="!s.billsFromConsole">
+                  <button type="button" class="link" :disabled="busy" @click="rotarLlave(s)">
+                    {{ s.apiKeyHint ? 'Llave nueva' : 'Generar llave' }}
+                  </button>
+                  <button type="button" class="link" :disabled="busy" @click="alternarServicio(s)">
+                    {{ s.isActive ? 'Apagar' : 'Encender' }}
+                  </button>
+                </template>
+                <span v-else class="muted small">—</span>
               </td>
             </tr>
           </tbody>
@@ -642,6 +651,11 @@ onMounted(load)
       <p class="muted small">
         Apagar un servicio le corta la emisión sin borrarle el historial. Sus documentos siguen
         en el libro: el número existió.
+      </p>
+      <p class="muted small">
+        <strong>GarajApp no lleva llave</strong> porque no pide el número por la API: lo toma
+        aquí mismo al registrar el pago del taller. La llave es para los sistemas que están
+        afuera.
       </p>
     </div>
 

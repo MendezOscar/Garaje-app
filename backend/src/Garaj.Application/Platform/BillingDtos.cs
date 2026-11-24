@@ -107,14 +107,29 @@ public record VoidInvoiceRequest(string Reason);
 
 // ---------- Los servicios que cobramos, y su llave ----------
 
+/// <summary>Los servicios que nacen con la plataforma. El id lo fija su migración.</summary>
+public static class PlatformProducts
+{
+    /// <summary>
+    /// Nosotros. No lleva llave: factura desde esta misma consola, con el pago del taller. La
+    /// llave es para los sistemas que están afuera.
+    /// </summary>
+    public static readonly Guid GarajApp = new("1a5d1f00-0000-4000-8000-000000000001");
+}
+
 /// <param name="ApiKeyHint">Las cuatro últimas de su llave. Null si no tiene llave todavía.</param>
+/// <param name="BillsFromConsole">
+/// Factura desde esta misma consola y por eso no lleva llave. Es el caso de GarajApp: el
+/// documento nace con el pago del taller, aquí dentro.
+/// </param>
 public record PlatformProductDto(
     Guid Id,
     string Name,
     bool IsActive,
     string? ApiKeyHint,
     DateTimeOffset? ApiKeyIssuedOn,
-    int InvoiceCount);
+    int InvoiceCount,
+    bool BillsFromConsole = false);
 
 public record SavePlatformProductRequest(string Name, bool IsActive = true);
 
