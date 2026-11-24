@@ -354,6 +354,17 @@ public interface IPlatformBillingService
 
     Task<SubscriptionInvoiceDto> GetInvoiceAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// El libro de ventas del mes: todos los documentos emitidos, de todos los servicios, con
+    /// sus totales y con los números que faltan.
+    /// </summary>
+    Task<SalesBookDto> SalesBookAsync(
+        int year, int month, Guid? productId = null, CancellationToken ct = default);
+
+    /// <summary>El mismo libro en hoja de cálculo, que es como lo quiere el contador.</summary>
+    Task<byte[]> SalesBookSheetAsync(
+        int year, int month, Guid? productId = null, CancellationToken ct = default);
+
     // ---------- Los servicios que cobramos ----------
 
     Task<IReadOnlyList<PlatformProductDto>> ProductsAsync(CancellationToken ct = default);

@@ -206,6 +206,77 @@ public class FacturarDesdeOtroPortalTests
     }
 
     [RequiereBaseLocal]
+    public async Task El_libro_suma_lo_emitido_y_deja_fuera_lo_anulado()
+    {
+        var (productoId, llave) = await ServicioConLlaveAsync();
+
+        await using var db = Contexto();
+        var servicio = Servicio(db);
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var una = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+        var otra = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+
+        await servicio.VoidInvoiceAsync(otra.Id, new VoidInvoiceRequest("Se cobró de más"));
+
+        var libro = await servicio.SalesBookAsync(hoy.Year, hoy.Month, productoId);
+
+        // Las dos salen en el libro: el número existió aunque el dinero no.
+        Assert.Equal(2, libro.Count);
+        Assert.Equal(1, libro.VoidedCount);
+
+        // Pero solo una suma, y suma exactamente lo que dice ese documento. Se compara contra
+        // el emitido y no contra un número escrito aquí: cómo cobramos el ISV —adentro o
+        // aparte— es un ajuste del emisor, y el libro tiene que cuadrar con los dos.
+        Assert.Equal(una.Total, libro.Total);
+        Assert.Equal(una.TaxTotal, libro.Tax);
+        Assert.Equal(una.Total, libro.Taxable + libro.Exempt + libro.Tax);
+
+        if (una.TaxRate > 0)
+        {
+            Assert.Equal(una.Total - una.TaxTotal, libro.Taxable);
+            Assert.Equal(0m, libro.Exempt);
+        }
+        else
+        {
+            Assert.Equal(una.Total, libro.Exempt);
+            Assert.Equal(0m, libro.Taxable);
+        }
+
+        Assert.Contains(libro.Rows, r => r.Number == una.Number && !r.IsVoided);
+        Assert.Contains(libro.Rows, r => r.Number == otra.Number && r.IsVoided);
+    }
+
+    [RequiereBaseLocal]
+    public async Task El_libro_sale_en_hoja_de_calculo()
+    {
+        var (productoId, llave) = await ServicioConLlaveAsync();
+
+        await using var db = Contexto();
+        var servicio = Servicio(db);
+
+        await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var hoja = await servicio.SalesBookSheetAsync(hoy.Year, hoy.Month, productoId);
+
+        // Un .xlsx es un zip: los dos primeros bytes lo dicen.
+        Assert.True(hoja.Length > 1000);
+        Assert.Equal((byte)'P', hoja[0]);
+        Assert.Equal((byte)'K', hoja[1]);
+    }
+
+    [RequiereBaseLocal]
+    public async Task Un_mes_que_no_existe_no_tiene_libro()
+    {
+        await using var db = Contexto();
+
+        await Assert.ThrowsAnyAsync<AppException>(
+            () => Servicio(db).SalesBookAsync(2026, 13));
+    }
+
+    [RequiereBaseLocal]
     public async Task El_documento_de_otro_servicio_no_existe_para_este()
     {
         var (_, unaLlave) = await ServicioConLlaveAsync();

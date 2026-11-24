@@ -143,6 +143,132 @@ public class PlatformBillingService(
         return Map(factura);
     }
 
+    // ---------- El libro de ventas ----------
+
+    /// <remarks>
+    /// Se ordena por número y no por fecha: el libro es la cuenta de los números autorizados,
+    /// y es así como se coteja con el rango del SAR.
+    ///
+    /// «Gravado» se saca como total menos impuesto y no del subtotal guardado, porque el
+    /// subtotal significa una cosa u otra según cómo se cobrara —con el ISV adentro o aparte—
+    /// y eso se congela por documento. Restar es la única forma que vale para los dos.
+    /// </remarks>
+    public async Task<SalesBookDto> SalesBookAsync(
+        int year, int month, Guid? productId = null, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        if (month is < 1 or > 12) throw new AppException("El mes no existe.");
+        if (year is < 2020 or > 2100) throw new AppException("El año no existe.");
+
+        var desde = new DateOnly(year, month, 1);
+        var hasta = desde.AddMonths(1).AddDays(-1);
+
+        var facturas = await db.SubscriptionInvoices
+            .AsNoTracking()
+            .Where(f => f.IssuedOn >= desde && f.IssuedOn <= hasta)
+            .Where(f => productId == null || f.ProductId == productId)
+            .OrderBy(f => f.Number)
+            .ToListAsync(ct);
+
+        var filas = facturas
+            .Select(f =>
+            {
+                var gravado = f.TaxRate > 0 ? f.Total - f.TaxTotal : 0m;
+                var exento = f.TaxRate > 0 ? 0m : f.Total;
+
+                return new SalesBookRowDto(
+                    f.IssuedOn, f.Number, f.FiscalCai, f.ProductName, f.CustomerName,
+                    f.CustomerTaxId, gravado, exento, f.TaxTotal, f.Total,
+                    f.IsVoided, f.VoidReason);
+            })
+            .ToList();
+
+        // Los anulados no suman: el número existió, el dinero no.
+        var buenas = filas.Where(r => !r.IsVoided).ToList();
+
+        var settings = await db.PlatformSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+
+        return new SalesBookDto(
+            desde,
+            hasta,
+            filas,
+            await FaltantesAsync(facturas, ct),
+            buenas.Sum(r => r.Taxable),
+            buenas.Sum(r => r.Exempt),
+            buenas.Sum(r => r.Tax),
+            buenas.Sum(r => r.Total),
+            filas.Count,
+            filas.Count(r => r.IsVoided),
+            settings?.Currency ?? "HNL");
+    }
+
+    public async Task<byte[]> SalesBookSheetAsync(
+        int year, int month, Guid? productId = null, CancellationToken ct = default)
+    {
+        var libro = await SalesBookAsync(year, month, productId, ct);
+
+        var settings = await db.PlatformSettings.AsNoTracking().FirstOrDefaultAsync(ct)
+            ?? new PlatformSettings();
+
+        return SalesBookSheet.Render(libro, await MapAsync(settings, ct));
+    }
+
+    /// <summary>
+    /// Los números autorizados que se tomaron y no quedaron en ningún documento, entre el
+    /// primero y el último del periodo.
+    /// </summary>
+    /// <remarks>
+    /// Pasa cuando se toma el número y después falla el guardado: es a propósito que el número
+    /// no se devuelva —dos documentos con el mismo número no se pueden explicar, un hueco sí—,
+    /// pero el hueco hay que poder verlo y nombrarlo.
+    ///
+    /// Solo se miran los del rango autorizado: el correlativo propio del comprobante no es del
+    /// SAR y su hueco no le interesa a nadie.
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> FaltantesAsync(
+        List<SubscriptionInvoice> facturas, CancellationToken ct)
+    {
+        var fiscales = facturas.Where(f => f.PlatformFiscalRangeId is not null).ToList();
+
+        if (fiscales.Count == 0) return [];
+
+        var rangoId = fiscales[0].PlatformFiscalRangeId!.Value;
+
+        // Con documentos de dos rangos en el mismo mes —el CAI se acabó a mitad— no se cuentan
+        // huecos: la cuenta se hace rango por rango, y mezclarlos inventaría los que no son.
+        if (fiscales.Any(f => f.PlatformFiscalRangeId != rangoId)) return [];
+
+        var rango = await db.PlatformFiscalRanges.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == rangoId, ct);
+
+        if (rango is null) return [];
+
+        var emitidos = new HashSet<int>();
+
+        foreach (var factura in fiscales)
+            if (Correlativo(factura.Number) is { } numero)
+                emitidos.Add(numero);
+
+        if (emitidos.Count == 0) return [];
+
+        var faltantes = new List<string>();
+
+        for (var numero = emitidos.Min(); numero <= emitidos.Max(); numero++)
+            if (!emitidos.Contains(numero))
+                faltantes.Add(rango.Format(numero));
+
+        return faltantes;
+    }
+
+    /// <summary>El correlativo de «000-001-01-00000042». Null si el número no tiene esa forma.</summary>
+    private static int? Correlativo(string numero)
+    {
+        var ultimo = numero.Split('-')[^1];
+
+        return int.TryParse(ultimo, out var valor) ? valor : null;
+    }
+
     // ---------- Los servicios que cobramos ----------
 
     public async Task<IReadOnlyList<PlatformProductDto>> ProductsAsync(CancellationToken ct = default)

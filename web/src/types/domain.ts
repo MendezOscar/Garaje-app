@@ -1488,6 +1488,51 @@ export interface TenantSettings {
  * Cómo está usando GarajApp un taller. Contesta tres cosas antes de llamar a nadie: si
  * entran, si trabajan adentro, y qué partes no tocan.
  */
+/** Un servicio que cobramos: GarajApp, StockRuta, Profeapp y los que vengan. */
+export interface PlatformProduct {
+  id: string
+  name: string
+  isActive: boolean
+  /** Las cuatro últimas de su llave. Null si no tiene llave todavía. */
+  apiKeyHint: string | null
+  apiKeyIssuedOn: string | null
+  invoiceCount: number
+}
+
+/** Una línea del libro de ventas. */
+export interface SalesBookRow {
+  issuedOn: string
+  number: string
+  cai: string | null
+  productName: string | null
+  customerName: string
+  customerTaxId: string | null
+  /** Gravado: el total menos el ISV, en los documentos con impuesto. */
+  taxable: number
+  /** Exento: el total de los documentos que salieron sin impuesto. */
+  exempt: number
+  tax: number
+  total: number
+  isVoided: boolean
+  voidReason: string | null
+}
+
+/** El libro de ventas del mes: lo que se le entrega al contador. */
+export interface SalesBook {
+  from: string
+  to: string
+  rows: SalesBookRow[]
+  /** Números del rango que se tomaron y no llegaron a documento. */
+  missingNumbers: string[]
+  taxable: number
+  exempt: number
+  tax: number
+  total: number
+  count: number
+  voidedCount: number
+  currency: string
+}
+
 export interface PlatformUsage {
   id: string
   name: string

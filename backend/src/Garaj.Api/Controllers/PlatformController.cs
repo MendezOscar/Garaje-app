@@ -188,6 +188,31 @@ public class PlatformBillingController(IPlatformBillingService service) : Contro
         return File(pdf, "application/pdf", $"{factura.Number}.pdf");
     }
 
+    // ---------- El libro de ventas ----------
+
+    /// <summary>
+    /// El libro del mes: todos los documentos emitidos, de todos los servicios, con sus
+    /// totales y con los números que se tomaron y no llegaron a documento.
+    /// </summary>
+    [HttpGet("sales-book")]
+    public async Task<ActionResult<SalesBookDto>> SalesBook(
+        int year, int month, CancellationToken ct, Guid? productId = null)
+        => Ok(await service.SalesBookAsync(year, month, productId, ct));
+
+    /// <summary>El mismo libro en Excel, que es como lo quiere el contador.</summary>
+    [HttpGet("sales-book.xlsx")]
+    [EnableRateLimiting(RateLimits.Documento)]
+    public async Task<IActionResult> SalesBookSheet(
+        int year, int month, CancellationToken ct, Guid? productId = null)
+    {
+        var hoja = await service.SalesBookSheetAsync(year, month, productId, ct);
+
+        return File(
+            hoja,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"Libro de ventas {year}-{month:D2}.xlsx");
+    }
+
     // ---------- Los servicios que cobramos ----------
 
     /// <summary>Los servicios, con cuántos documentos lleva cada uno.</summary>

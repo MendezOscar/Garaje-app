@@ -156,3 +156,46 @@ public record IssuedInvoiceDto(
     string PdfPath,
     /// <summary>Verdadero cuando la petición era un reintento y se devolvió lo ya emitido.</summary>
     bool AlreadyIssued);
+
+// ---------- El libro de ventas ----------
+
+/// <param name="Taxable">Lo gravado: el total menos el ISV, en los documentos con impuesto.</param>
+/// <param name="Exempt">Lo exento: el total de los documentos que salieron sin impuesto.</param>
+public record SalesBookRowDto(
+    DateOnly IssuedOn,
+    string Number,
+    string? Cai,
+    string? ProductName,
+    string CustomerName,
+    string? CustomerTaxId,
+    decimal Taxable,
+    decimal Exempt,
+    decimal Tax,
+    decimal Total,
+    bool IsVoided,
+    string? VoidReason);
+
+/// <summary>
+/// El libro de ventas del periodo: lo que se le entrega al contador y lo que respalda ante el
+/// SAR.
+/// </summary>
+/// <param name="MissingNumbers">
+/// Los números del rango que se tomaron y no quedaron en ningún documento, entre el primero y
+/// el último del periodo. Van dichos a propósito: un hueco sin explicar es lo que levanta la
+/// pregunta en una revisión.
+/// </param>
+/// <param name="VoidedCount">
+/// Cuántos están anulados. No suman: aparecen en el libro porque el número existió.
+/// </param>
+public record SalesBookDto(
+    DateOnly From,
+    DateOnly To,
+    IReadOnlyList<SalesBookRowDto> Rows,
+    IReadOnlyList<string> MissingNumbers,
+    decimal Taxable,
+    decimal Exempt,
+    decimal Tax,
+    decimal Total,
+    int Count,
+    int VoidedCount,
+    string Currency);

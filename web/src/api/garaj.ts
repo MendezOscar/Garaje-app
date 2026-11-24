@@ -44,7 +44,9 @@ import type {
   PaymentMethod,
   PlatformSettings,
   PlatformTenant,
+  PlatformProduct,
   PlatformUsage,
+  SalesBook,
   PlatformUser,
   PlatformTenantDetail,
   SubscriptionInvoice,
@@ -1784,6 +1786,28 @@ export const platformApi = {
   }): Promise<PlatformSettings> {
     const { data } = await api.post<PlatformSettings>('/api/platform/billing/fiscal-range', body)
     return data
+  },
+  /** Los servicios que cobramos, con cuántos documentos lleva cada uno. */
+  async products(): Promise<PlatformProduct[]> {
+    const { data } = await api.get<PlatformProduct[]>('/api/platform/billing/products')
+    return data
+  },
+  /** El libro de ventas del mes, con sus totales y los números que faltan. */
+  async salesBook(year: number, month: number, productId?: string): Promise<SalesBook> {
+    const { data } = await api.get<SalesBook>('/api/platform/billing/sales-book', {
+      params: params({ year, month, productId }),
+    })
+    return data
+  },
+  /** El mismo libro en Excel, que es como lo quiere el contador. */
+  salesBookSheet(year: number, month: number, productId?: string) {
+    const query = new URLSearchParams({ year: String(year), month: String(month) })
+    if (productId) query.set('productId', productId)
+
+    return download(
+      `/api/platform/billing/sales-book.xlsx?${query}`,
+      `Libro de ventas ${year}-${String(month).padStart(2, '0')}.xlsx`,
+    )
   },
   async invoice(id: string): Promise<SubscriptionInvoice> {
     const { data } = await api.get<SubscriptionInvoice>(`/api/platform/billing/invoices/${id}`)
