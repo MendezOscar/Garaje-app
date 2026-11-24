@@ -74,6 +74,35 @@ function temperatura(f: PlatformUsage) {
   return 'vivo'
 }
 
+/** Por qué columna se ordena. Por omisión, el que menos se mueve primero. */
+const orden = ref<'ordenes' | 'nombre' | 'facturado' | 'ingreso'>('ordenes')
+const descendente = ref(false)
+
+function ordenarPor(columna: typeof orden.value) {
+  if (orden.value === columna) descendente.value = !descendente.value
+  else {
+    orden.value = columna
+    descendente.value = false
+  }
+}
+
+const ordenadas = computed(() => {
+  const filas = [...visibles.value].sort((a, b) => {
+    switch (orden.value) {
+      case 'nombre':
+        return a.name.localeCompare(b.name, 'es')
+      case 'facturado':
+        return a.billed - b.billed
+      case 'ingreso':
+        return (a.lastLoginAt ?? '').localeCompare(b.lastLoginAt ?? '')
+      default:
+        return a.workOrders - b.workOrders
+    }
+  })
+
+  return descendente.value ? filas.reverse() : filas
+})
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -137,12 +166,28 @@ onMounted(load)
         <table>
           <thead>
             <tr>
-              <th>Taller</th>
-              <th class="num">Entraron</th>
-              <th class="num">Órdenes</th>
+              <th>
+                <button type="button" class="ordenar" @click="ordenarPor('nombre')">
+                  Taller<span v-if="orden === 'nombre'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+                </button>
+              </th>
+              <th class="num">
+                <button type="button" class="ordenar" @click="ordenarPor('ingreso')">
+                  Entraron<span v-if="orden === 'ingreso'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+                </button>
+              </th>
+              <th class="num">
+                <button type="button" class="ordenar" @click="ordenarPor('ordenes')">
+                  Órdenes<span v-if="orden === 'ordenes'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+                </button>
+              </th>
               <th class="num">Última orden</th>
               <th class="num">Facturas</th>
-              <th class="num">Facturado</th>
+              <th class="num">
+                <button type="button" class="ordenar" @click="ordenarPor('facturado')">
+                  Facturado<span v-if="orden === 'facturado'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+                </button>
+              </th>
               <th class="num">Cotiza</th>
               <th class="num">Fotos</th>
               <th class="num">Escáner</th>
@@ -152,7 +197,7 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="f in visibles" :key="f.id" :class="temperatura(f)">
+            <tr v-for="f in ordenadas" :key="f.id" :class="temperatura(f)">
               <td>
                 <RouterLink :to="{ name: 'platform-tenant', params: { id: f.id } }">
                   {{ f.name }}
@@ -284,6 +329,19 @@ thead th {
 
 .num {
   text-align: right;
+}
+
+.ordenar {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ordenar:hover {
+  color: var(--brand);
 }
 
 tbody tr:hover {

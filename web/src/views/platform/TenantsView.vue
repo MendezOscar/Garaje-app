@@ -99,6 +99,82 @@ const porCobrar = computed(
   () => tenants.value.filter((t) => t.state !== 'Active').length,
 )
 
+const busqueda = ref('')
+
+/** Qué se está mirando. «Por cobrar» es todo lo que no está al día. */
+const filtro = ref<'todos' | 'porCobrar' | 'acuerdo' | 'suspendidos'>('todos')
+
+/** Por qué columna se ordena, y hacia dónde. */
+const orden = ref<'vence' | 'nombre' | 'cuota' | 'pago'>('vence')
+const descendente = ref(false)
+
+function ordenarPor(columna: typeof orden.value) {
+  if (orden.value === columna) descendente.value = !descendente.value
+  else {
+    orden.value = columna
+    descendente.value = false
+  }
+}
+
+const visibles = computed(() => {
+  const texto = busqueda.value.trim().toLowerCase()
+
+  const filtrados = tenants.value.filter((t) => {
+    if (texto && !`${t.name} ${t.legalName ?? ''} ${t.phone ?? ''}`.toLowerCase().includes(texto))
+      return false
+
+    switch (filtro.value) {
+      case 'porCobrar':
+        return t.state !== 'Active'
+      case 'acuerdo':
+        return !!t.unblockedThrough
+      case 'suspendidos':
+        return t.state === 'Suspended' || !t.isActive
+      default:
+        return true
+    }
+  })
+
+  // Sin fecha de pago, al final: es el que nunca ha pagado, no el que vence primero.
+  const alFinal = '9999-12-31'
+
+  const ordenados = [...filtrados].sort((a, b) => {
+    switch (orden.value) {
+      case 'nombre':
+        return a.name.localeCompare(b.name, 'es')
+      case 'cuota':
+        return a.monthlyFee - b.monthlyFee
+      case 'pago':
+        return (a.lastPaymentOn ?? '').localeCompare(b.lastPaymentOn ?? '')
+      default:
+        return (a.paidThrough ?? alFinal).localeCompare(b.paidThrough ?? alFinal)
+    }
+  })
+
+  return descendente.value ? ordenados.reverse() : ordenados
+})
+
+/**
+ * Lo que contesta «¿cómo vamos?» sin abrir una ficha: lo que entra al mes si todos pagan, y
+ * lo que está parado. Se cuenta sobre los talleres activos: uno suspendido no es ingreso.
+ */
+const cifras = computed(() => {
+  const activos = tenants.value.filter((t) => t.isActive)
+
+  return {
+    talleres: activos.length,
+    mensual: activos.reduce((suma, t) => suma + t.monthlyFee, 0),
+    atrasados: activos.filter((t) => t.state === 'Grace' || t.state === 'ReadOnly').length,
+    detenido: activos
+      .filter((t) => t.state === 'Grace' || t.state === 'ReadOnly')
+      .reduce((suma, t) => suma + t.monthlyFee, 0),
+  }
+})
+
+function verPorCobrar() {
+  filtro.value = filtro.value === 'porCobrar' ? 'todos' : 'porCobrar'
+}
+
 const etiquetas: Record<PlatformTenant['state'], string> = {
   Active: 'Al día',
   DueSoon: 'Por vencer',
@@ -182,9 +258,12 @@ onMounted(load)
       <div>
         <h1>Talleres</h1>
         <p class="muted small">
+          <!-- El número no es un rótulo: se toca y deja la tabla en los que hay que atender. -->
           <template v-if="porCobrar">
-            {{ porCobrar }} {{ porCobrar === 1 ? 'taller necesita' : 'talleres necesitan' }}
-            atención de cobro.
+            <button type="button" class="link" @click="verPorCobrar">
+              {{ porCobrar }} {{ porCobrar === 1 ? 'taller necesita' : 'talleres necesitan' }}
+              atención de cobro
+            </button>
           </template>
           <template v-else>Todos al día.</template>
         </p>
@@ -334,24 +413,93 @@ onMounted(load)
       </p>
     </form>
 
+    <!-- Cómo vamos, sin abrir una ficha. -->
+    <div v-if="!loading && tenants.length" class="cifras">
+      <article class="cifra">
+        <span class="rotulo">Al mes, si todos pagan</span>
+        <strong class="num">{{ formatMoney(cifras.mensual) }}</strong>
+        <span class="muted small">{{ cifras.talleres }} talleres activos</span>
+      </article>
+      <article class="cifra" :class="{ alerta: cifras.atrasados > 0 }">
+        <span class="rotulo">Detenido por falta de pago</span>
+        <strong class="num">{{ formatMoney(cifras.detenido) }}</strong>
+        <span class="muted small">
+          {{ cifras.atrasados }} {{ cifras.atrasados === 1 ? 'taller' : 'talleres' }} en gracia o
+          en solo lectura
+        </span>
+      </article>
+    </div>
+
+    <div v-if="!loading && tenants.length" class="barra">
+      <input
+        v-model="busqueda"
+        type="search"
+        class="buscar"
+        placeholder="Buscar por nombre, razón social o teléfono"
+        aria-label="Buscar un taller"
+      />
+
+      <div class="pestanas">
+        <button
+          v-for="f in [
+            { clave: 'todos' as const, label: 'Todos' },
+            { clave: 'porCobrar' as const, label: 'Por cobrar' },
+            { clave: 'acuerdo' as const, label: 'Con acuerdo' },
+            { clave: 'suspendidos' as const, label: 'Suspendidos' },
+          ]"
+          :key="f.clave"
+          type="button"
+          class="pestana"
+          :class="{ activa: filtro === f.clave }"
+          @click="filtro = f.clave"
+        >
+          {{ f.label }}
+        </button>
+      </div>
+    </div>
+
     <SkeletonList v-if="loading" :rows="4" variant="tabla" />
     <EmptyState v-else-if="!tenants.length" title="Todavía no hay talleres" />
+    <EmptyState
+      v-else-if="!visibles.length"
+      title="Ningún taller con ese filtro"
+      :hint="busqueda ? 'Pruebe con otro nombre.' : 'Cambie la pestaña para verlos todos.'"
+    />
 
     <table v-else>
       <thead>
         <tr>
-          <th scope="col">Taller</th>
+          <!-- Ordenable: la lista llega por vencimiento, pero a veces se busca por nombre o
+               se quiere ver quién paga más. -->
+          <th scope="col">
+            <button type="button" class="ordenar" @click="ordenarPor('nombre')">
+              Taller<span v-if="orden === 'nombre'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+            </button>
+          </th>
           <th scope="col">Estado</th>
-          <th scope="col">Pagado hasta</th>
-          <th scope="col" class="num">Cuota</th>
-          <th scope="col">Último pago</th>
-          <th scope="col"><span class="sr-only">Acciones</span></th>
+          <th scope="col">
+            <button type="button" class="ordenar" @click="ordenarPor('vence')">
+              Pagado hasta<span v-if="orden === 'vence'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+            </button>
+          </th>
+          <th scope="col" class="num">
+            <button type="button" class="ordenar" @click="ordenarPor('cuota')">
+              Cuota<span v-if="orden === 'cuota'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+            </button>
+          </th>
+          <th scope="col">
+            <button type="button" class="ordenar" @click="ordenarPor('pago')">
+              Último pago<span v-if="orden === 'pago'">{{ descendente ? ' ↓' : ' ↑' }}</span>
+            </button>
+          </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="t in tenants" :key="t.id">
+        <tr v-for="t in visibles" :key="t.id">
           <td>
-            {{ t.name }}
+            <RouterLink class="nombre" :to="{ name: 'platform-tenant', params: { id: t.id } }">
+              {{ t.name }}
+            </RouterLink>
             <div class="muted small">
               {{ PLAN_LABEL[t.plan] ?? t.planName ?? 'Sin plan' }} ·
               {{ t.branchCount }} {{ t.branchCount === 1 ? 'sucursal' : 'sucursales' }}
@@ -378,9 +526,6 @@ onMounted(load)
           </td>
           <td class="num">{{ formatMoney(t.monthlyFee) }}</td>
           <td>{{ formatDay(t.lastPaymentOn) }}</td>
-          <td>
-            <RouterLink :to="{ name: 'platform-tenant', params: { id: t.id } }">Ver</RouterLink>
-          </td>
         </tr>
       </tbody>
     </table>
@@ -388,6 +533,99 @@ onMounted(load)
 </template>
 
 <style scoped>
+/* ------------------------------------------------------- cifras, filtros y orden */
+
+.cifras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cifra {
+  display: grid;
+  gap: 0.15rem;
+  flex: 1 1 14rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cifra .rotulo {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.cifra strong {
+  font-size: 1.25rem;
+}
+
+/* Dinero parado: no es una cifra más, es la que hay que mirar. */
+.cifra.alerta {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.cifra.alerta strong {
+  color: var(--danger);
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.buscar {
+  flex: 1 1 18rem;
+  max-width: 26rem;
+}
+
+.pestanas {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.pestana {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.pestana.activa {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.ordenar {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ordenar:hover {
+  color: var(--brand);
+}
+
+/* El nombre es el enlace: en una tabla ancha, un «Ver» al final queda a un palmo del
+   taller que se quería abrir. */
+.nombre {
+  font-weight: 600;
+}
+
 /* El taller que ya llegó a su tope: es con quien hay que hablar antes de que pida otro
    técnico y se encuentre con el bloqueo. */
 .tope {

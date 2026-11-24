@@ -879,6 +879,73 @@ onMounted(async () => {
       <button type="button" class="link" @click="clave = null">Ya la anoté</button>
     </article>
 
+    <h2 class="historial">Pagos</h2>
+
+    <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
+
+    <table v-else>
+      <thead>
+        <tr>
+          <th scope="col">Pagó el</th>
+          <th scope="col" class="num">Monto</th>
+          <th scope="col">Forma</th>
+          <th scope="col">Referencia</th>
+          <th scope="col">Cubrió hasta</th>
+          <th scope="col">Documento</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
+          <td>
+            {{ formatDay(p.paidOn) }}
+            <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
+          </td>
+          <td class="num">{{ formatMoney(p.amount) }}</td>
+          <td>{{ p.method ?? '—' }}</td>
+          <td class="mono">{{ p.reference ?? '—' }}</td>
+          <td>{{ formatDay(p.coversThrough) }}</td>
+          <td>
+            <template v-if="p.invoiceId && p.invoiceNumber">
+              <button
+                type="button"
+                class="link"
+                @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
+              >
+                {{ p.invoiceNumber }}
+              </button>
+              <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
+              <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
+              <button
+                v-else
+                type="button"
+                class="link danger"
+                :disabled="busy"
+                @click="anularDocumento(p.invoiceId)"
+              >
+                Anular documento
+              </button>
+            </template>
+            <span v-else class="muted">—</span>
+          </td>
+          <td>
+            <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
+                 y el documento se va con él. No se borra, para que el historial siga
+                 contestando «¿yo ya te pagué junio?». -->
+            <button
+              v-if="!p.isVoided"
+              type="button"
+              class="link danger"
+              :disabled="busy"
+              @click="anularPago(p.id)"
+            >
+              Anular pago
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
     <details class="rescate">
       <summary>Usuarios del taller</summary>
       <div class="card">
@@ -953,76 +1020,6 @@ onMounted(async () => {
         </div>
       </form>
     </details>
-
-    <!-- Lo que va a pasar al confirmar, con todos sus efectos a la vista. Es el paso que
-         faltaba: el botón emitía el documento y corría el vencimiento de un solo clic. -->
-
-    <h2 class="historial">Pagos</h2>
-
-    <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
-
-    <table v-else>
-      <thead>
-        <tr>
-          <th scope="col">Pagó el</th>
-          <th scope="col" class="num">Monto</th>
-          <th scope="col">Forma</th>
-          <th scope="col">Referencia</th>
-          <th scope="col">Cubrió hasta</th>
-          <th scope="col">Documento</th>
-          <th scope="col"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
-          <td>
-            {{ formatDay(p.paidOn) }}
-            <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
-          </td>
-          <td class="num">{{ formatMoney(p.amount) }}</td>
-          <td>{{ p.method ?? '—' }}</td>
-          <td class="mono">{{ p.reference ?? '—' }}</td>
-          <td>{{ formatDay(p.coversThrough) }}</td>
-          <td>
-            <template v-if="p.invoiceId && p.invoiceNumber">
-              <button
-                type="button"
-                class="link"
-                @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
-              >
-                {{ p.invoiceNumber }}
-              </button>
-              <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
-              <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
-              <button
-                v-else
-                type="button"
-                class="link danger"
-                :disabled="busy"
-                @click="anularDocumento(p.invoiceId)"
-              >
-                Anular documento
-              </button>
-            </template>
-            <span v-else class="muted">—</span>
-          </td>
-          <td>
-            <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
-                 y el documento se va con él. No se borra, para que el historial siga
-                 contestando «¿yo ya te pagué junio?». -->
-            <button
-              v-if="!p.isVoided"
-              type="button"
-              class="link danger"
-              :disabled="busy"
-              @click="anularPago(p.id)"
-            >
-              Anular pago
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
   </section>
 
   <SkeletonList v-else-if="loading" :rows="4" variant="tabla" />
