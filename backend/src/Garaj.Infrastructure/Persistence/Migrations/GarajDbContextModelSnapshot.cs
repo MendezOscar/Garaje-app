@@ -2261,6 +2261,63 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_fiscal_ranges", (string)null);
                 });
 
+            modelBuilder.Entity("Garaj.Domain.Entities.PlatformProduct", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ApiKeyHash")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("api_key_hash");
+
+                    b.Property<string>("ApiKeyHint")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("api_key_hint");
+
+                    b.Property<DateTimeOffset?>("ApiKeyIssuedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("api_key_issued_on");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_platform_products");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_platform_products_name");
+
+                    b.ToTable("platform_products", (string)null);
+                });
+
             modelBuilder.Entity("Garaj.Domain.Entities.PlatformSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3228,6 +3285,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("customer_tax_id");
 
+                    b.Property<string>("ExternalCustomerRef")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("external_customer_ref");
+
                     b.Property<string>("FiscalCai")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -3265,6 +3327,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("number");
 
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("payment_reference");
+
                     b.Property<Guid?>("PlatformFiscalRangeId")
                         .HasColumnType("uuid")
                         .HasColumnName("platform_fiscal_range_id");
@@ -3273,7 +3340,16 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("prices_included_tax");
 
-                    b.Property<Guid>("SubscriptionPaymentId")
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<string>("ProductName")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("product_name");
+
+                    b.Property<Guid?>("SubscriptionPaymentId")
                         .HasColumnType("uuid")
                         .HasColumnName("subscription_payment_id");
 
@@ -3292,7 +3368,7 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("tax_total");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
@@ -3328,6 +3404,12 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                     b.HasIndex("SubscriptionPaymentId")
                         .IsUnique()
                         .HasDatabaseName("ix_subscription_invoices_subscription_payment_id");
+
+                    b.HasIndex("ProductId", "ExternalCustomerRef")
+                        .HasDatabaseName("ix_subscription_invoices_product_id_external_customer_ref");
+
+                    b.HasIndex("ProductId", "IssuedOn")
+                        .HasDatabaseName("ix_subscription_invoices_product_id_issued_on");
 
                     b.HasIndex("TenantId", "IssuedOn")
                         .HasDatabaseName("ix_subscription_invoices_tenant_id_issued_on");
@@ -5276,18 +5358,22 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Garaj.Domain.Entities.SubscriptionInvoice", b =>
                 {
+                    b.HasOne("Garaj.Domain.Entities.PlatformProduct", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_subscription_invoices_platform_products_product_id");
+
                     b.HasOne("Garaj.Domain.Entities.SubscriptionPayment", null)
                         .WithMany()
                         .HasForeignKey("SubscriptionPaymentId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("fk_subscription_invoices_subscription_payments_subscription_pa");
 
                     b.HasOne("Garaj.Domain.Entities.Tenant", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("fk_subscription_invoices_tenants_tenant_id");
                 });
 

@@ -22,6 +22,7 @@ public class GarajDbContext(DbContextOptions<GarajDbContext> options, ITenantCon
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
     public DbSet<PlatformFiscalRange> PlatformFiscalRanges => Set<PlatformFiscalRange>();
+    public DbSet<PlatformProduct> PlatformProducts => Set<PlatformProduct>();
     public DbSet<SubscriptionInvoice> SubscriptionInvoices => Set<SubscriptionInvoice>();
     public DbSet<SubscriptionInvoiceLine> SubscriptionInvoiceLines => Set<SubscriptionInvoiceLine>();
 

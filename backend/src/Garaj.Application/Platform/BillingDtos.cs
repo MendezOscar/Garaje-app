@@ -65,7 +65,8 @@ public record SavePlatformFiscalRangeRequest(
 /// </param>
 public record SubscriptionInvoiceDto(
     Guid Id,
-    Guid TenantId,
+    /// <summary>El taller, en los documentos de GarajApp. Null en los de los otros servicios.</summary>
+    Guid? TenantId,
     string Number,
     DateOnly IssuedOn,
     string CustomerName,
