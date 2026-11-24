@@ -188,6 +188,31 @@ public class PlatformBillingController(IPlatformBillingService service) : Contro
         return File(pdf, "application/pdf", $"{factura.Number}.pdf");
     }
 
+    // ---------- Los servicios que cobramos ----------
+
+    /// <summary>Los servicios, con cuántos documentos lleva cada uno.</summary>
+    [HttpGet("products")]
+    public async Task<ActionResult<IReadOnlyList<PlatformProductDto>>> Products(CancellationToken ct)
+        => Ok(await service.ProductsAsync(ct));
+
+    [HttpPost("products")]
+    public async Task<ActionResult<PlatformProductDto>> CreateProduct(
+        SavePlatformProductRequest request, CancellationToken ct)
+        => Ok(await service.SaveProductAsync(null, request, ct));
+
+    [HttpPut("products/{id:guid}")]
+    public async Task<ActionResult<PlatformProductDto>> UpdateProduct(
+        Guid id, SavePlatformProductRequest request, CancellationToken ct)
+        => Ok(await service.SaveProductAsync(id, request, ct));
+
+    /// <summary>
+    /// Le da una llave nueva al servicio y deja la anterior sin valor. <b>La llave vuelve en
+    /// claro una sola vez</b>: no queda guardada, igual que la contraseña de un taller nuevo.
+    /// </summary>
+    [HttpPost("products/{id:guid}/key")]
+    public async Task<ActionResult<NewApiKeyDto>> RotateKey(Guid id, CancellationToken ct)
+        => Ok(await service.RotateApiKeyAsync(id, ct));
+
     /// <summary>Anula el documento. El pago queda: el dinero entró igual.</summary>
     [HttpPost("invoices/{id:guid}/void")]
     public async Task<ActionResult<SubscriptionInvoiceDto>> VoidInvoice(

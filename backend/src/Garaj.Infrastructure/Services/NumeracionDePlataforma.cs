@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using Garaj.Application.Common;
+using Garaj.Domain.Entities;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -42,6 +44,75 @@ internal static class NumeracionDePlataforma
             .ToListAsync(ct);
 
         return tomados.Count > 0 ? tomados[0] : null;
+    }
+
+    /// <summary>
+    /// El número autorizado para este documento, con el CAI y el rango ya copiados en él. Se
+    /// niega —en vez de emitir un comprobante por su cuenta— cuando no hay rango, venció o se
+    /// acabó: quien pidió factura con CAI tiene que enterarse ahí, no al imprimir.
+    /// </summary>
+    /// <remarks>
+    /// La lectura de arriba es solo para poder decir qué falta en vez de un «no se pudo». El
+    /// número se toma abajo, atómico.
+    ///
+    /// Se toma antes de guardar la factura, así que si el guardado falla queda un hueco en la
+    /// numeración. Es a propósito: un hueco se explica —«ese número no se usó»— y un número
+    /// repetido no.
+    /// </remarks>
+    internal static async Task<string> AutorizadoAsync(
+        GarajDbContext db, SubscriptionInvoice factura, DateTimeOffset ahora, CancellationToken ct)
+    {
+        var rango = await db.PlatformFiscalRanges
+            .AsNoTracking()
+            .Where(r => r.IsActive)
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new AppException(
+                "Todavía no hay un CAI registrado. Regístrelo en Ajustes de facturación, o "
+                + "emita el comprobante sin CAI.");
+
+        if (rango.IssueDeadline < ahora)
+            throw new AppException("El CAI registrado venció. Registre el rango nuevo del SAR.");
+
+        if (rango.NextNumber > rango.RangeEnd)
+            throw new AppException("Se agotó el rango autorizado. Registre el rango nuevo del SAR.");
+
+        var numero = await TomarAutorizadoAsync(db, rango.Id, ahora, ct)
+            ?? throw new ConflictException(
+                "Otra emisión se llevó el último número del rango autorizado. Registre el rango "
+                + "nuevo del SAR.");
+
+        factura.PlatformFiscalRangeId = rango.Id;
+        factura.FiscalCai = rango.Cai;
+        factura.FiscalRangeText = rango.RangeText;
+        factura.FiscalIssueDeadline = rango.IssueDeadline;
+
+        return rango.Format(numero);
+    }
+
+    /// <summary>
+    /// El correlativo nuestro, el del comprobante sin CAI: «C-000007».
+    /// </summary>
+    internal static async Task<string> PropioAsync(
+        GarajDbContext db, PlatformSettings settings, CancellationToken ct)
+    {
+        // La fila nace sola la primera vez, y todavía no está en la base que se pueda actualizar.
+        if (db.Entry(settings).State == EntityState.Added)
+        {
+            var primero = settings.NextInvoiceNumber;
+            settings.NextInvoiceNumber++;
+            return $"{settings.InvoicePrefix}-{primero:D6}";
+        }
+
+        var numero = await TomarPropioAsync(db, settings.Id, ct) ?? settings.NextInvoiceNumber;
+
+        // Lo que quedó en memoria ya no vale: el bueno es el de la base, y no hay que
+        // reescribirlo al guardar.
+        var propiedad = db.Entry(settings).Property(s => s.NextInvoiceNumber);
+        propiedad.CurrentValue = numero + 1;
+        propiedad.IsModified = false;
+
+        return $"{settings.InvoicePrefix}-{numero:D6}";
     }
 
     /// <summary>

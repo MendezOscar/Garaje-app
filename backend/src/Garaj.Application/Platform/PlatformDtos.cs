@@ -354,6 +354,35 @@ public interface IPlatformBillingService
 
     Task<SubscriptionInvoiceDto> GetInvoiceAsync(Guid id, CancellationToken ct = default);
 
+    // ---------- Los servicios que cobramos ----------
+
+    Task<IReadOnlyList<PlatformProductDto>> ProductsAsync(CancellationToken ct = default);
+
+    Task<PlatformProductDto> SaveProductAsync(
+        Guid? id, SavePlatformProductRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Le da una llave nueva al servicio y deja la anterior sin valor. Se devuelve en claro una
+    /// sola vez: después solo queda su hash.
+    /// </summary>
+    Task<NewApiKeyDto> RotateApiKeyAsync(Guid productId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Emite un documento a pedido del portal de un servicio. No hay sesión: la llave
+    /// identifica al servicio, y <paramref name="idempotencyKey"/> hace que un reintento
+    /// devuelva el mismo documento en vez de quemar otro número del SAR.
+    /// </summary>
+    Task<IssuedInvoiceDto> IssueAsync(
+        string apiKey, string idempotencyKey, IssueInvoiceRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// El PDF de un documento que emitió ese mismo servicio. El de otro servicio no existe para
+    /// él: 404, no 403, para no confirmarle que hay un documento con ese id.
+    /// </summary>
+    Task<byte[]> InvoicePdfForProductAsync(
+        string apiKey, Guid invoiceId, CancellationToken ct = default);
+
     /// <summary>El PDF que se le manda al taller por WhatsApp o por correo.</summary>
     Task<byte[]> InvoicePdfAsync(Guid id, CancellationToken ct = default);
 

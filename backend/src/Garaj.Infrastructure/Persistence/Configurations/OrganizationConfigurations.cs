@@ -196,6 +196,7 @@ public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<Subscri
         b.Property(x => x.ProductName).HasMaxLength(80);
         b.Property(x => x.ExternalCustomerRef).HasMaxLength(100);
         b.Property(x => x.PaymentReference).HasMaxLength(80);
+        b.Property(x => x.IdempotencyKey).HasMaxLength(100);
 
         // Dos documentos con el mismo número no se pueden distinguir, y uno de los dos es el
         // que el SAR no va a encontrar.
@@ -211,6 +212,10 @@ public class SubscriptionInvoiceConfiguration : IEntityTypeConfiguration<Subscri
 
         // Para juntar los documentos de un mismo cliente de otro portal.
         b.HasIndex(x => new { x.ProductId, x.ExternalCustomerRef });
+
+        // La misma clave del mismo producto es la misma emisión: el reintento devuelve el
+        // documento que ya salió. Único, para que no dependa solo de que el código mire antes.
+        b.HasIndex(x => new { x.ProductId, x.IdempotencyKey }).IsUnique();
 
         b.HasOne<Tenant>()
             .WithMany()

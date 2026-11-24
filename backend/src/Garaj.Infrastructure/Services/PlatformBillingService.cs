@@ -2,6 +2,7 @@ using Garaj.Application.Abstractions;
 using Garaj.Application.Common;
 using Garaj.Application.Platform;
 using Garaj.Domain.Entities;
+using Garaj.Domain.Rules;
 using Garaj.Infrastructure.Documents;
 using Garaj.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -141,6 +142,250 @@ public class PlatformBillingService(
 
         return Map(factura);
     }
+
+    // ---------- Los servicios que cobramos ----------
+
+    public async Task<IReadOnlyList<PlatformProductDto>> ProductsAsync(CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var productos = await db.PlatformProducts.AsNoTracking().OrderBy(p => p.Name).ToListAsync(ct);
+
+        var emitidos = await db.SubscriptionInvoices
+            .AsNoTracking()
+            .Where(f => f.ProductId != null)
+            .GroupBy(f => f.ProductId!.Value)
+            .Select(g => new { ProductId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ProductId, x => x.Count, ct);
+
+        return productos
+            .Select(p => new PlatformProductDto(
+                p.Id, p.Name, p.IsActive, p.ApiKeyHint, p.ApiKeyIssuedOn,
+                emitidos.GetValueOrDefault(p.Id)))
+            .ToList();
+    }
+
+    public async Task<PlatformProductDto> SaveProductAsync(
+        Guid? id, SavePlatformProductRequest request, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var nombre = request.Name.Trim();
+
+        if (nombre.Length == 0) throw new AppException("El servicio necesita un nombre.");
+
+        var repetido = await db.PlatformProducts
+            .AnyAsync(p => p.Name == nombre && (id == null || p.Id != id), ct);
+
+        if (repetido)
+            throw new ConflictException($"Ya hay un servicio que se llama «{nombre}».");
+
+        PlatformProduct producto;
+
+        if (id is { } existente)
+        {
+            producto = await db.PlatformProducts.FirstOrDefaultAsync(p => p.Id == existente, ct)
+                ?? throw new NotFoundException("El servicio no existe.");
+        }
+        else
+        {
+            producto = new PlatformProduct();
+            db.PlatformProducts.Add(producto);
+        }
+
+        producto.Name = nombre;
+        producto.IsActive = request.IsActive;
+
+        await db.SaveChangesAsync(ct);
+
+        return (await ProductsAsync(ct)).First(p => p.Id == producto.Id);
+    }
+
+    public async Task<NewApiKeyDto> RotateApiKeyAsync(Guid productId, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var producto = await db.PlatformProducts.FirstOrDefaultAsync(p => p.Id == productId, ct)
+            ?? throw new NotFoundException("El servicio no existe.");
+
+        var (llave, hash, pista) = LlavesDeProducto.Nueva();
+
+        // La anterior queda sin valor en el mismo acto: dos llaves vivas es una que nadie
+        // recuerda haber repartido.
+        producto.ApiKeyHash = hash;
+        producto.ApiKeyHint = pista;
+        producto.ApiKeyIssuedOn = clock.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+
+        return new NewApiKeyDto(producto.Id, producto.Name, llave);
+    }
+
+    // ---------- Emitir desde el portal de otro servicio ----------
+
+    /// <remarks>
+    /// Aquí no hay sesión ni taller: la llave identifica al servicio. Por eso lo primero es
+    /// resolverla, y todo lo que sigue cuelga del producto que salió de ella —nunca de algo que
+    /// venga en el cuerpo—.
+    /// </remarks>
+    public async Task<IssuedInvoiceDto> IssueAsync(
+        string apiKey, string idempotencyKey, IssueInvoiceRequest request,
+        CancellationToken ct = default)
+    {
+        var clave = idempotencyKey.Trim();
+
+        if (clave.Length is 0 or > 100)
+            throw new AppException("Falta la cabecera Idempotency-Key, o es demasiado larga.");
+
+        var producto = await ProductoDeLaLlaveAsync(apiKey, ct);
+
+        // El reintento devuelve lo que ya salió. Es lo que impide que una respuesta perdida
+        // queme un segundo número del SAR por el mismo cobro.
+        var yaEmitida = await db.SubscriptionInvoices
+            .AsNoTracking()
+            .Include(f => f.Lines)
+            .FirstOrDefaultAsync(f => f.ProductId == producto.Id && f.IdempotencyKey == clave, ct);
+
+        if (yaEmitida is not null) return Emitida(yaEmitida, true);
+
+        var lineas = (request.Lines ?? [])
+            .Where(l => !string.IsNullOrWhiteSpace(l.Description))
+            .ToList();
+
+        if (lineas.Count == 0)
+            throw new AppException("El documento necesita al menos un concepto.");
+
+        if (lineas.Count > 50)
+            throw new AppException("Son demasiados conceptos para un documento.");
+
+        if (lineas.Any(l => l.Quantity <= 0 || l.UnitPrice < 0))
+            throw new AppException("Cantidad y precio tienen que ser válidos en cada concepto.");
+
+        var cliente = request.Customer?.Name?.Trim();
+
+        if (string.IsNullOrWhiteSpace(cliente))
+            throw new AppException("Diga a nombre de quién va el documento.");
+
+        var settings = await db.PlatformSettings.FirstOrDefaultAsync(ct);
+
+        if (settings is null)
+        {
+            settings = new PlatformSettings();
+            db.PlatformSettings.Add(settings);
+        }
+
+        var tasa = settings.DefaultTaxRate;
+        var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
+        var (total, impuesto) = Isv.Totales(suma, tasa, settings.PricesIncludeTax);
+
+        var factura = new SubscriptionInvoice
+        {
+            // Sin taller y sin pago nuestro: el cobro lo hizo su portal.
+            TenantId = null,
+            SubscriptionPaymentId = null,
+            ProductId = producto.Id,
+            ProductName = producto.Name,
+            ExternalCustomerRef = Recortar(request.ExternalCustomerRef, 100),
+            PaymentReference = Recortar(request.PaymentReference, 80),
+            IdempotencyKey = clave,
+            IssuedOn = request.PaidOn ?? clock.Today(),
+            CustomerName = cliente,
+            CustomerLegalName = Recortar(request.Customer?.LegalName, 200),
+            CustomerTaxId = Recortar(request.Customer?.TaxId, 20),
+            Subtotal = suma,
+            TaxRate = tasa,
+            TaxTotal = impuesto,
+            Total = total,
+            PricesIncludedTax = settings.PricesIncludeTax,
+            Currency = settings.Currency,
+            Note = Recortar(request.Note, 300)
+        };
+
+        foreach (var linea in lineas)
+        {
+            factura.Lines.Add(new SubscriptionInvoiceLine
+            {
+                Description = linea.Description.Trim(),
+                Quantity = linea.Quantity,
+                UnitPrice = linea.UnitPrice,
+                Total = Math.Round(linea.Quantity * linea.UnitPrice, 2, MidpointRounding.AwayFromZero)
+            });
+        }
+
+        factura.Number = request.Fiscal
+            ? await NumeracionDePlataforma.AutorizadoAsync(db, factura, clock.UtcNow, ct)
+            : await NumeracionDePlataforma.PropioAsync(db, settings, ct);
+
+        db.SubscriptionInvoices.Add(factura);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Dos reintentos a la vez: el índice único cazó al segundo. Lo que importa es que
+            // el portal reciba el documento, no cuál de los dos llegó primero.
+            db.ChangeTracker.Clear();
+
+            var carrera = await YaEstabaAsync(producto.Id, clave, ct);
+
+            if (carrera is null) throw;
+
+            return Emitida(carrera, true);
+        }
+
+        return Emitida(factura, false);
+    }
+
+    public async Task<byte[]> InvoicePdfForProductAsync(
+        string apiKey, Guid invoiceId, CancellationToken ct = default)
+    {
+        var producto = await ProductoDeLaLlaveAsync(apiKey, ct);
+
+        var factura = await db.SubscriptionInvoices
+            .AsNoTracking()
+            .Include(f => f.Lines)
+            .FirstOrDefaultAsync(f => f.Id == invoiceId && f.ProductId == producto.Id, ct)
+            ?? throw new NotFoundException("El documento no existe.");
+
+        var settings = await db.PlatformSettings.AsNoTracking().FirstOrDefaultAsync(ct)
+            ?? new PlatformSettings();
+
+        return SubscriptionInvoicePdf.Render(Map(factura), await MapAsync(settings, ct));
+    }
+
+    /// <summary>
+    /// El servicio al que pertenece la llave. La comparación es por hash, y el servicio tiene
+    /// que estar activo: apagarlo es la forma de cortarle la emisión sin borrar su historial.
+    /// </summary>
+    private async Task<PlatformProduct> ProductoDeLaLlaveAsync(string apiKey, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new UnauthorizedException("Falta la llave del servicio.");
+
+        var hash = LlavesDeProducto.Hash(apiKey);
+
+        return await db.PlatformProducts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.ApiKeyHash == hash && p.IsActive, ct)
+            ?? throw new UnauthorizedException("La llave no vale.");
+    }
+
+    private async Task<SubscriptionInvoice?> YaEstabaAsync(
+        Guid productId, string clave, CancellationToken ct) =>
+        await db.SubscriptionInvoices
+            .AsNoTracking()
+            .Include(f => f.Lines)
+            .FirstOrDefaultAsync(f => f.ProductId == productId && f.IdempotencyKey == clave, ct);
+
+    private static string? Recortar(string? texto, int largo) =>
+        texto?.Trim() is { Length: > 0 } limpio ? limpio[..Math.Min(limpio.Length, largo)] : null;
+
+    private static IssuedInvoiceDto Emitida(SubscriptionInvoice f, bool reintento) =>
+        new(f.Id, f.Number, f.IssuedOn, f.IsFiscal, f.FiscalCai, f.FiscalRangeText,
+            f.FiscalIssueDeadline, f.Subtotal, f.TaxRate, f.TaxTotal, f.Total, f.Currency,
+            $"/api/billing/invoices/{f.Id}.pdf", reintento);
 
     private async Task<SubscriptionInvoice> FindAsync(Guid id, CancellationToken ct) =>
         await db.SubscriptionInvoices

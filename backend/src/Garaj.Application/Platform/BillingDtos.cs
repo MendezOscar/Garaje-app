@@ -97,3 +97,62 @@ public record SubscriptionInvoiceLineDto(
 public record SaveInvoiceLineRequest(string Description, decimal Quantity, decimal UnitPrice);
 
 public record VoidInvoiceRequest(string Reason);
+
+// ---------- Los servicios que cobramos, y su llave ----------
+
+/// <param name="ApiKeyHint">Las cuatro últimas de su llave. Null si no tiene llave todavía.</param>
+public record PlatformProductDto(
+    Guid Id,
+    string Name,
+    bool IsActive,
+    string? ApiKeyHint,
+    DateTimeOffset? ApiKeyIssuedOn,
+    int InvoiceCount);
+
+public record SavePlatformProductRequest(string Name, bool IsActive = true);
+
+/// <summary>
+/// La llave recién generada. Es la única vez que existe en claro: después solo queda su hash.
+/// </summary>
+public record NewApiKeyDto(Guid ProductId, string Name, string ApiKey);
+
+// ---------- Emitir desde el portal de otro servicio ----------
+
+/// <param name="Customer">A quién se le factura. Se copia en el documento, no se guarda aparte.</param>
+/// <param name="ExternalCustomerRef">
+/// El id del cliente en el sistema que cobró. Sirve para juntar sus documentos sin que su ficha
+/// viva aquí.
+/// </param>
+/// <param name="Fiscal">
+/// Con CAI. En falso sale un comprobante con nuestro correlativo propio, que es lo que se le da
+/// a quien no pide factura.
+/// </param>
+public record IssueInvoiceRequest(
+    InvoiceCustomerDto Customer,
+    IReadOnlyList<SaveInvoiceLineRequest> Lines,
+    string? ExternalCustomerRef = null,
+    bool Fiscal = true,
+    DateOnly? PaidOn = null,
+    string? PaymentReference = null,
+    string? Note = null);
+
+public record InvoiceCustomerDto(string Name, string? LegalName = null, string? TaxId = null);
+
+/// <summary>Lo que el portal necesita para enseñarle el documento a su cliente.</summary>
+public record IssuedInvoiceDto(
+    Guid Id,
+    string Number,
+    DateOnly IssuedOn,
+    bool IsFiscal,
+    string? Cai,
+    string? RangeText,
+    DateTimeOffset? IssueDeadline,
+    decimal Subtotal,
+    decimal TaxRate,
+    decimal TaxTotal,
+    decimal Total,
+    string Currency,
+    /// <summary>Ruta del PDF, relativa a la base de la API.</summary>
+    string PdfPath,
+    /// <summary>Verdadero cuando la petición era un reintento y se devolvió lo ya emitido.</summary>
+    bool AlreadyIssued);

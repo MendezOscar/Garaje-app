@@ -3304,6 +3304,11 @@ namespace Garaj.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("fiscal_range_text");
 
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("idempotency_key");
+
                     b.Property<bool>("IsVoided")
                         .HasColumnType("boolean")
                         .HasColumnName("is_voided");
@@ -3407,6 +3412,10 @@ namespace Garaj.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductId", "ExternalCustomerRef")
                         .HasDatabaseName("ix_subscription_invoices_product_id_external_customer_ref");
+
+                    b.HasIndex("ProductId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_subscription_invoices_product_id_idempotency_key");
 
                     b.HasIndex("ProductId", "IssuedOn")
                         .HasDatabaseName("ix_subscription_invoices_product_id_issued_on");

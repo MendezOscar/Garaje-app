@@ -965,6 +965,46 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | GET | `/api/platform/billing/invoices/{id}.pdf` | Plataforma | Su PDF, para mandárselo al taller |
 | POST | `/api/platform/billing/invoices/{id}/void` | Plataforma | Lo anula. El pago queda |
 
+### La API de facturación
+
+Lo que llama el portal de otro servicio. **No lleva sesión**: la llave del servicio va en la
+cabecera `X-Billing-Key` —nunca en la URL, que queda escrita en los registros—.
+
+| Método | Ruta | Quién | Qué |
+| --- | --- | --- | --- |
+| POST | `/api/billing/invoices` | Llave del servicio | Emite el documento y devuelve su número |
+| GET | `/api/billing/invoices/{id}.pdf` | Llave del servicio | El PDF de **su** documento; el de otro servicio responde 404 |
+
+```http
+POST /api/billing/invoices
+X-Billing-Key: gbk_…
+Idempotency-Key: pago-91823
+
+{ "customer": { "name": "Distribuidora X", "legalName": "…", "taxId": "0801…" },
+  "lines": [ { "description": "Mensualidad de noviembre", "quantity": 1, "unitPrice": 500 } ],
+  "externalCustomerRef": "cli-0001",
+  "fiscal": true,
+  "paidOn": "2026-11-24",
+  "paymentReference": "DEP-77123" }
+```
+
+- **`Idempotency-Key` es obligatoria.** El mismo valor del mismo servicio devuelve el documento
+  que ya salió, con `alreadyIssued: true`. Se manda **una por cobro** —el id del pago en su
+  sistema sirve—, no una por intento: sin esto, una respuesta perdida quema un segundo número
+  del SAR por el mismo dinero. Hay índice único sobre (servicio, clave), así que ni dos
+  reintentos simultáneos lo logran.
+- **La llave se enseña una sola vez**, al generarla en Facturación → Servicios. Se guarda en
+  hash —SHA-256 sobre 32 bytes de azar: no es una contraseña elegida por nadie, así que no hay
+  diccionario que recorrer— y rotarla deja la anterior sin valor en el mismo acto.
+- **Apagar el servicio le corta la emisión** sin borrarle el historial.
+- El tope de peticiones va **por servicio**, partido por el hash de su llave: un portal con un
+  bucle no deja sin facturar al otro.
+
+| Método | Ruta | Quién | Qué |
+| --- | --- | --- | --- |
+| GET/POST/PUT | `/api/platform/billing/products[/{id}]` | Plataforma | Los servicios que cobramos |
+| POST | `/api/platform/billing/products/{id}/key` | Plataforma | Llave nueva; **vuelve en claro una sola vez** |
+
 ### La facturación de los tres servicios
 
 El CAI es **uno solo para todo lo que cobramos** —GarajApp, StockRuta, Profeapp y lo que
