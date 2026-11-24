@@ -69,6 +69,17 @@ builder.Services.AddRateLimiter(options =>
 
     // Por usuario cuando hay sesión: un taller entero sale por una sola conexión, y con la
     // IP como clave el primero que baja diez PDF deja sin cupo a sus compañeros.
+    // Por servicio, con la llave en hash como partición: no se guarda la llave en memoria ni
+    // aparece en ningún registro, y aun así cada portal tiene su propio cupo.
+    options.AddPolicy(RateLimits.Facturacion, http => RateLimitPartition.GetFixedWindowLimiter(
+        QuienFactura(http),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
     options.AddPolicy(RateLimits.Documento, http => RateLimitPartition.GetFixedWindowLimiter(
         QuienPide(http),
         _ => new FixedWindowRateLimiterOptions
@@ -136,6 +147,15 @@ static string ClienteQuePide(HttpContext http) =>
 static string QuienPide(HttpContext http) =>
     http.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } usuario
         ? $"u:{usuario}"
+        : $"ip:{ClienteQuePide(http)}";
+
+// Quién pide una factura: el servicio, reconocido por su llave. Se parte por el hash y no por
+// la llave misma, que no tiene por qué quedar en la memoria del limitador.
+static string QuienFactura(HttpContext http) =>
+    http.Request.Headers["X-Billing-Key"].ToString() is { Length: > 0 } llave
+        ? "k:" + Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(llave)))[..16]
         : $"ip:{ClienteQuePide(http)}";
 
 // La forma de lo que entra se valida antes de llegar al servicio; ver Validation/Validadores.

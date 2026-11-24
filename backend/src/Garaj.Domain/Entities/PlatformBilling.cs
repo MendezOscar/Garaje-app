@@ -139,6 +139,14 @@ public class SubscriptionInvoice : AuditableEntity
     /// </summary>
     public string? PaymentReference { get; set; }
 
+    /// <summary>
+    /// La clave con la que el portal pidió esta emisión. Es lo que hace que un reintento
+    /// —internet caído, respuesta perdida— devuelva <b>este mismo documento</b> en vez de
+    /// quemar otro número del SAR. Null en lo emitido desde la consola, donde el que repite es
+    /// una persona que ve lo que ya hizo.
+    /// </summary>
+    public string? IdempotencyKey { get; set; }
+
     /// <summary>Lo que se le enseña al taller: el correlativo propio o el autorizado.</summary>
     public string Number { get; set; } = null!;
 

@@ -14,6 +14,13 @@ public static class RateLimits
     public const string Publico = "publico";
 
     /// <summary>
+    /// La API de facturación que llaman los portales de los otros servicios. Reparte números
+    /// del SAR, así que el tope va por servicio y no por IP: dos portales no comparten cupo, y
+    /// uno con un bucle no deja sin facturar al otro.
+    /// </summary>
+    public const string Facturacion = "facturacion";
+
+    /// <summary>
     /// Generar un PDF es lo más caro que hace el servidor: varias consultas, bajar las fotos
     /// del bucket y renderizar. Va aparte del resto de lo público, que es barato.
     /// </summary>
