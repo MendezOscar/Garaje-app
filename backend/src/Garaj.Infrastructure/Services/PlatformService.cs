@@ -658,15 +658,80 @@ public class PlatformService(
     /// factura uno solo por lo que entró, con el impuesto sacado hacia atrás o hacia adelante
     /// según cómo cobremos. Así el documento siempre cuadra con el depósito del banco.
     /// </remarks>
-    private async Task EmitirAsync(
+    /// <summary>
+    /// Le emite el documento a un pago que se registró sin él: el taller no lo pidió en su
+    /// momento y después sí.
+    /// </summary>
+    /// <remarks>
+    /// Un pago, un documento. Se niega si ese pago ya tiene el suyo —hay índice único, así
+    /// que aunque el código se distrajera la base no lo dejaría— y se niega si el pago está
+    /// anulado: emitirle un documento a un cobro que se deshizo es facturar lo que no entró.
+    ///
+    /// Consume un número igual que cualquier otra emisión. El importe y los meses salen del
+    /// pago guardado, no de lo que mande quien pide: el documento tiene que decir lo que de
+    /// verdad se cobró.
+    /// </remarks>
+    public async Task<PlatformTenantDetailDto> IssuePaymentInvoiceAsync(
+        Guid tenantId, Guid paymentId, IssuePaymentInvoiceRequest request,
+        CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var tenant = await FindAsync(tenantId, ct);
+
+        var payment = await db.SubscriptionPayments
+            .FirstOrDefaultAsync(p => p.Id == paymentId && p.TenantId == tenantId, ct)
+            ?? throw new NotFoundException("El pago no existe.");
+
+        if (payment.IsVoided)
+            throw new ConflictException(
+                "Ese pago está anulado: no se le puede emitir documento.");
+
+        var yaTiene = await db.SubscriptionInvoices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.SubscriptionPaymentId == paymentId, ct);
+
+        if (yaTiene is not null)
+            throw new ConflictException($"Ese pago ya tiene el documento {yaTiene.Number}.");
+
+        // Cuántos meses cubrió, para que la línea diga lo mismo que habría dicho el día del
+        // pago. Sin el dato de dónde venía, uno.
+        var meses = payment.PreviousPaidThrough is { } antes
+            ? Math.Max(1, (payment.CoversThrough.Year - antes.Year) * 12
+                + payment.CoversThrough.Month - antes.Month)
+            : 1;
+
+        await EmitirAsync(
+            tenant, payment, request.Fiscal, request.Lines, request.Note ?? payment.Note,
+            payment.Amount, meses, payment.PaidOn, ct);
+
+        await db.SaveChangesAsync(ct);
+
+        return await BuildDetailAsync(tenant, ct);
+    }
+
+    private Task EmitirAsync(
         Tenant tenant, SubscriptionPayment payment, RegisterPaymentRequest request,
+        DateOnly paidOn, CancellationToken ct)
+        => EmitirAsync(
+            tenant, payment, request.Fiscal, request.Lines, request.Note, request.Amount,
+            request.Months, paidOn, ct);
+
+    /// <summary>
+    /// Arma el documento del pago y le toma su número. Recibe las piezas sueltas y no la
+    /// petición del pago, porque también se emite después —desde la fila de un pago que se
+    /// registró sin documento—, y ahí esa petición ya no existe.
+    /// </summary>
+    private async Task EmitirAsync(
+        Tenant tenant, SubscriptionPayment payment, bool fiscal,
+        IReadOnlyList<SaveInvoiceLineRequest>? pedidas, string? nota, decimal monto, int meses,
         DateOnly paidOn, CancellationToken ct)
     {
         var settings = await SettingsAsync(ct);
         var tasa = settings.DefaultTaxRate;
         var conImpuestoAdentro = settings.PricesIncludeTax;
 
-        var lineas = (request.Lines ?? []).Where(l => !string.IsNullOrWhiteSpace(l.Description)).ToList();
+        var lineas = (pedidas ?? []).Where(l => !string.IsNullOrWhiteSpace(l.Description)).ToList();
 
         // Sin conceptos escritos: una línea por lo que entró. El neto depende de cómo
         // cobremos —con el ISV adentro el total ya es el neto más el impuesto; con el ISV
@@ -674,15 +739,15 @@ public class PlatformService(
         if (lineas.Count == 0)
         {
             var neto = tasa <= 0 || conImpuestoAdentro
-                ? request.Amount
-                : Math.Round(request.Amount / (1 + tasa / 100), 2, MidpointRounding.AwayFromZero);
+                ? monto
+                : Math.Round(monto / (1 + tasa / 100), 2, MidpointRounding.AwayFromZero);
 
-            var meses = Math.Clamp(request.Months, 1, 24);
+            var cuantos = Math.Clamp(meses, 1, 24);
 
             lineas =
             [
                 new SaveInvoiceLineRequest(
-                    meses == 1 ? "Mensualidad GarajApp" : $"Mensualidad GarajApp ({meses} meses)",
+                    cuantos == 1 ? "Mensualidad GarajApp" : $"Mensualidad GarajApp ({cuantos} meses)",
                     1, neto)
             ];
         }
@@ -712,7 +777,7 @@ public class PlatformService(
             Total = total,
             PricesIncludedTax = conImpuestoAdentro,
             Currency = settings.Currency,
-            Note = Trim(request.Note),
+            Note = Trim(nota),
             IssuedByUserId = tenantContext.UserId
         };
 
@@ -727,7 +792,7 @@ public class PlatformService(
             });
         }
 
-        factura.Number = request.Fiscal
+        factura.Number = fiscal
             ? await NumeracionDePlataforma.AutorizadoAsync(db, factura, clock.UtcNow, ct)
             : await NumeracionDePlataforma.PropioAsync(db, settings, ct);
 

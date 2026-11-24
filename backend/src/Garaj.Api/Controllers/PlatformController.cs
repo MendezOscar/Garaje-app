@@ -98,6 +98,15 @@ public class PlatformController(IPlatformService service, IRepasoDeAvisos repaso
     /// documento que hubiera dejado. No lo borra: el historial de cobro es lo que contesta
     /// «¿yo ya te pagué junio?».
     /// </summary>
+    /// <summary>
+    /// Le emite el documento a un pago que se registró sin él. Consume un número igual que
+    /// cualquier otra emisión, y se niega si ese pago ya tiene el suyo o está anulado.
+    /// </summary>
+    [HttpPost("{id:guid}/payments/{paymentId:guid}/invoice")]
+    public async Task<ActionResult<PlatformTenantDetailDto>> IssuePaymentInvoice(
+        Guid id, Guid paymentId, IssuePaymentInvoiceRequest request, CancellationToken ct)
+        => Ok(await service.IssuePaymentInvoiceAsync(id, paymentId, request, ct));
+
     [HttpPost("{id:guid}/payments/{paymentId:guid}/void")]
     public async Task<ActionResult<PlatformTenantDetailDto>> VoidPayment(
         Guid id, Guid paymentId, VoidPaymentRequest request, CancellationToken ct)

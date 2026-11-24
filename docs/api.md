@@ -954,6 +954,7 @@ siempre, pagara o no: `Tenant.IsActive` existía pero no lo consultaba nadie.
 | POST | `/api/platform/tenants/{id}/owner` | Plataforma | Le crea un Dueño a un taller que ya existe |
 | PUT | `/api/platform/tenants/{id}` | Plataforma | Corrige nombre, razón social, RTN y contactos |
 | POST | `/api/platform/tenants/{id}/payments` | Plataforma | Registra el pago y corre el vencimiento |
+| POST | `/api/platform/tenants/{id}/payments/{paymentId}/invoice` | Plataforma | Le emite el documento a un pago que se registró sin él |
 | POST | `/api/platform/tenants/{id}/payments/{paymentId}/void` | Plataforma | Anula un pago registrado por error |
 | PUT/DELETE | `/api/platform/tenants/{id}/agreement` | Plataforma | Acuerdo de pago, y quitarlo |
 | PUT | `/api/platform/tenants/{id}/subscription` | Plataforma | Plan, cuota, vencimiento, gracia y los topes |

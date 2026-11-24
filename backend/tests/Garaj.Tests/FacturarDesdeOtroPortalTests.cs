@@ -268,6 +268,25 @@ public class FacturarDesdeOtroPortalTests
     }
 
     [RequiereBaseLocal]
+    public async Task Al_mismo_documento_no_se_le_emite_otro()
+    {
+        var (_, llave) = await ServicioConLlaveAsync();
+
+        await using var db = Contexto();
+        var servicio = Servicio(db);
+
+        var una = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+
+        // Anularlo no habilita emitir otro con la misma clave: la clave es del cobro, no del
+        // documento, y el número anulado ya se gastó.
+        await servicio.VoidInvoiceAsync(una.Id, new VoidInvoiceRequest("Mal emitido"));
+
+        var otra = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+
+        Assert.NotEqual(una.Number, otra.Number);
+    }
+
+    [RequiereBaseLocal]
     public async Task Un_mes_que_no_existe_no_tiene_libro()
     {
         await using var db = Contexto();
