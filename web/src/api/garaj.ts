@@ -44,6 +44,7 @@ import type {
   PaymentMethod,
   PlatformSettings,
   PlatformTenant,
+  InvoiceListItem,
   PlatformProduct,
   PlatformUsage,
   SalesBook,
@@ -1790,6 +1791,57 @@ export const platformApi = {
   /** Los servicios que cobramos, con cuántos documentos lleva cada uno. */
   async products(): Promise<PlatformProduct[]> {
     const { data } = await api.get<PlatformProduct[]>('/api/platform/billing/products')
+    return data
+  },
+  async saveProduct(
+    id: string | null,
+    body: { name: string; isActive?: boolean },
+  ): Promise<PlatformProduct> {
+    const { data } = id
+      ? await api.put<PlatformProduct>(`/api/platform/billing/products/${id}`, body)
+      : await api.post<PlatformProduct>('/api/platform/billing/products', body)
+    return data
+  },
+  /**
+   * Le da una llave nueva al servicio y deja la anterior sin valor. **Vuelve en claro una sola
+   * vez**: después solo queda su hash.
+   */
+  async rotateProductKey(id: string): Promise<{ productId: string; name: string; apiKey: string }> {
+    const { data } = await api.post<{ productId: string; name: string; apiKey: string }>(
+      `/api/platform/billing/products/${id}/key`,
+    )
+    return data
+  },
+  /** Los documentos emitidos: por número, por cliente o por RTN. */
+  async invoices(query: {
+    search?: string
+    productId?: string
+    from?: string
+    to?: string
+    onlyVoided?: boolean
+    page?: number
+    pageSize?: number
+  }): Promise<Paged<InvoiceListItem>> {
+    const { data } = await api.get<Paged<InvoiceListItem>>('/api/platform/billing/invoices', {
+      params: params(query),
+    })
+    return data
+  },
+  /** Emite a mano: el servicio sin integrar y la factura suelta. Consume un número igual. */
+  async issueByHand(body: {
+    productId: string
+    customer: { name: string; legalName?: string | null; taxId?: string | null }
+    lines: { description: string; quantity: number; unitPrice: number }[]
+    fiscal?: boolean
+    issuedOn?: string | null
+    paymentReference?: string | null
+    externalCustomerRef?: string | null
+    note?: string | null
+  }): Promise<SubscriptionInvoice> {
+    const { data } = await api.post<SubscriptionInvoice>(
+      '/api/platform/billing/invoices',
+      body,
+    )
     return data
   },
   /** El libro de ventas del mes, con sus totales y los números que faltan. */

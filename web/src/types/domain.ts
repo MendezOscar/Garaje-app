@@ -1499,6 +1499,20 @@ export interface PlatformProduct {
   invoiceCount: number
 }
 
+/** Una fila de la lista de documentos emitidos. */
+export interface InvoiceListItem {
+  id: string
+  number: string
+  issuedOn: string
+  productName: string | null
+  customerName: string
+  customerTaxId: string | null
+  total: number
+  currency: string
+  isFiscal: boolean
+  isVoided: boolean
+}
+
 /** Una línea del libro de ventas. */
 export interface SalesBookRow {
   issuedOn: string

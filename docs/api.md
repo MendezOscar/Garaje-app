@@ -1004,6 +1004,10 @@ Idempotency-Key: pago-91823
 | --- | --- | --- | --- |
 | GET/POST/PUT | `/api/platform/billing/products[/{id}]` | Plataforma | Los servicios que cobramos |
 | POST | `/api/platform/billing/products/{id}/key` | Plataforma | Llave nueva; **vuelve en claro una sola vez** |
+| GET | `/api/platform/billing/invoices?search=&productId=&from=&to=&onlyVoided=` | Plataforma | Los documentos emitidos; se busca por número, cliente o RTN |
+| POST | `/api/platform/billing/invoices` | Plataforma | **Emite a mano**: el servicio sin integrar y la factura suelta |
+| GET | `/api/platform/billing/sales-book?year=&month=&productId=` | Plataforma | El libro de ventas del mes |
+| GET | `/api/platform/billing/sales-book.xlsx?year=&month=` | Plataforma | El mismo libro en Excel, para el contador |
 
 ### La facturación de los tres servicios
 

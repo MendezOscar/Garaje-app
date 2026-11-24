@@ -1,3 +1,5 @@
+using Garaj.Application.Common;
+
 namespace Garaj.Application.Platform;
 
 /// <summary>
@@ -85,7 +87,12 @@ public record SubscriptionInvoiceDto(
     DateTimeOffset? FiscalIssueDeadline,
     bool IsVoided,
     string? VoidReason,
-    IReadOnlyList<SubscriptionInvoiceLineDto> Lines);
+    IReadOnlyList<SubscriptionInvoiceLineDto> Lines,
+    /// <summary>Qué servicio se cobró. Copiado en el documento, no leído por relación.</summary>
+    string? ProductName = null,
+    /// <summary>El cliente en el portal que cobró, cuando el documento no es de GarajApp.</summary>
+    string? ExternalCustomerRef = null,
+    string? PaymentReference = null);
 
 public record SubscriptionInvoiceLineDto(
     string Description,
@@ -199,3 +206,46 @@ public record SalesBookDto(
     int Count,
     int VoidedCount,
     string Currency);
+
+// ---------- Buscar un documento suelto ----------
+
+public record InvoiceQuery : PageQuery
+{
+    public Guid? ProductId { get; init; }
+
+    /// <summary>Por fecha de emisión. Sin rango, todo.</summary>
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+
+    /// <summary>Número, nombre del cliente o su RTN. Es como se busca una factura suelta.</summary>
+    public string? Search { get; init; }
+
+    /// <summary>Solo los anulados. Por omisión salen todos.</summary>
+    public bool OnlyVoided { get; init; }
+}
+
+public record InvoiceListItemDto(
+    Guid Id,
+    string Number,
+    DateOnly IssuedOn,
+    string? ProductName,
+    string CustomerName,
+    string? CustomerTaxId,
+    decimal Total,
+    string Currency,
+    bool IsFiscal,
+    bool IsVoided);
+
+/// <summary>
+/// Emitir desde la consola, a mano: el servicio que todavía no está integrado y la factura
+/// suelta.
+/// </summary>
+public record IssueFromConsoleRequest(
+    Guid ProductId,
+    InvoiceCustomerDto Customer,
+    IReadOnlyList<SaveInvoiceLineRequest> Lines,
+    bool Fiscal = true,
+    DateOnly? IssuedOn = null,
+    string? PaymentReference = null,
+    string? ExternalCustomerRef = null,
+    string? Note = null);
