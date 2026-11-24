@@ -1497,6 +1497,8 @@ export interface PlatformProduct {
   apiKeyHint: string | null
   apiKeyIssuedOn: string | null
   invoiceCount: number
+  /** Factura desde esta misma consola y por eso no lleva llave: es el caso de GarajApp. */
+  billsFromConsole: boolean
 }
 
 /** Una fila de la lista de documentos emitidos. */

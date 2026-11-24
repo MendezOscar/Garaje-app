@@ -690,7 +690,7 @@ public class PlatformService(
         var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
         var (total, impuesto) = Isv.Totales(suma, tasa, conImpuestoAdentro);
 
-        var producto = await ProductoAsync(ProductoDeGarajApp, ct);
+        var producto = await ProductoAsync(PlatformProducts.GarajApp, ct);
 
         var factura = new SubscriptionInvoice
         {
@@ -733,9 +733,6 @@ public class PlatformService(
 
         db.SubscriptionInvoices.Add(factura);
     }
-
-    /// <summary>GarajApp como servicio. El id lo fija la migración que creó la tabla.</summary>
-    private static readonly Guid ProductoDeGarajApp = new("1a5d1f00-0000-4000-8000-000000000001");
 
     /// <summary>
     /// El servicio que se está cobrando. Null si todavía no está en la tabla —una base vieja
