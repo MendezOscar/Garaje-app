@@ -194,6 +194,7 @@ const navGroups = computed<
               { to: { name: 'platform-tenants' }, label: 'Talleres' },
               { to: { name: 'platform-usage' }, label: 'Uso' },
               { to: { name: 'platform-billing' }, label: 'Facturación' },
+              { to: { name: 'platform-sales-book' }, label: 'Libro de ventas' },
             ],
           },
         ]
@@ -241,6 +242,7 @@ const barraAbajo = computed<{ to: object; label: string }[]>(() => {
         { to: { name: 'platform-tenants' }, label: 'Talleres' },
         { to: { name: 'platform-usage' }, label: 'Uso' },
         { to: { name: 'platform-billing' }, label: 'Facturación' },
+        { to: { name: 'platform-sales-book' }, label: 'Libro de ventas' },
       ]
     default:
       return []

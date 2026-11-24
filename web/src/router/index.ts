@@ -302,6 +302,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Platform] },
       },
       {
+        // La cuenta de los números autorizados: lo que se le entrega al contador.
+        path: 'plataforma/libro-de-ventas',
+        name: 'platform-sales-book',
+        component: () => import('@/views/platform/SalesBookView.vue'),
+        meta: { roles: [Roles.Platform] },
+      },
+      {
         // Cómo facturamos nosotros: el emisor y el CAI. El documento se emite con el pago.
         path: 'plataforma/facturacion',
         name: 'platform-billing',
