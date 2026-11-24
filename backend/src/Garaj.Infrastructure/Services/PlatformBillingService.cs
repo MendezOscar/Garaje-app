@@ -143,6 +143,129 @@ public class PlatformBillingService(
         return Map(factura);
     }
 
+    // ---------- Buscar un documento suelto ----------
+
+    public async Task<PagedResult<InvoiceListItemDto>> InvoicesAsync(
+        InvoiceQuery query, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var q = db.SubscriptionInvoices.AsNoTracking().AsQueryable();
+
+        if (query.ProductId is { } producto) q = q.Where(f => f.ProductId == producto);
+        if (query.From is { } desde) q = q.Where(f => f.IssuedOn >= desde);
+        if (query.To is { } hasta) q = q.Where(f => f.IssuedOn <= hasta);
+        if (query.OnlyVoided) q = q.Where(f => f.IsVoided);
+
+        // Se busca como se busca una factura en papel: por su número, por el nombre o por el
+        // RTN. El tope de largo es del validador; aquí se recorta para que un texto absurdo no
+        // se convierta en un LIKE absurdo.
+        if (query.Search?.Trim() is { Length: > 0 } texto)
+        {
+            var buscado = texto[..Math.Min(texto.Length, 100)];
+
+            q = q.Where(f =>
+                EF.Functions.ILike(f.Number, $"%{buscado}%")
+                || EF.Functions.ILike(f.CustomerName, $"%{buscado}%")
+                || (f.CustomerTaxId != null && EF.Functions.ILike(f.CustomerTaxId, $"%{buscado}%")));
+        }
+
+        var total = await q.CountAsync(ct);
+
+        // Lo último emitido arriba: lo que se busca casi siempre es reciente.
+        var items = await q
+            .OrderByDescending(f => f.IssuedOn)
+            .ThenByDescending(f => f.Number)
+            .Skip(query.Skip)
+            .Take(query.PageSize)
+            .Select(f => new InvoiceListItemDto(
+                f.Id, f.Number, f.IssuedOn, f.ProductName, f.CustomerName, f.CustomerTaxId,
+                f.Total, f.Currency, f.FiscalCai != null, f.IsVoided))
+            .ToListAsync(ct);
+
+        return new PagedResult<InvoiceListItemDto>(items, total, query.Page, query.PageSize);
+    }
+
+    public async Task<SubscriptionInvoiceDto> IssueFromConsoleAsync(
+        IssueFromConsoleRequest request, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var producto = await db.PlatformProducts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.ProductId, ct)
+            ?? throw new NotFoundException("El servicio no existe.");
+
+        var lineas = (request.Lines ?? [])
+            .Where(l => !string.IsNullOrWhiteSpace(l.Description))
+            .ToList();
+
+        if (lineas.Count == 0)
+            throw new AppException("El documento necesita al menos un concepto.");
+
+        if (lineas.Any(l => l.Quantity <= 0 || l.UnitPrice < 0))
+            throw new AppException("Cantidad y precio tienen que ser válidos en cada concepto.");
+
+        var cliente = request.Customer?.Name?.Trim();
+
+        if (string.IsNullOrWhiteSpace(cliente))
+            throw new AppException("Diga a nombre de quién va el documento.");
+
+        var settings = await db.PlatformSettings.FirstOrDefaultAsync(ct);
+
+        if (settings is null)
+        {
+            settings = new PlatformSettings();
+            db.PlatformSettings.Add(settings);
+        }
+
+        var tasa = settings.DefaultTaxRate;
+        var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
+        var (total, impuesto) = Isv.Totales(suma, tasa, settings.PricesIncludeTax);
+
+        var factura = new SubscriptionInvoice
+        {
+            TenantId = null,
+            SubscriptionPaymentId = null,
+            ProductId = producto.Id,
+            ProductName = producto.Name,
+            ExternalCustomerRef = Recortar(request.ExternalCustomerRef, 100),
+            PaymentReference = Recortar(request.PaymentReference, 80),
+            IssuedOn = request.IssuedOn ?? clock.Today(),
+            CustomerName = cliente,
+            CustomerLegalName = Recortar(request.Customer?.LegalName, 200),
+            CustomerTaxId = Recortar(request.Customer?.TaxId, 20),
+            Subtotal = suma,
+            TaxRate = tasa,
+            TaxTotal = impuesto,
+            Total = total,
+            PricesIncludedTax = settings.PricesIncludeTax,
+            Currency = settings.Currency,
+            Note = Recortar(request.Note, 300),
+            IssuedByUserId = tenantContext.UserId
+        };
+
+        foreach (var linea in lineas)
+        {
+            factura.Lines.Add(new SubscriptionInvoiceLine
+            {
+                Description = linea.Description.Trim(),
+                Quantity = linea.Quantity,
+                UnitPrice = linea.UnitPrice,
+                Total = Math.Round(linea.Quantity * linea.UnitPrice, 2, MidpointRounding.AwayFromZero)
+            });
+        }
+
+        factura.Number = request.Fiscal
+            ? await NumeracionDePlataforma.AutorizadoAsync(db, factura, clock.UtcNow, ct)
+            : await NumeracionDePlataforma.PropioAsync(db, settings, ct);
+
+        db.SubscriptionInvoices.Add(factura);
+        await db.SaveChangesAsync(ct);
+
+        return Map(factura);
+    }
+
     // ---------- El libro de ventas ----------
 
     /// <remarks>
@@ -547,7 +670,8 @@ public class PlatformBillingService(
             f.Currency, f.Note, f.IsFiscal, f.FiscalCai, f.FiscalRangeText,
             f.FiscalIssueDeadline, f.IsVoided, f.VoidReason,
             f.Lines.Select(l => new SubscriptionInvoiceLineDto(
-                l.Description, l.Quantity, l.UnitPrice, l.Total)).ToList());
+                l.Description, l.Quantity, l.UnitPrice, l.Total)).ToList(),
+            f.ProductName, f.ExternalCustomerRef, f.PaymentReference);
 
     private static string? Trim(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

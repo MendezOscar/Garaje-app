@@ -471,6 +471,41 @@ public class IssueInvoiceValidator : AbstractValidator<IssueInvoiceRequest>
     }
 }
 
+/// <summary>Emitir un documento a mano desde la consola.</summary>
+public class IssueFromConsoleValidator : AbstractValidator<IssueFromConsoleRequest>
+{
+    public IssueFromConsoleValidator()
+    {
+        RuleFor(x => x.ProductId).NotEmpty().WithMessage("Diga de qué servicio es el documento.");
+
+        RuleFor(x => x.Customer).NotNull().WithMessage("Diga a nombre de quién va el documento.");
+
+        When(x => x.Customer is not null, () =>
+        {
+            RuleFor(x => x.Customer.Name)
+                .NotEmpty().WithMessage("Diga a nombre de quién va el documento.")
+                .MaximumLength(200);
+
+            RuleFor(x => x.Customer.LegalName).MaximumLength(200);
+            RuleFor(x => x.Customer.TaxId).MaximumLength(20);
+        });
+
+        RuleFor(x => x.Lines)
+            .NotEmpty().WithMessage("El documento necesita al menos un concepto.");
+
+        RuleForEach(x => x.Lines).ChildRules(linea =>
+        {
+            linea.RuleFor(l => l.Description).NotEmpty().MaximumLength(200);
+            linea.RuleFor(l => l.Quantity).GreaterThan(0);
+            linea.RuleFor(l => l.UnitPrice).GreaterThanOrEqualTo(0);
+        });
+
+        RuleFor(x => x.PaymentReference).MaximumLength(80);
+        RuleFor(x => x.ExternalCustomerRef).MaximumLength(100);
+        RuleFor(x => x.Note).MaximumLength(300);
+    }
+}
+
 /// <summary>El servicio que cobramos: GarajApp, StockRuta, Profeapp y los que vengan.</summary>
 public class SavePlatformProductValidator : AbstractValidator<SavePlatformProductRequest>
 {

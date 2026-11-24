@@ -1,3 +1,4 @@
+using Garaj.Application.Common;
 using Garaj.Domain.Enums;
 
 namespace Garaj.Application.Platform;
@@ -360,6 +361,20 @@ public interface IPlatformBillingService
     /// </summary>
     Task<SalesBookDto> SalesBookAsync(
         int year, int month, Guid? productId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Los documentos emitidos, para encontrar uno suelto: por número, por cliente o por RTN.
+    /// </summary>
+    Task<PagedResult<InvoiceListItemDto>> InvoicesAsync(
+        InvoiceQuery query, CancellationToken ct = default);
+
+    /// <summary>
+    /// Emite un documento desde la consola. Es el camino para el servicio que todavía no está
+    /// integrado y para la factura suelta: aquí quien repite es una persona que ve lo que
+    /// acaba de hacer, así que no lleva clave de idempotencia.
+    /// </summary>
+    Task<SubscriptionInvoiceDto> IssueFromConsoleAsync(
+        IssueFromConsoleRequest request, CancellationToken ct = default);
 
     /// <summary>El mismo libro en hoja de cálculo, que es como lo quiere el contador.</summary>
     Task<byte[]> SalesBookSheetAsync(

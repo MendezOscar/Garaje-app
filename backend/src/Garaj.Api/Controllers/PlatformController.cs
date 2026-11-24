@@ -188,6 +188,23 @@ public class PlatformBillingController(IPlatformBillingService service) : Contro
         return File(pdf, "application/pdf", $"{factura.Number}.pdf");
     }
 
+    /// <summary>
+    /// Los documentos emitidos, para encontrar uno suelto: por número, por cliente o por RTN.
+    /// </summary>
+    [HttpGet("invoices")]
+    public async Task<ActionResult<PagedResult<InvoiceListItemDto>>> Invoices(
+        [FromQuery] InvoiceQuery query, CancellationToken ct)
+        => Ok(await service.InvoicesAsync(query, ct));
+
+    /// <summary>
+    /// Emite un documento a mano: el servicio que todavía no está integrado, y la factura
+    /// suelta. Consume un número igual que cualquier otra emisión.
+    /// </summary>
+    [HttpPost("invoices")]
+    public async Task<ActionResult<SubscriptionInvoiceDto>> IssueByHand(
+        IssueFromConsoleRequest request, CancellationToken ct)
+        => Ok(await service.IssueFromConsoleAsync(request, ct));
+
     // ---------- El libro de ventas ----------
 
     /// <summary>

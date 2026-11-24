@@ -208,7 +208,11 @@ public static class SubscriptionInvoicePdf
                     : "Este documento es un comprobante de pago y no sustituye una factura fiscal.")
                 .FontSize(8).FontColor(Colors.Grey.Darken1);
 
-            column.Item().Text($"{emisor.Name} · Servicio de software para talleres")
+            // Qué servicio se cobró, cuando se sabe: el mismo RTN factura GarajApp, StockRuta
+            // y Profeapp, y quien recibe el documento tiene que ver por cuál paga.
+            column.Item().Text(factura.ProductName is { Length: > 0 } servicio
+                    ? $"{emisor.Name} · {servicio}"
+                    : emisor.Name)
                 .FontSize(8).FontColor(Colors.Grey.Darken1);
         });
     }
