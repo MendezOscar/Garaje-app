@@ -80,6 +80,19 @@ const documento = computed(() => {
  */
 const revisando = ref(false)
 
+/**
+ * La pantalla se mira más de lo que se edita, así que arranca en modo ficha: los datos como
+ * texto y una sola acción grande. El formulario aparece cuando se pide, y sólo uno a la vez.
+ */
+const registrando = ref(false)
+const editandoFicha = ref(false)
+const editandoPlan = ref(false)
+
+function abrirElPago() {
+  registrando.value = !registrando.value
+  revisando.value = false
+}
+
 /** Qué número va a llevar el documento, dicho antes de emitirlo. */
 const numeroQueSale = computed(() => {
   if (!pago.value.emitir) return null
@@ -255,12 +268,15 @@ async function load() {
   }
 }
 
-async function accion(fn: () => Promise<unknown>, fallo: string) {
+async function accion(fn: () => Promise<unknown>, fallo: string, alSalirBien?: () => void) {
   busy.value = true
   error.value = ''
   try {
     await fn()
     await load()
+    // Sólo si salió bien: con un error en pantalla, cerrar el formulario esconde lo que hay
+    // que corregir.
+    alSalirBien?.()
   } catch (e) {
     error.value = errorMessage(e, fallo)
   } finally {
@@ -290,6 +306,7 @@ function registrarPago() {
         fiscal: pago.value.emitir && pago.value.conCai,
       }),
     'No se pudo registrar el pago.',
+    () => (registrando.value = false),
   )
 }
 
@@ -381,6 +398,7 @@ function guardarFicha() {
         address: ficha.value.address.trim() || null,
       }),
     'No se pudieron guardar los datos del taller.',
+    () => (editandoFicha.value = false),
   )
 }
 
@@ -404,6 +422,7 @@ function guardarPlan() {
         assistantMonthlyCapHnl: Number(plan.value.assistantMonthlyCapHnl) || 0,
       }),
     'No se pudo guardar el plan.',
+    () => (editandoPlan.value = false),
   )
 }
 
@@ -517,423 +536,488 @@ onMounted(async () => {
       </article>
     </div>
 
-    <!-- Lo de todos los meses a la izquierda y grande; a la derecha, los datos del taller,
-         que es lo que hay que mirar al emitirle la factura. Lo que se toca una vez al año
-         queda plegado abajo: cuatro tarjetas al mismo nivel no decían cuál era el trabajo. -->
-    <div class="columnas">
-      <div class="principal">
-        <form class="card" @submit.prevent="revisar">
-          <h2>Registrar pago</h2>
-
-          <div class="row">
-            <label>
-              Monto
-              <input v-model.number="pago.amount" type="number" min="0" step="0.01" required />
-            </label>
-            <label>
-              Meses
-              <input v-model.number="pago.months" type="number" min="1" max="24" />
-            </label>
-          </div>
-
-          <div class="row">
-            <label>
-              Fecha del pago
-              <input v-model="pago.paidOn" type="date" />
-            </label>
-            <label>
-              Forma
-              <select v-model="pago.method">
-                <option>Transferencia</option>
-                <option>Depósito</option>
-                <option>Efectivo</option>
-              </select>
-            </label>
-          </div>
-
-          <label>
-            Número de referencia
-            <input v-model="pago.reference" placeholder="Número de depósito" />
-          </label>
-
-          <!-- El documento nace con el pago, así que lo que va a decir se ve aquí, antes de
-               registrarlo. Después solo se puede anular. -->
-          <div class="documento">
-            <label class="checkbox">
-              <input v-model="pago.emitir" type="checkbox" />
-              Emitir documento
-            </label>
-
-            <template v-if="pago.emitir">
-              <label class="checkbox" :class="{ apagado: sinCai }">
-                <input v-model="pago.conCai" type="checkbox" :disabled="sinCai" />
-                Con CAI
-              </label>
-
-              <p v-if="sinCai" class="muted small">
-                Sin CAI vigente sale un comprobante con numeración propia
-                ({{ emisor?.invoicePrefix ?? 'C' }}-{{
-                  String(emisor?.nextInvoiceNumber ?? 1).padStart(6, '0')
-                }}). El CAI se registra en Facturación.
-              </p>
-              <p v-else-if="pago.conCai" class="muted small">
-                Consume el número {{ emisor?.fiscalRange?.nextFiscalNumber }} del rango
-                autorizado.
-              </p>
-
-              <p v-if="documento.impuesto > 0" class="muted small">
-                Sale por {{ formatMoney(documento.total) }}: neto
-                {{ formatMoney(documento.neto) }} + ISV
-                {{ emisor?.defaultTaxRate }}% {{ formatMoney(documento.impuesto) }}.
-              </p>
-            </template>
-          </div>
-
-          <div class="actions">
-            <button type="submit" :disabled="busy">Revisar</button>
-          </div>
-
-          <p class="muted small">
-            La fecha se corre desde el vencimiento anterior, no desde hoy: quien paga con atraso
-            no pierde los días que ya había pagado.
-          </p>
-        </form>
-
-          <article v-if="revisando" class="card revision">
-            <h2>Revise antes de registrar</h2>
-
-            <dl>
-              <dt>Taller</dt>
-              <dd>{{ tenant.name }}<span v-if="tenant.taxId"> · RTN {{ tenant.taxId }}</span></dd>
-
-              <dt>Monto recibido</dt>
-              <dd class="num">{{ formatMoney(documento.total) }}</dd>
-
-              <template v-if="pago.emitir">
-                <dt>Documento</dt>
-                <dd>
-                  {{ pago.conCai && !sinCai ? 'Factura con CAI' : 'Comprobante sin CAI' }}
-                  <strong class="mono">{{ numeroQueSale }}</strong>
-                </dd>
-
-                <template v-if="documento.impuesto > 0">
-                  <dt>Neto</dt>
-                  <dd class="num">{{ formatMoney(documento.neto) }}</dd>
-                  <dt>ISV {{ emisor?.defaultTaxRate }}%</dt>
-                  <dd class="num">{{ formatMoney(documento.impuesto) }}</dd>
-                </template>
-              </template>
-              <template v-else>
-                <dt>Documento</dt>
-                <dd>No se emite ninguno.</dd>
-              </template>
-
-              <dt>Queda cubierto hasta</dt>
-              <dd>{{ formatDay(cubreHasta) }}</dd>
-            </dl>
-
-            <!-- Sin RTN la factura sale a consumidor final, y entonces al taller no le sirve para
-                 deducirla. Mejor enterarse ahora que cuando la lleve a su contador. -->
-            <p v-if="pago.emitir && pago.conCai && !sinCai && !tenant.taxId" class="aviso">
-              Este taller no tiene RTN registrado: la factura va a salir a consumidor final.
-              Agrégueselo en el plan antes de emitir si lo va a deducir.
-            </p>
-
-            <p v-if="pago.conCai && !sinCai" class="aviso">
-              Consume el número {{ numeroQueSale }} del rango autorizado. Un número emitido no se
-              devuelve: si se registra por error, el documento se anula pero el número ya se usó.
-            </p>
-
-            <div class="actions">
-              <button type="button" :disabled="busy" @click="registrarPago">
-                Confirmar y registrar
-              </button>
-              <button type="button" class="link" @click="revisando = false">Corregir</button>
-            </div>
-          </article>
-
-        <h2 class="historial">Pagos</h2>
-
-        <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
-
-        <table v-else>
-          <thead>
-            <tr>
-              <th scope="col">Pagó el</th>
-              <th scope="col" class="num">Monto</th>
-              <th scope="col">Forma</th>
-              <th scope="col">Referencia</th>
-              <th scope="col">Cubrió hasta</th>
-              <th scope="col">Documento</th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
-              <td>
-                {{ formatDay(p.paidOn) }}
-                <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
-              </td>
-              <td class="num">{{ formatMoney(p.amount) }}</td>
-              <td>{{ p.method ?? '—' }}</td>
-              <td class="mono">{{ p.reference ?? '—' }}</td>
-              <td>{{ formatDay(p.coversThrough) }}</td>
-              <td>
-                <template v-if="p.invoiceId && p.invoiceNumber">
-                  <button
-                    type="button"
-                    class="link"
-                    @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
-                  >
-                    {{ p.invoiceNumber }}
-                  </button>
-                  <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
-                  <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
-                  <button
-                    v-else
-                    type="button"
-                    class="link danger"
-                    :disabled="busy"
-                    @click="anularDocumento(p.invoiceId)"
-                  >
-                    Anular documento
-                  </button>
-                </template>
-                <!-- El pago que se registró sin documento: el taller no lo pidió entonces y
-                     después sí. Se puede emitir desde acá, con su número. -->
-                <button
-                  v-else-if="!p.isVoided"
-                  type="button"
-                  class="link"
-                  :disabled="busy"
-                  @click="emitirDelPago(p.id)"
-                >
-                  Emitir
-                </button>
-                <span v-else class="muted">—</span>
-              </td>
-              <td>
-                <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
-                     y el documento se va con él. No se borra, para que el historial siga
-                     contestando «¿yo ya te pagué junio?». -->
-                <button
-                  v-if="!p.isVoided"
-                  type="button"
-                  class="link danger"
-                  :disabled="busy"
-                  @click="anularPago(p.id)"
-                >
-                  Anular pago
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="lateral">
-        <form class="card" @submit.prevent="guardarFicha">
-          <h2>Datos del taller</h2>
-          <p class="muted small">
-            Es lo que sale impreso en la factura de su mensualidad. El Dueño edita la ficha de
-            su taller desde su panel; esto es para corregirla de este lado.
-          </p>
-
-          <label>
-            Nombre
-            <input v-model="ficha.name" required />
-          </label>
-          <label>
-            Razón social
-            <input v-model="ficha.legalName" placeholder="Como está en el RTN" />
-          </label>
-          <label>
-            RTN
-            <input v-model="ficha.taxId" placeholder="0801…" />
-            <small v-if="!ficha.taxId.trim()" class="muted">
-              Sin RTN, su factura sale a consumidor final.
-            </small>
-          </label>
-
-          <div class="row">
-            <label>
-              Teléfono
-              <input v-model="ficha.phone" placeholder="9888-1111" />
-            </label>
-            <label>
-              Correo
-              <input v-model="ficha.email" type="email" placeholder="taller@correo.hn" />
-            </label>
-          </div>
-
-          <label>
-            Dirección
-            <input v-model="ficha.address" />
-          </label>
-
-          <div class="actions">
-            <button type="submit" :disabled="busy || !fichaCambiada">Guardar</button>
-          </div>
-        </form>
-
-        <form class="card" @submit.prevent="guardarPlan">
-          <h2>Plan y vencimiento</h2>
-
-          <div class="row">
-            <label>
-              Plan
-              <!-- Seleccionable: de aquí salen el tope de técnicos y el diagnóstico. -->
-              <select v-model.number="plan.plan" @change="aplicarPlan">
-                <option :value="SubscriptionPlan.Basic">Básico</option>
-                <option :value="SubscriptionPlan.Pro">Pro — con diagnóstico</option>
-                <option :value="SubscriptionPlan.Legacy">Heredado — sin topes</option>
-              </select>
-            </label>
-            <label>
-              Cuota mensual
-              <input v-model.number="plan.monthlyFee" type="number" min="0" step="0.01" />
-            </label>
-          </div>
-
-          <!-- Lo que de verdad rige para este taller, que no tiene por qué ser lo del plan:
-               el que paga por un técnico de más sube a cuatro sin dejar de ser Básico. -->
-          <label class="corta">
-            Tope de técnicos
-            <input
-              v-model="plan.technicianLimit"
-              type="number"
-              min="1"
-              max="500"
-              placeholder="Sin tope"
-              :disabled="cambiandoDePlan"
-            />
-          </label>
-
-          <!-- La ayuda va pegada a su campo. Suelta al final de la tarjeta parecía explicar
-               lo último que se leyó, que era otra cosa. -->
-          <p class="muted small">
-            <template v-if="tenant">
-              Hoy tiene <strong>{{ tenant.technicianCount }}</strong>
-              {{ tenant.technicianCount === 1 ? 'técnico activo' : 'técnicos activos' }}.
-            </template>
-            Déjelo en blanco para que no tenga tope. Del cuarto técnico en adelante se cobra
-            aparte: súbale el número aquí sin moverlo de plan.
-          </p>
-
-          <label class="corta">
-            Tope de sucursales
-            <input
-              v-model="plan.branchLimit"
-              type="number"
-              min="1"
-              max="500"
-              placeholder="Sin tope"
-              :disabled="cambiandoDePlan"
-            />
-          </label>
-
-          <p class="muted small">
-            <template v-if="tenant">
-              Hoy tiene <strong>{{ tenant.branchCount }}</strong>
-              {{ tenant.branchCount === 1 ? 'sucursal' : 'sucursales' }}.
-            </template>
-            La cuota del Básico es por una. El taller que abre la segunda paga por ella: súbale
-            el número aquí. Cuenta solo las activas, así que cerrar un local y abrir otro no
-            pide permiso.
-          </p>
-
-          <!-- Los dos módulos que se venden aparte, juntos y con su casilla a la izquierda del
-               texto. El asistente lleva interruptor propio: con uno solo, apagárselo a un
-               taller le apagaría también el escáner que ya está usando dentro de las órdenes. -->
-          <fieldset class="modulos" :disabled="cambiandoDePlan">
-            <legend>Módulos</legend>
-
-            <label class="checkbox">
-              <input v-model="plan.diagnosticsEnabled" type="checkbox" />
-              <span>
-                Diagnóstico con escáner
-                <em>El informe en la orden y la lectura de códigos con el adaptador.</em>
-              </span>
-            </label>
-
-            <label class="checkbox">
-              <input v-model="plan.assistantEnabled" type="checkbox" />
-              <span>
-                Asistente
-                <em>Propone los pasos y los repuestos a partir del diagnóstico.</em>
-              </span>
-            </label>
-
-            <div v-if="plan.assistantEnabled" class="creditos">
-              <div class="row">
-                <label>
-                  Créditos al mes
-                  <input v-model="plan.assistantCreditsPerMonth" type="number" min="0" max="20000" />
-                </label>
-                <label>
-                  Créditos al día
-                  <input v-model="plan.assistantCreditsPerDay" type="number" min="0" max="2000" />
-                </label>
-                <label>
-                  Tope de gasto, L al mes
-                  <input v-model="plan.assistantMonthlyCapHnl" type="number" min="0" max="50000" />
-                </label>
-              </div>
-
-              <p class="muted small">
-                Una propuesta de pasos vale 1 crédito y una consulta del técnico 5; la lectura
-                del negocio no gasta.
-                <template v-if="tenant">
-                  Este mes lleva gastados
-                  <strong>L {{ tenant.assistantSpentHnl.toFixed(2) }}</strong>
-                  de los {{ plan.assistantMonthlyCapHnl }} del tope.
-                </template>
-                El tope de gasto corta aunque le queden créditos, y el taller no lo ve.
-              </p>
-            </div>
-          </fieldset>
-
-          <!-- Fuera del fieldset de arriba a propósito: ese se deshabilita al cambiar de plan
-               porque los módulos se reescriben desde el plan. Este no sale de ningún plan, así
-               que ni se enciende al subir a Pro ni se apaga al bajar a Básico. -->
-          <fieldset class="modulos">
-            <legend>Por contrato</legend>
-
-            <label class="checkbox">
-              <input v-model="plan.assemblyEnabled" type="checkbox" />
-              <span>
-                Armado de motos
-                <em>
-                  Registrar cada moto armada en la bodega, y los reportes de facturación al
-                  contratista y de pago a los técnicos. No va con ningún plan.
-                </em>
-              </span>
-            </label>
-          </fieldset>
-
-          <p v-if="avisoDelPlan" class="aviso-plan">{{ avisoDelPlan }}</p>
-
-          <div class="row">
-            <label>
-              Pagado hasta
-              <input v-model="plan.paidThrough" type="date" />
-            </label>
-            <label>
-              Días de gracia
-              <input v-model.number="plan.graceDays" type="number" min="0" max="60" />
-            </label>
-          </div>
-
-          <div class="actions">
-            <button type="submit" :disabled="busy">Guardar</button>
-          </div>
-
-          <p class="muted small">
-            Sin fecha de «pagado hasta», el taller nunca se bloquea.
-          </p>
-        </form>
-      </div>
+    <!-- Una sola acción grande, y la ficha como ficha. Un formulario siempre abierto le dice a
+         quien entra «llená esto», cuando lo que viene a hacer casi siempre es mirar cómo va el
+         taller o anotarle el pago del mes. -->
+    <div class="accion">
+      <button type="button" class="grande" @click="abrirElPago">
+        {{ registrando ? 'Cancelar' : 'Registrar pago' }}
+      </button>
     </div>
+
+    <form v-if="registrando" class="card" @submit.prevent="revisar">
+
+      <div class="row">
+        <label>
+          Monto
+          <input v-model.number="pago.amount" type="number" min="0" step="0.01" required />
+        </label>
+        <label>
+          Meses
+          <input v-model.number="pago.months" type="number" min="1" max="24" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label>
+          Fecha del pago
+          <input v-model="pago.paidOn" type="date" />
+        </label>
+        <label>
+          Forma
+          <select v-model="pago.method">
+            <option>Transferencia</option>
+            <option>Depósito</option>
+            <option>Efectivo</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Número de referencia
+        <input v-model="pago.reference" placeholder="Número de depósito" />
+      </label>
+
+      <!-- El documento nace con el pago, así que lo que va a decir se ve aquí, antes de
+           registrarlo. Después solo se puede anular. -->
+      <div class="documento">
+        <label class="checkbox">
+          <input v-model="pago.emitir" type="checkbox" />
+          Emitir documento
+        </label>
+
+        <template v-if="pago.emitir">
+          <label class="checkbox" :class="{ apagado: sinCai }">
+            <input v-model="pago.conCai" type="checkbox" :disabled="sinCai" />
+            Con CAI
+          </label>
+
+          <p v-if="sinCai" class="muted small">
+            Sin CAI vigente sale un comprobante con numeración propia
+            ({{ emisor?.invoicePrefix ?? 'C' }}-{{
+              String(emisor?.nextInvoiceNumber ?? 1).padStart(6, '0')
+            }}). El CAI se registra en Facturación.
+          </p>
+          <p v-else-if="pago.conCai" class="muted small">
+            Consume el número {{ emisor?.fiscalRange?.nextFiscalNumber }} del rango
+            autorizado.
+          </p>
+
+          <p v-if="documento.impuesto > 0" class="muted small">
+            Sale por {{ formatMoney(documento.total) }}: neto
+            {{ formatMoney(documento.neto) }} + ISV
+            {{ emisor?.defaultTaxRate }}% {{ formatMoney(documento.impuesto) }}.
+          </p>
+        </template>
+      </div>
+
+      <div class="actions">
+        <button type="submit" :disabled="busy">Revisar</button>
+      </div>
+
+      <p class="muted small">
+        La fecha se corre desde el vencimiento anterior, no desde hoy: quien paga con atraso
+        no pierde los días que ya había pagado.
+      </p>
+    </form>
+
+    <article v-if="revisando" class="card revision">
+      <h2>Revise antes de registrar</h2>
+
+      <dl>
+        <dt>Taller</dt>
+        <dd>{{ tenant.name }}<span v-if="tenant.taxId"> · RTN {{ tenant.taxId }}</span></dd>
+
+        <dt>Monto recibido</dt>
+        <dd class="num">{{ formatMoney(documento.total) }}</dd>
+
+        <template v-if="pago.emitir">
+          <dt>Documento</dt>
+          <dd>
+            {{ pago.conCai && !sinCai ? 'Factura con CAI' : 'Comprobante sin CAI' }}
+            <strong class="mono">{{ numeroQueSale }}</strong>
+          </dd>
+
+          <template v-if="documento.impuesto > 0">
+            <dt>Neto</dt>
+            <dd class="num">{{ formatMoney(documento.neto) }}</dd>
+            <dt>ISV {{ emisor?.defaultTaxRate }}%</dt>
+            <dd class="num">{{ formatMoney(documento.impuesto) }}</dd>
+          </template>
+        </template>
+        <template v-else>
+          <dt>Documento</dt>
+          <dd>No se emite ninguno.</dd>
+        </template>
+
+        <dt>Queda cubierto hasta</dt>
+        <dd>{{ formatDay(cubreHasta) }}</dd>
+      </dl>
+
+      <!-- Sin RTN la factura sale a consumidor final, y entonces al taller no le sirve para
+           deducirla. Mejor enterarse ahora que cuando la lleve a su contador. -->
+      <p v-if="pago.emitir && pago.conCai && !sinCai && !tenant.taxId" class="aviso">
+        Este taller no tiene RTN registrado: la factura va a salir a consumidor final.
+        Agrégueselo en el plan antes de emitir si lo va a deducir.
+      </p>
+
+      <p v-if="pago.conCai && !sinCai" class="aviso">
+        Consume el número {{ numeroQueSale }} del rango autorizado. Un número emitido no se
+        devuelve: si se registra por error, el documento se anula pero el número ya se usó.
+      </p>
+
+      <div class="actions">
+        <button type="button" :disabled="busy" @click="registrarPago">
+          Confirmar y registrar
+        </button>
+        <button type="button" class="link" @click="revisando = false">Corregir</button>
+      </div>
+    </article>
+
+
+    <h2 class="historial">Pagos</h2>
+
+    <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
+
+    <table v-else>
+      <thead>
+        <tr>
+          <th scope="col">Pagó el</th>
+          <th scope="col" class="num">Monto</th>
+          <th scope="col">Forma</th>
+          <th scope="col">Referencia</th>
+          <th scope="col">Cubrió hasta</th>
+          <th scope="col">Documento</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
+          <td>
+            {{ formatDay(p.paidOn) }}
+            <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
+          </td>
+          <td class="num">{{ formatMoney(p.amount) }}</td>
+          <td>{{ p.method ?? '—' }}</td>
+          <td class="mono">{{ p.reference ?? '—' }}</td>
+          <td>{{ formatDay(p.coversThrough) }}</td>
+          <td>
+            <template v-if="p.invoiceId && p.invoiceNumber">
+              <button
+                type="button"
+                class="link"
+                @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
+              >
+                {{ p.invoiceNumber }}
+              </button>
+              <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
+              <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
+              <button
+                v-else
+                type="button"
+                class="link danger"
+                :disabled="busy"
+                @click="anularDocumento(p.invoiceId)"
+              >
+                Anular documento
+              </button>
+            </template>
+            <!-- El pago que se registró sin documento: el taller no lo pidió entonces y
+                 después sí. Se puede emitir desde acá, con su número. -->
+            <button
+              v-else-if="!p.isVoided"
+              type="button"
+              class="link"
+              :disabled="busy"
+              @click="emitirDelPago(p.id)"
+            >
+              Emitir
+            </button>
+            <span v-else class="muted">—</span>
+          </td>
+          <td>
+            <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
+                 y el documento se va con él. No se borra, para que el historial siga
+                 contestando «¿yo ya te pagué junio?». -->
+            <button
+              v-if="!p.isVoided"
+              type="button"
+              class="link danger"
+              :disabled="busy"
+              @click="anularPago(p.id)"
+            >
+              Anular pago
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <section class="bloque">
+      <header class="bloque-top">
+        <h2>Datos del taller</h2>
+        <button type="button" class="link" @click="editandoFicha = !editandoFicha">
+          {{ editandoFicha ? 'Cancelar' : 'Editar' }}
+        </button>
+      </header>
+
+      <dl v-if="!editandoFicha" class="lectura">
+        <dt>Razón social</dt>
+        <dd>{{ tenant.legalName ?? '—' }}</dd>
+
+        <dt>RTN</dt>
+        <dd>
+          <template v-if="tenant.taxId"><span class="mono">{{ tenant.taxId }}</span></template>
+          <span v-else class="falta">Sin RTN: su factura sale a consumidor final</span>
+        </dd>
+
+        <dt>Teléfono</dt>
+        <dd>{{ tenant.phone ?? '—' }}</dd>
+
+        <dt>Correo</dt>
+        <dd>{{ tenant.email ?? '—' }}</dd>
+
+        <dt>Dirección</dt>
+        <dd>{{ tenant.address ?? '—' }}</dd>
+      </dl>
+      <form v-else class="card" @submit.prevent="guardarFicha">
+        <p class="muted small">
+          Es lo que sale impreso en la factura de su mensualidad. El Dueño edita la ficha de
+          su taller desde su panel; esto es para corregirla de este lado.
+        </p>
+
+        <label>
+          Nombre
+          <input v-model="ficha.name" required />
+        </label>
+        <label>
+          Razón social
+          <input v-model="ficha.legalName" placeholder="Como está en el RTN" />
+        </label>
+        <label>
+          RTN
+          <input v-model="ficha.taxId" placeholder="0801…" />
+          <small v-if="!ficha.taxId.trim()" class="muted">
+            Sin RTN, su factura sale a consumidor final.
+          </small>
+        </label>
+
+        <div class="row">
+          <label>
+            Teléfono
+            <input v-model="ficha.phone" placeholder="9888-1111" />
+          </label>
+          <label>
+            Correo
+            <input v-model="ficha.email" type="email" placeholder="taller@correo.hn" />
+          </label>
+        </div>
+
+        <label>
+          Dirección
+          <input v-model="ficha.address" />
+        </label>
+
+        <div class="actions">
+          <button type="submit" :disabled="busy || !fichaCambiada">Guardar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="bloque">
+      <header class="bloque-top">
+        <h2>Plan y vencimiento</h2>
+        <button type="button" class="link" @click="editandoPlan = !editandoPlan">
+          {{ editandoPlan ? 'Cancelar' : 'Editar' }}
+        </button>
+      </header>
+
+      <dl v-if="!editandoPlan" class="lectura">
+        <dt>Plan</dt>
+        <dd>{{ PLAN_LABEL[tenant.plan] ?? tenant.planName ?? 'Sin plan' }}</dd>
+
+        <dt>Cuota</dt>
+        <dd>{{ formatMoney(tenant.monthlyFee) }} al mes</dd>
+
+        <dt>Pagado hasta</dt>
+        <dd>
+          {{ formatDay(tenant.paidThrough) }}
+          <span class="muted">· {{ tenant.graceDays }} días de gracia</span>
+        </dd>
+
+        <dt>Topes</dt>
+        <dd>
+          {{ tenant.technicianLimit === null ? 'Técnicos sin tope' : `Hasta ${tenant.technicianLimit} técnicos` }}
+          ·
+          {{ tenant.branchLimit === null ? 'sucursales sin tope' : `hasta ${tenant.branchLimit} sucursales` }}
+        </dd>
+
+        <dt>Módulos</dt>
+        <dd>
+          {{ tenant.diagnosticsEnabled ? 'Diagnóstico con escáner' : 'Sin diagnóstico' }}
+          ·
+          {{ tenant.assistantEnabled ? `Asistente (${tenant.assistantCreditsPerMonth} al mes)` : 'Sin asistente' }}
+        </dd>
+
+        <dt>Qué repara</dt>
+        <dd>{{ tenant.worksWith === WorkshopKind.Equipment ? 'Equipos' : 'Vehículos y motos' }}</dd>
+      </dl>
+      <form v-else class="card" @submit.prevent="guardarPlan">
+
+        <div class="row">
+          <label>
+            Plan
+            <!-- Seleccionable: de aquí salen el tope de técnicos y el diagnóstico. -->
+            <select v-model.number="plan.plan" @change="aplicarPlan">
+              <option :value="SubscriptionPlan.Basic">Básico</option>
+              <option :value="SubscriptionPlan.Pro">Pro — con diagnóstico</option>
+              <option :value="SubscriptionPlan.Legacy">Heredado — sin topes</option>
+            </select>
+          </label>
+          <label>
+            Cuota mensual
+            <input v-model.number="plan.monthlyFee" type="number" min="0" step="0.01" />
+          </label>
+        </div>
+
+        <!-- Lo que de verdad rige para este taller, que no tiene por qué ser lo del plan:
+             el que paga por un técnico de más sube a cuatro sin dejar de ser Básico. -->
+        <label class="corta">
+          Tope de técnicos
+          <input
+            v-model="plan.technicianLimit"
+            type="number"
+            min="1"
+            max="500"
+            placeholder="Sin tope"
+            :disabled="cambiandoDePlan"
+          />
+        </label>
+
+        <!-- La ayuda va pegada a su campo. Suelta al final de la tarjeta parecía explicar
+             lo último que se leyó, que era otra cosa. -->
+        <p class="muted small">
+          <template v-if="tenant">
+            Hoy tiene <strong>{{ tenant.technicianCount }}</strong>
+            {{ tenant.technicianCount === 1 ? 'técnico activo' : 'técnicos activos' }}.
+          </template>
+          Déjelo en blanco para que no tenga tope. Del cuarto técnico en adelante se cobra
+          aparte: súbale el número aquí sin moverlo de plan.
+        </p>
+
+        <label class="corta">
+          Tope de sucursales
+          <input
+            v-model="plan.branchLimit"
+            type="number"
+            min="1"
+            max="500"
+            placeholder="Sin tope"
+            :disabled="cambiandoDePlan"
+          />
+        </label>
+
+        <p class="muted small">
+          <template v-if="tenant">
+            Hoy tiene <strong>{{ tenant.branchCount }}</strong>
+            {{ tenant.branchCount === 1 ? 'sucursal' : 'sucursales' }}.
+          </template>
+          La cuota del Básico es por una. El taller que abre la segunda paga por ella: súbale
+          el número aquí. Cuenta solo las activas, así que cerrar un local y abrir otro no
+          pide permiso.
+        </p>
+
+        <!-- Los dos módulos que se venden aparte, juntos y con su casilla a la izquierda del
+             texto. El asistente lleva interruptor propio: con uno solo, apagárselo a un
+             taller le apagaría también el escáner que ya está usando dentro de las órdenes. -->
+        <fieldset class="modulos" :disabled="cambiandoDePlan">
+          <legend>Módulos</legend>
+
+          <label class="checkbox">
+            <input v-model="plan.diagnosticsEnabled" type="checkbox" />
+            <span>
+              Diagnóstico con escáner
+              <em>El informe en la orden y la lectura de códigos con el adaptador.</em>
+            </span>
+          </label>
+
+          <label class="checkbox">
+            <input v-model="plan.assistantEnabled" type="checkbox" />
+            <span>
+              Asistente
+              <em>Propone los pasos y los repuestos a partir del diagnóstico.</em>
+            </span>
+          </label>
+
+          <div v-if="plan.assistantEnabled" class="creditos">
+            <div class="row">
+              <label>
+                Créditos al mes
+                <input v-model="plan.assistantCreditsPerMonth" type="number" min="0" max="20000" />
+              </label>
+              <label>
+                Créditos al día
+                <input v-model="plan.assistantCreditsPerDay" type="number" min="0" max="2000" />
+              </label>
+              <label>
+                Tope de gasto, L al mes
+                <input v-model="plan.assistantMonthlyCapHnl" type="number" min="0" max="50000" />
+              </label>
+            </div>
+
+            <p class="muted small">
+              Una propuesta de pasos vale 1 crédito y una consulta del técnico 5; la lectura
+              del negocio no gasta.
+              <template v-if="tenant">
+                Este mes lleva gastados
+                <strong>L {{ tenant.assistantSpentHnl.toFixed(2) }}</strong>
+                de los {{ plan.assistantMonthlyCapHnl }} del tope.
+              </template>
+              El tope de gasto corta aunque le queden créditos, y el taller no lo ve.
+            </p>
+          </div>
+        </fieldset>
+
+        <!-- Fuera del fieldset de arriba a propósito: ese se deshabilita al cambiar de plan
+             porque los módulos se reescriben desde el plan. Este no sale de ningún plan, así
+             que ni se enciende al subir a Pro ni se apaga al bajar a Básico. -->
+        <fieldset class="modulos">
+          <legend>Por contrato</legend>
+
+          <label class="checkbox">
+            <input v-model="plan.assemblyEnabled" type="checkbox" />
+            <span>
+              Armado de motos
+              <em>
+                Registrar cada moto armada en la bodega, y los reportes de facturación al
+                contratista y de pago a los técnicos. No va con ningún plan.
+              </em>
+            </span>
+          </label>
+        </fieldset>
+
+        <p v-if="avisoDelPlan" class="aviso-plan">{{ avisoDelPlan }}</p>
+
+        <div class="row">
+          <label>
+            Pagado hasta
+            <input v-model="plan.paidThrough" type="date" />
+          </label>
+          <label>
+            Días de gracia
+            <input v-model.number="plan.graceDays" type="number" min="0" max="60" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" :disabled="busy">Guardar</button>
+        </div>
+
+        <p class="muted small">
+          Sin fecha de «pagado hasta», el taller nunca se bloquea.
+        </p>
+      </form>
+    </section>
 
     <!-- Lo que se toca de vez en cuando, plegado y todo con la misma cara: eran dos estilos de
          desplegable distintos para la misma cosa. -->
@@ -1369,28 +1453,6 @@ tr.anulada td:last-child {
 
 /* Mitad y mitad: en una pantalla ancha, la columna fija dejaba un hueco a la mitad de la
    página y el formulario del pago estirado a lo bobo. */
-.columnas {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  align-items: start;
-}
-
-@media (max-width: 64rem) {
-  .columnas {
-    grid-template-columns: 1fr;
-  }
-}
-
-.principal,
-.lateral {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
-}
-
-/* Lo que se toca una vez al año: plegado, y con lo que vale ahora dicho en el título. */
 .ajuste {
   margin-top: 1rem;
   border: 1px solid var(--border);
@@ -1450,5 +1512,73 @@ tr.anulada td:last-child {
   color: var(--text-muted);
   font-size: 1rem;
   font-weight: 600;
+}
+
+/* La acción del mes, sola y grande: es a lo que se entra. */
+.accion {
+  margin: 0 0 1.25rem;
+}
+
+.accion .grande {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* Un bloque de la ficha: su título con el «Editar» al lado, y debajo los datos o el
+   formulario, nunca los dos. */
+.bloque {
+  margin-top: 2rem;
+}
+
+.bloque-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.bloque-top h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Los datos como datos: texto que se lee, no campos que piden que los llenen. */
+.lectura {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.4rem 1.25rem;
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.lectura dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.lectura dd {
+  margin: 0;
+}
+
+/* Lo que falta y hace falta: el RTN que deja la factura a consumidor final. */
+.lectura .falta {
+  color: var(--warning);
+}
+
+@media (max-width: 34rem) {
+  .lectura {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+
+  .lectura dd {
+    margin-bottom: 0.5rem;
+  }
 }
 </style>
