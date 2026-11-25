@@ -14,6 +14,7 @@ import { platformApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
 import type { PlatformUsage } from '@/types/domain'
+import { esDemo } from '@/utils/cobro'
 import { formatDate, formatMoney } from '@/utils/format'
 
 const filas = ref<PlatformUsage[]>([])
@@ -29,17 +30,11 @@ const VENTANAS = [
   { dias: 90, label: '90 días' },
 ]
 
-/**
- * Los talleres de prueba no son clientes: ensucian la lista de a quién llamar. Son los que
- * dejan las pruebas del servidor («Prueba 3F2A…») y los de demostración —«Taller Demo» y
- * «Taller de equipos demo»—, que se reconocen por llevar «demo» en el nombre.
- */
+/** Los talleres de prueba no son clientes: ensucian la lista de a quién llamar. */
 const sinPruebas = ref(true)
 
-const DE_PRUEBA = /^prueba |\bdemo\b/i
-
 const visibles = computed(() =>
-  sinPruebas.value ? filas.value.filter((f) => !DE_PRUEBA.test(f.name)) : filas.value,
+  sinPruebas.value ? filas.value.filter((f) => !esDemo(f.name)) : filas.value,
 )
 
 const activos = computed(() => visibles.value.filter((f) => f.isActive))

@@ -9,6 +9,20 @@ import type { PlatformTenant } from '@/types/domain'
  */
 
 /**
+ * Las cuentas que son nuestras, no de un cliente: las que deja una prueba del servidor
+ * («Prueba 3F2A…») y las de demostración —«Taller Demo», «Taller de equipos Demo»—, que se
+ * reconocen por llevar «demo» en el nombre.
+ *
+ * No se les cobra ni se les llama, así que no cuentan para nada: ni para el número del menú,
+ * ni para las tarjetas de «Necesitan atención», ni para la lista de a quién llamar.
+ */
+const DEMO = /^prueba |\bdemo\b/i
+
+export function esDemo(nombre: string): boolean {
+  return DEMO.test(nombre)
+}
+
+/**
  * Un taller sin cuota no es un cliente que deba: es una cuenta de prueba o de cortesía.
  * Mezclarlo con los que pagan arruina las dos cuentas —la de ingresos y la de mora—, y lo que
  * hay que hacer con él es otra cosa: ponerle plan.
@@ -24,6 +38,9 @@ export function esDePrueba(t: PlatformTenant): boolean {
  */
 export function necesitaAtencion(t: PlatformTenant): boolean {
   if (!t.isActive) return false
+
+  // Las nuestras no: que a «Taller de equipos Demo» se le acabe la prueba no es trabajo.
+  if (esDemo(t.name)) return false
 
   // La prueba que se termina sí es trabajo: hay que ponerle plan antes de que se le corte.
   if (esDePrueba(t)) return t.paidThrough !== null && (t.daysLeft ?? 99) <= 7
