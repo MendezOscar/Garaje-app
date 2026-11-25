@@ -153,6 +153,31 @@ function abrirElPago() {
   revisando.value = false
 }
 
+/** El número propio, el del comprobante de cuando no hay CAI. */
+const numeroPropio = computed(
+  () =>
+    `${emisor.value?.invoicePrefix ?? 'C'}-${String(emisor.value?.nextInvoiceNumber ?? 1).padStart(6, '0')}`,
+)
+
+/** El número autorizado que le tocaría, si hay rango vigente. */
+const numeroFiscal = computed(() => emisor.value?.fiscalRange?.nextFiscalNumber ?? null)
+
+/**
+ * Qué papel deja este pago. Al servidor viajan dos campos —emitir y con CAI— porque son dos
+ * cosas distintas allá, pero aquí es una sola elección de tres: cruzar dos casillas para
+ * saber qué va a salir es justo lo que nadie hace bien a las ocho de la mañana.
+ */
+const entrega = computed<'comprobante' | 'factura' | 'ninguno'>({
+  get() {
+    if (!pago.value.emitir) return 'ninguno'
+    return pago.value.conCai && !sinCai.value ? 'factura' : 'comprobante'
+  },
+  set(cual) {
+    pago.value.emitir = cual !== 'ninguno'
+    pago.value.conCai = cual === 'factura'
+  },
+})
+
 /** Qué número va a llevar el documento, dicho antes de emitirlo. */
 const numeroQueSale = computed(() => {
   if (!pago.value.emitir) return null
@@ -736,30 +761,44 @@ onMounted(async () => {
 
         <!-- El documento nace con el pago, así que lo que va a decir se ve aquí, antes de
              registrarlo. Después solo se puede anular. -->
-        <label class="documento">
-          <input v-model="pago.emitir" type="checkbox" />
-          <span>
-            <strong>Emitir {{ pago.conCai && !sinCai ? 'factura' : 'comprobante' }}
-              <span class="mono">{{ numeroQueSale }}</span></strong>
+        <!-- Una pregunta con tres respuestas: son excluyentes, y cada una trae el número
+             que va a salir, que es lo que de verdad se quiere ver antes de confirmar. -->
+        <fieldset class="entrega">
+          <legend>Qué se le entrega</legend>
 
-            <span v-if="sinCai" class="muted small">
-              No hay CAI vigente, así que sale con numeración propia y no es factura fiscal.
-              <RouterLink :to="{ name: 'platform-billing' }">Registrar CAI</RouterLink>
+          <label>
+            <input v-model="entrega" type="radio" value="comprobante" />
+            <span>
+              <strong>Comprobante <span class="mono">{{ numeroPropio }}</span></strong>
+              <small class="muted">Numeración propia, sin valor fiscal.</small>
             </span>
-            <span v-else-if="pago.conCai" class="muted small">
-              Consume un número del rango autorizado. Un número emitido no se devuelve.
-              <button type="button" class="link" @click="pago.conCai = false">
-                Emitir comprobante sin CAI
-              </button>
+          </label>
+
+          <label :class="{ apagado: sinCai }">
+            <input v-model="entrega" type="radio" value="factura" :disabled="sinCai" />
+            <span>
+              <strong>
+                Factura con CAI
+                <span v-if="!sinCai" class="mono">{{ numeroFiscal }}</span>
+              </strong>
+              <small v-if="sinCai" class="muted">
+                No hay CAI vigente.
+                <RouterLink :to="{ name: 'platform-billing' }">Registrarlo</RouterLink>
+              </small>
+              <small v-else class="muted">
+                Quema un número del rango autorizado, que no se devuelve. Solo si la pide.
+              </small>
             </span>
-            <span v-else class="muted small">
-              Con numeración propia, sin valor fiscal.
-              <button type="button" class="link" @click="pago.conCai = true">
-                Emitir factura con CAI
-              </button>
+          </label>
+
+          <label>
+            <input v-model="entrega" type="radio" value="ninguno" />
+            <span>
+              <strong>Nada, solo registrar el cobro</strong>
+              <small class="muted">Se le puede emitir después desde el historial.</small>
             </span>
-          </span>
-        </label>
+          </label>
+        </fieldset>
 
         <div class="actions">
           <button type="submit" :disabled="busy">
@@ -1937,24 +1976,46 @@ tr.anulada td:last-child {
   line-height: 1.1;
 }
 
-/* La casilla del documento dice cuál sale y con qué número, no «emitir sí o no». */
-.documento {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  padding: 0.875rem;
+/* Qué se le entrega: tres salidas excluyentes, cada una con el número que va a salir. */
+.entrega {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.entrega legend {
+  padding: 0 0.3rem;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.entrega label {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.4rem 0.2rem;
   cursor: pointer;
 }
 
-.documento > span {
+.entrega label > span {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.1rem;
 }
 
-.documento .muted {
+.entrega small {
   line-height: 1.5;
+}
+
+/* Sin CAI la factura no es una opción: se enseña apagada, con el porqué y dónde arreglarlo. */
+.entrega label.apagado {
+  cursor: default;
+}
+
+.entrega label.apagado strong {
+  color: var(--text-muted);
 }
 
 /* Suspender vive abajo y aparte: no es el castigo por no pagar. */
