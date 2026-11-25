@@ -95,8 +95,10 @@ onMounted(async () => {
       <div>
         <h1>Libro de ventas</h1>
         <p class="muted small">
-          Todo lo que emitimos en el mes, de todos los servicios, ordenado por número. Es la
-          cuenta de los números autorizados, no un reporte de ingresos.
+          Las facturas con CAI del mes, de todos los servicios, ordenadas por número. Es la
+          cuenta de los números autorizados, que es lo que pide el SAR. Los comprobantes no
+          entran acá: están en
+          <RouterLink :to="{ name: 'platform-income' }">Ingresos</RouterLink>.
         </p>
       </div>
 
@@ -167,7 +169,7 @@ onMounted(async () => {
       </div>
 
       <p v-if="!libro.rows.length" class="muted">
-        En {{ titulo }} no se emitió ningún documento.
+        En {{ titulo }} no se emitió ninguna factura con CAI.
       </p>
 
       <div v-else class="tabla">

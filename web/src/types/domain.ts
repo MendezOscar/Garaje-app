@@ -1549,6 +1549,27 @@ export interface SalesBook {
   currency: string
 }
 
+/**
+ * Lo que entró por un servicio en un mes. `fiscal` separa la factura con CAI del comprobante:
+ * las dos son venta, pero solo la primera va al libro del SAR.
+ */
+export interface IncomeRow {
+  month: number
+  productId: string | null
+  productName: string
+  fiscal: boolean
+  /** Sin ISV. Es lo que de verdad entra: el impuesto se cobra y se entrega. */
+  net: number
+  tax: number
+  total: number
+  count: number
+}
+
+export interface Income {
+  year: number
+  rows: IncomeRow[]
+}
+
 /** Lo que de verdad entró en un mes por mensualidades: pagos registrados y no anulados. */
 export interface Collected {
   year: number

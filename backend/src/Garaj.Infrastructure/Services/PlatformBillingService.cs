@@ -266,6 +266,47 @@ public class PlatformBillingService(
         return Map(factura);
     }
 
+    /// <summary>
+    /// Lo que entró por los tres servicios en un año, mes a mes y por servicio.
+    /// </summary>
+    /// <remarks>
+    /// No es el libro de ventas y no se le parece: el libro es de los números autorizados y
+    /// lo pide el SAR; esto es el control propio, así que entran las facturas y también los
+    /// comprobantes, que son venta igual aunque no amparen nada.
+    ///
+    /// Lo que se suma es el <b>neto</b>, no el total: el ISV se cobra y se entrega, así que
+    /// contarlo como ingreso es contar plata que no es nuestra. El impuesto va aparte, que es
+    /// justo lo que hay que tener a mano para declararlo.
+    ///
+    /// Los anulados no cuentan: el número existió, la venta no.
+    /// </remarks>
+    public async Task<IncomeDto> IncomeAsync(int year, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        if (year is < 2020 or > 2100) throw new AppException("El año no existe.");
+
+        var desde = new DateOnly(year, 1, 1);
+        var hasta = new DateOnly(year, 12, 31);
+
+        var filas = await db.SubscriptionInvoices
+            .AsNoTracking()
+            .Where(f => !f.IsVoided && f.IssuedOn >= desde && f.IssuedOn <= hasta)
+            .GroupBy(f => new { f.IssuedOn.Month, f.ProductId, f.ProductName, Fiscal = f.FiscalCai != null })
+            .Select(g => new IncomeRowDto(
+                g.Key.Month,
+                g.Key.ProductId,
+                g.Key.ProductName ?? "Sin servicio",
+                g.Key.Fiscal,
+                g.Sum(f => f.Total - f.TaxTotal),
+                g.Sum(f => f.TaxTotal),
+                g.Sum(f => f.Total),
+                g.Count()))
+            .ToListAsync(ct);
+
+        return new IncomeDto(year, filas);
+    }
+
     // ---------- El libro de ventas ----------
 
     /// <remarks>
@@ -290,6 +331,11 @@ public class PlatformBillingService(
         var facturas = await db.SubscriptionInvoices
             .AsNoTracking()
             .Where(f => f.IssuedOn >= desde && f.IssuedOn <= hasta)
+            // Solo lo amparado por el CAI: el libro de ventas es la cuenta de los números
+            // autorizados, que es lo que pide el SAR. El comprobante lleva numeración propia
+            // y no ampara nada, así que mezclarlo infla el libro y confunde al contador. Los
+            // comprobantes se miran en Documentos emitidos y en Ingresos.
+            .Where(f => f.FiscalCai != null)
             .Where(f => productId == null || f.ProductId == productId)
             .OrderBy(f => f.Number)
             .ToListAsync(ct);

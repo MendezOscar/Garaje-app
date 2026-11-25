@@ -215,6 +215,7 @@ const navGroups = computed<
                 // Sin CAI no se emite una factura, ni nuestra ni de los otros servicios.
                 ...(plataforma.cai.value ? { cuantas: plataforma.cai.value, tono: 'espera' } : {}),
               },
+              { to: { name: 'platform-income' }, label: 'Ingresos' },
               { to: { name: 'platform-sales-book' }, label: 'Libro de ventas' },
             ],
           },
@@ -263,6 +264,7 @@ const barraAbajo = computed<{ to: object; label: string }[]>(() => {
         { to: { name: 'platform-tenants' }, label: 'Talleres' },
         { to: { name: 'platform-usage' }, label: 'Uso' },
         { to: { name: 'platform-billing' }, label: 'Facturación' },
+        { to: { name: 'platform-income' }, label: 'Ingresos' },
         { to: { name: 'platform-sales-book' }, label: 'Libro de ventas' },
       ]
     default:

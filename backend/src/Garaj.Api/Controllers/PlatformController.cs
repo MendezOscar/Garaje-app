@@ -222,8 +222,16 @@ public class PlatformBillingController(IPlatformBillingService service) : Contro
     // ---------- El libro de ventas ----------
 
     /// <summary>
-    /// El libro del mes: todos los documentos emitidos, de todos los servicios, con sus
-    /// totales y con los números que se tomaron y no llegaron a documento.
+    /// Lo que entró en el año por los tres servicios, mes a mes y por servicio. Es el control
+    /// propio: entran los comprobantes y se suma el neto. No es el libro de ventas.
+    /// </summary>
+    [HttpGet("income")]
+    public async Task<ActionResult<IncomeDto>> Income(int year, CancellationToken ct)
+        => Ok(await service.IncomeAsync(year, ct));
+
+    /// <summary>
+    /// El libro del mes: las facturas con CAI de todos los servicios, con sus totales y con
+    /// los números que se tomaron y no llegaron a documento. Los comprobantes no entran.
     /// </summary>
     [HttpGet("sales-book")]
     public async Task<ActionResult<SalesBookDto>> SalesBook(
