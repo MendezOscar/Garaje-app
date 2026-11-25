@@ -202,6 +202,21 @@ const situacion = computed(() => {
   return 'Al día.'
 })
 
+/** Lo que el taller deposita de verdad: la mensualidad con el ISV encima, si va encima. */
+const deposita = computed(() => conImpuesto(tenant.value?.monthlyFee ?? 0))
+
+/** Lo que falta para que venza, dicho corto para el resumen de arriba. */
+const restante = computed(() => {
+  const t = tenant.value
+  if (!t) return ''
+  if (!t.isActive) return 'suspendido'
+  if (t.unblockedThrough) return `acuerdo hasta el ${formatDay(t.unblockedThrough)}`
+  if (!t.paidThrough) return 'sin fecha: nunca se bloquea'
+  if (t.daysLeft === null) return ''
+  if (t.daysLeft < 0) return 'vencido'
+  return t.daysLeft === 0 ? 'vence hoy' : `faltan ${t.daysLeft} días`
+})
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -465,6 +480,43 @@ onMounted(async () => {
 
     <p class="situacion" :class="tenant.state.toLowerCase()">{{ situacion }}</p>
 
+    <!-- La cuenta de un vistazo. Antes había que leer los dos formularios de abajo para saber
+         qué plan tiene, cuánto deposita y hasta cuándo está cubierto. -->
+    <div class="cifras">
+      <article class="cifra">
+        <span class="rotulo">Plan</span>
+        <strong>{{ PLAN_LABEL[tenant.plan] ?? tenant.planName ?? 'Sin plan' }}</strong>
+        <span class="muted small">
+          {{ tenant.branchCount }} {{ tenant.branchCount === 1 ? 'sucursal' : 'sucursales' }} ·
+          {{ tenant.technicianCount }}{{ tenant.technicianLimit === null ? '' : ` de ${tenant.technicianLimit}` }}
+          {{ tenant.technicianCount === 1 ? 'técnico' : 'técnicos' }}
+        </span>
+      </article>
+
+      <article class="cifra">
+        <span class="rotulo">Deposita al mes</span>
+        <strong class="num">{{ formatMoney(deposita) }}</strong>
+        <span class="muted small">
+          {{ deposita === tenant.monthlyFee ? 'ISV incluido' : `${formatMoney(tenant.monthlyFee)} + ISV` }}
+        </span>
+      </article>
+
+      <article class="cifra" :class="{ alerta: tenant.state !== 'Active' }">
+        <span class="rotulo">Cubierto hasta</span>
+        <strong>{{ formatDay(tenant.paidThrough) }}</strong>
+        <span class="muted small">{{ restante }}</span>
+      </article>
+
+      <article class="cifra">
+        <span class="rotulo">Último pago</span>
+        <strong>{{ formatDay(tenant.lastPaymentOn) }}</strong>
+        <span class="muted small">
+          {{ data?.payments.length ?? 0 }}
+          {{ (data?.payments.length ?? 0) === 1 ? 'mensualidad registrada' : 'mensualidades registradas' }}
+        </span>
+      </article>
+    </div>
+
     <!-- Lo de todos los meses a la izquierda y grande; a la derecha, los datos del taller,
          que es lo que hay que mirar al emitirle la factura. Lo que se toca una vez al año
          queda plegado abajo: cuatro tarjetas al mismo nivel no decían cuál era el trabajo. -->
@@ -599,6 +651,84 @@ onMounted(async () => {
               <button type="button" class="link" @click="revisando = false">Corregir</button>
             </div>
           </article>
+
+        <h2 class="historial">Pagos</h2>
+
+        <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
+
+        <table v-else>
+          <thead>
+            <tr>
+              <th scope="col">Pagó el</th>
+              <th scope="col" class="num">Monto</th>
+              <th scope="col">Forma</th>
+              <th scope="col">Referencia</th>
+              <th scope="col">Cubrió hasta</th>
+              <th scope="col">Documento</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
+              <td>
+                {{ formatDay(p.paidOn) }}
+                <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
+              </td>
+              <td class="num">{{ formatMoney(p.amount) }}</td>
+              <td>{{ p.method ?? '—' }}</td>
+              <td class="mono">{{ p.reference ?? '—' }}</td>
+              <td>{{ formatDay(p.coversThrough) }}</td>
+              <td>
+                <template v-if="p.invoiceId && p.invoiceNumber">
+                  <button
+                    type="button"
+                    class="link"
+                    @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
+                  >
+                    {{ p.invoiceNumber }}
+                  </button>
+                  <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
+                  <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
+                  <button
+                    v-else
+                    type="button"
+                    class="link danger"
+                    :disabled="busy"
+                    @click="anularDocumento(p.invoiceId)"
+                  >
+                    Anular documento
+                  </button>
+                </template>
+                <!-- El pago que se registró sin documento: el taller no lo pidió entonces y
+                     después sí. Se puede emitir desde acá, con su número. -->
+                <button
+                  v-else-if="!p.isVoided"
+                  type="button"
+                  class="link"
+                  :disabled="busy"
+                  @click="emitirDelPago(p.id)"
+                >
+                  Emitir
+                </button>
+                <span v-else class="muted">—</span>
+              </td>
+              <td>
+                <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
+                     y el documento se va con él. No se borra, para que el historial siga
+                     contestando «¿yo ya te pagué junio?». -->
+                <button
+                  v-if="!p.isVoided"
+                  type="button"
+                  class="link danger"
+                  :disabled="busy"
+                  @click="anularPago(p.id)"
+                >
+                  Anular pago
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="lateral">
@@ -805,6 +935,9 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Lo que se toca de vez en cuando, plegado y todo con la misma cara: eran dos estilos de
+         desplegable distintos para la misma cosa. -->
+    <h2 class="aparte">Casos aparte</h2>
     <!-- Abierto solo cuando hace falta: con el taller al día, un formulario de acuerdo de pago
          es una tarjeta pidiendo que se le haga caso sin motivo. -->
     <details class="ajuste" :open="tenant.state !== 'Active' || !!tenant.unblockedThrough">
@@ -879,103 +1012,18 @@ onMounted(async () => {
         </article>
     </details>
 
-    <!-- Se enseña una sola vez: la contraseña no queda guardada en claro en ninguna parte. -->
-    <article v-if="creado" class="card credenciales">
-      <h2>Acceso creado</h2>
-      <p>Entrégueselas ahora. <strong>No se pueden volver a consultar.</strong></p>
-      <p class="mono">{{ creado.ownerEmail }}</p>
-      <p class="mono">{{ creado.password }}</p>
-      <button type="button" class="link" @click="creado = null">Ya las anoté</button>
-    </article>
-
-    <article v-if="clave" class="card credenciales">
-      <h2>Contraseña nueva</h2>
-      <p class="muted small">Dictésela y pídale que la cambie. No vuelve a verse.</p>
-      <p class="mono">{{ clave.email }}</p>
-      <p class="mono">{{ clave.password }}</p>
-      <button type="button" class="link" @click="clave = null">Ya la anoté</button>
-    </article>
-
-    <h2 class="historial">Pagos</h2>
-
-    <p v-if="!data?.payments.length" class="muted">Todavía no ha pagado ninguna mensualidad.</p>
-
-    <table v-else>
-      <thead>
-        <tr>
-          <th scope="col">Pagó el</th>
-          <th scope="col" class="num">Monto</th>
-          <th scope="col">Forma</th>
-          <th scope="col">Referencia</th>
-          <th scope="col">Cubrió hasta</th>
-          <th scope="col">Documento</th>
-          <th scope="col"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="p in data?.payments" :key="p.id" :class="{ anulada: p.isVoided }">
-          <td>
-            {{ formatDay(p.paidOn) }}
-            <div v-if="p.isVoided" class="muted small">Anulado: {{ p.voidReason }}</div>
-          </td>
-          <td class="num">{{ formatMoney(p.amount) }}</td>
-          <td>{{ p.method ?? '—' }}</td>
-          <td class="mono">{{ p.reference ?? '—' }}</td>
-          <td>{{ formatDay(p.coversThrough) }}</td>
-          <td>
-            <template v-if="p.invoiceId && p.invoiceNumber">
-              <button
-                type="button"
-                class="link"
-                @click="bajarDocumento(p.invoiceId, p.invoiceNumber)"
-              >
-                {{ p.invoiceNumber }}
-              </button>
-              <span v-if="!p.invoiceIsFiscal" class="muted small"> · sin CAI</span>
-              <span v-if="p.invoiceIsVoided" class="anulado"> · anulado</span>
-              <button
-                v-else
-                type="button"
-                class="link danger"
-                :disabled="busy"
-                @click="anularDocumento(p.invoiceId)"
-              >
-                Anular documento
-              </button>
-            </template>
-            <!-- El pago que se registró sin documento: el taller no lo pidió entonces y
-                 después sí. Se puede emitir desde acá, con su número. -->
-            <button
-              v-else-if="!p.isVoided"
-              type="button"
-              class="link"
-              :disabled="busy"
-              @click="emitirDelPago(p.id)"
-            >
-              Emitir
-            </button>
-            <span v-else class="muted">—</span>
-          </td>
-          <td>
-            <!-- El pago registrado por error: se anula, el vencimiento vuelve a donde estaba
-                 y el documento se va con él. No se borra, para que el historial siga
-                 contestando «¿yo ya te pagué junio?». -->
-            <button
-              v-if="!p.isVoided"
-              type="button"
-              class="link danger"
-              :disabled="busy"
-              @click="anularPago(p.id)"
-            >
-              Anular pago
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <details class="rescate">
+    <details class="ajuste">
       <summary>Usuarios del taller</summary>
+      <!-- Se enseña una sola vez, y acá: la contraseña nueva sale donde se pidió, no al final
+           de la pantalla, donde se podía cerrar sin verla. -->
+      <article v-if="clave" class="card credenciales">
+        <h2>Contraseña nueva</h2>
+        <p class="muted small">Dictésela y pídale que la cambie. No vuelve a verse.</p>
+        <p class="mono">{{ clave.email }}</p>
+        <p class="mono">{{ clave.password }}</p>
+        <button type="button" class="link" @click="clave = null">Ya la anoté</button>
+      </article>
+
       <div class="card">
         <p class="muted small">
           Con quién se está hablando cuando el taller llama. Cambiarle la contraseña a alguien
@@ -1019,8 +1067,16 @@ onMounted(async () => {
       </div>
     </details>
 
-    <details class="rescate">
+    <details class="ajuste">
       <summary>Crear otro acceso de Dueño</summary>
+      <article v-if="creado" class="card credenciales">
+        <h2>Acceso creado</h2>
+        <p>Entrégueselas ahora. <strong>No se pueden volver a consultar.</strong></p>
+        <p class="mono">{{ creado.ownerEmail }}</p>
+        <p class="mono">{{ creado.password }}</p>
+        <button type="button" class="link" @click="creado = null">Ya las anoté</button>
+      </article>
+
       <form class="card" @submit.prevent="crearDueno">
         <p class="muted small">
           Para cuando el taller se quedó sin nadie que pueda entrar: perdió la contraseña, borró
@@ -1048,6 +1104,7 @@ onMounted(async () => {
         </div>
       </form>
     </details>
+
   </section>
 
   <SkeletonList v-else-if="loading" :rows="4" variant="tabla" />
@@ -1206,17 +1263,6 @@ label.checkbox em {
   margin-top: 1rem;
 }
 
-.rescate {
-  margin-top: 1.5rem;
-}
-
-.rescate summary {
-  cursor: pointer;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-}
-
 .mono {
   font-family: var(--font-mono);
   margin: 0.25rem 0;
@@ -1365,5 +1411,44 @@ tr.anulada td:last-child {
 .ajuste .card {
   border: 0;
   background: none;
+}
+
+/* El resumen de arriba: la cuenta del taller sin tener que leer los formularios. */
+.cifras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.cifra {
+  display: grid;
+  gap: 0.15rem;
+  flex: 1 1 12rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cifra .rotulo {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.cifra strong {
+  font-size: 1.25rem;
+}
+
+.cifra.alerta {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+
+.aparte {
+  margin: 2rem 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
 }
 </style>

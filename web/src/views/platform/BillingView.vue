@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { errorMessage } from '@/api/client'
 import { platformApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
@@ -257,6 +258,16 @@ async function anular(d: InvoiceListItem) {
   } finally {
     busy.value = false
   }
+}
+
+/**
+ * El número de documentos de un servicio no es un rótulo: se toca y deja la pestaña de
+ * Documentos con los suyos, que es lo que se quiere mirar después de verlo.
+ */
+async function verLosDe(servicio: PlatformProduct) {
+  servicioFiltrado.value = servicio.id
+  await abrirPestana('documentos')
+  await buscarDesdeElPrincipio()
 }
 
 async function abrirPestana(cual: typeof pestana.value) {
@@ -622,7 +633,17 @@ onMounted(load)
                 </template>
                 <span v-else class="muted">sin llave</span>
               </td>
-              <td class="num">{{ s.invoiceCount }}</td>
+              <td class="num">
+                <button
+                  v-if="s.invoiceCount"
+                  type="button"
+                  class="link"
+                  @click="verLosDe(s)"
+                >
+                  {{ s.invoiceCount }}
+                </button>
+                <span v-else class="muted">0</span>
+              </td>
               <td>{{ s.isActive ? 'Activo' : 'Apagado' }}</td>
               <td class="acciones-fila">
                 <template v-if="!s.billsFromConsole">
@@ -677,6 +698,9 @@ onMounted(load)
         </select>
         <button type="button" :disabled="buscando" @click="buscarDesdeElPrincipio">Buscar</button>
         <span class="separa" />
+        <RouterLink :to="{ name: 'platform-sales-book' }" class="btn-ghost alLibro">
+          Libro de ventas
+        </RouterLink>
         <button type="button" class="btn-ghost" @click="emitiendo = !emitiendo">
           {{ emitiendo ? 'Cancelar' : 'Emitir a mano' }}
         </button>
@@ -1111,5 +1135,12 @@ dd {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+/* El enlace al libro va con los botones de la barra, así que se viste como ellos. */
+.alLibro {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 </style>
