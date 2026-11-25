@@ -15,6 +15,7 @@ import {
   type PlatformSettings,
   type PlatformTenant,
 } from '@/types/domain'
+import { esDePrueba, necesitaAtencion } from '@/utils/cobro'
 import { formatDay, formatMoney } from '@/utils/format'
 
 /**
@@ -96,15 +97,6 @@ const queTraeElPlan = computed(() => {
   return `${PLAN_LABEL[form.value.plan]}: ${tecnicos}, ${diag}. Los dos se ajustan después en la ficha del taller.`
 })
 
-/**
- * Un taller sin cuota no es un cliente que deba: es una cuenta de prueba o de cortesía. Se
- * separa porque mezclarlo con los que pagan arruina las dos cuentas —la de ingresos y la de
- * mora—, y porque lo que hay que hacer con él es otra cosa: ponerle plan.
- */
-function esDePrueba(t: PlatformTenant) {
-  return t.isActive && t.monthlyFee <= 0
-}
-
 /** Nuestros datos de emisor: de aquí sale el ISV con que se dice lo que debe depositar. */
 const emisor = ref<PlatformSettings | null>(null)
 
@@ -151,7 +143,8 @@ const atencion = computed(() => {
   const dias = (t: PlatformTenant) => t.daysLeft ?? 0
 
   return tenants.value
-    .filter((t) => t.isActive)
+    // La misma regla que lleva el número del menú: si no, uno diría 3 y el otro 4.
+    .filter(necesitaAtencion)
     .map((t) => {
       if (esDePrueba(t)) {
         if (!t.paidThrough || dias(t) > 7) return null
