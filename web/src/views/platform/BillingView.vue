@@ -270,6 +270,13 @@ async function verLosDe(servicio: PlatformProduct) {
   await buscarDesdeElPrincipio()
 }
 
+/** Del aviso de arriba al paso 3, que es donde se arregla. */
+async function irAlCai() {
+  await abrirPestana('emisor')
+  if (!settings.value?.fiscalRange) abrirRango.value = true
+  document.getElementById('cai')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 async function abrirPestana(cual: typeof pestana.value) {
   pestana.value = cual
   llaveNueva.value = null
@@ -282,29 +289,138 @@ async function abrirPestana(cual: typeof pestana.value) {
 }
 
 /** El ejemplo con números: es lo que de verdad explica cuál de las dos formas está puesta. */
-const ejemplo = computed(() => {
-  const tasa = Number(form.value.defaultTaxRate) || 0
-  const neto = 850
+/**
+ * Qué falta para poder emitir una factura con CAI. Es una lista, no un párrafo, porque lo que
+ * se pregunta es «¿ya puedo?» y la respuesta son cinco casillas.
+ *
+ * El nombre, el teléfono y el correo van juntos: son los que casi siempre están.
+ */
+const requisitos = computed(() => {
+  const r = settings.value?.fiscalRange
 
-  if (tasa <= 0) return 'Sin ISV: la mensualidad de L 850.00 se factura por L 850.00.'
-
-  if (form.value.pricesIncludeTax) {
-    const impuesto = Math.round((neto - neto / (1 + tasa / 100)) * 100) / 100
-    return `La mensualidad de L 850.00 se factura por L 850.00, desglosando L ${impuesto.toFixed(2)} de ISV.`
-  }
-
-  const impuesto = Math.round(neto * (tasa / 100) * 100) / 100
-  return `La mensualidad de L 850.00 se factura por L ${(neto + impuesto).toFixed(2)}: L 850.00 más L ${impuesto.toFixed(2)} de ISV.`
+  return [
+    {
+      que: 'Nombre, teléfono y correo',
+      ok: !!form.value.name.trim() && !!form.value.phone.trim() && !!form.value.email.trim(),
+    },
+    { que: 'Razón social', ok: !!form.value.legalName.trim() },
+    { que: 'RTN', ok: !!form.value.taxId.trim() },
+    { que: 'Dirección', ok: !!form.value.address.trim() },
+    { que: 'CAI y fecha límite', ok: !!r && !r.isExpired && !r.isExhausted },
+  ]
 })
 
-const estadoDelCai = computed(() => {
+const faltan = computed(() => requisitos.value.filter((x) => !x.ok).length)
+
+/** Hay rango, pero no sirve para emitir: venció o se agotó. */
+const sinCai = computed(() => {
   const r = settings.value?.fiscalRange
-  if (!r) return null
-  if (r.isExpired) return 'Venció: registre el rango nuevo del SAR.'
-  if (r.isExhausted) return 'Se agotó: registre el rango nuevo del SAR.'
-  if (r.remaining <= 20) return `Quedan ${r.remaining} números: pida el rango nuevo.`
+  return !r || r.isExpired || r.isExhausted
+})
+
+/** El número que sale mientras no haya CAI: el del comprobante propio. */
+const numeroPropio = computed(
+  () =>
+    `${settings.value?.invoicePrefix ?? (form.value.invoicePrefix || 'C')}-${String(
+      settings.value?.nextInvoiceNumber ?? 1,
+    ).padStart(6, '0')}`,
+)
+
+/**
+ * El aviso de arriba. Lo que no puede pasar es que alguien crea que está facturando cuando
+ * está emitiendo comprobantes: eso se descubre cuando el taller lleva el papel a su contador.
+ */
+const alarma = computed(() => {
+  const r = settings.value?.fiscalRange
+
+  if (!r)
+    return {
+      titulo: 'Todavía no emite facturas fiscales',
+      texto: `Sin CAI, cada pago sale como comprobante ${numeroPropio.value} con numeración propia.`,
+      faltan: faltan.value,
+    }
+
+  if (r.isExpired)
+    return {
+      titulo: 'El CAI venció',
+      texto: 'Hasta registrar el rango nuevo del SAR, cada pago saldrá como comprobante.',
+      faltan: 0,
+    }
+
+  if (r.isExhausted)
+    return {
+      titulo: 'Se agotó el rango autorizado',
+      texto: 'Hasta registrar el rango nuevo del SAR, cada pago saldrá como comprobante.',
+      faltan: 0,
+    }
+
+  if (r.remaining <= 20)
+    return {
+      titulo: `Quedan ${r.remaining} números del rango`,
+      texto: 'Pida el rango nuevo al SAR antes de que se acabe: sin números no se factura.',
+      faltan: 0,
+    }
+
   return null
 })
+
+/** Si el rango que se está escribiendo alcanza, y qué números va a cubrir. */
+const elRango = computed(() => {
+  const desde = Number(rango.value.rangeStart) || 0
+  const hasta = Number(rango.value.rangeEnd) || 0
+  const pieza = (n: number) =>
+    `${rango.value.establishmentCode}-${rango.value.pointOfSaleCode}-${rango.value.documentType}-${String(n).padStart(8, '0')}`
+
+  return {
+    primera: pieza(desde),
+    ultima: pieza(hasta),
+    cuantas: hasta >= desde ? hasta - desde + 1 : 0,
+  }
+})
+
+/** Si hay algo escrito que todavía no se guardó. Sin esto, «Guardar» es un botón a ciegas. */
+const cambiado = computed(() => {
+  const d = settings.value
+  if (!d) return false
+
+  return (
+    form.value.name !== d.name ||
+    form.value.legalName !== (d.legalName ?? '') ||
+    form.value.taxId !== (d.taxId ?? '') ||
+    form.value.phone !== (d.phone ?? '') ||
+    form.value.email !== (d.email ?? '') ||
+    form.value.address !== (d.address ?? '') ||
+    Number(form.value.defaultTaxRate) !== d.defaultTaxRate ||
+    form.value.pricesIncludeTax !== d.pricesIncludeTax ||
+    form.value.invoicePrefix !== d.invoicePrefix
+  )
+})
+
+function descartar() {
+  if (settings.value) llenar(settings.value)
+  guardado.value = ''
+}
+
+/**
+ * El documento tal como le llega al taller, con los números del formulario. Es la única forma
+ * de ver qué cambia una casilla antes de que lo vea un cliente.
+ */
+const muestra = computed(() => {
+  const tasa = Number(form.value.defaultTaxRate) || 0
+  const cuota = 850
+
+  if (tasa <= 0) return { base: cuota, isv: 0, total: cuota }
+
+  if (form.value.pricesIncludeTax) {
+    const base = Math.round((cuota / (1 + tasa / 100)) * 100) / 100
+    return { base, isv: Math.round((cuota - base) * 100) / 100, total: cuota }
+  }
+
+  const isv = Math.round(cuota * (tasa / 100) * 100) / 100
+  return { base: cuota, isv, total: Math.round((cuota + isv) * 100) / 100 }
+})
+
+
 
 function llenar(data: PlatformSettings) {
   settings.value = data
@@ -403,17 +519,34 @@ onMounted(load)
 
     <!-- El CAI por acabarse no es un detalle de una tarjeta: si se agota, no se puede emitir
          nada, de ningún servicio. Va arriba y en todas las pestañas. -->
-    <p v-if="estadoDelCai" class="alarma">
-      <strong>CAI:</strong> {{ estadoDelCai }}
-      <button type="button" class="link" @click="abrirPestana('emisor')">Ver la autorización</button>
-    </p>
+    <section v-if="alarma" class="alarma">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M12 3l9.5 17h-19z" />
+        <path d="M12 10v4M12 17v.5" />
+      </svg>
+
+      <div>
+        <strong>{{ alarma.titulo }}</strong>
+        <p>
+          {{ alarma.texto }}
+          <template v-if="alarma.faltan">
+            Faltan {{ alarma.faltan }} {{ alarma.faltan === 1 ? 'dato' : 'datos' }} para facturar.
+          </template>
+        </p>
+      </div>
+
+      <button type="button" @click="irAlCai">
+        {{ alarma.faltan ? 'Completar datos' : 'Ver la autorización' }}
+      </button>
+    </section>
 
     <div class="pestanas">
       <button
         v-for="p in [
           { clave: 'emisor' as const, label: 'Emisor y CAI' },
           { clave: 'servicios' as const, label: 'Servicios' },
-          { clave: 'documentos' as const, label: 'Documentos' },
+          { clave: 'documentos' as const, label: 'Documentos emitidos' },
         ]"
         :key="p.clave"
         type="button"
@@ -425,163 +558,317 @@ onMounted(load)
       </button>
     </div>
 
-    <div v-show="pestana === 'emisor'" class="grid">
-      <form class="card" @submit.prevent="guardar">
-        <h2>Quién emite</h2>
+    <div v-show="pestana === 'emisor'" class="emisor">
+      <div class="pasos">
+        <!-- Numerados porque es una secuencia: sin quién emite no hay CAI que valga, y sin
+             CAI lo de abajo no sale como factura. -->
+        <section class="card">
+          <header class="paso">
+            <span class="numero">1</span>
+            <div>
+              <h2>Quién emite</h2>
+              <p class="muted small">Tal como aparece en su RTN.</p>
+            </div>
+          </header>
 
-        <div class="row">
-          <label>
-            Nombre
-            <input v-model="form.name" required />
-          </label>
-          <label>
-            Razón social
-            <input v-model="form.legalName" placeholder="Como está en el RTN" />
-          </label>
-        </div>
+          <div class="campos">
+            <label>
+              <span class="rotulo">Nombre comercial</span>
+              <input v-model="form.name" required />
+            </label>
 
-        <div class="row">
-          <label>
-            RTN
-            <input v-model="form.taxId" placeholder="0801…" />
-          </label>
-          <label>
-            Teléfono
-            <input v-model="form.phone" placeholder="+504 9824 2108" />
-          </label>
-        </div>
+            <label :class="{ falta: !form.legalName.trim() }">
+              <span class="rotulo">
+                Razón social
+                <em v-if="!form.legalName.trim()">Falta</em>
+              </span>
+              <input v-model="form.legalName" placeholder="Como está en el RTN" />
+            </label>
 
-        <div class="row">
-          <label>
-            Correo
-            <input v-model="form.email" type="email" placeholder="soporte@garajeapp.com" />
-          </label>
-          <label>
-            Dirección
-            <input v-model="form.address" />
-          </label>
-        </div>
+            <label :class="{ falta: !form.taxId.trim() }">
+              <span class="rotulo">
+                RTN
+                <em v-if="!form.taxId.trim()">Falta</em>
+              </span>
+              <input v-model="form.taxId" class="mono" placeholder="14 dígitos, ej. 08011999123456" />
+            </label>
 
-        <h2>Cómo se cobra</h2>
+            <label>
+              <span class="rotulo">Teléfono</span>
+              <input v-model="form.phone" placeholder="+504 9824 2108" />
+            </label>
 
-        <div class="row">
-          <label>
-            ISV (%)
-            <input v-model.number="form.defaultTaxRate" type="number" min="0" max="100" step="0.01" />
-          </label>
-          <label>
-            Prefijo del comprobante
-            <input v-model="form.invoicePrefix" maxlength="8" />
-            <small class="muted">El de la numeración propia, la de cuando no hay CAI.</small>
-          </label>
-        </div>
+            <label>
+              <span class="rotulo">Correo</span>
+              <input v-model="form.email" type="email" placeholder="soporte@garajeapp.com" />
+            </label>
 
-        <!-- La misma decisión que el taller toma para sus precios, de este lado del negocio:
-             si la mensualidad es neta o ya trae el impuesto adentro. -->
-        <div v-if="form.defaultTaxRate > 0" class="modelo">
-          <label class="radio">
-            <input v-model="form.pricesIncludeTax" type="radio" :value="false" />
-            <span>
-              <strong>La mensualidad es neta: el ISV se suma</strong>
-              <small class="muted">El taller deposita la mensualidad más el impuesto.</small>
+            <label :class="{ falta: !form.address.trim() }">
+              <span class="rotulo">
+                Dirección
+                <em v-if="!form.address.trim()">Falta</em>
+              </span>
+              <input v-model="form.address" placeholder="Colonia, ciudad, departamento" />
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="paso">
+            <span class="numero">2</span>
+            <div>
+              <h2>Cómo se cobra el ISV</h2>
+              <p class="muted small">Aplica a todas las mensualidades.</p>
+            </div>
+          </header>
+
+          <!-- La misma decisión que el taller toma para sus precios, de este lado del
+               negocio. Con el número hecho en cada opción: «neto» y «bruto» no le dicen a
+               nadie cuánto va a depositar el taller. -->
+          <div v-if="form.defaultTaxRate > 0" class="modelo">
+            <label class="radio" :class="{ elegido: !form.pricesIncludeTax }">
+              <input v-model="form.pricesIncludeTax" type="radio" :value="false" />
+              <span>
+                <strong>Se suma a la cuota</strong>
+                <small class="muted">
+                  Cuota {{ formatMoney(850) }} → el taller deposita
+                  {{ formatMoney(850 * (1 + Number(form.defaultTaxRate) / 100)) }}
+                </small>
+              </span>
+            </label>
+
+            <label class="radio" :class="{ elegido: form.pricesIncludeTax }">
+              <input v-model="form.pricesIncludeTax" type="radio" :value="true" />
+              <span>
+                <strong>Ya viene incluido</strong>
+                <small class="muted">
+                  Cuota {{ formatMoney(850) }} → el taller deposita {{ formatMoney(850) }}
+                </small>
+              </span>
+            </label>
+          </div>
+
+          <div class="campos dos">
+            <label>
+              <span class="rotulo">ISV</span>
+              <input
+                v-model.number="form.defaultTaxRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+              />
+            </label>
+
+            <label>
+              <span class="rotulo">Prefijo del comprobante</span>
+              <input v-model="form.invoicePrefix" maxlength="8" />
+              <small class="muted">
+                Solo se usa mientras no haya CAI: {{ form.invoicePrefix || 'C' }}-000001,
+                {{ form.invoicePrefix || 'C' }}-000002…
+              </small>
+            </label>
+          </div>
+        </section>
+
+        <section id="cai" class="card">
+          <header class="paso">
+            <span class="numero">3</span>
+            <div>
+              <h2>Autorización del SAR (CAI)</h2>
+              <p class="muted small">Cópielo de la resolución que le dio el SAR.</p>
+            </div>
+            <span class="chip" :class="settings?.fiscalRange && !sinCai ? 'ok' : 'aviso'">
+              {{ settings?.fiscalRange ? (sinCai ? 'No sirve' : 'Vigente') : 'Sin CAI' }}
             </span>
-          </label>
-          <label class="radio">
-            <input v-model="form.pricesIncludeTax" type="radio" :value="true" />
-            <span>
-              <strong>Ya lleva el ISV adentro</strong>
-              <small class="muted">El documento solo desglosa cuánto de ese total es impuesto.</small>
-            </span>
-          </label>
-        </div>
+          </header>
 
-        <p class="ejemplo">{{ ejemplo }}</p>
-
-        <div class="actions">
-          <button type="submit" :disabled="busy">Guardar</button>
-          <span v-if="guardado" class="muted small">{{ guardado }}</span>
-        </div>
-      </form>
-
-      <article class="card">
-        <h2>Autorización del SAR</h2>
-
-        <template v-if="settings?.fiscalRange">
-          <dl>
+          <dl v-if="settings?.fiscalRange && !abrirRango" class="lectura">
             <dt>CAI</dt>
             <dd class="mono">{{ settings.fiscalRange.cai }}</dd>
             <dt>Rango</dt>
             <dd class="mono">{{ settings.fiscalRange.rangeText }}</dd>
             <dt>Siguiente</dt>
             <dd class="mono">{{ settings.fiscalRange.nextFiscalNumber }}</dd>
-            <dt>Vence</dt>
+            <dt>Fecha límite</dt>
             <dd>{{ formatDay(settings.fiscalRange.issueDeadline) }}</dd>
             <dt>Quedan</dt>
-            <dd>{{ settings.fiscalRange.remaining }}</dd>
+            <dd>{{ settings.fiscalRange.remaining }} números</dd>
           </dl>
 
-          <p v-if="estadoDelCai" class="aviso">{{ estadoDelCai }}</p>
-        </template>
-
-        <p v-else class="muted small">
-          Todavía no hay CAI registrado. Mientras no lo haya, cada pago deja un
-          <strong>comprobante</strong> con numeración propia
-          ({{ settings?.invoicePrefix ?? 'C' }}-{{
-            String(settings?.nextInvoiceNumber ?? 1).padStart(6, '0')
-          }}), que no es una factura fiscal y el documento lo dice.
-        </p>
-
-        <button v-if="!abrirRango" type="button" class="link" @click="abrirRango = true">
-          {{ settings?.fiscalRange ? 'Registrar el rango nuevo' : 'Registrar el CAI' }}
-        </button>
-
-        <form v-else class="rango" @submit.prevent="guardarRango">
-          <label>
-            CAI
-            <input v-model="rango.cai" placeholder="Tal como lo dio el SAR" required />
-          </label>
-
-          <div class="row">
-            <label>
-              Establecimiento
-              <input v-model="rango.establishmentCode" maxlength="3" />
-            </label>
-            <label>
-              Punto de emisión
-              <input v-model="rango.pointOfSaleCode" maxlength="3" />
-            </label>
-            <label>
-              Tipo
-              <input v-model="rango.documentType" maxlength="2" />
-            </label>
-          </div>
-
-          <div class="row">
-            <label>
-              Desde
-              <input v-model.number="rango.rangeStart" type="number" min="1" />
-            </label>
-            <label>
-              Hasta
-              <input v-model.number="rango.rangeEnd" type="number" min="1" />
-            </label>
-            <label>
-              Fecha límite
-              <input v-model="rango.issueDeadline" type="date" required />
-            </label>
-          </div>
-
-          <div class="actions">
-            <button type="submit" :disabled="busy">Registrar</button>
-            <button type="button" class="link" @click="abrirRango = false">Cancelar</button>
-          </div>
-
-          <p class="muted small">
-            El rango que estuviera activo queda dado de baja: emitir con dos rangos vivos es
-            la forma de saltarse un número sin enterarse.
+          <p v-else-if="!abrirRango" class="muted small">
+            Todavía no hay CAI registrado. Mientras no lo haya, cada pago deja un
+            <strong>comprobante</strong> con numeración propia ({{ numeroPropio }}), que no es
+            una factura fiscal y el documento lo dice.
           </p>
-        </form>
-      </article>
+
+          <button v-if="!abrirRango" type="button" class="link" @click="abrirRango = true">
+            {{ settings?.fiscalRange ? 'Registrar el rango nuevo' : 'Registrar el CAI' }}
+          </button>
+
+          <form v-else class="rango" @submit.prevent="guardarRango">
+            <label :class="{ falta: !rango.cai.trim() }">
+              <span class="rotulo">
+                CAI
+                <em v-if="!rango.cai.trim()">Falta</em>
+              </span>
+              <input
+                v-model="rango.cai"
+                class="mono"
+                placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX-XXXXXX-XX"
+                required
+              />
+            </label>
+
+            <fieldset>
+              <legend>Número de factura</legend>
+              <div class="campos tres">
+                <label>
+                  <span class="rotulo">Establecimiento</span>
+                  <input v-model="rango.establishmentCode" class="mono" maxlength="3" />
+                </label>
+                <label>
+                  <span class="rotulo">Punto de emisión</span>
+                  <input v-model="rango.pointOfSaleCode" class="mono" maxlength="3" />
+                </label>
+                <label>
+                  <span class="rotulo">Tipo de documento</span>
+                  <input v-model="rango.documentType" class="mono" maxlength="2" />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Rango autorizado</legend>
+              <div class="campos tres">
+                <label>
+                  <span class="rotulo">Desde</span>
+                  <input v-model.number="rango.rangeStart" type="number" min="1" />
+                </label>
+                <label>
+                  <span class="rotulo">Hasta</span>
+                  <input v-model.number="rango.rangeEnd" type="number" min="1" />
+                </label>
+                <label>
+                  <span class="rotulo">Fecha límite de emisión</span>
+                  <input v-model="rango.issueDeadline" type="date" required />
+                </label>
+              </div>
+            </fieldset>
+
+            <!-- Los números armados, antes de guardar: así se ve si se copió mal un código
+                 del SAR, que después no se puede corregir sin dar de baja el rango. -->
+            <div class="resumen-rango">
+              <div>
+                <span class="muted small">Primera factura</span>
+                <strong class="mono">{{ elRango.primera }}</strong>
+              </div>
+              <div>
+                <span class="muted small">Última factura</span>
+                <strong class="mono">{{ elRango.ultima }}</strong>
+              </div>
+              <div>
+                <span class="muted small">Alcanza para</span>
+                <strong>{{ elRango.cuantas.toLocaleString('es-HN') }} facturas</strong>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button type="submit" :disabled="busy || elRango.cuantas < 1">Registrar</button>
+              <button type="button" class="link" @click="abrirRango = false">Cancelar</button>
+            </div>
+
+            <p class="muted small">
+              El rango que estuviera activo queda dado de baja: emitir con dos rangos vivos es
+              la forma de saltarse un número sin enterarse.
+            </p>
+          </form>
+        </section>
+
+        <!-- Guardar vive al pie de los tres pasos, no dentro del primero: lo que se guarda es
+             el emisor entero. -->
+        <div class="guardar">
+          <span v-if="cambiado" class="muted small">Hay cambios sin guardar</span>
+          <span v-else-if="guardado" class="muted small">{{ guardado }}</span>
+          <button type="button" class="btn-ghost" :disabled="!cambiado || busy" @click="descartar">
+            Descartar
+          </button>
+          <button type="button" :disabled="!cambiado || busy" @click="guardar">
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+
+      <aside class="lado">
+        <section class="card">
+          <h2>Para facturar con CAI falta</h2>
+          <ul class="requisitos">
+            <li v-for="r in requisitos" :key="r.que" :class="{ listo: r.ok }">
+              <span class="marca" aria-hidden="true">{{ r.ok ? '✓' : '!' }}</span>
+              {{ r.que }}
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <header class="lado-top">
+            <h2>Así lo recibe el taller</h2>
+            <span class="muted small">Vista previa</span>
+          </header>
+
+          <!-- El papel, con los números del formulario. Es la única forma de ver qué cambia
+               una casilla antes de que lo vea un cliente. -->
+          <article class="papel">
+            <div class="papel-top">
+              <div>
+                <strong>{{ form.name || 'GarajApp' }}</strong>
+                <div :class="{ hueco: !form.legalName.trim() }">
+                  {{ form.legalName.trim() || '[Razón social]' }}
+                </div>
+                <div :class="{ hueco: !form.taxId.trim() }">
+                  RTN {{ form.taxId.trim() || '[falta]' }}
+                </div>
+                <div class="tenue">{{ [form.phone, form.email].filter(Boolean).join(' · ') }}</div>
+              </div>
+
+              <div class="papel-numero">
+                <strong>{{ settings?.fiscalRange && !sinCai ? 'FACTURA' : 'COMPROBANTE' }}</strong>
+                <div class="mono tenue">
+                  {{ settings?.fiscalRange && !sinCai
+                    ? settings.fiscalRange.nextFiscalNumber
+                    : numeroPropio }}
+                </div>
+                <div class="mono tenue">{{ formatDay(new Date().toISOString().slice(0, 10)) }}</div>
+              </div>
+            </div>
+
+            <div class="papel-cliente">
+              <span class="tenue">Cliente</span>
+              <strong>Taller de ejemplo</strong>
+            </div>
+
+            <div class="papel-lineas">
+              <div class="papel-linea">
+                <span>Mensualidad GarajApp · 1 mes</span>
+                <span class="mono">{{ formatMoney(muestra.base) }}</span>
+              </div>
+              <div v-if="muestra.isv > 0" class="papel-linea tenue">
+                <span>ISV {{ form.defaultTaxRate }}%</span>
+                <span class="mono">{{ formatMoney(muestra.isv) }}</span>
+              </div>
+              <div class="papel-linea total">
+                <span>Total</span>
+                <span class="mono">{{ formatMoney(muestra.total) }}</span>
+              </div>
+            </div>
+
+            <p v-if="!settings?.fiscalRange || sinCai" class="papel-nota">
+              Este comprobante no es una factura fiscal.
+            </p>
+            <p v-else class="papel-nota fiscal">CAI {{ settings.fiscalRange.cai }}</p>
+          </article>
+        </section>
+      </aside>
     </div>
 
     <!-- ------------------------------------------------------------- los servicios -->
@@ -867,17 +1154,33 @@ h1 {
 }
 
 /* El CAI por acabarse para toda la plataforma: no cabe en una esquina. */
+/* Emitir comprobantes creyendo que son facturas se descubre cuando el taller lleva el papel
+   a su contador. Por eso el aviso es un panel con su acción, no un renglón más. */
 .alarma {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.875rem;
   flex-wrap: wrap;
-  margin: 0 0 1rem;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  margin: 0 0 1.25rem;
+  padding: 0.875rem 1.125rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  color: var(--danger);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+
+.alarma svg {
+  flex: none;
+  color: var(--warning);
+}
+
+.alarma > div {
+  flex: 1 1 18rem;
+}
+
+.alarma p {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .pestanas {
@@ -1142,5 +1445,320 @@ dd {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
+}
+
+/* Los tres pasos a la izquierda, lo que falta y el papel a la derecha. */
+.emisor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.pasos {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.lado {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.lado-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.lado-top h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* La cabecera de cada paso: el número, el título y, en el CAI, su estado. */
+.paso {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.paso h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.paso p {
+  margin: 0.1rem 0 0;
+}
+
+.paso > div:first-of-type {
+  flex: 1 1 12rem;
+}
+
+.numero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  color: var(--brand);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.chip.ok {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.chip.aviso {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+}
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.875rem;
+}
+
+.campos.dos {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.campos.tres {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.campos label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.rotulo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Lo que falta se dice en el campo, no solo en la lista de al lado: ahí es donde se escribe. */
+.rotulo em {
+  color: var(--warning);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.campos label.falta input {
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+}
+
+.radio {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* La opción elegida se nota: dos radios iguales no dicen cuál está puesta. */
+.radio.elegido {
+  border-color: color-mix(in srgb, var(--brand) 50%, var(--border));
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+}
+
+.rango fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rango legend {
+  padding: 0 0 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Los números armados antes de guardar: copiar mal un código del SAR no se corrige después
+   sin dar de baja el rango entero. */
+.resumen-rango {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  justify-content: space-between;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg, var(--surface));
+}
+
+.resumen-rango > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.guardar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+/* Lo que falta para facturar: la pregunta es «¿ya puedo?» y la respuesta son cinco casillas. */
+.requisitos {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.requisitos li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.requisitos li.listo .marca {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+}
+
+/* El papel. Claro siempre, en los dos temas: es papel, y así se imprime. */
+.papel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  background: #f7f7f5;
+  color: #1d2025;
+  font-size: 0.8125rem;
+}
+
+.papel-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.papel-top strong {
+  font-size: 1rem;
+}
+
+.papel-numero {
+  text-align: right;
+}
+
+.papel .tenue {
+  color: #4a4f57;
+}
+
+/* Lo que falta, en el papel, con el color del aviso: ahí es donde se ve lo que recibe. */
+.papel .hueco {
+  color: #8a5a00;
+}
+
+.papel-cliente,
+.papel-lineas {
+  padding-top: 0.75rem;
+  border-top: 1px solid #dcdcd8;
+}
+
+.papel-cliente {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.papel-cliente .tenue {
+  font-size: 0.75rem;
+}
+
+.papel-linea {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+}
+
+.papel-linea.total {
+  margin-top: 0.35rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #dcdcd8;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.papel-nota {
+  margin: 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: 6px;
+  background: #fdf3dc;
+  color: #6b4a00;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.papel-nota.fiscal {
+  background: #eef1ee;
+  color: #3a4038;
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+@media (max-width: 64rem) {
+  .emisor {
+    grid-template-columns: 1fr;
+  }
+
+  .lado {
+    position: static;
+  }
+}
+
+@media (max-width: 34rem) {
+  .campos.tres {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
