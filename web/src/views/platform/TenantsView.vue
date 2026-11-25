@@ -15,7 +15,7 @@ import {
   type PlatformSettings,
   type PlatformTenant,
 } from '@/types/domain'
-import { esDePrueba, necesitaAtencion } from '@/utils/cobro'
+import { esDemo, esDePrueba, necesitaAtencion } from '@/utils/cobro'
 import { formatDay, formatMoney } from '@/utils/format'
 
 /**
@@ -122,13 +122,16 @@ const mesCorriente = computed(() =>
 /** De una ojeada: cuántos son, cuántos pagan y cuántos están de prueba. */
 const resumen = computed(() => {
   const activos = tenants.value.filter((t) => t.isActive)
-  const prueba = activos.filter(esDePrueba).length
-  const pagan = activos.length - prueba
+  const nuestros = activos.filter((t) => esDemo(t.name)).length
+  const prueba = activos.filter((t) => esDePrueba(t) && !esDemo(t.name)).length
+  const pagan = activos.length - prueba - nuestros
 
   return [
     `${tenants.value.length} ${tenants.value.length === 1 ? 'taller' : 'talleres'}`,
     `${pagan} ${pagan === 1 ? 'paga mensualidad' : 'pagan mensualidad'}`,
     prueba ? `${prueba} de prueba` : null,
+    // Las nuestras se dicen aparte: no son clientes ni los va a ser nadie.
+    nuestros ? `${nuestros} de demostración` : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -213,7 +216,7 @@ const filtro = ref<'todos' | 'porCobrar' | 'acuerdo' | 'prueba' | 'suspendidos'>
 /** El número de cada pestaña: dice dónde mirar antes de tocarla. */
 const cuentas = computed(() => ({
   todos: tenants.value.length,
-  porCobrar: tenants.value.filter((t) => t.isActive && !esDePrueba(t) && t.state !== 'Active').length,
+  porCobrar: tenants.value.filter(necesitaAtencion).length,
   acuerdo: tenants.value.filter((t) => !!t.unblockedThrough).length,
   prueba: tenants.value.filter(esDePrueba).length,
   suspendidos: tenants.value.filter((t) => t.state === 'Suspended' || !t.isActive).length,
@@ -240,7 +243,7 @@ const visibles = computed(() => {
 
     switch (filtro.value) {
       case 'porCobrar':
-        return t.isActive && !esDePrueba(t) && t.state !== 'Active'
+        return necesitaAtencion(t)
       case 'acuerdo':
         return !!t.unblockedThrough
       case 'prueba':
@@ -276,7 +279,7 @@ const visibles = computed(() => {
  * lo que está parado. Se cuenta sobre los talleres activos: uno suspendido no es ingreso.
  */
 const cifras = computed(() => {
-  const pagan = tenants.value.filter((t) => t.isActive && !esDePrueba(t))
+  const pagan = tenants.value.filter((t) => t.isActive && !esDePrueba(t) && !esDemo(t.name))
   const atrasados = pagan.filter((t) => t.state === 'Grace' || t.state === 'ReadOnly')
   const porVencer = pagan.filter((t) => t.state === 'DueSoon')
   const suma = (lista: PlatformTenant[]) => lista.reduce((total, t) => total + t.monthlyFee, 0)
@@ -717,7 +720,9 @@ onMounted(load)
           </td>
           <!-- La acción en la fila: el que abre esta pantalla viene a cobrar, no a navegar. -->
           <td class="acciones-fila">
+            <span v-if="esDemo(t.name)" class="muted small">Demostración</span>
             <RouterLink
+              v-else
               class="btn-chico"
               :to="{ name: 'platform-tenant', params: { id: t.id }, query: { cobrar: '1' } }"
             >
