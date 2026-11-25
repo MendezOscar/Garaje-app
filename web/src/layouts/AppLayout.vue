@@ -6,6 +6,7 @@ import BrandLogo from '@/components/BrandLogo.vue'
 import { useEscape } from '@/composables/useEscape'
 import { useOnline } from '@/composables/useOnline'
 import { usePendientes } from '@/composables/usePendientes'
+import { usePlataforma } from '@/composables/usePlataforma'
 import { useTaller } from '@/composables/useTaller'
 import NotificationBell from '@/components/NotificationBell.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +16,9 @@ const auth = useAuthStore()
 
 /** Lo que está esperando a alguien, para los números del menú. */
 const pendientes = usePendientes()
+
+/** Lo mismo para el perfil Plataforma, que no tiene taller del que sacar un resumen. */
+const plataforma = usePlataforma()
 const { vocabulario, cargar: cargarTaller } = useTaller()
 const { online } = useOnline()
 const router = useRouter()
@@ -53,12 +57,17 @@ onMounted(() => {
   // El rótulo del menú depende de con qué trabaja el taller.
   void cargarTaller()
   void pendientes.cargar()
+  void plataforma.cargar()
 })
 
 // Los pendientes son de la sucursal que se está mirando, y al navegar se refrescan: después
 // de confirmar una cita, el número del menú tiene que bajar sin recargar la página.
 watch(() => auth.activeBranchId, () => pendientes.cargar(true))
-watch(() => route.fullPath, () => pendientes.cargar(true))
+watch(() => route.fullPath, () => {
+  pendientes.cargar(true)
+  // Al registrar un pago el número de Talleres tiene que bajar sin recargar la página.
+  plataforma.cargar(true)
+})
 onUnmounted(() => document.removeEventListener('visibilitychange', alVolverALaPestana))
 
 /**
@@ -191,9 +200,21 @@ const navGroups = computed<
           {
             title: null,
             items: [
-              { to: { name: 'platform-tenants' }, label: 'Talleres' },
+              {
+                to: { name: 'platform-tenants' },
+                label: 'Talleres',
+                // En rojo porque es plata parada: un taller cortado no factura hoy.
+                ...(plataforma.porAtender.value
+                  ? { cuantas: String(plataforma.porAtender.value), tono: 'alerta' }
+                  : {}),
+              },
               { to: { name: 'platform-usage' }, label: 'Uso' },
-              { to: { name: 'platform-billing' }, label: 'Facturación' },
+              {
+                to: { name: 'platform-billing' },
+                label: 'Facturación',
+                // Sin CAI no se emite una factura, ni nuestra ni de los otros servicios.
+                ...(plataforma.cai.value ? { cuantas: plataforma.cai.value, tono: 'espera' } : {}),
+              },
               { to: { name: 'platform-sales-book' }, label: 'Libro de ventas' },
             ],
           },
