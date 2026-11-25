@@ -1549,6 +1549,14 @@ export interface SalesBook {
   currency: string
 }
 
+/** Lo que de verdad entró en un mes por mensualidades: pagos registrados y no anulados. */
+export interface Collected {
+  year: number
+  month: number
+  total: number
+  count: number
+}
+
 export interface PlatformUsage {
   id: string
   name: string
@@ -1571,6 +1579,8 @@ export interface PlatformUsage {
   assistantCalls: number
   appointments: number
   motorcycles: number
+  /** Para llamarlo: esta pantalla termina en una llamada. */
+  phone: string | null
 }
 
 export interface PlatformTenant {

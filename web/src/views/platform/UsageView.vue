@@ -13,7 +13,7 @@ import { errorMessage } from '@/api/client'
 import { platformApi } from '@/api/garaj'
 import ErrorNote from '@/components/ErrorNote.vue'
 import SkeletonList from '@/components/SkeletonList.vue'
-import { PLAN_LABEL, type PlatformUsage } from '@/types/domain'
+import type { PlatformUsage } from '@/types/domain'
 import { formatDate, formatMoney } from '@/utils/format'
 
 const filas = ref<PlatformUsage[]>([])
@@ -74,6 +74,80 @@ function temperatura(f: PlatformUsage) {
   return 'vivo'
 }
 
+/** Las cifras de arriba: cómo va el uso en conjunto, antes de mirar fila por fila. */
+const cifras = computed(() => ({
+  trabajando: trabajando.value,
+  activos: activos.value.length,
+  ordenes: visibles.value.reduce((suma, f) => suma + f.workOrders, 0),
+  facturado: visibles.value.reduce((suma, f) => suma + f.billed, 0),
+  callados: activos.value.filter((f) => f.workOrders === 0).length,
+}))
+
+/**
+ * En qué anda el taller, dicho en dos palabras y con el porqué debajo. Es lo que decide si
+ * hay que llamarlo, y leerlo de doce columnas de números no lo decidía.
+ */
+function actividad(f: PlatformUsage) {
+  if (!f.isActive)
+    return { tono: 'cortado', texto: 'Sin uso', razon: 'bloqueado por pago' }
+
+  if (f.workOrders === 0)
+    return {
+      tono: 'cortado',
+      texto: 'Sin uso',
+      razon: f.workOrdersEver ? 'trabajó antes, ahora nada' : 'nunca abrió una orden',
+    }
+
+  if (f.sales === 0)
+    return { tono: 'aviso', texto: 'Poco uso', razon: 'abre órdenes, no factura' }
+
+  if (f.workOrders < 5)
+    return { tono: 'aviso', texto: 'Bajando', razon: `solo ${f.workOrders} órdenes en ${dias.value} días` }
+
+  return { tono: 'ok', texto: 'Activo', razon: '' }
+}
+
+/** Quién entra y cuándo fue la última vez, dicho como se pregunta. */
+function quienEntra(f: PlatformUsage) {
+  if (!f.usersSignedIn)
+    return `Nadie entra desde ${hace(f.lastLoginAt)} · ${f.activeUsers} ${f.activeUsers === 1 ? 'usuario' : 'usuarios'}`
+
+  return `${f.usersSignedIn} ${f.usersSignedIn === 1 ? 'entró' : 'entraron'} · último ${hace(f.lastLoginAt)}`
+}
+
+/**
+ * Solo los módulos que el taller usó. Una columna por módulo dejaba una pared de ceros: lo
+ * que dice algo es lo que sí tocó.
+ */
+function queUsa(f: PlatformUsage) {
+  return (
+    [
+      { n: f.quotes, que: f.quotes === 1 ? 'cotización' : 'cotizaciones' },
+      { n: f.photos, que: 'fotos' },
+      { n: f.scans, que: f.scans === 1 ? 'escaneo' : 'escaneos' },
+      { n: f.assistantCalls, que: f.assistantCalls === 1 ? 'consulta al asistente' : 'consultas al asistente' },
+      { n: f.appointments, que: f.appointments === 1 ? 'cita' : 'citas' },
+      { n: f.motorcycles, que: f.motorcycles === 1 ? 'moto armada' : 'motos armadas' },
+    ] as const
+  ).filter((x) => x.n > 0)
+}
+
+/** Los módulos que nadie tocó en la ventana: se dicen al pie, no con columnas vacías. */
+const sinUsar = computed(() => {
+  const total = (campo: (f: PlatformUsage) => number) =>
+    visibles.value.reduce((suma, f) => suma + campo(f), 0)
+
+  return [
+    { n: total((f) => f.scans), nombre: 'Escáner' },
+    { n: total((f) => f.assistantCalls), nombre: 'Asistente' },
+    { n: total((f) => f.appointments), nombre: 'Citas' },
+    { n: total((f) => f.motorcycles), nombre: 'Armado de motos' },
+    { n: total((f) => f.quotes), nombre: 'Cotizaciones' },
+  ]
+    .filter((x) => x.n === 0)
+    .map((x) => x.nombre)
+})
+
 /** Por qué columna se ordena. Por omisión, el que menos se mueve primero. */
 const orden = ref<'ordenes' | 'nombre' | 'facturado' | 'ingreso'>('ordenes')
 const descendente = ref(false)
@@ -129,8 +203,7 @@ onMounted(load)
       <div>
         <h1>Uso</h1>
         <p class="muted small">
-          Qué tanto usan GarajApp los talleres. Ordenado por el que menos se mueve: esa es la
-          lista de a quién llamar.
+          Quién está usando GarajApp. Arriba, los que menos se mueven: a esos conviene llamar.
         </p>
       </div>
 
@@ -147,7 +220,7 @@ onMounted(load)
         </button>
         <label class="check small">
           <input v-model="sinPruebas" type="checkbox" />
-          Sin los de prueba
+          Ocultar talleres de prueba
         </label>
       </div>
     </header>
@@ -157,10 +230,26 @@ onMounted(load)
     <SkeletonList v-if="loading" :rows="6" variant="lista" />
 
     <template v-else>
-      <p class="resumen">
-        <strong>{{ trabajando }}</strong> de {{ activos.length }} talleres activos abrieron
-        órdenes en los últimos {{ dias }} días.
-      </p>
+      <div class="cifras">
+        <article class="cifra">
+          <span class="rotulo">Talleres que abrieron órdenes</span>
+          <strong class="num">
+            {{ cifras.trabajando }} <span class="de">de {{ cifras.activos }}</span>
+          </strong>
+        </article>
+        <article class="cifra">
+          <span class="rotulo">Órdenes en {{ dias }} días</span>
+          <strong class="num">{{ cifras.ordenes }}</strong>
+        </article>
+        <article class="cifra">
+          <span class="rotulo">Facturado por los talleres</span>
+          <strong class="num">{{ formatMoney(cifras.facturado) }}</strong>
+        </article>
+        <article class="cifra" :class="{ alerta: cifras.callados > 0 }">
+          <span class="rotulo">Sin actividad</span>
+          <strong class="num">{{ cifras.callados }}</strong>
+        </article>
+      </div>
 
       <div class="tabla">
         <table>
@@ -171,29 +260,20 @@ onMounted(load)
                   Taller<span v-if="orden === 'nombre'">{{ descendente ? ' ↓' : ' ↑' }}</span>
                 </button>
               </th>
-              <th class="num">
-                <button type="button" class="ordenar" @click="ordenarPor('ingreso')">
-                  Entraron<span v-if="orden === 'ingreso'">{{ descendente ? ' ↓' : ' ↑' }}</span>
-                </button>
-              </th>
+              <th>Actividad</th>
+              <th class="num">Última orden</th>
               <th class="num">
                 <button type="button" class="ordenar" @click="ordenarPor('ordenes')">
                   Órdenes<span v-if="orden === 'ordenes'">{{ descendente ? ' ↓' : ' ↑' }}</span>
                 </button>
               </th>
-              <th class="num">Última orden</th>
-              <th class="num">Facturas</th>
               <th class="num">
                 <button type="button" class="ordenar" @click="ordenarPor('facturado')">
                   Facturado<span v-if="orden === 'facturado'">{{ descendente ? ' ↓' : ' ↑' }}</span>
                 </button>
               </th>
-              <th class="num">Cotiza</th>
-              <th class="num">Fotos</th>
-              <th class="num">Escáner</th>
-              <th class="num">Asistente</th>
-              <th class="num">Citas</th>
-              <th class="num">Motos</th>
+              <th>Qué usa</th>
+              <th><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
@@ -203,31 +283,40 @@ onMounted(load)
                   {{ f.name }}
                 </RouterLink>
                 <div class="muted small">
-                  {{ PLAN_LABEL[f.plan] }} ·
-                  {{ f.activeUsers }} usuarios, {{ f.technicianCount }} técnicos
+                  {{ quienEntra(f) }}
                   <template v-if="f.inactiveUsers">
                     · <span class="baja-usuarios">{{ f.inactiveUsers }} de baja</span>
                   </template>
-                  <template v-if="!f.isActive"> · bloqueado</template>
                 </div>
               </td>
+              <td>
+                <span class="chip" :class="actividad(f).tono">{{ actividad(f).texto }}</span>
+                <div v-if="actividad(f).razon" class="muted small">{{ actividad(f).razon }}</div>
+              </td>
               <td class="num">
-                {{ f.usersSignedIn }}
-                <div class="muted small">{{ hace(f.lastLoginAt) }}</div>
+                {{ hace(f.lastWorkOrderAt) }}
               </td>
               <td class="num">
                 <strong>{{ f.workOrders }}</strong>
-                <div class="muted small">{{ f.workOrdersEver }} en total</div>
+                <div class="muted small">
+                  {{ f.sales ? `${f.sales} ${f.sales === 1 ? 'factura' : 'facturas'}` : `${f.workOrdersEver} en total` }}
+                </div>
               </td>
-              <td class="num muted small">{{ hace(f.lastWorkOrderAt) }}</td>
-              <td class="num">{{ f.sales }}</td>
-              <td class="num">{{ formatMoney(f.billed) }}</td>
-              <td class="num">{{ f.quotes }}</td>
-              <td class="num">{{ f.photos }}</td>
-              <td class="num">{{ f.scans }}</td>
-              <td class="num">{{ f.assistantCalls }}</td>
-              <td class="num">{{ f.appointments }}</td>
-              <td class="num">{{ f.motorcycles }}</td>
+              <td class="num" :class="{ muted: !f.billed }">{{ formatMoney(f.billed) }}</td>
+              <td>
+                <div v-if="queUsa(f).length" class="fichas">
+                  <span v-for="u in queUsa(f)" :key="u.que" class="ficha">
+                    <b>{{ u.n }}</b> {{ u.que }}
+                  </span>
+                </div>
+                <span v-else class="muted small">Nada este período</span>
+              </td>
+              <!-- La pantalla termina en una llamada: el número, a un toque. -->
+              <td class="acciones-fila">
+                <a v-if="f.phone && actividad(f).tono !== 'ok'" class="btn-chico" :href="`tel:${f.phone}`">
+                  Llamar
+                </a>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -236,8 +325,12 @@ onMounted(load)
       <p v-if="!visibles.length" class="muted">No hay talleres que mirar.</p>
 
       <p class="muted small pie">
-        «Entraron» cuenta usuarios que iniciaron sesión en la ventana. Las facturas anuladas no
-        cuentan. Los talleres bloqueados salen igual, marcados.
+        Solo se muestran los módulos que el taller usó en el período.
+        <template v-if="sinUsar.length">
+          {{ sinUsar.join(', ') }} no {{ sinUsar.length === 1 ? 'tuvo' : 'tuvieron' }} uso en
+          ningún taller.
+        </template>
+        Las facturas anuladas no cuentan, y los talleres bloqueados salen igual, marcados.
       </p>
     </template>
   </section>
@@ -371,5 +464,115 @@ tbody tr.baja {
 
 .pie {
   margin-top: 0.75rem;
+}
+
+/* Las cifras de arriba: cómo va el uso en conjunto. */
+.cifras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cifra {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 12rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cifra .rotulo {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.cifra strong {
+  font-size: 1.5rem;
+}
+
+.cifra .de {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.cifra.alerta {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.cifra.alerta strong {
+  color: var(--danger);
+}
+
+/* En qué anda el taller, en dos palabras. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip.ok {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.chip.aviso {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+}
+
+.chip.cortado {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+/* Lo que sí usó, en fichas: una columna por módulo era una pared de ceros. */
+.fichas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ficha {
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm, 6px);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.ficha b {
+  color: var(--text);
+}
+
+.acciones-fila {
+  text-align: right;
+}
+
+.btn-chico {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-chico:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  color: var(--brand);
 }
 </style>

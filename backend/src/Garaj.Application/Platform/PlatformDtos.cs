@@ -253,6 +253,13 @@ public record SetWorksWithRequest(WorkshopKind WorksWith);
 /// apagando.
 /// </param>
 /// <param name="LastLoginAt">La última vez que alguien del taller entró.</param>
+/// <summary>
+/// Lo que de verdad entró en un mes por mensualidades: los pagos registrados y no anulados.
+/// Es la otra mitad de «cuánto deberíamos cobrar»: sin esto la pantalla dice lo que se
+/// factura al mes, pero no lo que se depositó.
+/// </summary>
+public record CollectedDto(int Year, int Month, decimal Total, int Count);
+
 public record PlatformUsageDto(
     Guid Id,
     string Name,
@@ -273,7 +280,9 @@ public record PlatformUsageDto(
     int Scans,
     int AssistantCalls,
     int Appointments,
-    int Motorcycles);
+    int Motorcycles,
+    /// <summary>Para llamarlo. Esta pantalla termina en una llamada: sin el número, no.</summary>
+    string? Phone = null);
 
 public interface IPlatformService
 {
@@ -284,6 +293,9 @@ public interface IPlatformService
     /// mueve sale primero: es la lista de a quién hay que llamar.
     /// </summary>
     Task<IReadOnlyList<PlatformUsageDto>> UsageAsync(int days = 30, CancellationToken ct = default);
+
+    /// <summary>Lo cobrado en un mes. Sin año ni mes, el mes corriente.</summary>
+    Task<CollectedDto> CollectedAsync(int? year = null, int? month = null, CancellationToken ct = default);
 
     Task<PlatformTenantDetailDto> GetAsync(Guid tenantId, CancellationToken ct = default);
 

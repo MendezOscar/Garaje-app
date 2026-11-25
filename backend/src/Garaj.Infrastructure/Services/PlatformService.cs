@@ -84,6 +84,35 @@ public class PlatformService(
     }
 
     /// <summary>
+    /// Lo cobrado en un mes: la suma de los pagos de mensualidad que entraron y no se
+    /// anularon. Se cuenta por el día en que el taller pagó, no por el día en que se registró,
+    /// que es lo que hace que el número cuadre con el banco.
+    /// </summary>
+    public async Task<CollectedDto> CollectedAsync(
+        int? year = null, int? month = null, CancellationToken ct = default)
+    {
+        AccessScope.From(tenantContext).EnsurePlatform();
+
+        var hoy = clock.Today();
+        var anio = year ?? hoy.Year;
+        var mes = month ?? hoy.Month;
+
+        if (anio is < 2000 or > 2999) throw new AppException("Año fuera de rango.");
+        if (mes is < 1 or > 12) throw new AppException("Mes fuera de rango.");
+
+        var desde = new DateOnly(anio, mes, 1);
+        var hasta = desde.AddMonths(1);
+
+        var pagos = await db.SubscriptionPayments
+            .AsNoTracking()
+            .Where(p => !p.IsVoided && p.PaidOn >= desde && p.PaidOn < hasta)
+            .Select(p => p.Amount)
+            .ToListAsync(ct);
+
+        return new CollectedDto(anio, mes, pagos.Sum(), pagos.Count);
+    }
+
+    /// <summary>
     /// El uso de cada taller: si entran, si trabajan adentro y qué partes no tocan.
     /// </summary>
     /// <remarks>
@@ -178,7 +207,8 @@ public class PlatformService(
                     escaneos.GetValueOrDefault(t.Id),
                     asistente.GetValueOrDefault(t.Id),
                     citas.GetValueOrDefault(t.Id),
-                    motos.GetValueOrDefault(t.Id));
+                    motos.GetValueOrDefault(t.Id),
+                    t.Phone);
             })
             // El que menos se mueve, arriba: es la lista de a quién hay que llamar.
             .OrderBy(t => t.WorkOrders)
