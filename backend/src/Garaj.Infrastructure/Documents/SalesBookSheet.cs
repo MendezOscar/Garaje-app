@@ -8,6 +8,10 @@ namespace Garaj.Infrastructure.Documents;
 /// El libro de ventas del mes, en hoja de cálculo: lo que se le entrega al contador.
 /// </summary>
 /// <remarks>
+/// Solo las facturas con CAI: el libro es la cuenta de los números autorizados, y meterle
+/// los comprobantes —que llevan numeración propia y no amparan nada— lo infla y confunde a
+/// quien lo revisa.
+///
 /// Las columnas son las que pide el libro —fecha, número, CAI, cliente, RTN, gravado, exento,
 /// ISV, total— y en ese orden. El servicio que se cobró va al final, porque es dato nuestro y
 /// no del SAR: a quien revisa le importa el emisor, que es uno solo.

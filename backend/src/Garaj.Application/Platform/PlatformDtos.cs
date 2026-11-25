@@ -385,11 +385,18 @@ public interface IPlatformBillingService
     Task<SubscriptionInvoiceDto> GetInvoiceAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>
-    /// El libro de ventas del mes: todos los documentos emitidos, de todos los servicios, con
-    /// sus totales y con los números que faltan.
+    /// El libro de ventas del mes: las facturas con CAI de todos los servicios, con sus
+    /// totales y con los números que faltan. Los comprobantes no entran: el libro es la
+    /// cuenta de los números autorizados.
     /// </summary>
     Task<SalesBookDto> SalesBookAsync(
         int year, int month, Guid? productId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lo que entró en el año por los tres servicios, mes a mes. Es el control propio, no el
+    /// libro: acá entran también los comprobantes, y se suma el neto, sin el ISV.
+    /// </summary>
+    Task<IncomeDto> IncomeAsync(int year, CancellationToken ct = default);
 
     /// <summary>
     /// Los documentos emitidos, para encontrar uno suelto: por número, por cliente o por RTN.

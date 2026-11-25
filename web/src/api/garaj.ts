@@ -43,6 +43,7 @@ import type {
   Part,
   PaymentMethod,
   Collected,
+  Income,
   PlatformSettings,
   PlatformTenant,
   InvoiceListItem,
@@ -1854,6 +1855,14 @@ export const platformApi = {
     return data
   },
   /** El libro de ventas del mes, con sus totales y los números que faltan. */
+  /**
+   * Lo que entró en el año por los tres servicios, mes a mes. Es el control propio: entran
+   * los comprobantes y se suma el neto, sin el ISV.
+   */
+  async income(year: number): Promise<Income> {
+    const { data } = await api.get<Income>('/api/platform/billing/income', { params: { year } })
+    return data
+  },
   async salesBook(year: number, month: number, productId?: string): Promise<SalesBook> {
     const { data } = await api.get<SalesBook>('/api/platform/billing/sales-book', {
       params: params({ year, month, productId }),

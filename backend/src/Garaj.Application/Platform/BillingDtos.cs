@@ -183,6 +183,18 @@ public record IssuedInvoiceDto(
 
 /// <param name="Taxable">Lo gravado: el total menos el ISV, en los documentos con impuesto.</param>
 /// <param name="Exempt">Lo exento: el total de los documentos que salieron sin impuesto.</param>
+/// <summary>
+/// Lo que entró en un mes por un servicio. <c>Fiscal</c> separa la factura con CAI del
+/// comprobante: las dos son venta, pero solo la primera va al libro del SAR.
+/// </summary>
+/// <param name="Net">Sin ISV. Es lo que de verdad entra: el impuesto se cobra y se entrega.</param>
+public record IncomeRowDto(
+    int Month, Guid? ProductId, string ProductName, bool Fiscal,
+    decimal Net, decimal Tax, decimal Total, int Count);
+
+/// <summary>El año completo, para el control propio. No es el libro de ventas.</summary>
+public record IncomeDto(int Year, IReadOnlyList<IncomeRowDto> Rows);
+
 public record SalesBookRowDto(
     DateOnly IssuedOn,
     string Number,

@@ -302,6 +302,13 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: [Roles.Platform] },
       },
       {
+        // El control propio: lo que entra por los tres servicios. No es el libro del SAR.
+        path: 'plataforma/ingresos',
+        name: 'platform-income',
+        component: () => import('@/views/platform/IncomeView.vue'),
+        meta: { roles: [Roles.Platform] },
+      },
+      {
         // La cuenta de los números autorizados: lo que se le entrega al contador.
         path: 'plataforma/libro-de-ventas',
         name: 'platform-sales-book',

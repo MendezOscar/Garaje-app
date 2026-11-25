@@ -67,6 +67,29 @@ public class FacturarDesdeOtroPortalTests
             Fiscal: false,
             PaymentReference: "DEP-77123");
 
+    /// <summary>La misma, pero con CAI: es la única que entra al libro de ventas.</summary>
+    private static IssueInvoiceRequest ConCai(string cliente = "Cliente de prueba") =>
+        Peticion(cliente) with { Fiscal = true };
+
+    /// <summary>
+    /// Un rango autorizado vivo, para las pruebas que necesitan emitir con CAI. Se registra
+    /// uno nuevo cada vez: registrar un rango da de baja el anterior, así que las pruebas no
+    /// se pisan entre ellas.
+    /// </summary>
+    private static async Task ConRangoVigenteAsync()
+    {
+        await using var db = Contexto();
+
+        await Servicio(db).SaveFiscalRangeAsync(new SavePlatformFiscalRangeRequest(
+            Cai: $"PRUEBA-{Guid.NewGuid():N}",
+            EstablishmentCode: "000",
+            PointOfSaleCode: "001",
+            DocumentType: "01",
+            RangeStart: 1,
+            RangeEnd: 1_000_000,
+            IssueDeadline: DateTimeOffset.UtcNow.AddYears(1)));
+    }
+
     [RequiereBaseLocal]
     public async Task Sin_llave_no_se_emite_nada()
     {
@@ -205,6 +228,65 @@ public class FacturarDesdeOtroPortalTests
             () => servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion()));
     }
 
+    /// <summary>
+    /// El libro de ventas es la cuenta de los números autorizados, que es lo que pide el SAR.
+    /// El comprobante lleva numeración propia y no ampara nada: meterlo infla el libro y
+    /// confunde a quien lo revisa. Se mira en Ingresos, que es el control propio.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task El_comprobante_no_entra_al_libro_de_ventas()
+    {
+        var (productoId, llave) = await ServicioConLlaveAsync();
+
+        await using var db = Contexto();
+        var servicio = Servicio(db);
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var comprobante = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+        Assert.False(comprobante.IsFiscal);
+
+        var libro = await servicio.SalesBookAsync(hoy.Year, hoy.Month, productoId);
+
+        Assert.Equal(0, libro.Count);
+        Assert.Equal(0m, libro.Total);
+
+        // Pero la venta existe y se cuenta: el control propio la tiene.
+        var ingresos = await servicio.IncomeAsync(hoy.Year);
+        var suyas = ingresos.Rows.Where(r => r.ProductId == productoId).ToList();
+
+        Assert.Single(suyas);
+        Assert.False(suyas[0].Fiscal);
+        Assert.Equal(comprobante.Total - comprobante.TaxTotal, suyas[0].Net);
+    }
+
+    /// <summary>
+    /// Lo anulado no es ingreso: el número existió, la venta no. En el libro sigue saliendo
+    /// —tachado y en cero—, pero acá no suma.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task Lo_anulado_no_cuenta_como_ingreso()
+    {
+        var (productoId, llave) = await ServicioConLlaveAsync();
+
+        await using var db = Contexto();
+        var servicio = Servicio(db);
+
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var buena = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+        var mala = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+
+        await servicio.VoidInvoiceAsync(mala.Id, new VoidInvoiceRequest("Se cobró de más"));
+
+        var ingresos = await servicio.IncomeAsync(hoy.Year);
+        var suyas = ingresos.Rows.Where(r => r.ProductId == productoId).ToList();
+
+        Assert.Single(suyas);
+        Assert.Equal(1, suyas[0].Count);
+        Assert.Equal(buena.Total - buena.TaxTotal, suyas[0].Net);
+    }
+
     [RequiereBaseLocal]
     public async Task El_libro_suma_lo_emitido_y_deja_fuera_lo_anulado()
     {
@@ -215,8 +297,10 @@ public class FacturarDesdeOtroPortalTests
 
         var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var una = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
-        var otra = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+        await ConRangoVigenteAsync();
+
+        var una = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", ConCai());
+        var otra = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", ConCai());
 
         await servicio.VoidInvoiceAsync(otra.Id, new VoidInvoiceRequest("Se cobró de más"));
 
