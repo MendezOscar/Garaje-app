@@ -48,6 +48,11 @@ public class PlatformController(IPlatformService service, IRepasoDeAvisos repaso
         CancellationToken ct, int days = 30)
         => Ok(await service.UsageAsync(days, ct));
 
+    /// <summary>Lo cobrado en un mes por mensualidades. Sin año ni mes, el mes corriente.</summary>
+    [HttpGet("~/api/platform/collected")]
+    public async Task<ActionResult<CollectedDto>> Collected(CancellationToken ct, int? year = null, int? month = null)
+        => Ok(await service.CollectedAsync(year, month, ct));
+
     /// <summary>La ficha de cobro de un taller con su historial de pagos.</summary>
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PlatformTenantDetailDto>> Get(Guid id, CancellationToken ct)

@@ -10,7 +10,9 @@ import {
   PLAN_LABEL,
   SubscriptionPlan,
   WorkshopKind,
+  type Collected,
   type CreatedTenant,
+  type PlatformSettings,
   type PlatformTenant,
 } from '@/types/domain'
 import { formatDay, formatMoney } from '@/utils/format'
@@ -94,15 +96,135 @@ const queTraeElPlan = computed(() => {
   return `${PLAN_LABEL[form.value.plan]}: ${tecnicos}, ${diag}. Los dos se ajustan después en la ficha del taller.`
 })
 
-/** Cuántos hay que atender ya. Es el número que importa al abrir la pantalla. */
-const porCobrar = computed(
-  () => tenants.value.filter((t) => t.state !== 'Active').length,
+/**
+ * Un taller sin cuota no es un cliente que deba: es una cuenta de prueba o de cortesía. Se
+ * separa porque mezclarlo con los que pagan arruina las dos cuentas —la de ingresos y la de
+ * mora—, y porque lo que hay que hacer con él es otra cosa: ponerle plan.
+ */
+function esDePrueba(t: PlatformTenant) {
+  return t.isActive && t.monthlyFee <= 0
+}
+
+/** Nuestros datos de emisor: de aquí sale el ISV con que se dice lo que debe depositar. */
+const emisor = ref<PlatformSettings | null>(null)
+
+/** Lo cobrado en el mes corriente, que es la otra mitad de «cómo vamos». */
+const cobrado = ref<Collected | null>(null)
+
+/** Lo que el taller deposita: la cuota más el ISV, si el ISV va por encima. */
+function conIsv(neto: number) {
+  const tasa = emisor.value?.defaultTaxRate ?? 0
+  if (tasa <= 0 || emisor.value?.pricesIncludeTax !== false) return neto
+  return Math.round(neto * (1 + tasa / 100) * 100) / 100
+}
+
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+
+const mesCorriente = computed(() =>
+  cobrado.value ? MESES[cobrado.value.month - 1] : MESES[new Date().getMonth()],
 )
+
+/** De una ojeada: cuántos son, cuántos pagan y cuántos están de prueba. */
+const resumen = computed(() => {
+  const activos = tenants.value.filter((t) => t.isActive)
+  const prueba = activos.filter(esDePrueba).length
+  const pagan = activos.length - prueba
+
+  return [
+    `${tenants.value.length} ${tenants.value.length === 1 ? 'taller' : 'talleres'}`,
+    `${pagan} ${pagan === 1 ? 'paga mensualidad' : 'pagan mensualidad'}`,
+    prueba ? `${prueba} de prueba` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+})
+
+/**
+ * A quién hay que atender hoy, dicho en palabras y con el botón al lado. Es lo primero de la
+ * pantalla a propósito: una tabla ordenada por vencimiento obliga a leer fechas y restar; esto
+ * ya trae la resta hecha y lo que hay que hacer.
+ */
+const atencion = computed(() => {
+  const dias = (t: PlatformTenant) => t.daysLeft ?? 0
+
+  return tenants.value
+    .filter((t) => t.isActive)
+    .map((t) => {
+      if (esDePrueba(t)) {
+        if (!t.paidThrough || dias(t) > 7) return null
+        return {
+          t,
+          tono: 'aviso',
+          etiqueta: 'Prueba termina',
+          razon: `La prueba termina el ${formatDay(t.paidThrough)}, ${enCuanto(t)}. Todavía no tiene cuota.`,
+          monto: null,
+          accion: 'Ponerle plan',
+        }
+      }
+
+      if (t.state === 'ReadOnly')
+        return {
+          t,
+          tono: 'cortado',
+          etiqueta: 'Solo lectura',
+          razon: `Venció el ${formatDay(t.paidThrough)}, ${enCuanto(t)}. No puede registrar órdenes ni facturar.`,
+          monto: conIsv(t.monthlyFee),
+          accion: 'Registrar pago',
+        }
+
+      if (t.state === 'Grace')
+        return {
+          t,
+          tono: 'urgente',
+          etiqueta: 'En gracia',
+          razon: `Venció el ${formatDay(t.paidThrough)}, ${enCuanto(t)}. Sigue trabajando hasta el ${formatDay(t.readOnlyOn)}.`,
+          monto: conIsv(t.monthlyFee),
+          accion: 'Registrar pago',
+        }
+
+      if (t.state === 'DueSoon')
+        return {
+          t,
+          tono: 'aviso',
+          etiqueta: 'Vence pronto',
+          razon: `Vence el ${formatDay(t.paidThrough)}, ${enCuanto(t)}.${
+            t.lastPaymentOn ? ` Último pago el ${formatDay(t.lastPaymentOn)}.` : ' Nunca ha pagado.'
+          }`,
+          monto: conIsv(t.monthlyFee),
+          accion: 'Registrar pago',
+        }
+
+      return null
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    // Lo más urgente primero: el cortado antes que el que vence la semana que viene.
+    .sort((a, b) => (a.t.daysLeft ?? 0) - (b.t.daysLeft ?? 0))
+})
+
+/** «hace 19 días», «en 6 días», «hoy»: la resta hecha, que es lo que se pregunta. */
+function enCuanto(t: PlatformTenant) {
+  const d = t.daysLeft
+  if (d === null) return 'sin fecha'
+  if (d === 0) return 'hoy'
+  return d > 0 ? `en ${d} ${d === 1 ? 'día' : 'días'}` : `hace ${-d} ${-d === 1 ? 'día' : 'días'}`
+}
 
 const busqueda = ref('')
 
 /** Qué se está mirando. «Por cobrar» es todo lo que no está al día. */
-const filtro = ref<'todos' | 'porCobrar' | 'acuerdo' | 'suspendidos'>('todos')
+const filtro = ref<'todos' | 'porCobrar' | 'acuerdo' | 'prueba' | 'suspendidos'>('todos')
+
+/** El número de cada pestaña: dice dónde mirar antes de tocarla. */
+const cuentas = computed(() => ({
+  todos: tenants.value.length,
+  porCobrar: tenants.value.filter((t) => t.isActive && !esDePrueba(t) && t.state !== 'Active').length,
+  acuerdo: tenants.value.filter((t) => !!t.unblockedThrough).length,
+  prueba: tenants.value.filter(esDePrueba).length,
+  suspendidos: tenants.value.filter((t) => t.state === 'Suspended' || !t.isActive).length,
+}))
 
 /** Por qué columna se ordena, y hacia dónde. */
 const orden = ref<'vence' | 'nombre' | 'cuota' | 'pago'>('vence')
@@ -125,9 +247,11 @@ const visibles = computed(() => {
 
     switch (filtro.value) {
       case 'porCobrar':
-        return t.state !== 'Active'
+        return t.isActive && !esDePrueba(t) && t.state !== 'Active'
       case 'acuerdo':
         return !!t.unblockedThrough
+      case 'prueba':
+        return esDePrueba(t)
       case 'suspendidos':
         return t.state === 'Suspended' || !t.isActive
       default:
@@ -159,21 +283,22 @@ const visibles = computed(() => {
  * lo que está parado. Se cuenta sobre los talleres activos: uno suspendido no es ingreso.
  */
 const cifras = computed(() => {
-  const activos = tenants.value.filter((t) => t.isActive)
+  const pagan = tenants.value.filter((t) => t.isActive && !esDePrueba(t))
+  const atrasados = pagan.filter((t) => t.state === 'Grace' || t.state === 'ReadOnly')
+  const porVencer = pagan.filter((t) => t.state === 'DueSoon')
+  const suma = (lista: PlatformTenant[]) => lista.reduce((total, t) => total + t.monthlyFee, 0)
 
   return {
-    talleres: activos.length,
-    mensual: activos.reduce((suma, t) => suma + t.monthlyFee, 0),
-    atrasados: activos.filter((t) => t.state === 'Grace' || t.state === 'ReadOnly').length,
-    detenido: activos
-      .filter((t) => t.state === 'Grace' || t.state === 'ReadOnly')
-      .reduce((suma, t) => suma + t.monthlyFee, 0),
+    talleres: pagan.length,
+    mensual: suma(pagan),
+    atrasados: atrasados.length,
+    detenido: suma(atrasados),
+    porVencer: porVencer.length,
+    porVencerMonto: suma(porVencer),
+    // Un solo nombre cuando es uno solo: «Lubri Smart» dice más que «1 taller».
+    quienVence: porVencer.length === 1 ? porVencer[0].name : null,
   }
 })
-
-function verPorCobrar() {
-  filtro.value = filtro.value === 'porCobrar' ? 'todos' : 'porCobrar'
-}
 
 const etiquetas: Record<PlatformTenant['state'], string> = {
   Active: 'Al día',
@@ -202,7 +327,16 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    tenants.value = await platformApi.list()
+    // El emisor y lo cobrado no tumban la pantalla si fallan: son dos tarjetas, no la lista.
+    const [lista, ajustes, mes] = await Promise.all([
+      platformApi.list(),
+      platformApi.billingSettings().catch(() => null),
+      platformApi.collected().catch(() => null),
+    ])
+
+    tenants.value = lista
+    emisor.value = ajustes
+    cobrado.value = mes
   } catch (e) {
     error.value = errorMessage(e, 'No se pudo cargar la lista de talleres.')
   } finally {
@@ -257,20 +391,11 @@ onMounted(load)
     <header class="top">
       <div>
         <h1>Talleres</h1>
-        <p class="muted small">
-          <!-- El número no es un rótulo: se toca y deja la tabla en los que hay que atender. -->
-          <template v-if="porCobrar">
-            <button type="button" class="link" @click="verPorCobrar">
-              {{ porCobrar }} {{ porCobrar === 1 ? 'taller necesita' : 'talleres necesitan' }}
-              atención de cobro
-            </button>
-          </template>
-          <template v-else>Todos al día.</template>
-        </p>
+        <p class="muted small">{{ resumen }}</p>
       </div>
       <div class="acciones">
         <button type="button" class="btn-ghost" :disabled="busy" @click="correrElRepaso">
-          Correr avisos
+          Enviar recordatorios de pago
         </button>
         <button type="button" @click="creando = !creando">
           {{ creando ? 'Cancelar' : 'Nuevo taller' }}
@@ -413,15 +538,75 @@ onMounted(load)
       </p>
     </form>
 
+    <!-- A quién atender hoy, con la resta hecha y el botón al lado. Va primero porque es a lo
+         que se entra: una tabla ordenada por vencimiento obliga a leer fechas y restar. -->
+    <section v-if="!loading && atencion.length" class="atencion">
+      <h2>
+        Necesitan atención
+        <span class="muted">· {{ atencion.length }}</span>
+      </h2>
+
+      <div class="tarjetas">
+        <article v-for="a in atencion" :key="a.t.id" class="aviso" :class="a.tono">
+          <div class="aviso-top">
+            <RouterLink :to="{ name: 'platform-tenant', params: { id: a.t.id } }" class="nombre">
+              {{ a.t.name }}
+            </RouterLink>
+            <span class="chip" :class="a.tono">{{ a.etiqueta }}</span>
+          </div>
+
+          <p class="razon">{{ a.razon }}</p>
+
+          <div class="aviso-pie">
+            <span v-if="a.monto !== null" class="num">
+              {{ formatMoney(a.monto) }}
+              <span class="muted small">{{ a.monto === a.t.monthlyFee ? '' : 'con ISV' }}</span>
+            </span>
+            <span v-else class="muted small">Cuenta de prueba</span>
+
+            <RouterLink
+              class="btn-chico"
+              :to="{ name: 'platform-tenant', params: { id: a.t.id }, query: { cobrar: '1' } }"
+            >
+              {{ a.accion }}
+            </RouterLink>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <!-- Cómo vamos, sin abrir una ficha. -->
     <div v-if="!loading && tenants.length" class="cifras">
       <article class="cifra">
-        <span class="rotulo">Al mes, si todos pagan</span>
+        <span class="rotulo">Mensualidades al mes</span>
         <strong class="num">{{ formatMoney(cifras.mensual) }}</strong>
-        <span class="muted small">{{ cifras.talleres }} talleres activos</span>
+        <span class="muted small">
+          {{ cifras.talleres }} {{ cifras.talleres === 1 ? 'taller que paga' : 'talleres que pagan' }}
+          · sin ISV
+        </span>
       </article>
+
+      <article class="cifra">
+        <span class="rotulo">Cobrado en {{ mesCorriente }}</span>
+        <strong class="num">{{ cobrado ? formatMoney(cobrado.total) : '—' }}</strong>
+        <span class="muted small">
+          <template v-if="cobrado">
+            {{ cobrado.count }} {{ cobrado.count === 1 ? 'pago registrado' : 'pagos registrados' }}
+          </template>
+          <template v-else>No se pudo leer</template>
+        </span>
+      </article>
+
+      <article class="cifra" :class="{ aviso: cifras.porVencer > 0 }">
+        <span class="rotulo">Vence en los próximos 7 días</span>
+        <strong class="num">{{ formatMoney(cifras.porVencerMonto) }}</strong>
+        <span class="muted small">
+          {{ cifras.quienVence ?? `${cifras.porVencer} ${cifras.porVencer === 1 ? 'taller' : 'talleres'}` }}
+        </span>
+      </article>
+
       <article class="cifra" :class="{ alerta: cifras.atrasados > 0 }">
-        <span class="rotulo">Detenido por falta de pago</span>
+        <span class="rotulo">Vencido sin pagar</span>
         <strong class="num">{{ formatMoney(cifras.detenido) }}</strong>
         <span class="muted small">
           {{ cifras.atrasados }} {{ cifras.atrasados === 1 ? 'taller' : 'talleres' }} en gracia o
@@ -442,10 +627,11 @@ onMounted(load)
       <div class="pestanas">
         <button
           v-for="f in [
-            { clave: 'todos' as const, label: 'Todos' },
-            { clave: 'porCobrar' as const, label: 'Por cobrar' },
-            { clave: 'acuerdo' as const, label: 'Con acuerdo' },
-            { clave: 'suspendidos' as const, label: 'Suspendidos' },
+            { clave: 'todos' as const, label: 'Todos', urgente: false },
+            { clave: 'porCobrar' as const, label: 'Por cobrar', urgente: true },
+            { clave: 'acuerdo' as const, label: 'Con acuerdo', urgente: false },
+            { clave: 'prueba' as const, label: 'Prueba', urgente: false },
+            { clave: 'suspendidos' as const, label: 'Suspendidos', urgente: false },
           ]"
           :key="f.clave"
           type="button"
@@ -454,6 +640,9 @@ onMounted(load)
           @click="filtro = f.clave"
         >
           {{ f.label }}
+          <span class="cuenta" :class="{ urgente: f.urgente && cuentas[f.clave] > 0 }">
+            {{ cuentas[f.clave] }}
+          </span>
         </button>
       </div>
     </div>
@@ -492,6 +681,7 @@ onMounted(load)
               Último pago<span v-if="orden === 'pago'">{{ descendente ? ' ↓' : ' ↑' }}</span>
             </button>
           </th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>
@@ -524,11 +714,39 @@ onMounted(load)
               {{ t.daysLeft === 0 ? 'vence hoy' : `faltan ${t.daysLeft} días` }}
             </div>
           </td>
-          <td class="num">{{ formatMoney(t.monthlyFee) }}</td>
-          <td>{{ formatDay(t.lastPaymentOn) }}</td>
+          <td class="num">
+            <template v-if="esDePrueba(t)"><span class="muted">Sin cuota</span></template>
+            <template v-else>{{ formatMoney(t.monthlyFee) }}</template>
+          </td>
+          <td>
+            <template v-if="t.lastPaymentOn">{{ formatDay(t.lastPaymentOn) }}</template>
+            <span v-else class="muted">Nunca ha pagado</span>
+          </td>
+          <!-- La acción en la fila: el que abre esta pantalla viene a cobrar, no a navegar. -->
+          <td class="acciones-fila">
+            <RouterLink
+              class="btn-chico"
+              :to="{ name: 'platform-tenant', params: { id: t.id }, query: { cobrar: '1' } }"
+            >
+              {{ esDePrueba(t) ? 'Ponerle plan' : 'Registrar pago' }}
+            </RouterLink>
+          </td>
         </tr>
       </tbody>
     </table>
+
+    <!-- Qué significa cada estado. Son cuatro palabras que deciden si un taller puede
+         facturar hoy: dejarlas a la interpretación de quien mira sale caro. -->
+    <dl v-if="!loading && tenants.length" class="leyenda">
+      <dt><span class="chip ok">Al día</span></dt>
+      <dd>pagado</dd>
+      <dt><span class="chip aviso">Por vencer</span></dt>
+      <dd>faltan 7 días o menos</dd>
+      <dt><span class="chip urgente">En gracia</span></dt>
+      <dd>vencido, pero sigue trabajando los días de gracia</dd>
+      <dt><span class="chip cortado">Solo lectura</span></dt>
+      <dd>pasó la gracia: consulta, pero no registra órdenes ni factura</dd>
+    </dl>
   </section>
 </template>
 
@@ -761,4 +979,123 @@ td {
   color: var(--text-muted);
 }
 
+
+/* A quién atender hoy: lo primero que se ve, con la razón en palabras y el botón al lado. */
+.atencion {
+  margin-bottom: 1.25rem;
+}
+
+.atencion h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+  gap: 0.75rem;
+}
+
+.aviso {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+/* El borde dice de qué urgencia es sin tener que leer la etiqueta. */
+.aviso.cortado {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.aviso.urgente,
+.aviso.aviso {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+.aviso-top,
+.aviso-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.aviso .razon {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.aviso-pie .num {
+  font-weight: 600;
+}
+
+/* El botón de una fila o de una tarjeta: el mismo en los dos lados. */
+.btn-chico {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-chico:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  color: var(--brand);
+}
+
+.acciones-fila {
+  text-align: right;
+}
+
+/* El número de cada pestaña: dice dónde mirar antes de tocarla. */
+.pestana .cuenta {
+  margin-left: 0.35rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pestana .cuenta.urgente {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.cifra.aviso {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+.cifra.aviso strong {
+  color: var(--warning);
+}
+
+/* Qué quiere decir cada estado. Cuatro palabras que deciden si un taller factura hoy. */
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.25rem;
+  margin: 0.875rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.leyenda dt {
+  display: inline-flex;
+}
+
+.leyenda dd {
+  margin: 0 0 0 -0.9rem;
+}
 </style>

@@ -42,6 +42,7 @@ import type {
   Paged,
   Part,
   PaymentMethod,
+  Collected,
   PlatformSettings,
   PlatformTenant,
   InvoiceListItem,
@@ -1651,6 +1652,14 @@ export const platformApi = {
    */
   async usage(days = 30): Promise<PlatformUsage[]> {
     const { data } = await api.get<PlatformUsage[]>('/api/platform/usage', { params: { days } })
+    return data
+  },
+  /**
+   * Lo cobrado en el mes: la suma de los pagos que entraron y no se anularon. Se cuenta por
+   * el día en que el taller pagó, que es lo que hace que cuadre con el banco.
+   */
+  async collected(year?: number, month?: number): Promise<Collected> {
+    const { data } = await api.get<Collected>('/api/platform/collected', { params: { year, month } })
     return data
   },
   async get(id: string): Promise<PlatformTenantDetail> {
