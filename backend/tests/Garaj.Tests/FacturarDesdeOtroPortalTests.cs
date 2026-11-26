@@ -261,6 +261,45 @@ public class FacturarDesdeOtroPortalTests
     }
 
     /// <summary>
+    /// El ISV solo entra en la factura con CAI. El comprobante no desglosa impuesto: se cobra
+    /// el precio pelado, y quien quiere la factura paga el 15% encima.
+    /// </summary>
+    [RequiereBaseLocal]
+    public async Task El_comprobante_no_lleva_isv_y_la_factura_si()
+    {
+        var (_, llave) = await ServicioConLlaveAsync();
+        await ConRangoVigenteAsync();
+
+        await using var db = Contexto();
+        var servicio = Servicio(db);
+
+        var comprobante = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", Peticion());
+
+        Assert.Equal(0m, comprobante.TaxRate);
+        Assert.Equal(0m, comprobante.TaxTotal);
+        Assert.Equal(comprobante.Subtotal, comprobante.Total);
+
+        var factura = await servicio.IssueAsync(llave, $"idem-{Guid.NewGuid():N}", ConCai());
+
+        Assert.True(factura.IsFiscal);
+        Assert.True(factura.TaxTotal > 0m);
+
+        // El mismo precio de lista en los dos: lo que cambia es lo que se cobra encima.
+        Assert.Equal(comprobante.Subtotal, factura.Subtotal);
+
+        // Cómo se cobra el ISV —encima o adentro— es un ajuste del emisor, así que se mira y
+        // no se escribe aquí. Cobrándolo encima, que es como cobramos, la factura sale más
+        // cara que el comprobante por el mismo servicio.
+        var ajustes = await db.PlatformSettings.AsNoTracking().FirstAsync();
+
+        if (!ajustes.PricesIncludeTax)
+        {
+            Assert.Equal(factura.Subtotal + factura.TaxTotal, factura.Total);
+            Assert.True(factura.Total > comprobante.Total);
+        }
+    }
+
+    /// <summary>
     /// Lo anulado no es ingreso: el número existió, la venta no. En el libro sigue saliendo
     /// —tachado y en cero—, pero acá no suma.
     /// </summary>

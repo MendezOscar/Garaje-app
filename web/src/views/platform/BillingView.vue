@@ -420,7 +420,9 @@ const muestra = computed(() => {
   const tasa = Number(form.value.defaultTaxRate) || 0
   const cuota = 850
 
-  if (tasa <= 0) return { base: cuota, isv: 0, total: cuota }
+  // El ISV solo entra en la factura con CAI: el comprobante no desglosa impuesto. Por eso la
+  // previa deja de enseñarlo en cuanto el documento que saldría es un comprobante.
+  if (tasa <= 0 || !rangoImpreso.value) return { base: cuota, isv: 0, total: cuota }
 
   if (form.value.pricesIncludeTax) {
     const base = Math.round((cuota / (1 + tasa / 100)) * 100) / 100
@@ -629,7 +631,9 @@ onMounted(load)
             <span class="numero">2</span>
             <div>
               <h2>Cómo se cobra el ISV</h2>
-              <p class="muted small">Aplica a todas las mensualidades.</p>
+              <p class="muted small">
+                Solo entra en la factura con CAI: el comprobante no lleva impuesto.
+              </p>
             </div>
           </header>
 
@@ -642,8 +646,9 @@ onMounted(load)
               <span>
                 <strong>Se suma a la cuota</strong>
                 <small class="muted">
-                  Cuota {{ formatMoney(850) }} → el taller deposita
-                  {{ formatMoney(850 * (1 + Number(form.defaultTaxRate) / 100)) }}
+                  Cuota {{ formatMoney(850) }} → con factura deposita
+                  {{ formatMoney(850 * (1 + Number(form.defaultTaxRate) / 100)) }}; con
+                  comprobante, {{ formatMoney(850) }}
                 </small>
               </span>
             </label>
@@ -653,7 +658,8 @@ onMounted(load)
               <span>
                 <strong>Ya viene incluido</strong>
                 <small class="muted">
-                  Cuota {{ formatMoney(850) }} → el taller deposita {{ formatMoney(850) }}
+                  Cuota {{ formatMoney(850) }} → deposita {{ formatMoney(850) }}, y con
+                  factura el ISV se desglosa de adentro
                 </small>
               </span>
             </label>

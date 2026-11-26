@@ -758,27 +758,25 @@ public class PlatformService(
         DateOnly paidOn, CancellationToken ct)
     {
         var settings = await SettingsAsync(ct);
-        var tasa = settings.DefaultTaxRate;
+
+        // El ISV solo entra en la factura con CAI. El comprobante no desglosa impuesto: el
+        // precio del servicio es neto y lo que no ampara una factura no lo lleva encima.
+        var tasa = fiscal ? settings.DefaultTaxRate : 0m;
         var conImpuestoAdentro = settings.PricesIncludeTax;
 
         var lineas = (pedidas ?? []).Where(l => !string.IsNullOrWhiteSpace(l.Description)).ToList();
 
-        // Sin conceptos escritos: una línea por lo que entró. El neto depende de cómo
-        // cobremos —con el ISV adentro el total ya es el neto más el impuesto; con el ISV
-        // aparte hay que sacarlo del monto recibido para no cobrarlo dos veces—.
+        // Sin conceptos escritos: una línea por la mensualidad. El monto registrado es el
+        // precio, y si el documento lleva el ISV encima el total sale más alto que él.
         if (lineas.Count == 0)
         {
-            var neto = tasa <= 0 || conImpuestoAdentro
-                ? monto
-                : Math.Round(monto / (1 + tasa / 100), 2, MidpointRounding.AwayFromZero);
-
             var cuantos = Math.Clamp(meses, 1, 24);
 
             lineas =
             [
                 new SaveInvoiceLineRequest(
                     cuantos == 1 ? "Mensualidad GarajApp" : $"Mensualidad GarajApp ({cuantos} meses)",
-                    1, neto)
+                    1, monto)
             ];
         }
 
