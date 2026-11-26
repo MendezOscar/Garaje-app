@@ -821,7 +821,9 @@ onMounted(load)
           <article class="papel">
             <div class="papel-top">
               <div>
-                <strong>{{ form.name || 'GarajApp' }}</strong>
+                <!-- El mismo logotipo que lleva el PDF, y por eso tampoco se repite el nombre
+                     debajo: lo que se ve aquí tiene que ser lo que recibe el cliente. -->
+                <img class="papel-marca" src="/brand/naara-apps-horizontal.png" alt="Naara Apps" />
                 <div :class="{ hueco: !form.legalName.trim() }">
                   {{ form.legalName.trim() || '[Razón social]' }}
                 </div>
@@ -1684,6 +1686,12 @@ dd {
 
 .papel-top strong {
   font-size: 1rem;
+}
+
+.papel-marca {
+  height: 1.75rem;
+  width: auto;
+  margin-bottom: 0.3rem;
 }
 
 .papel-numero {

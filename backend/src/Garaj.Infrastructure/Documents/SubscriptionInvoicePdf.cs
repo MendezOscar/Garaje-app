@@ -23,6 +23,28 @@ public static class SubscriptionInvoicePdf
 {
     private static readonly CultureInfo Culture = new("es-HN");
 
+    /// <summary>
+    /// El logotipo del emisor, incrustado en el ensamblado.
+    /// </summary>
+    /// <remarks>
+    /// No es el logo de un taller —ese se sube y se guarda en el bucket— sino el nuestro, que
+    /// es uno solo y no cambia de un despliegue a otro. Leerlo del binario evita que el papel
+    /// que ve un cliente dependa de que una descarga salga bien.
+    /// </remarks>
+    private static readonly byte[] Marca = LeerMarca();
+
+    private static byte[] LeerMarca()
+    {
+        using var recurso = typeof(SubscriptionInvoicePdf).Assembly
+            .GetManifestResourceStream("Garaj.Marca.png")
+            ?? throw new InvalidOperationException("Falta el logotipo del emisor en el ensamblado.");
+
+        using var memoria = new MemoryStream();
+        recurso.CopyTo(memoria);
+
+        return memoria.ToArray();
+    }
+
     public static byte[] Render(SubscriptionInvoiceDto factura, PlatformSettingsDto emisor)
     {
         var document = Document.Create(container =>
@@ -50,7 +72,9 @@ public static class SubscriptionInvoicePdf
         {
             row.RelativeItem().Column(column =>
             {
-                column.Item().Text(emisor.Name).FontSize(16).Bold();
+                // El logotipo lleva el nombre escrito, así que el nombre no se repite debajo:
+                // dos veces lo mismo en el encabezado es ruido en el único renglón que se mira.
+                column.Item().PaddingBottom(6).Width(150).Height(53).Image(Marca).FitArea();
 
                 if (!string.IsNullOrWhiteSpace(emisor.LegalName))
                     column.Item().Text(emisor.LegalName).FontSize(9);
