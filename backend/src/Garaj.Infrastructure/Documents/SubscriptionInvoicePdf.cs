@@ -23,6 +23,14 @@ public static class SubscriptionInvoicePdf
 {
     private static readonly CultureInfo Culture = new("es-HN");
 
+    // Los colores salen del logotipo, no de la paleta de QuestPDF: el papel y la marca tienen
+    // que verse de la misma familia.
+    private const string Azul = "#0d2a7a";
+    private const string Tinta = "#201e1d";
+    private const string Gris = "#605d5d";
+    private const string Fondo = "#f3f5fb";
+    private const string Linea = "#dfe3ee";
+
     /// <summary>
     /// El logotipo del emisor, incrustado en el ensamblado.
     /// </summary>
@@ -53,10 +61,10 @@ public static class SubscriptionInvoicePdf
             {
                 page.Size(PageSizes.Letter);
                 page.Margin(2, Unit.Centimetre);
-                page.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken4));
+                page.DefaultTextStyle(x => x.FontSize(10).FontColor(Tinta));
 
                 page.Header().Element(header => Header(header, factura, emisor));
-                page.Content().PaddingVertical(1, Unit.Centimetre)
+                page.Content().PaddingVertical(0.7f, Unit.Centimetre)
                     .Element(content => Content(content, factura));
                 page.Footer().Element(footer => Footer(footer, factura, emisor));
             });
@@ -68,53 +76,77 @@ public static class SubscriptionInvoicePdf
     private static void Header(
         IContainer container, SubscriptionInvoiceDto factura, PlatformSettingsDto emisor)
     {
-        container.Row(row =>
+        container.Column(todo =>
         {
-            row.RelativeItem().Column(column =>
+            todo.Item().Row(row =>
             {
-                // El logotipo lleva el nombre escrito, así que el nombre no se repite debajo:
-                // dos veces lo mismo en el encabezado es ruido en el único renglón que se mira.
-                column.Item().PaddingBottom(6).Width(150).Height(53).Image(Marca).FitArea();
-
-                if (!string.IsNullOrWhiteSpace(emisor.LegalName))
-                    column.Item().Text(emisor.LegalName).FontSize(9);
-                if (!string.IsNullOrWhiteSpace(emisor.TaxId))
-                    column.Item().Text($"RTN {emisor.TaxId}").FontSize(9);
-                if (!string.IsNullOrWhiteSpace(emisor.Address))
-                    column.Item().Text(emisor.Address).FontSize(8).FontColor(Colors.Grey.Darken1);
-                if (!string.IsNullOrWhiteSpace(emisor.Phone))
-                    column.Item().Text($"Tel. {emisor.Phone}").FontSize(9);
-                if (!string.IsNullOrWhiteSpace(emisor.Email))
-                    column.Item().Text(emisor.Email).FontSize(9);
-            });
-
-            row.ConstantItem(200).AlignRight().Column(column =>
-            {
-                column.Item().Text(factura.Fiscal ? "FACTURA" : "COMPROBANTE DE PAGO")
-                    .FontSize(14).Bold();
-                column.Item().Text(factura.Number).FontSize(12).SemiBold();
-                column.Item().Text(factura.IssuedOn.ToString("dd/MM/yyyy", Culture)).FontSize(9);
-
-                if (factura.IsVoided)
-                    column.Item().PaddingTop(4).Text("ANULADA").Bold().FontColor(Colors.Red.Darken2);
-
-                // Lo que el régimen pide impreso, y solo cuando de verdad hay CAI.
-                if (factura.Fiscal)
+                row.RelativeItem().PaddingRight(12).Column(column =>
                 {
-                    column.Item().PaddingTop(6).Text($"CAI: {factura.FiscalCai}").FontSize(8);
+                    // El logotipo lleva el nombre escrito, así que el nombre no se repite
+                    // debajo: dos veces lo mismo es ruido en el renglón que todos miran.
+                    column.Item().PaddingBottom(8).Width(118).Height(42).Image(Marca).FitArea();
 
-                    if (factura.FiscalRangeText is { } rango)
-                        column.Item().Text($"Rango autorizado: {rango}").FontSize(8);
+                    if (!string.IsNullOrWhiteSpace(emisor.LegalName))
+                        column.Item().Text(emisor.LegalName).FontSize(9).SemiBold();
+                    if (!string.IsNullOrWhiteSpace(emisor.TaxId))
+                        column.Item().Text($"RTN {emisor.TaxId}").FontSize(8.5f);
+                    if (!string.IsNullOrWhiteSpace(emisor.Address))
+                        column.Item().Text(emisor.Address).FontSize(8.5f).FontColor(Gris);
 
-                    if (factura.FiscalIssueDeadline is { } limite)
+                    var contacto = string.Join(
+                        " · ",
+                        new[] { emisor.Phone, emisor.Email }
+                            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+                    if (contacto.Length > 0)
+                        column.Item().Text(contacto).FontSize(8.5f).FontColor(Gris);
+                });
+
+                row.ConstantItem(215).AlignRight().Column(column =>
+                {
+                    column.Item().Text(factura.Fiscal ? "FACTURA" : "COMPROBANTE DE PAGO")
+                        .FontSize(10).Bold().FontColor(Azul).LetterSpacing(0.14f);
+                    column.Item().Text(factura.Number).FontSize(15).SemiBold();
+                    column.Item().PaddingTop(1)
+                        .Text($"Emitida el {factura.IssuedOn.ToString("dd/MM/yyyy", Culture)}")
+                        .FontSize(8.5f).FontColor(Gris);
+
+                    if (factura.IsVoided)
                     {
-                        column.Item()
-                            .Text($"Fecha límite de emisión: {limite.ToLocalTime():dd/MM/yyyy}")
-                            .FontSize(8);
+                        column.Item().PaddingTop(5).Border(1).BorderColor(Colors.Red.Darken2)
+                            .PaddingVertical(2).PaddingHorizontal(8)
+                            .Text("ANULADA").Bold().FontSize(10)
+                            .FontColor(Colors.Red.Darken2).LetterSpacing(0.14f);
                     }
-                }
+
+                    // Lo que el régimen pide impreso, y solo cuando de verdad hay CAI. En su
+                    // propio recuadro, porque es el bloque que busca quien revisa el papel.
+                    if (factura.Fiscal)
+                    {
+                        column.Item().PaddingTop(8).Background(Fondo).Padding(7).Column(caja =>
+                        {
+                            caja.Spacing(3);
+                            DatoFiscal(caja, "CAI", factura.FiscalCai);
+                            DatoFiscal(caja, "Rango autorizado", factura.FiscalRangeText);
+                            DatoFiscal(caja, "Fecha límite de emisión",
+                                factura.FiscalIssueDeadline?.ToLocalTime().ToString(
+                                    "dd/MM/yyyy", Culture));
+                        });
+                    }
+                });
             });
+
+            todo.Item().PaddingTop(12).LineHorizontal(1.5f).LineColor(Azul);
         });
+    }
+
+    /// <summary>Un dato del CAI: el rótulo encima y el valor debajo, que así no se parte.</summary>
+    private static void DatoFiscal(ColumnDescriptor column, string rotulo, string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor)) return;
+
+        column.Item().Text(rotulo).FontSize(7).FontColor(Gris).LetterSpacing(0.08f);
+        column.Item().Text(valor).FontSize(8);
     }
 
     private static void Content(IContainer container, SubscriptionInvoiceDto factura)
@@ -127,11 +159,11 @@ public static class SubscriptionInvoicePdf
             {
                 row.RelativeItem().Column(c =>
                 {
-                    c.Item().Text("Cliente").FontSize(8).FontColor(Colors.Grey.Darken1);
+                    Rotulo(c, "Cliente");
                     c.Item().Text(factura.CustomerLegalName ?? factura.CustomerName).SemiBold();
 
                     if (factura.CustomerLegalName is not null)
-                        c.Item().Text(factura.CustomerName).FontSize(9);
+                        c.Item().Text(factura.CustomerName).FontSize(9).FontColor(Gris);
 
                     // En la factura fiscal el RTN del cliente es lo que le permite deducirla.
                     if (factura.Fiscal)
@@ -141,6 +173,27 @@ public static class SubscriptionInvoicePdf
                             : "Consumidor final").FontSize(9);
                     }
                 });
+
+                // El mismo RTN cobra tres servicios: el papel tiene que decir por cuál se
+                // paga sin que haya que leer las líneas.
+                if (factura.ProductName is { Length: > 0 } || factura.PaymentReference is { Length: > 0 })
+                {
+                    row.ConstantItem(170).AlignRight().Column(c =>
+                    {
+                        if (factura.ProductName is { Length: > 0 } servicio)
+                        {
+                            Rotulo(c, "Servicio");
+                            c.Item().Text(servicio).SemiBold();
+                        }
+
+                        if (factura.PaymentReference is { Length: > 0 } referencia)
+                        {
+                            Rotulo(c, "Referencia del pago",
+                                factura.ProductName is { Length: > 0 } ? 6 : 0);
+                            c.Item().Text(referencia).FontSize(9);
+                        }
+                    });
+                }
             });
 
             if (factura.IsVoided && factura.VoidReason is { } motivo)
@@ -186,7 +239,7 @@ public static class SubscriptionInvoicePdf
                 }
             });
 
-            column.Item().AlignRight().Width(240).Column(totals =>
+            column.Item().AlignRight().Width(250).Column(totals =>
             {
                 if (factura.TaxRate > 0)
                 {
@@ -199,12 +252,14 @@ public static class SubscriptionInvoicePdf
                     Total(totals, "Subtotal", Money(factura.Subtotal, factura.Currency));
                 }
 
-                totals.Item().PaddingTop(4).BorderTop(1).BorderColor(Colors.Grey.Darken1)
-                    .PaddingTop(4).Row(row =>
+                totals.Item().PaddingTop(6).Background(Fondo).PaddingVertical(6)
+                    .PaddingHorizontal(8).Row(row =>
                     {
-                        row.RelativeItem().Text("TOTAL").Bold().FontSize(11);
-                        row.ConstantItem(110).AlignRight()
-                            .Text(Money(factura.Total, factura.Currency)).Bold().FontSize(13);
+                        row.RelativeItem().AlignMiddle().Text("TOTAL")
+                            .Bold().FontSize(10).FontColor(Azul).LetterSpacing(0.12f);
+                        row.ConstantItem(120).AlignRight()
+                            .Text(Money(factura.Total, factura.Currency))
+                            .Bold().FontSize(14).FontColor(Azul);
                     });
             });
 
@@ -212,13 +267,13 @@ public static class SubscriptionInvoicePdf
             // corrección a mano de la cifra.
             if (factura.Fiscal)
             {
-                column.Item().PaddingTop(4)
+                column.Item().PaddingTop(2)
                     .Text($"Son: {NumeroEnLetras.Moneda(factura.Total, factura.Currency)}")
                     .FontSize(9).SemiBold();
             }
 
             if (!string.IsNullOrWhiteSpace(factura.Note))
-                column.Item().Text(factura.Note).FontSize(9).Italic();
+                column.Item().Text(factura.Note).FontSize(9).Italic().FontColor(Gris);
         });
     }
 
@@ -227,34 +282,42 @@ public static class SubscriptionInvoicePdf
     {
         container.Column(column =>
         {
+            column.Item().PaddingBottom(6).LineHorizontal(0.75f).LineColor(Linea);
+
             column.Item().Text(factura.Fiscal
                     ? "Documento fiscal autorizado por el SAR."
                     : "Este documento es un comprobante de pago y no sustituye una factura fiscal.")
-                .FontSize(8).FontColor(Colors.Grey.Darken1);
+                .FontSize(8).FontColor(Gris);
 
             // Qué servicio se cobró, cuando se sabe: el mismo RTN factura GarajApp, StockRuta
             // y Profeapp, y quien recibe el documento tiene que ver por cuál paga.
             column.Item().Text(factura.ProductName is { Length: > 0 } servicio
                     ? $"{emisor.Name} · {servicio}"
                     : emisor.Name)
-                .FontSize(8).FontColor(Colors.Grey.Darken1);
+                .FontSize(8).FontColor(Gris);
         });
     }
 
+    /// <summary>El rótulo de un dato: pequeño, gris y espaciado, para que no pese.</summary>
+    private static void Rotulo(ColumnDescriptor column, string texto, float arriba = 0) =>
+        column.Item().PaddingTop(arriba).PaddingBottom(1).Text(texto)
+            .FontSize(7.5f).FontColor(Gris).LetterSpacing(0.08f);
+
     private static void Total(ColumnDescriptor column, string label, string value) =>
-        column.Item().Row(row =>
+        column.Item().PaddingHorizontal(8).PaddingVertical(1).Row(row =>
         {
-            row.RelativeItem().Text(label).FontSize(9);
-            row.ConstantItem(110).AlignRight().Text(value).FontSize(9);
+            row.RelativeItem().Text(label).FontSize(9).FontColor(Gris);
+            row.ConstantItem(120).AlignRight().Text(value).FontSize(9);
         });
 
     private static IContainer HeaderCell(IContainer container) =>
-        container.Background(Colors.Grey.Lighten3).PaddingVertical(5).PaddingHorizontal(4)
-            .DefaultTextStyle(x => x.SemiBold().FontSize(9));
+        container.Background(Azul).PaddingVertical(5).PaddingHorizontal(6)
+            .DefaultTextStyle(x => x.SemiBold().FontSize(8.5f).FontColor("#ffffff")
+                .LetterSpacing(0.06f));
 
     private static IContainer BodyCell(IContainer container) =>
-        container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
-            .PaddingVertical(4).PaddingHorizontal(4).DefaultTextStyle(x => x.FontSize(9));
+        container.BorderBottom(0.75f).BorderColor(Linea)
+            .PaddingVertical(6).PaddingHorizontal(6).DefaultTextStyle(x => x.FontSize(9));
 
     private static string Money(decimal value, string currency) =>
         $"{(currency == "HNL" ? "L" : currency)} {value.ToString("N2", Culture)}";
