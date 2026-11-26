@@ -48,29 +48,30 @@ const pago = ref({
  */
 const emisor = ref<PlatformSettings | null>(null)
 
-/** Lo que el taller tiene que depositar: la mensualidad más el ISV, si va por encima. */
-function conImpuesto(neto: number): number {
-  const tasa = emisor.value?.defaultTaxRate ?? 0
-  if (tasa <= 0 || emisor.value?.pricesIncludeTax !== false) return neto
-  return Math.round(neto * (1 + tasa / 100) * 100) / 100
-}
 
 /**
- * Cómo queda repartido el monto recibido en el documento. Se enseña antes de registrar: el
- * número que se le dice al taller por teléfono es este, no el de la mensualidad pelada.
+ * Cómo queda el documento. Se enseña antes de registrar: el número que se le dice al taller
+ * por teléfono es el total, no la mensualidad pelada.
+ *
+ * El monto que se escribe es el precio del servicio. El ISV solo entra en la factura con CAI
+ * —el comprobante no desglosa impuesto—, y entra como lo cobre el emisor: encima del precio,
+ * que es como cobramos, o desglosado hacia atrás si el precio ya lo llevara adentro.
  */
 const documento = computed(() => {
   const tasa = emisor.value?.defaultTaxRate ?? 0
-  const total = Number(pago.value.amount) || 0
+  const monto = Number(pago.value.amount) || 0
+  const conCai = pago.value.emitir && pago.value.conCai && !sinCai.value
 
-  if (tasa <= 0) return { neto: total, impuesto: 0, total }
+  if (tasa <= 0 || !conCai) return { neto: monto, impuesto: 0, total: monto }
 
-  // Con el ISV por encima, el neto sale de dividir lo recibido; con el ISV adentro, el total
-  // ya es lo cobrado y el impuesto se desglosa hacia atrás. En los dos casos cuadra con el
-  // depósito, que es lo que no puede fallar.
-  const neto = Math.round((total / (1 + tasa / 100)) * 100) / 100
+  if (emisor.value?.pricesIncludeTax) {
+    const neto = Math.round((monto / (1 + tasa / 100)) * 100) / 100
+    return { neto, impuesto: Math.round((monto - neto) * 100) / 100, total: monto }
+  }
 
-  return { neto, impuesto: Math.round((total - neto) * 100) / 100, total }
+  const impuesto = Math.round(monto * (tasa / 100) * 100) / 100
+
+  return { neto: monto, impuesto, total: Math.round((monto + impuesto) * 100) / 100 }
 })
 
 /**
@@ -123,7 +124,7 @@ const montoAMano = ref(false)
 
 function elegirMeses(meses: number) {
   pago.value.months = meses
-  if (!montoAMano.value) pago.value.amount = conImpuesto((tenant.value?.monthlyFee ?? 0) * meses)
+  if (!montoAMano.value) pago.value.amount = (tenant.value?.monthlyFee ?? 0) * meses
 }
 
 /** Desde cuándo y hasta cuándo queda cubierto con este pago, dicho de corrido. */
@@ -300,8 +301,18 @@ const situacion = computed(() => {
   return 'Al día.'
 })
 
-/** Lo que el taller deposita de verdad: la mensualidad con el ISV encima, si va encima. */
-const deposita = computed(() => conImpuesto(tenant.value?.monthlyFee ?? 0))
+/**
+ * Lo que el taller deposita: la mensualidad pelada. El ISV solo se le suma al que pide
+ * factura con CAI, y eso se decide en cada cobro, no en el plan.
+ */
+const deposita = computed(() => tenant.value?.monthlyFee ?? 0)
+
+/** Cuánto se le suma al que pide factura. Cero cuando no cobramos ISV. */
+const isvSiFactura = computed(() => {
+  const tasa = emisor.value?.defaultTaxRate ?? 0
+  if (tasa <= 0 || emisor.value?.pricesIncludeTax) return 0
+  return Math.round((tenant.value?.monthlyFee ?? 0) * (tasa / 100) * 100) / 100
+})
 
 /** Lo que falta para que venza, dicho corto para el resumen de arriba. */
 const restante = computed(() => {
@@ -322,7 +333,7 @@ async function load() {
     data.value = await platformApi.get(id)
 
     const t = data.value.tenant
-    if (!montoAMano.value) pago.value.amount = conImpuesto(t.monthlyFee * pago.value.months)
+    if (!montoAMano.value) pago.value.amount = t.monthlyFee * pago.value.months
     ficha.value = {
       name: t.name,
       legalName: t.legalName ?? '',
@@ -577,7 +588,7 @@ onMounted(async () => {
              tener delante antes de hablarle de plan o de emitirle la factura. -->
         <p class="muted small">
           {{ PLAN_LABEL[tenant.plan] ?? tenant.planName ?? 'Sin plan' }} ·
-          {{ formatMoney(tenant.monthlyFee) }} al mes{{ deposita === tenant.monthlyFee ? '' : ' + ISV' }} ·
+          {{ formatMoney(tenant.monthlyFee) }} al mes ·
           {{ tenant.branchCount }} {{ tenant.branchCount === 1 ? 'sucursal' : 'sucursales' }} ·
           {{ tenant.technicianCount ?? '—' }}
           {{ tenant.technicianCount === 1 ? 'técnico' : 'técnicos' }} ·
@@ -637,7 +648,7 @@ onMounted(async () => {
         <span class="rotulo">Deposita al mes</span>
         <strong class="num">{{ formatMoney(deposita) }}</strong>
         <span class="muted small">
-          {{ deposita === tenant.monthlyFee ? 'ISV incluido' : `${formatMoney(tenant.monthlyFee)} + ISV` }}
+          {{ isvSiFactura > 0 ? `+ ISV ${formatMoney(isvSiFactura)} si pide factura` : 'Sin ISV' }}
         </span>
       </article>
 
@@ -720,7 +731,8 @@ onMounted(async () => {
               {{ formatMoney(documento.neto) }} + ISV {{ emisor?.defaultTaxRate }}%
               {{ formatMoney(documento.impuesto) }}
             </span>
-            <span v-else class="muted small">ISV incluido</span>
+            <!-- Sin factura con CAI no hay impuesto que cobrar: lo que entra es el precio. -->
+            <span v-else class="muted small">Sin ISV: no lleva factura con CAI</span>
           </div>
 
           <div class="cubre">

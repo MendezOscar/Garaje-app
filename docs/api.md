@@ -997,6 +997,10 @@ Idempotency-Key: pago-91823
 - **La llave se enseña una sola vez**, al generarla en Facturación → Servicios. Se guarda en
   hash —SHA-256 sobre 32 bytes de azar: no es una contraseña elegida por nadie, así que no hay
   diccionario que recorrer— y rotarla deja la anterior sin valor en el mismo acto.
+- **`unitPrice` es el precio, no el total cobrado.** Con `fiscal: false` el documento sale por
+  la suma de las líneas y sin impuesto; con `fiscal: true` se le suma el ISV encima, así que el
+  `total` que vuelve es mayor que lo que suman las líneas. El portal enseña ese total, no el
+  suyo.
 - **Apagar el servicio le corta la emisión** sin borrarle el historial.
 - El tope de peticiones va **por servicio**, partido por el hash de su llave: un portal con un
   bucle no deja sin facturar al otro.
@@ -1070,9 +1074,12 @@ anular, y no hay pago sin documento esperando a que alguien se acuerde.
   de nuestra propia numeración (`C-000008`) y el PDF dice que no sustituye una factura fiscal.
   Pedir `fiscal: true` sin rango vigente **falla**, en vez de emitir en silencio un comprobante
   donde se esperaba una factura.
-- **El ISV va por encima** (`pricesIncludeTax: false`): la mensualidad es neta y el impuesto se
-  suma. El monto recibido manda: sin conceptos escritos se factura una línea por lo que entró,
-  con el neto sacado hacia atrás, y así el documento siempre cuadra con el depósito del banco.
+- **El ISV solo entra en la factura con CAI.** El comprobante no desglosa impuesto: sale por el
+  precio pelado, con `taxRate` y `taxTotal` en cero. Con CAI, y cobrando el ISV por encima
+  (`pricesIncludeTax: false`), el impuesto se suma al precio y el total sale más alto —el que
+  quiere factura paga el 15% encima—. **El monto que se registra es el precio, no el depósito**:
+  sin conceptos escritos se factura una línea por ese monto, y el total del documento es esa
+  línea más el ISV cuando lo lleva.
 - **Lo del taller se copia al emitir** —nombre, razón social y RTN—: si corrige su RTN el mes
   que viene, el documento de este mes tiene que seguir diciendo lo que decía.
 - **El número de depósito es la llave contra el doble registro.** Si ya hay un pago de ese

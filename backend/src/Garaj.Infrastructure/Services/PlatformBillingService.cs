@@ -219,7 +219,9 @@ public class PlatformBillingService(
             db.PlatformSettings.Add(settings);
         }
 
-        var tasa = settings.DefaultTaxRate;
+        // El ISV solo entra en la factura con CAI. El comprobante no desglosa impuesto: el
+        // precio del servicio es neto y lo que no ampara una factura no lo lleva encima.
+        var tasa = request.Fiscal ? settings.DefaultTaxRate : 0m;
         var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
         var (total, impuesto) = Isv.Totales(suma, tasa, settings.PricesIncludeTax);
 
@@ -576,7 +578,9 @@ public class PlatformBillingService(
             db.PlatformSettings.Add(settings);
         }
 
-        var tasa = settings.DefaultTaxRate;
+        // El ISV solo entra en la factura con CAI. El comprobante no desglosa impuesto: el
+        // precio del servicio es neto y lo que no ampara una factura no lo lleva encima.
+        var tasa = request.Fiscal ? settings.DefaultTaxRate : 0m;
         var suma = lineas.Sum(l => Math.Round(l.Quantity * l.UnitPrice, 2, MidpointRounding.AwayFromZero));
         var (total, impuesto) = Isv.Totales(suma, tasa, settings.PricesIncludeTax);
 
