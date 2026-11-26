@@ -12,6 +12,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- La marca va dentro del binario y no en un bucket: el PDF de la mensualidad se arma
+         en el servidor y no puede quedarse sin encabezado porque una descarga falle. -->
+    <EmbeddedResource Include="Documents/Marca/naara-apps.png" LogicalName="Garaj.Marca.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Anthropic" Version="13.6.0" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.416.7" />
     <PackageReference Include="ClosedXML" Version="0.104.2" />
