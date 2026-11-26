@@ -318,6 +318,17 @@ const sinCai = computed(() => {
   return !r || r.isExpired || r.isExhausted
 })
 
+/**
+ * El rango que de verdad va a salir impreso, o null.
+ *
+ * La vista previa se dibuja con él y no con `settings.fiscalRange` a secas: un rango vencido
+ * o agotado está guardado pero no imprime nada, y el papel tiene que enseñar eso.
+ */
+const rangoImpreso = computed(() => {
+  const r = settings.value?.fiscalRange
+  return !r || sinCai.value ? null : r
+})
+
 /** El número que sale mientras no haya CAI: el del comprobante propio. */
 const numeroPropio = computed(
   () =>
@@ -824,50 +835,89 @@ onMounted(load)
                 <!-- El mismo logotipo que lleva el PDF, y por eso tampoco se repite el nombre
                      debajo: lo que se ve aquí tiene que ser lo que recibe el cliente. -->
                 <img class="papel-marca" src="/brand/naara-apps-horizontal.png" alt="Naara Apps" />
-                <div :class="{ hueco: !form.legalName.trim() }">
+                <div class="fuerte" :class="{ hueco: !form.legalName.trim() }">
                   {{ form.legalName.trim() || '[Razón social]' }}
                 </div>
                 <div :class="{ hueco: !form.taxId.trim() }">
                   RTN {{ form.taxId.trim() || '[falta]' }}
                 </div>
+                <div v-if="form.address.trim()" class="tenue">{{ form.address.trim() }}</div>
                 <div class="tenue">{{ [form.phone, form.email].filter(Boolean).join(' · ') }}</div>
               </div>
 
               <div class="papel-numero">
-                <strong>{{ settings?.fiscalRange && !sinCai ? 'FACTURA' : 'COMPROBANTE' }}</strong>
-                <div class="mono tenue">
-                  {{ settings?.fiscalRange && !sinCai
-                    ? settings.fiscalRange.nextFiscalNumber
-                    : numeroPropio }}
+                <span class="papel-tipo">
+                  {{ rangoImpreso ? 'FACTURA' : 'COMPROBANTE DE PAGO' }}
+                </span>
+                <div class="papel-folio mono">
+                  {{ rangoImpreso ? rangoImpreso.nextFiscalNumber : numeroPropio }}
                 </div>
-                <div class="mono tenue">{{ formatDay(new Date().toISOString().slice(0, 10)) }}</div>
+                <div class="tenue">
+                  Emitida el {{ formatDay(new Date().toISOString().slice(0, 10)) }}
+                </div>
+
+                <!-- Lo que el régimen pide impreso, en el mismo recuadro que lleva el PDF. -->
+                <dl v-if="rangoImpreso" class="papel-cai">
+                  <dt>CAI</dt>
+                  <dd class="mono">{{ rangoImpreso.cai }}</dd>
+                  <dt>Rango autorizado</dt>
+                  <dd class="mono">{{ rangoImpreso.rangeText }}</dd>
+                  <dt>Fecha límite de emisión</dt>
+                  <dd>{{ formatDay(rangoImpreso.issueDeadline.slice(0, 10)) }}</dd>
+                </dl>
               </div>
             </div>
 
-            <div class="papel-cliente">
-              <span class="tenue">Cliente</span>
-              <strong>Taller de ejemplo</strong>
+            <div class="papel-regla"></div>
+
+            <div class="papel-partes">
+              <div>
+                <span class="papel-rotulo">Cliente</span>
+                <strong>Taller de ejemplo</strong>
+              </div>
+              <div class="derecha">
+                <span class="papel-rotulo">Servicio</span>
+                <strong>GarajApp</strong>
+              </div>
             </div>
 
-            <div class="papel-lineas">
+            <table class="papel-tabla">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th class="num">Cant.</th>
+                  <th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Mensualidad GarajApp · 1 mes</td>
+                  <td class="num">1</td>
+                  <td class="num mono">{{ formatMoney(muestra.base) }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="papel-totales">
               <div class="papel-linea">
-                <span>Mensualidad GarajApp · 1 mes</span>
+                <span class="tenue">{{ muestra.isv > 0 ? 'Neto' : 'Subtotal' }}</span>
                 <span class="mono">{{ formatMoney(muestra.base) }}</span>
               </div>
-              <div v-if="muestra.isv > 0" class="papel-linea tenue">
-                <span>ISV {{ form.defaultTaxRate }}%</span>
+              <div v-if="muestra.isv > 0" class="papel-linea">
+                <span class="tenue">ISV {{ form.defaultTaxRate }}%</span>
                 <span class="mono">{{ formatMoney(muestra.isv) }}</span>
               </div>
               <div class="papel-linea total">
-                <span>Total</span>
+                <span>TOTAL</span>
                 <span class="mono">{{ formatMoney(muestra.total) }}</span>
               </div>
             </div>
 
-            <p v-if="!settings?.fiscalRange || sinCai" class="papel-nota">
-              Este comprobante no es una factura fiscal.
+            <p class="papel-pie">
+              {{ rangoImpreso
+                ? 'Documento fiscal autorizado por el SAR.'
+                : 'Este documento es un comprobante de pago y no sustituye una factura fiscal.' }}
             </p>
-            <p v-else class="papel-nota fiscal">CAI {{ settings.fiscalRange.cai }}</p>
           </article>
         </section>
       </aside>
@@ -1666,15 +1716,17 @@ dd {
   color: var(--success);
 }
 
-/* El papel. Claro siempre, en los dos temas: es papel, y así se imprime. */
+/* El papel. Claro siempre, en los dos temas: es papel, y así se imprime. Los colores son
+   los del PDF —el azul del logotipo— porque esto tiene que ser lo mismo que se recibe. */
 .papel {
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;
+  gap: 0.75rem;
   padding: 1.25rem;
+  border: 1px solid #e3e5ea;
   border-radius: var(--radius-md);
-  background: #f7f7f5;
-  color: #1d2025;
+  background: #fff;
+  color: #201e1d;
   font-size: 0.8125rem;
 }
 
@@ -1684,22 +1736,64 @@ dd {
   gap: 0.75rem;
 }
 
-.papel-top strong {
-  font-size: 1rem;
-}
-
 .papel-marca {
   height: 1.75rem;
   width: auto;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+
+.papel .fuerte {
+  font-weight: 600;
 }
 
 .papel-numero {
   text-align: right;
 }
 
+.papel-tipo {
+  color: #0d2a7a;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.papel-folio {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* El bloque del CAI, en su recuadro: es lo que busca quien revisa el papel. */
+.papel-cai {
+  display: grid;
+  gap: 0.05rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: #f3f5fb;
+  text-align: left;
+}
+
+.papel-cai dt {
+  color: #605d5d;
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+}
+
+.papel-cai dd {
+  margin: 0 0 0.25rem;
+  font-size: 0.6875rem;
+  word-break: break-all;
+}
+
+.papel-cai dd:last-child {
+  margin-bottom: 0;
+}
+
+.papel-regla {
+  border-top: 2px solid #0d2a7a;
+}
+
 .papel .tenue {
-  color: #4a4f57;
+  color: #605d5d;
 }
 
 /* Lo que falta, en el papel, con el color del aviso: ahí es donde se ve lo que recibe. */
@@ -1707,51 +1801,74 @@ dd {
   color: #8a5a00;
 }
 
-.papel-cliente,
-.papel-lineas {
-  padding-top: 0.75rem;
-  border-top: 1px solid #dcdcd8;
+.papel-partes {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.papel-cliente {
-  display: grid;
-  gap: 0.1rem;
+.papel-partes .derecha {
+  text-align: right;
 }
 
-.papel-cliente .tenue {
+.papel-rotulo {
+  display: block;
+  color: #605d5d;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+}
+
+.papel-tabla {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.75rem;
+}
+
+.papel-tabla th {
+  padding: 0.3rem 0.4rem;
+  background: #0d2a7a;
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+}
+
+.papel-tabla td {
+  padding: 0.4rem;
+  border-bottom: 1px solid #dfe3ee;
+}
+
+.papel-tabla .num {
+  text-align: right;
+}
+
+.papel-totales {
+  display: grid;
+  gap: 0.05rem;
 }
 
 .papel-linea {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.15rem 0;
+  padding: 0.1rem 0.5rem;
 }
 
 .papel-linea.total {
-  margin-top: 0.35rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid #dcdcd8;
+  margin-top: 0.3rem;
+  padding: 0.45rem 0.5rem;
+  background: #f3f5fb;
+  color: #0d2a7a;
   font-size: 0.9375rem;
   font-weight: 700;
 }
 
-.papel-nota {
+.papel-pie {
   margin: 0;
-  padding: 0.5rem 0.625rem;
-  border-radius: 6px;
-  background: #fdf3dc;
-  color: #6b4a00;
-  font-size: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #dfe3ee;
+  color: #605d5d;
+  font-size: 0.6875rem;
   line-height: 1.5;
-}
-
-.papel-nota.fiscal {
-  background: #eef1ee;
-  color: #3a4038;
-  font-family: var(--font-mono);
-  word-break: break-all;
 }
 
 @media (max-width: 64rem) {
