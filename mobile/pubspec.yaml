@@ -8,7 +8,7 @@ publish_to: 'none'
 version: 1.11.0+25
 
 environment:
-  sdk: ^3.9.0
+  sdk: ^3.13.0
 
 dependencies:
   flutter:
@@ -42,7 +42,8 @@ dependencies:
   firebase_messaging: ^16.5.0
   # Recibir «Compartir → GarajApp». Es como entra el informe del escáner: la tableta de
   # diagnóstico arma su PDF, el técnico lo comparte y la app pregunta a qué orden va.
-  # Versión fija y no ^: la 1.9.0 pide Flutter 3.38 y aquí se compila con la 3.35.
+  # Versión fija y no ^: la 1.9.0 cambia la API. Con la 3.50 ya se puede subir, pero es
+  # un cambio aparte, no un arrastre de la actualización del SDK.
   receive_sharing_intent: 1.8.1
   # Hablar con el adaptador OBD2 del vehículo. Solo Bluetooth LE: los adaptadores azules
   # baratos son Bluetooth clásico y el iPhone no los ve, así que soportarlos significaría
@@ -55,6 +56,9 @@ dependencies:
   # Para mostrar la versión instalada en «Más». Se lee del paquete y no de una constante:
   # una constante se queda vieja el día que alguien suba la versión y no la actualice.
   package_info_plus: ^9.0.1
+  # Material salió del framework: `package:flutter/material.dart` quedó obsoleto después de
+  # la 3.47 y la biblioteca vive aquí. Es la misma API, solo cambió de casa.
+  material_ui: ^1.11.1
 
 dev_dependencies:
   flutter_test:

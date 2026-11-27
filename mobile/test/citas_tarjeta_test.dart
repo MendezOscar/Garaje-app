@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garaj_app/core/api/appointment_repository.dart';
 import 'package:garaj_app/core/theme/garaj_brand.dart';
