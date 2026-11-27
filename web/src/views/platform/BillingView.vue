@@ -26,7 +26,7 @@ const error = ref('')
 const guardado = ref('')
 
 const form = ref({
-  name: 'GarajApp',
+  name: 'NAOS Apps',
   legalName: '',
   taxId: '',
   phone: '',
