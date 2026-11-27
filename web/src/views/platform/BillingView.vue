@@ -840,7 +840,7 @@ onMounted(load)
               <div>
                 <!-- El mismo logotipo que lleva el PDF, y por eso tampoco se repite el nombre
                      debajo: lo que se ve aquí tiene que ser lo que recibe el cliente. -->
-                <img class="papel-marca" src="/brand/naara-apps-horizontal.png" alt="Naara Apps" />
+                <img class="papel-marca" src="/brand/naos-apps-horizontal.png" alt="NAOS Apps" />
                 <div class="fuerte" :class="{ hueco: !form.legalName.trim() }">
                   {{ form.legalName.trim() || '[Razón social]' }}
                 </div>
