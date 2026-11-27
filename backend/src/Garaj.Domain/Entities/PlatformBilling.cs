@@ -14,7 +14,11 @@ namespace Garaj.Domain.Entities;
 /// </remarks>
 public class PlatformSettings : AuditableEntity
 {
-    public string Name { get; set; } = "GarajApp";
+    /// <summary>
+    /// Con quién se factura. Es la marca del centro de facturación —uno solo para GarajApp,
+    /// StockRuta y ProfeApp—, no el nombre del servicio que se cobra: ese va en la línea.
+    /// </summary>
+    public string Name { get; set; } = "NAOS Apps";
     public string? LegalName { get; set; }
     public string? TaxId { get; set; }
     public string? Phone { get; set; }
